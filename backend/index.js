@@ -12,6 +12,7 @@ const dashboardRouter = require('./routes/dashboard')
 const reportsRouter = require('./routes/reports')
 const invoicesRouter = require('./routes/invoices')
 const billsRouter = require('./routes/bills')
+const taxesRouter = require('./routes/taxes')
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -52,6 +53,7 @@ app.use('/api/dashboard', dashboardRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/invoices', invoicesRouter)
 app.use('/api/bills', billsRouter)
+app.use('/api/taxes', taxesRouter)
 
 app.use((req, res) => {
   res.status(404).json({
