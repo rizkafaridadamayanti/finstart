@@ -97,16 +97,28 @@ function sumBalances(accounts) {
 }
 
 /*
-  Klasifikasi Arus Kas:
-  - Pendapatan, beban, dan pelunasan piutang adalah aktivitas operasi.
-  - Aset tetap selain Piutang Usaha merupakan aktivitas investasi.
-  - Kewajiban dan ekuitas merupakan aktivitas pendanaan.
+  Klasifikasi Arus Kas FinStart
 
-  Piutang Usaha memakai tipe "asset", tetapi penerimaan invoice
-  bukan pembelian/penjualan aset tetap. Karena itu kode 1130
-  harus diperlakukan sebagai aktivitas operasi.
+  OPERASI:
+  - Pendapatan dan beban
+  - Piutang Usaha / penerimaan invoice (1130)
+  - Utang Usaha / pembayaran vendor (2100)
+  - Utang Pajak, PPN, serta PPh 23 (2200, 2210, 2211)
+  - Payroll pegawai dan semua setoran pajak
+
+  INVESTASI:
+  - Pembelian/penjualan aset tetap selain Piutang Usaha
+    dan akun pajak operasional
+
+  PENDANAAN:
+  - Modal pemilik, pinjaman, pelunasan pinjaman,
+    serta transaksi ekuitas
 */
-function classifyCashMovement(counterpartTypes, counterpartCodes) {
+function classifyCashMovement(
+  counterpartTypes,
+  counterpartCodes,
+  sourceType,
+) {
   const types = String(counterpartTypes || '')
     .split(',')
     .map((type) => type.trim())
@@ -117,7 +129,26 @@ function classifyCashMovement(counterpartTypes, counterpartCodes) {
     .map((code) => code.trim())
     .filter(Boolean)
 
-  if (codes.includes('1130')) {
+  const operatingSourceTypes = [
+    'invoice_payment',
+    'bill_payment',
+    'tax_payment',
+    'employee_payroll',
+  ]
+
+  const operatingCodes = [
+    '1130', // Piutang Usaha
+    '2100', // Utang Usaha
+    '2200', // Utang Pajak
+    '2210', // PPN Keluaran
+    '2211', // Utang PPh 23
+  ]
+
+  if (operatingSourceTypes.includes(String(sourceType || ''))) {
+    return 'operating'
+  }
+
+  if (codes.some((code) => operatingCodes.includes(code))) {
     return 'operating'
   }
 
@@ -204,6 +235,7 @@ router.get('/', async (req, res) => {
               journal_entries.voucher_number,
               journal_entries.transaction_date,
               journal_entries.description,
+              journal_entries.source_type,
 
               COALESCE(SUM(
                 CASE
@@ -240,7 +272,8 @@ router.get('/', async (req, res) => {
               journal_entries.id,
               journal_entries.voucher_number,
               journal_entries.transaction_date,
-              journal_entries.description
+              journal_entries.description,
+              journal_entries.source_type
             ORDER BY
               journal_entries.transaction_date ASC,
               journal_entries.id ASC
@@ -335,6 +368,7 @@ router.get('/', async (req, res) => {
       const category = classifyCashMovement(
         transaction.counterpart_types,
         transaction.counterpart_codes,
+        transaction.source_type,
       )
 
       cashFlow[category].push({
