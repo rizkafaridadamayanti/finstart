@@ -9,6 +9,7 @@ const projectsRouter = require('./routes/projects')
 const accountsRouter = require('./routes/accounts')
 const journalsRouter = require('./routes/journals')
 const dashboardRouter = require('./routes/dashboard')
+const reportsRouter = require('./routes/reports')
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -46,6 +47,7 @@ app.use('/api/projects', projectsRouter)
 app.use('/api/accounts', accountsRouter)
 app.use('/api/journals', journalsRouter)
 app.use('/api/dashboard', dashboardRouter)
+app.use('/api/reports', reportsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
