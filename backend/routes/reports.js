@@ -96,11 +96,30 @@ function sumBalances(accounts) {
   }, 0)
 }
 
-function classifyCashMovement(counterpartTypes) {
+/*
+  Klasifikasi Arus Kas:
+  - Pendapatan, beban, dan pelunasan piutang adalah aktivitas operasi.
+  - Aset tetap selain Piutang Usaha merupakan aktivitas investasi.
+  - Kewajiban dan ekuitas merupakan aktivitas pendanaan.
+
+  Piutang Usaha memakai tipe "asset", tetapi penerimaan invoice
+  bukan pembelian/penjualan aset tetap. Karena itu kode 1130
+  harus diperlakukan sebagai aktivitas operasi.
+*/
+function classifyCashMovement(counterpartTypes, counterpartCodes) {
   const types = String(counterpartTypes || '')
     .split(',')
     .map((type) => type.trim())
     .filter(Boolean)
+
+  const codes = String(counterpartCodes || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean)
+
+  if (codes.includes('1130')) {
+    return 'operating'
+  }
 
   if (types.some((type) => ['revenue', 'expense'].includes(type))) {
     return 'operating'
@@ -200,7 +219,15 @@ router.get('/', async (req, res) => {
                   THEN accounts.type
                   ELSE NULL
                 END
-              ) AS counterpart_types
+              ) AS counterpart_types,
+
+              GROUP_CONCAT(DISTINCT
+                CASE
+                  WHEN accounts.code NOT IN ('1110', '1120')
+                  THEN accounts.code
+                  ELSE NULL
+                END
+              ) AS counterpart_codes
             FROM journal_entries
             INNER JOIN journal_lines
               ON journal_lines.journal_entry_id = journal_entries.id
@@ -305,7 +332,10 @@ router.get('/', async (req, res) => {
 
       if (amount === 0) return
 
-      const category = classifyCashMovement(transaction.counterpart_types)
+      const category = classifyCashMovement(
+        transaction.counterpart_types,
+        transaction.counterpart_codes,
+      )
 
       cashFlow[category].push({
         id: transaction.id,
