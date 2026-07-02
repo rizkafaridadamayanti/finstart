@@ -1,52 +1,98 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useFinanceStore } from '../stores/financeStore'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
 
-const financeStore = useFinanceStore()
-const projectList = computed(() => financeStore.projects)
-const clients = computed(() => financeStore.clients)
+/*
+  FRONTEND CRM & PROJECT FINSTART
+  API yang digunakan:
+  http://localhost:4000/api/clients
+  http://localhost:4000/api/projects
+*/
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+})
+
+const clients = ref([])
+const projectList = ref([])
 
 const keyword = ref('')
 const activeTab = ref('projects')
+
+const isLoading = ref(false)
+const isSaving = ref(false)
+const errorMessage = ref('')
+
 const showProjectModal = ref(false)
+const showClientModal = ref(false)
 const showProjectDetailModal = ref(false)
 const showClientDetailModal = ref(false)
+
 const selectedProject = ref(null)
 const selectedClient = ref(null)
 
-const projectForm = ref({
-  name: '',
-  client: '',
-  team: '',
-  contractValue: 0,
-  tenderType: 'Tender Umum',
-  status: 'Planning',
-  startDate: '',
-  endDate: '',
-})
+function emptyProjectForm() {
+  return {
+    id: null,
+    project_name: '',
+    client_id: '',
+    project_code: '',
+    contract_value: '',
+    status: 'planning',
+    start_date: '',
+    end_date: '',
+    description: '',
+  }
+}
+
+function emptyClientForm() {
+  return {
+    id: null,
+    company_name: '',
+    pic_name: '',
+    email: '',
+    phone: '',
+    industry: '',
+    category: '',
+    location: '',
+    address: '',
+    status: 'active',
+  }
+}
+
+const projectForm = ref(emptyProjectForm())
+const clientForm = ref(emptyClientForm())
 
 const filteredProjects = computed(() => {
-  const search = keyword.value.toLowerCase()
+  const search = keyword.value.toLowerCase().trim()
+
+  if (!search) return projectList.value
 
   return projectList.value.filter((project) => {
-    return (
-      project.name.toLowerCase().includes(search) ||
-      project.client.toLowerCase().includes(search) ||
-      project.status.toLowerCase().includes(search) ||
-      project.tenderType.toLowerCase().includes(search)
-    )
+    return [
+      project.project_name,
+      project.project_code,
+      project.client_name,
+      project.client_pic_name,
+      project.status,
+    ].some((value) => String(value || '').toLowerCase().includes(search))
   })
 })
 
 const filteredClients = computed(() => {
-  const search = keyword.value.toLowerCase()
+  const search = keyword.value.toLowerCase().trim()
+
+  if (!search) return clients.value
 
   return clients.value.filter((client) => {
-    return (
-      client.company.toLowerCase().includes(search) ||
-      client.industry.toLowerCase().includes(search) ||
-      client.location.toLowerCase().includes(search)
-    )
+    return [
+      client.company_name,
+      client.pic_name,
+      client.industry,
+      client.category,
+      client.location,
+      client.status,
+    ].some((value) => String(value || '').toLowerCase().includes(search))
   })
 })
 
@@ -55,29 +101,114 @@ function formatCurrency(value) {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(Number(value || 0))
 }
 
-function formatDate(date) {
-  if (!date) return '-'
+function formatDate(value) {
+  if (!value) return '-'
+
+  const dateText = String(value).slice(0, 10)
+  const [year, month, day] = dateText.split('-')
+
+  if (!year || !month || !day) return '-'
 
   return new Intl.DateTimeFormat('id-ID', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(`${date}T00:00:00`))
+  }).format(new Date(Number(year), Number(month) - 1, Number(day)))
 }
 
-function openProjectModal() {
+function clientStatusLabel(status) {
+  return status === 'inactive' ? 'Tidak Aktif' : 'Aktif'
+}
+
+function projectStatusLabel(status) {
+  const labels = {
+    planning: 'Planning',
+    ongoing: 'Ongoing',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  }
+
+  return labels[status] || status || '-'
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error?.response?.data?.message || fallbackMessage
+}
+
+async function loadData() {
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const [clientResponse, projectResponse] = await Promise.all([
+      api.get('/clients'),
+      api.get('/projects'),
+    ])
+
+    clients.value = clientResponse.data.data || []
+    projectList.value = projectResponse.data.data || []
+  } catch (error) {
+    errorMessage.value = getErrorMessage(
+      error,
+      'Gagal mengambil data. Pastikan backend Node.js berjalan di http://localhost:4000.',
+    )
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function openNewClientModal() {
+  clientForm.value = emptyClientForm()
+  showClientModal.value = true
+}
+
+function openEditClientModal(client) {
+  clientForm.value = {
+    id: client.id,
+    company_name: client.company_name || '',
+    pic_name: client.pic_name || '',
+    email: client.email || '',
+    phone: client.phone || '',
+    industry: client.industry || '',
+    category: client.category || '',
+    location: client.location || '',
+    address: client.address || '',
+    status: client.status || 'active',
+  }
+
+  showClientModal.value = true
+}
+
+function closeClientModal() {
+  showClientModal.value = false
+  clientForm.value = emptyClientForm()
+}
+
+function openNewProjectModal() {
+  if (clients.value.length === 0) {
+    activeTab.value = 'clients'
+    alert('Tambahkan data klien terlebih dahulu sebelum membuat proyek.')
+    return
+  }
+
+  projectForm.value = emptyProjectForm()
+  showProjectModal.value = true
+}
+
+function openEditProjectModal(project) {
   projectForm.value = {
-    name: '',
-    client: '',
-    team: '',
-    contractValue: 0,
-    tenderType: 'Tender Umum',
-    status: 'Planning',
-    startDate: '',
-    endDate: '',
+    id: project.id,
+    project_name: project.project_name || '',
+    client_id: String(project.client_id || ''),
+    project_code: project.project_code || '',
+    contract_value: Number(project.contract_value || 0),
+    status: project.status || 'planning',
+    start_date: String(project.start_date || '').slice(0, 10),
+    end_date: String(project.end_date || '').slice(0, 10),
+    description: project.description || '',
   }
 
   showProjectModal.value = true
@@ -85,6 +216,7 @@ function openProjectModal() {
 
 function closeProjectModal() {
   showProjectModal.value = false
+  projectForm.value = emptyProjectForm()
 }
 
 function openProjectDetail(project) {
@@ -107,56 +239,130 @@ function closeClientDetailModal() {
   selectedClient.value = null
 }
 
-function saveProject() {
+async function saveClient() {
   if (
-    !projectForm.value.name.trim() ||
-    !projectForm.value.client ||
-    !projectForm.value.team.trim() ||
-    !projectForm.value.startDate ||
-    !projectForm.value.endDate ||
-    Number(projectForm.value.contractValue) <= 0
+    !clientForm.value.company_name.trim() ||
+    !clientForm.value.pic_name.trim()
   ) {
-    alert('Lengkapi nama proyek, klien, tim, nilai kontrak, dan periode proyek.')
+    alert('Nama perusahaan dan nama PIC wajib diisi.')
     return
   }
 
-  if (projectForm.value.endDate < projectForm.value.startDate) {
+  isSaving.value = true
+
+  const payload = {
+    company_name: clientForm.value.company_name.trim(),
+    pic_name: clientForm.value.pic_name.trim(),
+    email: clientForm.value.email.trim(),
+    phone: clientForm.value.phone.trim(),
+    industry: clientForm.value.industry.trim(),
+    category: clientForm.value.category.trim(),
+    location: clientForm.value.location.trim(),
+    address: clientForm.value.address.trim(),
+    status: clientForm.value.status,
+  }
+
+  try {
+    if (clientForm.value.id) {
+      await api.put(`/clients/${clientForm.value.id}`, payload)
+      alert('Data klien berhasil diperbarui.')
+    } else {
+      await api.post('/clients', payload)
+      alert('Klien baru berhasil ditambahkan.')
+    }
+
+    await loadData()
+    closeClientModal()
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menyimpan data klien.'))
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function saveProject() {
+  if (
+    !projectForm.value.project_name.trim() ||
+    !projectForm.value.client_id ||
+    !projectForm.value.project_code.trim() ||
+    !projectForm.value.start_date ||
+    !projectForm.value.end_date ||
+    Number(projectForm.value.contract_value) <= 0
+  ) {
+    alert('Lengkapi nama proyek, klien, kode proyek, nilai kontrak, dan periode proyek.')
+    return
+  }
+
+  if (projectForm.value.end_date < projectForm.value.start_date) {
     alert('Tanggal selesai tidak boleh lebih awal dari tanggal mulai.')
     return
   }
 
-  const newProject = {
-    id: Date.now(),
-    name: projectForm.value.name,
-    client: projectForm.value.client,
-    team: projectForm.value.team,
-    contractValue: Number(projectForm.value.contractValue),
+  isSaving.value = true
+
+  const payload = {
+    client_id: Number(projectForm.value.client_id),
+    project_name: projectForm.value.project_name.trim(),
+    project_code: projectForm.value.project_code.trim().toUpperCase(),
+    contract_value: Number(projectForm.value.contract_value),
     status: projectForm.value.status,
-    startDate: projectForm.value.startDate,
-    endDate: projectForm.value.endDate,
-    tenderType: projectForm.value.tenderType,
+    start_date: projectForm.value.start_date,
+    end_date: projectForm.value.end_date,
+    description: projectForm.value.description.trim(),
   }
 
-  financeStore.addProject(newProject)
+  try {
+    if (projectForm.value.id) {
+      await api.put(`/projects/${projectForm.value.id}`, payload)
+      alert('Data proyek berhasil diperbarui.')
+    } else {
+      await api.post('/projects', payload)
+      alert('Proyek baru berhasil ditambahkan.')
+    }
 
-  const clientExists = financeStore.clients.some(
-    (client) => client.company === projectForm.value.client,
+    await loadData()
+    closeProjectModal()
+    activeTab.value = 'projects'
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menyimpan proyek.'))
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function deleteClient(client) {
+  const isConfirmed = confirm(
+    `Hapus klien "${client.company_name}"? Data yang sudah terhubung dengan proyek tidak dapat dihapus.`,
   )
 
-  if (!clientExists) {
-    financeStore.addClient({
-      id: Date.now() + 1,
-      company: projectForm.value.client,
-      industry: 'Unknown',
-      category: 'Prospek',
-      location: '-',
-      status: 'Aktif',
-    })
-  }
+  if (!isConfirmed) return
 
-  closeProjectModal()
-  alert('Proyek baru berhasil diinisiasi.')
+  try {
+    await api.delete(`/clients/${client.id}`)
+    await loadData()
+    closeClientDetailModal()
+    alert('Klien berhasil dihapus.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menghapus klien.'))
+  }
 }
+
+async function deleteProject(project) {
+  const isConfirmed = confirm(`Hapus proyek "${project.project_name}"?`)
+
+  if (!isConfirmed) return
+
+  try {
+    await api.delete(`/projects/${project.id}`)
+    await loadData()
+    closeProjectDetailModal()
+    alert('Proyek berhasil dihapus.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menghapus proyek.'))
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
@@ -165,15 +371,25 @@ function saveProject() {
       <div>
         <p class="eyebrow">CRM & PORTOFOLIO</p>
         <h1>CRM & Proyek</h1>
-        <p>Kelola data klien, proyek berjalan, nilai kontrak, dan tim yang terlibat.</p>
+        <p>Kelola data klien, proyek berjalan, nilai kontrak, dan PIC perusahaan.</p>
       </div>
 
       <button
+        v-if="activeTab === 'projects'"
         type="button"
         class="primary-button"
-        @click="openProjectModal"
+        @click="openNewProjectModal"
       >
         + Inisiasi Proyek Baru
+      </button>
+
+      <button
+        v-else
+        type="button"
+        class="primary-button"
+        @click="openNewClientModal"
+      >
+        + Tambah Klien
       </button>
     </div>
 
@@ -204,17 +420,30 @@ function saveProject() {
         type="text"
         :placeholder="
           activeTab === 'projects'
-            ? 'Cari proyek, klien, status, atau tender...'
-            : 'Cari perusahaan, bidang, atau lokasi...'
+            ? 'Cari proyek, kode, klien, atau status...'
+            : 'Cari perusahaan, PIC, bidang, atau lokasi...'
         "
       />
     </div>
+
+    <article v-if="errorMessage" class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>API Belum Terhubung</h3>
+          <p>{{ errorMessage }}</p>
+        </div>
+
+        <button type="button" class="table-action" @click="loadData">
+          Coba Lagi
+        </button>
+      </div>
+    </article>
 
     <article v-if="activeTab === 'projects'" class="panel">
       <div class="panel-header">
         <div>
           <h3>Daftar Proyek</h3>
-          <p>Menampilkan portofolio dan proyek yang sedang dikerjakan.</p>
+          <p>Menampilkan portofolio dan proyek dari database FinStart.</p>
         </div>
 
         <span class="table-count">{{ filteredProjects.length }} proyek</span>
@@ -225,7 +454,7 @@ function saveProject() {
           <thead>
             <tr>
               <th>Info Proyek</th>
-              <th>Klien & Tim</th>
+              <th>Klien & PIC</th>
               <th>Nilai Kontrak</th>
               <th>Status</th>
               <th>Aksi</th>
@@ -233,29 +462,38 @@ function saveProject() {
           </thead>
 
           <tbody>
-            <tr v-for="project in filteredProjects" :key="project.id">
+            <tr v-if="isLoading">
+              <td colspan="5" class="empty-table">Memuat data proyek...</td>
+            </tr>
+
+            <tr v-else v-for="project in filteredProjects" :key="project.id">
               <td>
-                <strong>{{ project.name }}</strong>
+                <strong>{{ project.project_name }}</strong>
                 <small class="table-subtext">
-                  {{ project.tenderType }} ·
-                  {{ formatDate(project.startDate) }} s.d.
-                  {{ formatDate(project.endDate) }}
+                  {{ project.project_code }} ·
+                  {{ formatDate(project.start_date) }} s.d.
+                  {{ formatDate(project.end_date) }}
                 </small>
               </td>
 
               <td>
-                <strong>{{ project.client }}</strong>
-                <small class="table-subtext">{{ project.team }}</small>
+                <strong>{{ project.client_name }}</strong>
+                <small class="table-subtext">
+                  PIC: {{ project.client_pic_name || '-' }}
+                </small>
               </td>
 
-              <td>{{ formatCurrency(project.contractValue) }}</td>
+              <td>{{ formatCurrency(project.contract_value) }}</td>
 
               <td>
                 <span
                   class="status-badge"
-                  :class="{ warning: project.status === 'Planning' }"
+                  :class="{
+                    warning: project.status === 'planning',
+                    danger: project.status === 'cancelled',
+                  }"
                 >
-                  {{ project.status }}
+                  {{ projectStatusLabel(project.status) }}
                 </span>
               </td>
 
@@ -270,9 +508,9 @@ function saveProject() {
               </td>
             </tr>
 
-            <tr v-if="filteredProjects.length === 0">
+            <tr v-if="!isLoading && filteredProjects.length === 0">
               <td colspan="5" class="empty-table">
-                Proyek tidak ditemukan.
+                Proyek belum tersedia.
               </td>
             </tr>
           </tbody>
@@ -284,7 +522,7 @@ function saveProject() {
       <div class="panel-header">
         <div>
           <h3>Daftar Klien</h3>
-          <p>Data perusahaan klien dan partner bisnis.</p>
+          <p>Data perusahaan klien dan PIC dari database FinStart.</p>
         </div>
 
         <span class="table-count">{{ filteredClients.length }} klien</span>
@@ -294,7 +532,7 @@ function saveProject() {
         <table>
           <thead>
             <tr>
-              <th>Perusahaan</th>
+              <th>Perusahaan & PIC</th>
               <th>Bidang & Kategori</th>
               <th>Lokasi</th>
               <th>Status</th>
@@ -303,20 +541,32 @@ function saveProject() {
           </thead>
 
           <tbody>
-            <tr v-for="client in filteredClients" :key="client.id">
+            <tr v-if="isLoading">
+              <td colspan="5" class="empty-table">Memuat data klien...</td>
+            </tr>
+
+            <tr v-else v-for="client in filteredClients" :key="client.id">
               <td>
-                <strong>{{ client.company }}</strong>
+                <strong>{{ client.company_name }}</strong>
+                <small class="table-subtext">
+                  PIC: {{ client.pic_name }}
+                </small>
               </td>
 
               <td>
-                <strong>{{ client.industry }}</strong>
-                <small class="table-subtext">{{ client.category }}</small>
+                <strong>{{ client.industry || '-' }}</strong>
+                <small class="table-subtext">{{ client.category || '-' }}</small>
               </td>
 
-              <td>{{ client.location }}</td>
+              <td>{{ client.location || '-' }}</td>
 
               <td>
-                <span class="status-badge">{{ client.status }}</span>
+                <span
+                  class="status-badge"
+                  :class="{ warning: client.status === 'inactive' }"
+                >
+                  {{ clientStatusLabel(client.status) }}
+                </span>
               </td>
 
               <td>
@@ -329,11 +579,18 @@ function saveProject() {
                 </button>
               </td>
             </tr>
+
+            <tr v-if="!isLoading && filteredClients.length === 0">
+              <td colspan="5" class="empty-table">
+                Klien belum tersedia.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
     </article>
 
+    <!-- Modal tambah/edit proyek -->
     <div
       v-if="showProjectModal"
       class="modal-backdrop"
@@ -342,15 +599,13 @@ function saveProject() {
       <form class="modal-card" @submit.prevent="saveProject">
         <div class="modal-header">
           <div>
-            <p class="eyebrow">INISIASI PROYEK</p>
-            <h3>Proyek Baru</h3>
+            <p class="eyebrow">
+              {{ projectForm.id ? 'UBAH PROYEK' : 'INISIASI PROYEK' }}
+            </p>
+            <h3>{{ projectForm.id ? 'Ubah Proyek' : 'Proyek Baru' }}</h3>
           </div>
 
-          <button
-            type="button"
-            class="modal-close"
-            @click="closeProjectModal"
-          >
+          <button type="button" class="modal-close" @click="closeProjectModal">
             ×
           </button>
         </div>
@@ -359,7 +614,7 @@ function saveProject() {
           <label class="full-width">
             Nama Proyek
             <input
-              v-model="projectForm.name"
+              v-model="projectForm.project_name"
               type="text"
               placeholder="Contoh: Implementasi Dashboard Keuangan"
               required
@@ -367,26 +622,21 @@ function saveProject() {
           </label>
 
           <label>
-            Klien / Partner
-            <select v-model="projectForm.client" required>
+            Klien
+            <select v-model="projectForm.client_id" required>
               <option value="">Pilih klien</option>
-
-              <option
-                v-for="client in clients"
-                :key="client.id"
-                :value="client.company"
-              >
-                {{ client.company }}
+              <option v-for="client in clients" :key="client.id" :value="String(client.id)">
+                {{ client.company_name }}
               </option>
             </select>
           </label>
 
           <label>
-            Tim Proyek
+            Kode Proyek
             <input
-              v-model="projectForm.team"
+              v-model="projectForm.project_code"
               type="text"
-              placeholder="Contoh: Rizka, Andi, Sinta"
+              placeholder="Contoh: PRJ-001"
               required
             />
           </label>
@@ -394,7 +644,7 @@ function saveProject() {
           <label>
             Nilai Kontrak
             <input
-              v-model.number="projectForm.contractValue"
+              v-model.number="projectForm.contract_value"
               type="number"
               min="0"
               placeholder="Contoh: 150000000"
@@ -403,59 +653,164 @@ function saveProject() {
           </label>
 
           <label>
-            Jenis Tender
-            <select v-model="projectForm.tenderType">
-              <option>Tender Umum</option>
-              <option>Tender Terbatas</option>
-              <option>Penunjukan Langsung</option>
-              <option>Pengadaan Langsung</option>
-            </select>
-          </label>
-
-          <label>
             Status Proyek
             <select v-model="projectForm.status">
-              <option>Planning</option>
-              <option>Ongoing</option>
-              <option>Completed</option>
+              <option value="planning">Planning</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </label>
 
           <label>
             Tanggal Mulai
-            <input
-              v-model="projectForm.startDate"
-              type="date"
-              required
-            />
+            <input v-model="projectForm.start_date" type="date" required />
           </label>
 
           <label>
             Tanggal Selesai
+            <input v-model="projectForm.end_date" type="date" required />
+          </label>
+
+          <label class="full-width">
+            Catatan Proyek
             <input
-              v-model="projectForm.endDate"
-              type="date"
-              required
+              v-model="projectForm.description"
+              type="text"
+              placeholder="Contoh: Pengembangan dashboard dan laporan keuangan"
             />
           </label>
         </div>
 
         <div class="modal-actions">
-          <button
-            type="button"
-            class="secondary-button"
-            @click="closeProjectModal"
-          >
+          <button type="button" class="secondary-button" @click="closeProjectModal">
             Batal
           </button>
 
-          <button type="submit" class="primary-button">
-            Simpan Proyek
+          <button type="submit" class="primary-button" :disabled="isSaving">
+            {{ isSaving ? 'Menyimpan...' : 'Simpan Proyek' }}
           </button>
         </div>
       </form>
     </div>
 
+    <!-- Modal tambah/edit klien -->
+    <div
+      v-if="showClientModal"
+      class="modal-backdrop"
+      @click.self="closeClientModal"
+    >
+      <form class="modal-card" @submit.prevent="saveClient">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">
+              {{ clientForm.id ? 'UBAH KLIEN' : 'DATA KLIEN' }}
+            </p>
+            <h3>{{ clientForm.id ? 'Ubah Klien' : 'Tambah Klien Baru' }}</h3>
+          </div>
+
+          <button type="button" class="modal-close" @click="closeClientModal">
+            ×
+          </button>
+        </div>
+
+        <div class="form-grid">
+          <label class="full-width">
+            Nama Perusahaan
+            <input
+              v-model="clientForm.company_name"
+              type="text"
+              placeholder="Contoh: PT Maju Bersama"
+              required
+            />
+          </label>
+
+          <label>
+            Nama PIC
+            <input
+              v-model="clientForm.pic_name"
+              type="text"
+              placeholder="Contoh: Rina Putri"
+              required
+            />
+          </label>
+
+          <label>
+            Nomor Telepon
+            <input
+              v-model="clientForm.phone"
+              type="text"
+              placeholder="Contoh: 081234567890"
+            />
+          </label>
+
+          <label>
+            Email
+            <input
+              v-model="clientForm.email"
+              type="email"
+              placeholder="Contoh: client@email.com"
+            />
+          </label>
+
+          <label>
+            Industri
+            <input
+              v-model="clientForm.industry"
+              type="text"
+              placeholder="Contoh: Teknologi"
+            />
+          </label>
+
+          <label>
+            Kategori
+            <input
+              v-model="clientForm.category"
+              type="text"
+              placeholder="Contoh: Startup"
+            />
+          </label>
+
+          <label>
+            Lokasi
+            <input
+              v-model="clientForm.location"
+              type="text"
+              placeholder="Contoh: Jakarta"
+            />
+          </label>
+
+          <label>
+            Status
+            <select v-model="clientForm.status">
+              <option value="active">Aktif</option>
+              <option value="inactive">Tidak Aktif</option>
+            </select>
+          </label>
+
+          <label class="full-width">
+            Alamat
+            <input
+              v-model="clientForm.address"
+              type="text"
+              placeholder="Contoh: Jakarta Selatan"
+            />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" @click="closeClientModal">
+            Batal
+          </button>
+
+          <button type="submit" class="primary-button" :disabled="isSaving">
+            {{ isSaving ? 'Menyimpan...' : 'Simpan Klien' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal detail proyek -->
     <div
       v-if="showProjectDetailModal && selectedProject"
       class="modal-backdrop"
@@ -465,50 +820,75 @@ function saveProject() {
         <div class="modal-header">
           <div>
             <p class="eyebrow">DETAIL PROYEK</p>
-            <h3>{{ selectedProject.name }}</h3>
+            <h3>{{ selectedProject.project_name }}</h3>
           </div>
 
-          <button
-            type="button"
-            class="modal-close"
-            @click="closeProjectDetailModal"
-          >
+          <button type="button" class="modal-close" @click="closeProjectDetailModal">
             ×
           </button>
         </div>
 
         <div class="detail-grid">
           <div>
-            <p class="detail-label">Klien</p>
-            <p>{{ selectedProject.client }}</p>
+            <p class="detail-label">Kode Proyek</p>
+            <p>{{ selectedProject.project_code }}</p>
           </div>
+
           <div>
-            <p class="detail-label">Tim</p>
-            <p>{{ selectedProject.team }}</p>
+            <p class="detail-label">Klien</p>
+            <p>{{ selectedProject.client_name }}</p>
           </div>
+
+          <div>
+            <p class="detail-label">PIC Klien</p>
+            <p>{{ selectedProject.client_pic_name || '-' }}</p>
+          </div>
+
           <div>
             <p class="detail-label">Nilai Kontrak</p>
-            <p>{{ formatCurrency(selectedProject.contractValue) }}</p>
+            <p>{{ formatCurrency(selectedProject.contract_value) }}</p>
           </div>
+
           <div>
             <p class="detail-label">Status</p>
-            <p>{{ selectedProject.status }}</p>
+            <p>{{ projectStatusLabel(selectedProject.status) }}</p>
           </div>
-          <div>
-            <p class="detail-label">Jenis Tender</p>
-            <p>{{ selectedProject.tenderType }}</p>
-          </div>
+
           <div>
             <p class="detail-label">Periode</p>
             <p>
-              {{ formatDate(selectedProject.startDate) }} s.d.
-              {{ formatDate(selectedProject.endDate) }}
+              {{ formatDate(selectedProject.start_date) }} s.d.
+              {{ formatDate(selectedProject.end_date) }}
             </p>
           </div>
+
+          <div class="full-width">
+            <p class="detail-label">Catatan</p>
+            <p>{{ selectedProject.description || '-' }}</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            @click="openEditProjectModal(selectedProject); closeProjectDetailModal()"
+          >
+            Ubah
+          </button>
+
+          <button
+            type="button"
+            class="primary-button"
+            @click="deleteProject(selectedProject)"
+          >
+            Hapus
+          </button>
         </div>
       </section>
     </div>
 
+    <!-- Modal detail klien -->
     <div
       v-if="showClientDetailModal && selectedClient"
       class="modal-backdrop"
@@ -518,35 +898,72 @@ function saveProject() {
         <div class="modal-header">
           <div>
             <p class="eyebrow">DETAIL KLIEN</p>
-            <h3>{{ selectedClient.company }}</h3>
+            <h3>{{ selectedClient.company_name }}</h3>
           </div>
 
-          <button
-            type="button"
-            class="modal-close"
-            @click="closeClientDetailModal"
-          >
+          <button type="button" class="modal-close" @click="closeClientDetailModal">
             ×
           </button>
         </div>
 
         <div class="detail-grid">
           <div>
-            <p class="detail-label">Industri</p>
-            <p>{{ selectedClient.industry }}</p>
+            <p class="detail-label">PIC</p>
+            <p>{{ selectedClient.pic_name }}</p>
           </div>
+
+          <div>
+            <p class="detail-label">Email</p>
+            <p>{{ selectedClient.email || '-' }}</p>
+          </div>
+
+          <div>
+            <p class="detail-label">Telepon</p>
+            <p>{{ selectedClient.phone || '-' }}</p>
+          </div>
+
+          <div>
+            <p class="detail-label">Industri</p>
+            <p>{{ selectedClient.industry || '-' }}</p>
+          </div>
+
           <div>
             <p class="detail-label">Kategori</p>
-            <p>{{ selectedClient.category }}</p>
+            <p>{{ selectedClient.category || '-' }}</p>
           </div>
+
           <div>
             <p class="detail-label">Lokasi</p>
-            <p>{{ selectedClient.location }}</p>
+            <p>{{ selectedClient.location || '-' }}</p>
           </div>
+
           <div>
             <p class="detail-label">Status</p>
-            <p>{{ selectedClient.status }}</p>
+            <p>{{ clientStatusLabel(selectedClient.status) }}</p>
           </div>
+
+          <div class="full-width">
+            <p class="detail-label">Alamat</p>
+            <p>{{ selectedClient.address || '-' }}</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            @click="openEditClientModal(selectedClient); closeClientDetailModal()"
+          >
+            Ubah
+          </button>
+
+          <button
+            type="button"
+            class="primary-button"
+            @click="deleteClient(selectedClient)"
+          >
+            Hapus
+          </button>
         </div>
       </section>
     </div>
