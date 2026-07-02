@@ -50,6 +50,14 @@ function createBillForm() {
     bill_date: today,
     due_date: '',
     notes: '',
+    tax: {
+      ppn_enabled: false,
+      ppn_rate: 0,
+      pph23_enabled: false,
+      pph23_rate: 2,
+      pph23_object: 'Jasa',
+      vendor_has_npwp: true,
+    },
     items: [{ description: '', quantity: 1, unit_price: 0 }],
   }
 }
@@ -97,6 +105,38 @@ const billTotal = computed(() => {
   return billForm.value.items.reduce((total, item) => {
     return total + numberValue(item.quantity) * numberValue(item.unit_price)
   }, 0)
+})
+
+const billPpnAmount = computed(() => {
+  if (!billForm.value.tax.ppn_enabled) return 0
+
+  return Math.round(
+    (billTotal.value * numberValue(billForm.value.tax.ppn_rate)) / 100,
+  )
+})
+
+const billPph23EffectiveRate = computed(() => {
+  if (!billForm.value.tax.pph23_enabled) return 0
+
+  const baseRate = numberValue(billForm.value.tax.pph23_rate)
+
+  return billForm.value.tax.vendor_has_npwp ? baseRate : baseRate * 2
+})
+
+const billPph23Amount = computed(() => {
+  if (!billForm.value.tax.pph23_enabled) return 0
+
+  return Math.round(
+    (billTotal.value * billPph23EffectiveRate.value) / 100,
+  )
+})
+
+const billGrossTotal = computed(() => {
+  return billTotal.value + billPpnAmount.value
+})
+
+const billVendorPayable = computed(() => {
+  return billGrossTotal.value - billPph23Amount.value
 })
 
 const filteredBills = computed(() => {
@@ -345,12 +385,20 @@ async function createBill() {
         quantity: numberValue(item.quantity),
         unit_price: numberValue(item.unit_price),
       })),
+      tax: {
+        ppn_enabled: Boolean(billForm.value.tax.ppn_enabled),
+        ppn_rate: numberValue(billForm.value.tax.ppn_rate),
+        pph23_enabled: Boolean(billForm.value.tax.pph23_enabled),
+        pph23_rate: numberValue(billForm.value.tax.pph23_rate),
+        pph23_object: billForm.value.tax.pph23_object,
+        vendor_has_npwp: Boolean(billForm.value.tax.vendor_has_npwp),
+      },
     })
 
     closeBillModal()
     successMessage.value =
       response.data.message ||
-      'Tagihan draft berhasil dibuat. Terbitkan untuk mencatat utang dan beban.'
+      'Tagihan draft berhasil dibuat. Terbitkan untuk mencatat beban, utang vendor, PPN Masukan, dan/atau PPh 23.'
 
     await loadData()
   } catch (error) {
@@ -370,7 +418,7 @@ async function issueBill() {
 
   const bill = selectedIssueBill.value
   const confirmed = window.confirm(
-    `Terbitkan ${bill?.bill_number || 'tagihan ini'}?\n\nJurnal otomatis:\nDebit Beban\nKredit Utang Usaha`,
+    `Terbitkan ${bill?.bill_number || 'tagihan ini'}?\n\nJurnal otomatis:\nDebit Beban (DPP)\nDebit PPN Masukan bila dipilih\nKredit Utang Vendor\nKredit Utang PPh 23 bila dipilih`,
   )
 
   if (!confirmed) return
@@ -579,8 +627,8 @@ onMounted(loadData)
         <div>
           <h3>Daftar Tagihan Vendor</h3>
           <p>
-            Terbitkan tagihan untuk mencatat beban dan Utang Usaha. Pembayaran
-            akan mengurangi Utang Usaha serta Kas/Bank.
+            Terbitkan tagihan untuk mencatat Beban, Utang Vendor, PPN Masukan,
+            dan PPh 23 bila dipilih. Pembayaran vendor hanya sebesar nilai setelah potongan PPh 23.
           </p>
         </div>
       </div>
@@ -612,9 +660,24 @@ onMounted(loadData)
                 <small class="table-subtext">{{ bill.project_name || 'Tanpa proyek' }}</small>
               </td>
 
-              <td>{{ formatCurrency(bill.total_amount) }}</td>
+              <td>
+                <strong>{{ formatCurrency(bill.total_amount) }}</strong>
+                <small
+                  v-if="numberValue(bill.ppn_amount) > 0 || numberValue(bill.pph23_amount) > 0"
+                  class="table-subtext"
+                >
+                  DPP {{ formatCurrency(bill.dpp_amount) }} ·
+                  PPN {{ formatCurrency(bill.ppn_amount) }} ·
+                  PPh 23 {{ formatCurrency(bill.pph23_amount) }}
+                </small>
+              </td>
               <td>{{ formatCurrency(bill.paid_amount) }}</td>
-              <td><strong>{{ formatCurrency(bill.outstanding_amount) }}</strong></td>
+              <td>
+                <strong>{{ formatCurrency(bill.outstanding_amount) }}</strong>
+                <small v-if="numberValue(bill.pph23_amount) > 0" class="table-subtext">
+                  Nilai vendor setelah PPh 23
+                </small>
+              </td>
               <td>{{ formatDate(bill.due_date) }}</td>
 
               <td>
@@ -795,9 +858,114 @@ onMounted(loadData)
             </button>
           </div>
 
-          <div class="bill-grand-total">
-            <span>Total Tagihan</span>
-            <strong>{{ formatCurrency(billTotal) }}</strong>
+          <section class="tax-option-section">
+            <div class="tax-option-heading">
+              <div>
+                <h4>PPN Masukan</h4>
+                <p>Aktifkan hanya bila tagihan vendor mempunyai PPN yang dapat dikreditkan.</p>
+              </div>
+
+              <label class="switch-label">
+                <input v-model="billForm.tax.ppn_enabled" type="checkbox" />
+                Kreditkan PPN
+              </label>
+            </div>
+
+            <div v-if="billForm.tax.ppn_enabled" class="tax-option-form">
+              <label>
+                Tarif PPN (%)
+                <input
+                  v-model.number="billForm.tax.ppn_rate"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  placeholder="Isi tarif yang berlaku"
+                  required
+                />
+              </label>
+
+              <p>PPN Masukan dicatat terpisah dari beban dan akan diperhitungkan saat penutupan Masa PPN.</p>
+            </div>
+          </section>
+
+          <section class="tax-option-section pph23-section">
+            <div class="tax-option-heading">
+              <div>
+                <h4>PPh 23 Vendor</h4>
+                <p>Gunakan untuk tagihan jasa atau objek PPh 23 yang dipotong oleh perusahaan.</p>
+              </div>
+
+              <label class="switch-label">
+                <input v-model="billForm.tax.pph23_enabled" type="checkbox" />
+                Potong PPh 23
+              </label>
+            </div>
+
+            <div v-if="billForm.tax.pph23_enabled" class="tax-option-grid">
+              <label>
+                Objek PPh 23
+                <select v-model="billForm.tax.pph23_object">
+                  <option value="Jasa">Jasa</option>
+                  <option value="Sewa selain tanah/bangunan">Sewa selain tanah/bangunan</option>
+                  <option value="Royalti">Royalti</option>
+                  <option value="Bunga">Bunga</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </label>
+
+              <label>
+                Tarif Dasar (%)
+                <input
+                  v-model.number="billForm.tax.pph23_rate"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+                />
+              </label>
+
+              <label class="switch-label npwp-label">
+                <input v-model="billForm.tax.vendor_has_npwp" type="checkbox" />
+                Vendor memiliki NPWP
+              </label>
+
+              <div class="tax-effective-rate">
+                <span>Tarif Efektif</span>
+                <strong>{{ billPph23EffectiveRate }}%</strong>
+                <small v-if="!billForm.tax.vendor_has_npwp">
+                  Tarif efektif menjadi dua kali tarif dasar.
+                </small>
+              </div>
+            </div>
+          </section>
+
+          <div class="bill-grand-total bill-tax-total">
+            <div>
+              <span>DPP</span>
+              <strong>{{ formatCurrency(billTotal) }}</strong>
+            </div>
+
+            <div>
+              <span>PPN Masukan</span>
+              <strong>{{ formatCurrency(billPpnAmount) }}</strong>
+            </div>
+
+            <div>
+              <span>PPh 23 Dipotong</span>
+              <strong>{{ formatCurrency(billPph23Amount) }}</strong>
+            </div>
+
+            <div>
+              <span>Total Tagihan</span>
+              <strong>{{ formatCurrency(billGrossTotal) }}</strong>
+            </div>
+
+            <div>
+              <span>Dibayar ke Vendor</span>
+              <strong>{{ formatCurrency(billVendorPayable) }}</strong>
+            </div>
           </div>
         </section>
 
@@ -831,8 +999,14 @@ onMounted(loadData)
         </p>
 
         <div class="journal-preview">
-          <p><span>Debit</span><strong>Akun Beban yang dipilih</strong></p>
-          <p><span>Kredit</span><strong>2100 — Utang Usaha</strong></p>
+          <p><span>Debit</span><strong>Akun Beban sebesar DPP</strong></p>
+          <p v-if="numberValue(selectedIssueBill?.ppn_amount) > 0">
+            <span>Debit</span><strong>1145 — PPN Masukan</strong>
+          </p>
+          <p><span>Kredit</span><strong>2100 — Utang Vendor</strong></p>
+          <p v-if="numberValue(selectedIssueBill?.pph23_amount) > 0">
+            <span>Kredit</span><strong>2211 — Utang PPh 23</strong>
+          </p>
         </div>
 
         <label class="single-form-label">
@@ -1013,4 +1187,86 @@ onMounted(loadData)
   .bill-item-row { grid-template-columns: 1fr; }
   .bill-item-row .item-description { grid-column: auto; }
 }
+
+.tax-option-section {
+  margin-top: 14px;
+  border: 1px solid #d9e7f4;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f7fbff;
+}
+.tax-option-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.tax-option-heading h4 { margin: 0; color: #1f4f80; font-size: 13px; }
+.tax-option-heading p { margin: 5px 0 0; color: #7388a0; font-size: 11px; line-height: 1.45; }
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #285a8d;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tax-option-form {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  margin-top: 13px;
+}
+.tax-option-form label,
+.tax-option-grid label {
+  display: grid;
+  gap: 6px;
+  color: #5b718e;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tax-option-form input,
+.tax-option-grid input,
+.tax-option-grid select {
+  border: 1px solid #d7e3ef;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: white;
+  color: #314e6d;
+}
+.tax-option-form p { margin: 0; color: #6f849d; font-size: 11px; line-height: 1.5; }
+.tax-option-grid {
+  display: grid;
+  grid-template-columns: 1.2fr .75fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+  margin-top: 13px;
+}
+.npwp-label { padding-bottom: 9px; }
+.tax-effective-rate {
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #edf6ff;
+  color: #305e8e;
+}
+.tax-effective-rate span,
+.tax-effective-rate strong,
+.tax-effective-rate small { display: block; }
+.tax-effective-rate span { font-size: 10px; font-weight: 700; }
+.tax-effective-rate strong { margin-top: 3px; font-size: 15px; }
+.tax-effective-rate small { margin-top: 3px; font-size: 9px; line-height: 1.35; }
+.bill-tax-total {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.bill-tax-total > div { display: grid; gap: 5px; }
+.bill-tax-total span { color: #768aa3; font-size: 10px; font-weight: 700; }
+@media (max-width: 900px) {
+  .tax-option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bill-tax-total { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .tax-option-heading, .tax-option-form { align-items: flex-start; flex-direction: column; }
+  .tax-option-grid, .bill-tax-total { grid-template-columns: 1fr; }
+}
+
 </style>

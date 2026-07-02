@@ -6,9 +6,15 @@ const router = express.Router()
 const AP_ACCOUNT_CODE = '2100'
 const DEFAULT_EXPENSE_ACCOUNT_CODE = '5100'
 const DEFAULT_BANK_ACCOUNT_CODE = '1120'
+const VAT_INPUT_ACCOUNT_CODE = '1145'
+const PPH23_PAYABLE_ACCOUNT_CODE = '2211'
 
 function numberValue(value) {
   return Number(value || 0)
+}
+
+function money(value) {
+  return Math.round((numberValue(value) + Number.EPSILON) * 100) / 100
 }
 
 function isValidDate(value) {
@@ -21,7 +27,8 @@ function getToday() {
 
 function getOutstanding(bill) {
   return Math.max(
-    numberValue(bill.total_amount) - numberValue(bill.paid_amount),
+    numberValue(bill.vendor_payable_amount ?? bill.total_amount) -
+      numberValue(bill.paid_amount),
     0,
   )
 }
@@ -48,7 +55,7 @@ function normalizeItems(items) {
       throw new Error(`Harga item ke-${index + 1} tidak valid.`)
     }
 
-    const lineTotal = quantity * unitPrice
+    const lineTotal = money(quantity * unitPrice)
 
     if (lineTotal <= 0) {
       throw new Error(`Total item ke-${index + 1} harus lebih dari 0.`)
@@ -63,6 +70,46 @@ function normalizeItems(items) {
   })
 }
 
+function normalizeBillTaxes(tax, dppAmount) {
+  const ppnEnabled = Boolean(tax?.ppn_enabled)
+  const ppnRate = numberValue(tax?.ppn_rate)
+
+  if (ppnEnabled && (ppnRate <= 0 || ppnRate > 100)) {
+    throw new Error('Tarif PPN Masukan harus diisi antara 0 sampai 100 persen.')
+  }
+
+  const pph23Enabled = Boolean(tax?.pph23_enabled)
+  const pph23BaseRate = numberValue(tax?.pph23_rate)
+  const vendorHasNpwp = tax?.vendor_has_npwp !== false
+  const pph23Object = String(tax?.pph23_object || '').trim() || null
+
+  if (pph23Enabled && (pph23BaseRate <= 0 || pph23BaseRate > 100)) {
+    throw new Error('Tarif dasar PPh 23 harus diisi antara 0 sampai 100 persen.')
+  }
+
+  const pph23EffectiveRate = pph23Enabled
+    ? money(pph23BaseRate * (vendorHasNpwp ? 1 : 2))
+    : 0
+
+  return {
+    ppn: {
+      enabled: ppnEnabled,
+      rate: ppnEnabled ? ppnRate : 0,
+      amount: ppnEnabled ? money(dppAmount * ppnRate / 100) : 0,
+    },
+    pph23: {
+      enabled: pph23Enabled,
+      base_rate: pph23Enabled ? pph23BaseRate : 0,
+      effective_rate: pph23EffectiveRate,
+      amount: pph23Enabled
+        ? money(dppAmount * pph23EffectiveRate / 100)
+        : 0,
+      vendor_has_npwp: vendorHasNpwp,
+      object: pph23Object,
+    },
+  }
+}
+
 async function refreshOverdueBills(executor = db) {
   await executor.query(`
     UPDATE bills
@@ -72,6 +119,26 @@ async function refreshOverdueBills(executor = db) {
       AND due_date < CURDATE()
       AND paid_amount < total_amount
   `)
+}
+
+async function ensureVatPeriodOpen(connection, period, hasPpn) {
+  if (!hasPpn) return
+
+  const [rows] = await connection.query(
+    `
+      SELECT id
+      FROM vat_period_closings
+      WHERE tax_period = ?
+      LIMIT 1
+    `,
+    [period],
+  )
+
+  if (rows[0]) {
+    throw new Error(
+      `Masa PPN ${period} sudah ditutup. Buat tagihan PPN pada masa pajak yang masih terbuka.`,
+    )
+  }
 }
 
 async function findAccountByCode(executor, code, expectedType = null) {
@@ -123,17 +190,21 @@ async function findAccountById(executor, id, expectedType = null) {
 }
 
 async function postAutomaticJournal(connection, payload) {
-  const debitTotal = payload.lines.reduce(
+  const debitTotal = money(payload.lines.reduce(
     (total, line) => total + numberValue(line.debit),
     0,
-  )
+  ))
 
-  const creditTotal = payload.lines.reduce(
+  const creditTotal = money(payload.lines.reduce(
     (total, line) => total + numberValue(line.credit),
     0,
-  )
+  ))
 
-  if (payload.lines.length < 2 || debitTotal <= 0 || debitTotal !== creditTotal) {
+  if (
+    payload.lines.length < 2 ||
+    debitTotal <= 0 ||
+    Math.abs(debitTotal - creditTotal) > 0.005
+  ) {
     throw new Error('Jurnal otomatis tidak seimbang.')
   }
 
@@ -164,8 +235,8 @@ async function postAutomaticJournal(connection, payload) {
     journalId,
     line.account_id,
     line.description || null,
-    numberValue(line.debit),
-    numberValue(line.credit),
+    money(line.debit),
+    money(line.credit),
   ])
 
   await connection.query(
@@ -200,8 +271,8 @@ async function postAutomaticJournal(connection, payload) {
 
     const delta =
       account.normal_balance === 'debit'
-        ? numberValue(line.debit) - numberValue(line.credit)
-        : numberValue(line.credit) - numberValue(line.debit)
+        ? money(line.debit) - money(line.credit)
+        : money(line.credit) - money(line.debit)
 
     await connection.query(
       `
@@ -231,18 +302,52 @@ async function generateBillNumber(connection, billDate) {
   return `BIL/${period}/${String(rows[0].sequence_number).padStart(3, '0')}`
 }
 
+async function getBillTaxes(executor, billId) {
+  const [rows] = await executor.query(
+    `
+      SELECT
+        id,
+        tax_type,
+        tax_period,
+        dpp_amount,
+        tax_rate,
+        tax_amount,
+        is_creditable,
+        pph23_object,
+        vendor_has_npwp,
+        tax_record_id,
+        status,
+        journal_entry_id
+      FROM transaction_taxes
+      WHERE source_type = 'bill'
+        AND source_id = ?
+      ORDER BY id ASC
+    `,
+    [billId],
+  )
+
+  return rows.map((tax) => ({
+    ...tax,
+    dpp_amount: numberValue(tax.dpp_amount),
+    tax_rate: numberValue(tax.tax_rate),
+    tax_amount: numberValue(tax.tax_amount),
+    is_creditable: Boolean(tax.is_creditable),
+    vendor_has_npwp: tax.vendor_has_npwp === null
+      ? null
+      : Boolean(tax.vendor_has_npwp),
+  }))
+}
+
 async function getBillDetail(executor, billId) {
   const [billRows] = await executor.query(
     `
       SELECT
         bills.*,
         projects.project_name,
-        GREATEST(bills.total_amount - bills.paid_amount, 0) AS outstanding_amount,
         CASE
           WHEN bills.status IN ('unpaid', 'partial')
             AND bills.due_date IS NOT NULL
             AND bills.due_date < CURDATE()
-            AND bills.paid_amount < bills.total_amount
           THEN 'overdue'
           ELSE bills.status
         END AS display_status
@@ -283,11 +388,33 @@ async function getBillDetail(executor, billId) {
     [billId],
   )
 
+  const taxes = await getBillTaxes(executor, billId)
+  const ppn = taxes.find((tax) => tax.tax_type === 'PPN_INPUT')
+  const pph23 = taxes.find((tax) => tax.tax_type === 'PPH23')
+  const vendorPayableAmount = money(
+    numberValue(bill.total_amount) - numberValue(pph23?.tax_amount),
+  )
+
   return {
     ...bill,
+    dpp_amount: items.reduce(
+      (total, item) => total + numberValue(item.line_total),
+      0,
+    ),
+    ppn_amount: numberValue(ppn?.tax_amount),
+    ppn_rate: numberValue(ppn?.tax_rate),
+    pph23_amount: numberValue(pph23?.tax_amount),
+    pph23_rate: numberValue(pph23?.tax_rate),
+    pph23_object: pph23?.pph23_object || null,
+    vendor_has_npwp: pph23?.vendor_has_npwp ?? null,
     total_amount: numberValue(bill.total_amount),
+    vendor_payable_amount: vendorPayableAmount,
     paid_amount: numberValue(bill.paid_amount),
-    outstanding_amount: numberValue(bill.outstanding_amount),
+    outstanding_amount: Math.max(
+      vendorPayableAmount - numberValue(bill.paid_amount),
+      0,
+    ),
+    taxes,
     items: items.map((item) => ({
       ...item,
       quantity: numberValue(item.quantity),
@@ -301,26 +428,37 @@ async function getBillDetail(executor, billId) {
   }
 }
 
-/*
-  GET /api/bills/summary
-  Ringkasan Utang Usaha dan aging tagihan vendor.
-*/
+function taxAmountSubquery(type) {
+  return `
+    COALESCE((
+      SELECT transaction_taxes.tax_amount
+      FROM transaction_taxes
+      WHERE transaction_taxes.source_type = 'bill'
+        AND transaction_taxes.source_id = bills.id
+        AND transaction_taxes.tax_type = '${type}'
+      LIMIT 1
+    ), 0)
+  `
+}
+
 router.get('/summary', async (req, res) => {
   try {
     await refreshOverdueBills()
+
+    const pph23Amount = taxAmountSubquery('PPH23')
 
     const [[summaryRows], [agingRows]] = await Promise.all([
       db.query(`
         SELECT
           COALESCE(SUM(CASE
             WHEN status IN ('unpaid', 'partial', 'overdue')
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS total_payable,
 
           COALESCE(SUM(CASE
             WHEN status = 'overdue'
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS total_overdue,
 
@@ -336,30 +474,29 @@ router.get('/summary', async (req, res) => {
         SELECT
           COALESCE(SUM(CASE
             WHEN DATEDIFF(CURDATE(), bill_date) BETWEEN 0 AND 30
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS days_0_30,
 
           COALESCE(SUM(CASE
             WHEN DATEDIFF(CURDATE(), bill_date) BETWEEN 31 AND 60
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS days_31_60,
 
           COALESCE(SUM(CASE
             WHEN DATEDIFF(CURDATE(), bill_date) BETWEEN 61 AND 90
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS days_61_90,
 
           COALESCE(SUM(CASE
             WHEN DATEDIFF(CURDATE(), bill_date) > 90
-            THEN total_amount - paid_amount
+            THEN GREATEST(total_amount - (${pph23Amount}) - paid_amount, 0)
             ELSE 0
           END), 0) AS days_over_90
         FROM bills
         WHERE status IN ('unpaid', 'partial', 'overdue')
-          AND paid_amount < total_amount
       `),
     ])
 
@@ -418,17 +555,26 @@ router.get('/', async (req, res) => {
       ? `WHERE ${whereParts.join(' AND ')}`
       : ''
 
+    const ppnAmount = taxAmountSubquery('PPN_INPUT')
+    const pph23Amount = taxAmountSubquery('PPH23')
+
     const [rows] = await db.query(
       `
         SELECT
           bills.*,
           projects.project_name,
-          GREATEST(bills.total_amount - bills.paid_amount, 0) AS outstanding_amount,
+          ${ppnAmount} AS ppn_amount,
+          ${pph23Amount} AS pph23_amount,
+          GREATEST(bills.total_amount - (${pph23Amount}), 0) AS vendor_payable_amount,
+          GREATEST(
+            bills.total_amount - (${pph23Amount}) - bills.paid_amount,
+            0
+          ) AS outstanding_amount,
           CASE
             WHEN bills.status IN ('unpaid', 'partial')
               AND bills.due_date IS NOT NULL
               AND bills.due_date < CURDATE()
-              AND bills.paid_amount < bills.total_amount
+              AND bills.paid_amount < bills.total_amount - (${pph23Amount})
             THEN 'overdue'
             ELSE bills.status
           END AS display_status
@@ -449,7 +595,13 @@ router.get('/', async (req, res) => {
       message: 'Daftar tagihan berhasil diambil',
       data: rows.map((bill) => ({
         ...bill,
+        ppn_amount: numberValue(bill.ppn_amount),
+        pph23_amount: numberValue(bill.pph23_amount),
+        dpp_amount: money(
+          numberValue(bill.total_amount) - numberValue(bill.ppn_amount),
+        ),
         total_amount: numberValue(bill.total_amount),
+        vendor_payable_amount: numberValue(bill.vendor_payable_amount),
         paid_amount: numberValue(bill.paid_amount),
         outstanding_amount: numberValue(bill.outstanding_amount),
       })),
@@ -472,7 +624,7 @@ router.get('/:id', async (req, res) => {
     if (!bill) {
       return res.status(404).json({
         success: false,
-        message: 'Tagihan tidak ditemukan',
+        message: 'Tagihan tidak ditemukan.',
       })
     }
 
@@ -502,6 +654,7 @@ router.post('/', async (req, res) => {
       due_date,
       notes,
       items,
+      tax,
     } = req.body || {}
 
     const vendorName = String(vendor_name || '').trim()
@@ -531,13 +684,18 @@ router.post('/', async (req, res) => {
     }
 
     const normalizedItems = normalizeItems(items)
-    const totalAmount = normalizedItems.reduce(
+    const dppAmount = money(normalizedItems.reduce(
       (total, item) => total + item.line_total,
       0,
-    )
+    ))
+    const taxes = normalizeBillTaxes(tax, dppAmount)
+    const totalAmount = money(dppAmount + taxes.ppn.amount)
+    const taxPeriod = String(billDate).slice(0, 7)
 
     connection = await db.getConnection()
     await connection.beginTransaction()
+
+    await ensureVatPeriodOpen(connection, taxPeriod, taxes.ppn.enabled)
 
     if (projectId) {
       const [projectRows] = await connection.query(
@@ -601,13 +759,67 @@ router.post('/', async (req, res) => {
       itemValues,
     )
 
+    if (taxes.ppn.enabled) {
+      await connection.query(
+        `
+          INSERT INTO transaction_taxes (
+            source_type,
+            source_id,
+            tax_type,
+            tax_period,
+            dpp_amount,
+            tax_rate,
+            tax_amount,
+            is_creditable,
+            status
+          ) VALUES ('bill', ?, 'PPN_INPUT', ?, ?, ?, ?, 1, 'draft')
+        `,
+        [
+          billId,
+          taxPeriod,
+          dppAmount,
+          taxes.ppn.rate,
+          taxes.ppn.amount,
+        ],
+      )
+    }
+
+    if (taxes.pph23.enabled) {
+      await connection.query(
+        `
+          INSERT INTO transaction_taxes (
+            source_type,
+            source_id,
+            tax_type,
+            tax_period,
+            dpp_amount,
+            tax_rate,
+            tax_amount,
+            is_creditable,
+            pph23_object,
+            vendor_has_npwp,
+            status
+          ) VALUES ('bill', ?, 'PPH23', ?, ?, ?, ?, 0, ?, ?, 'draft')
+        `,
+        [
+          billId,
+          taxPeriod,
+          dppAmount,
+          taxes.pph23.effective_rate,
+          taxes.pph23.amount,
+          taxes.pph23.object,
+          taxes.pph23.vendor_has_npwp ? 1 : 0,
+        ],
+      )
+    }
+
     await connection.commit()
 
     const bill = await getBillDetail(db, billId)
 
     res.status(201).json({
       success: true,
-      message: 'Tagihan draft berhasil dibuat. Terbitkan tagihan untuk mencatat utang dan beban.',
+      message: 'Tagihan draft berhasil dibuat. Terbitkan untuk mencatat beban, utang vendor, PPN Masukan, dan/atau PPh 23.',
       data: bill,
     })
   } catch (error) {
@@ -617,7 +829,7 @@ router.post('/', async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Gagal membuat tagihan',
+      message: error.message || 'Gagal membuat tagihan.',
     })
   } finally {
     if (connection) connection.release()
@@ -646,6 +858,15 @@ router.delete('/:id', async (req, res) => {
       throw new Error('Hanya tagihan draft yang dapat dihapus.')
     }
 
+    await connection.query(
+      `
+        DELETE FROM transaction_taxes
+        WHERE source_type = 'bill'
+          AND source_id = ?
+      `,
+      [bill.id],
+    )
+
     await connection.query('DELETE FROM bills WHERE id = ?', [bill.id])
     await connection.commit()
 
@@ -658,7 +879,7 @@ router.delete('/:id', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menghapus tagihan',
+      message: error.message || 'Gagal menghapus tagihan.',
     })
   } finally {
     if (connection) connection.release()
@@ -702,15 +923,39 @@ router.post('/:id/issue', async (req, res) => {
       throw new Error('Jurnal tagihan sudah pernah dibuat.')
     }
 
+    const [taxRows] = await connection.query(
+      `
+        SELECT *
+        FROM transaction_taxes
+        WHERE source_type = 'bill'
+          AND source_id = ?
+        FOR UPDATE
+      `,
+      [bill.id],
+    )
+
+    const ppnTax = taxRows.find((tax) => tax.tax_type === 'PPN_INPUT')
+    const pph23Tax = taxRows.find((tax) => tax.tax_type === 'PPH23')
+    const ppnAmount = numberValue(ppnTax?.tax_amount)
+    const pph23Amount = numberValue(pph23Tax?.tax_amount)
+    const dppAmount = money(numberValue(bill.total_amount) - ppnAmount)
+    const vendorPayableAmount = money(
+      numberValue(bill.total_amount) - pph23Amount,
+    )
+
+    await ensureVatPeriodOpen(
+      connection,
+      String(bill.bill_date).slice(0, 7),
+      ppnAmount > 0,
+    )
+
     const payableAccount = await findAccountByCode(
       connection,
       AP_ACCOUNT_CODE,
       'liability',
     )
 
-    // Tombol Terbitkan dari Vue boleh tidak mengirim body.
     const expenseAccountId = req.body?.expense_account_id
-
     const expenseAccount = expenseAccountId
       ? await findAccountById(connection, expenseAccountId, 'expense')
       : await findAccountByCode(
@@ -719,15 +964,77 @@ router.post('/:id/issue', async (req, res) => {
           'expense',
         )
 
+    const vatInputAccount = ppnAmount > 0
+      ? await findAccountByCode(
+          connection,
+          VAT_INPUT_ACCOUNT_CODE,
+          'asset',
+        )
+      : null
+
+    const pph23PayableAccount = pph23Amount > 0
+      ? await findAccountByCode(
+          connection,
+          PPH23_PAYABLE_ACCOUNT_CODE,
+          'liability',
+        )
+      : null
+
     if (!payableAccount) {
-      throw new Error(`Akun Utang Usaha dengan kode ${AP_ACCOUNT_CODE} tidak ditemukan.`)
+      throw new Error(
+        `Akun Utang Usaha dengan kode ${AP_ACCOUNT_CODE} tidak ditemukan.`,
+      )
     }
 
     if (!expenseAccount) {
       throw new Error('Akun beban tidak ditemukan atau tidak aktif.')
     }
 
-    const totalAmount = numberValue(bill.total_amount)
+    if (ppnAmount > 0 && !vatInputAccount) {
+      throw new Error(
+        `Akun PPN Masukan dengan kode ${VAT_INPUT_ACCOUNT_CODE} tidak ditemukan. Jalankan migration pajak terlebih dahulu.`,
+      )
+    }
+
+    if (pph23Amount > 0 && !pph23PayableAccount) {
+      throw new Error(
+        `Akun Utang PPh 23 dengan kode ${PPH23_PAYABLE_ACCOUNT_CODE} tidak ditemukan. Jalankan migration pajak terlebih dahulu.`,
+      )
+    }
+
+    const lines = [
+      {
+        account_id: expenseAccount.id,
+        description: `Beban ${bill.bill_number}`,
+        debit: dppAmount,
+        credit: 0,
+      },
+    ]
+
+    if (ppnAmount > 0) {
+      lines.push({
+        account_id: vatInputAccount.id,
+        description: `PPN Masukan ${bill.bill_number}`,
+        debit: ppnAmount,
+        credit: 0,
+      })
+    }
+
+    lines.push({
+      account_id: payableAccount.id,
+      description: `Utang vendor ${bill.bill_number}`,
+      debit: 0,
+      credit: vendorPayableAmount,
+    })
+
+    if (pph23Amount > 0) {
+      lines.push({
+        account_id: pph23PayableAccount.id,
+        description: `Utang PPh 23 ${bill.bill_number}`,
+        debit: 0,
+        credit: pph23Amount,
+      })
+    }
 
     const journalId = await postAutomaticJournal(connection, {
       voucher_number: `AP-BIL-${bill.id}`,
@@ -735,24 +1042,60 @@ router.post('/:id/issue', async (req, res) => {
       description: `Penerbitan tagihan ${bill.bill_number} dari ${bill.vendor_name}`,
       source_type: 'bill',
       source_id: bill.id,
-      lines: [
-        {
-          account_id: expenseAccount.id,
-          description: `Beban ${bill.bill_number}`,
-          debit: totalAmount,
-          credit: 0,
-        },
-        {
-          account_id: payableAccount.id,
-          description: `Utang ${bill.bill_number}`,
-          debit: 0,
-          credit: totalAmount,
-        },
-      ],
+      lines,
     })
 
+    let pph23TaxRecordId = null
+
+    if (pph23Tax && pph23Amount > 0) {
+      const [taxRecordResult] = await connection.query(
+        `
+          INSERT INTO tax_records (
+            tax_type,
+            tax_period,
+            amount,
+            due_date,
+            status,
+            notes
+          ) VALUES ('PPh 23', ?, ?, NULL, 'unpaid', ?)
+        `,
+        [
+          String(bill.bill_date).slice(0, 7),
+          pph23Amount,
+          [
+            `Dibuat otomatis dari tagihan vendor ${bill.bill_number}.`,
+            `Vendor: ${bill.vendor_name}.`,
+            `Objek: ${pph23Tax.pph23_object || 'PPh 23'}.`,
+            `Tarif efektif: ${numberValue(pph23Tax.tax_rate)}%.`,
+          ].join(' '),
+        ],
+      )
+
+      pph23TaxRecordId = taxRecordResult.insertId
+    }
+
+    for (const taxRow of taxRows) {
+      await connection.query(
+        `
+          UPDATE transaction_taxes
+          SET
+            status = 'posted',
+            journal_entry_id = ?,
+            tax_record_id = ?
+          WHERE id = ?
+        `,
+        [
+          journalId,
+          taxRow.tax_type === 'PPH23' ? pph23TaxRecordId : null,
+          taxRow.id,
+        ],
+      )
+    }
+
     const nextStatus =
-      bill.due_date && bill.due_date < getToday() ? 'overdue' : 'unpaid'
+      bill.due_date && bill.due_date < getToday()
+        ? 'overdue'
+        : 'unpaid'
 
     await connection.query(
       'UPDATE bills SET status = ? WHERE id = ?',
@@ -765,10 +1108,17 @@ router.post('/:id/issue', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Tagihan berhasil diterbitkan dan jurnal utang otomatis diposting.',
+      message: pph23Amount > 0
+        ? 'Tagihan diterbitkan. Beban, utang vendor, dan kewajiban PPh 23 otomatis diposting.'
+        : (
+          ppnAmount > 0
+            ? 'Tagihan diterbitkan. Beban, utang vendor, dan PPN Masukan otomatis diposting.'
+            : 'Tagihan berhasil diterbitkan dan jurnal utang otomatis diposting.'
+        ),
       data: {
         bill: updatedBill,
         journal_entry_id: journalId,
+        pph23_tax_record_id: pph23TaxRecordId,
       },
     })
   } catch (error) {
@@ -776,7 +1126,7 @@ router.post('/:id/issue', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menerbitkan tagihan',
+      message: error.message || 'Gagal menerbitkan tagihan.',
     })
   } finally {
     if (connection) connection.release()
@@ -797,7 +1147,7 @@ router.post('/:id/payments', async (req, res) => {
     } = req.body || {}
 
     const paymentDate = payment_date || getToday()
-    const paymentAmount = numberValue(amount)
+    const paymentAmount = money(amount)
 
     if (!isValidDate(paymentDate)) {
       return res.status(400).json({
@@ -828,7 +1178,9 @@ router.post('/:id/payments', async (req, res) => {
     }
 
     if (bill.status === 'draft') {
-      throw new Error('Terbitkan tagihan terlebih dahulu sebelum mencatat pembayaran.')
+      throw new Error(
+        'Terbitkan tagihan terlebih dahulu sebelum mencatat pembayaran.',
+      )
     }
 
     if (bill.status === 'cancelled' || bill.status === 'paid') {
@@ -836,13 +1188,36 @@ router.post('/:id/payments', async (req, res) => {
     }
 
     if (paymentDate < bill.bill_date) {
-      throw new Error('Tanggal pembayaran tidak boleh sebelum tanggal tagihan.')
+      throw new Error(
+        'Tanggal pembayaran tidak boleh sebelum tanggal tagihan.',
+      )
     }
 
-    const outstanding = getOutstanding(bill)
+    const [pph23Rows] = await connection.query(
+      `
+        SELECT tax_amount
+        FROM transaction_taxes
+        WHERE source_type = 'bill'
+          AND source_id = ?
+          AND tax_type = 'PPH23'
+        LIMIT 1
+      `,
+      [bill.id],
+    )
+
+    const pph23Amount = numberValue(pph23Rows[0]?.tax_amount)
+    const vendorPayableAmount = money(
+      numberValue(bill.total_amount) - pph23Amount,
+    )
+    const outstanding = Math.max(
+      vendorPayableAmount - numberValue(bill.paid_amount),
+      0,
+    )
 
     if (paymentAmount > outstanding) {
-      throw new Error('Nominal pembayaran melebihi sisa utang.')
+      throw new Error(
+        'Nominal pembayaran melebihi sisa utang vendor setelah potongan PPh 23.',
+      )
     }
 
     const [billJournalRows] = await connection.query(
@@ -869,14 +1244,22 @@ router.post('/:id/payments', async (req, res) => {
 
     const cashAccount = cash_account_id
       ? await findAccountById(connection, cash_account_id, 'asset')
-      : await findAccountByCode(connection, DEFAULT_BANK_ACCOUNT_CODE, 'asset')
+      : await findAccountByCode(
+          connection,
+          DEFAULT_BANK_ACCOUNT_CODE,
+          'asset',
+        )
 
     if (!payableAccount) {
-      throw new Error(`Akun Utang Usaha dengan kode ${AP_ACCOUNT_CODE} tidak ditemukan.`)
+      throw new Error(
+        `Akun Utang Usaha dengan kode ${AP_ACCOUNT_CODE} tidak ditemukan.`,
+      )
     }
 
     if (!cashAccount || Number(cashAccount.id) === Number(payableAccount.id)) {
-      throw new Error('Pilih akun Kas atau Bank yang valid untuk pembayaran.')
+      throw new Error(
+        'Pilih akun Kas atau Bank yang valid untuk pembayaran.',
+      )
     }
 
     const [paymentResult] = await connection.query(
@@ -924,35 +1307,40 @@ router.post('/:id/payments', async (req, res) => {
       ],
     })
 
-    const newPaidAmount = numberValue(bill.paid_amount) + paymentAmount
-    const isPaid =
-      Math.abs(newPaidAmount - numberValue(bill.total_amount)) < 0.005
-
     await connection.query(
-      `
-        UPDATE bill_payments
-        SET journal_entry_id = ?
-        WHERE id = ?
-      `,
+      'UPDATE bill_payments SET journal_entry_id = ? WHERE id = ?',
       [journalId, paymentId],
     )
+
+    const newPaidAmount = money(numberValue(bill.paid_amount) + paymentAmount)
+    const newOutstanding = money(vendorPayableAmount - newPaidAmount)
+    const newStatus =
+      newOutstanding <= 0
+        ? 'paid'
+        : (
+          bill.due_date && bill.due_date < paymentDate
+            ? 'overdue'
+            : 'partial'
+        )
 
     await connection.query(
       `
         UPDATE bills
-        SET paid_amount = ?, status = ?
+        SET
+          paid_amount = ?,
+          status = ?
         WHERE id = ?
       `,
-      [newPaidAmount, isPaid ? 'paid' : 'partial', bill.id],
+      [newPaidAmount, newStatus, bill.id],
     )
 
     await connection.commit()
 
     const updatedBill = await getBillDetail(db, bill.id)
 
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Pembayaran utang berhasil dicatat dan jurnal otomatis diposting.',
+      message: 'Pembayaran vendor berhasil dicatat. PPh 23, bila ada, tetap muncul sebagai kewajiban setor pajak.',
       data: {
         bill: updatedBill,
         journal_entry_id: journalId,
@@ -963,7 +1351,7 @@ router.post('/:id/payments', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal mencatat pembayaran tagihan',
+      message: error.message || 'Gagal mencatat pembayaran tagihan.',
     })
   } finally {
     if (connection) connection.release()

@@ -61,6 +61,10 @@ function emptyInvoiceForm() {
     issue_date: today,
     due_date: '',
     notes: '',
+    tax: {
+      ppn_enabled: false,
+      ppn_rate: 0,
+    },
     items: [
       {
         description: '',
@@ -134,6 +138,18 @@ const invoiceTotal = computed(() => {
   return invoiceForm.value.items.reduce((total, item) => {
     return total + numberValue(item.quantity) * numberValue(item.unit_price)
   }, 0)
+})
+
+const invoicePpnAmount = computed(() => {
+  if (!invoiceForm.value.tax.ppn_enabled) return 0
+
+  return Math.round(
+    (invoiceTotal.value * numberValue(invoiceForm.value.tax.ppn_rate)) / 100,
+  )
+})
+
+const invoiceGrandTotal = computed(() => {
+  return invoiceTotal.value + invoicePpnAmount.value
 })
 
 const selectedPaymentInvoice = computed(() => {
@@ -390,12 +406,16 @@ async function createInvoice() {
         quantity: numberValue(item.quantity),
         unit_price: numberValue(item.unit_price),
       })),
+      tax: {
+        ppn_enabled: Boolean(invoiceForm.value.tax.ppn_enabled),
+        ppn_rate: numberValue(invoiceForm.value.tax.ppn_rate),
+      },
     })
 
     closeInvoiceModal()
     successMessage.value =
       response.data.message ||
-      'Invoice draft berhasil dibuat. Terbitkan untuk mencatat piutang dan pendapatan.'
+      'Invoice draft berhasil dibuat. Terbitkan untuk mencatat piutang, pendapatan, dan PPN Keluaran bila dipilih.'
 
     await loadData()
   } catch (error) {
@@ -409,7 +429,7 @@ async function issueInvoice(invoice) {
   clearMessages()
 
   const confirmed = window.confirm(
-    `Terbitkan ${invoice.invoice_number}?\n\nSistem akan membuat jurnal otomatis:\nDebit Piutang Usaha\nKredit Pendapatan`,
+    `Terbitkan ${invoice.invoice_number}?\n\nSistem akan membuat jurnal otomatis:\nDebit Piutang Usaha (total tagihan)\nKredit Pendapatan (DPP)\nKredit PPN Keluaran bila invoice dikenakan PPN`,
   )
 
   if (!confirmed) return
@@ -626,8 +646,8 @@ onMounted(loadData)
         <div>
           <h3>Daftar Piutang</h3>
           <p>
-            Terbitkan invoice untuk mencatat piutang dan pendapatan. Pembayaran
-            akan menambah Kas/Bank serta mengurangi Piutang Usaha.
+            Terbitkan invoice untuk mencatat Piutang, Pendapatan, dan PPN Keluaran
+            bila dipilih. Pembayaran akan menambah Kas/Bank serta mengurangi Piutang Usaha.
           </p>
         </div>
       </div>
@@ -663,7 +683,13 @@ onMounted(loadData)
                 </small>
               </td>
 
-              <td>{{ formatCurrency(invoice.total_amount) }}</td>
+              <td>
+                <strong>{{ formatCurrency(invoice.total_amount) }}</strong>
+                <small v-if="numberValue(invoice.ppn_amount) > 0" class="table-subtext">
+                  DPP {{ formatCurrency(invoice.dpp_amount) }} ·
+                  PPN {{ formatCurrency(invoice.ppn_amount) }}
+                </small>
+              </td>
               <td>{{ formatCurrency(invoice.paid_amount) }}</td>
 
               <td>
@@ -887,9 +913,54 @@ onMounted(loadData)
             </button>
           </div>
 
-          <div class="invoice-grand-total">
-            <span>Total Invoice</span>
-            <strong>{{ formatCurrency(invoiceTotal) }}</strong>
+          <section class="tax-option-section">
+            <div class="tax-option-heading">
+              <div>
+                <h4>PPN Keluaran</h4>
+                <p>Aktifkan hanya untuk invoice yang memang dikenakan PPN.</p>
+              </div>
+
+              <label class="switch-label">
+                <input v-model="invoiceForm.tax.ppn_enabled" type="checkbox" />
+                Kenakan PPN
+              </label>
+            </div>
+
+            <div v-if="invoiceForm.tax.ppn_enabled" class="tax-option-form">
+              <label>
+                Tarif PPN (%)
+                <input
+                  v-model.number="invoiceForm.tax.ppn_rate"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  placeholder="Isi tarif yang berlaku"
+                  required
+                />
+              </label>
+
+              <p>
+                PPN dihitung dari DPP. Nilai bruto invoice menjadi DPP ditambah PPN.
+              </p>
+            </div>
+          </section>
+
+          <div class="invoice-grand-total invoice-tax-total">
+            <div>
+              <span>DPP</span>
+              <strong>{{ formatCurrency(invoiceTotal) }}</strong>
+            </div>
+
+            <div>
+              <span>PPN Keluaran</span>
+              <strong>{{ formatCurrency(invoicePpnAmount) }}</strong>
+            </div>
+
+            <div>
+              <span>Total Invoice</span>
+              <strong>{{ formatCurrency(invoiceGrandTotal) }}</strong>
+            </div>
           </div>
         </section>
 
@@ -1256,4 +1327,61 @@ onMounted(loadData)
     grid-column: auto;
   }
 }
+
+.tax-option-section {
+  margin-top: 14px;
+  border: 1px solid #d9e7f4;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f7fbff;
+}
+.tax-option-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.tax-option-heading h4 { margin: 0; color: #1f4f80; font-size: 13px; }
+.tax-option-heading p { margin: 5px 0 0; color: #7388a0; font-size: 11px; line-height: 1.45; }
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  color: #285a8d;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tax-option-form {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  margin-top: 13px;
+}
+.tax-option-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 190px;
+  color: #5b718e;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tax-option-form input {
+  border: 1px solid #d7e3ef;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: white;
+  color: #314e6d;
+}
+.tax-option-form p { margin: 0; color: #6f849d; font-size: 11px; line-height: 1.5; }
+.invoice-tax-total {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.invoice-tax-total > div { display: grid; gap: 5px; }
+.invoice-tax-total span { color: #768aa3; font-size: 11px; font-weight: 700; }
+@media (max-width: 680px) {
+  .tax-option-heading, .tax-option-form { align-items: flex-start; flex-direction: column; }
+  .invoice-tax-total { grid-template-columns: 1fr; }
+}
+
 </style>
