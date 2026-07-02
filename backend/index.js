@@ -4,9 +4,10 @@ const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
 const clientsRouter = require('./routes/clients')
+const projectsRouter = require('./routes/projects')
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 4000
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN,
@@ -37,6 +38,7 @@ app.get('/api/health', async (req, res) => {
 })
 
 app.use('/api/clients', clientsRouter)
+app.use('/api/projects', projectsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
