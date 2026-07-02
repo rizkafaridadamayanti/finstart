@@ -7,18 +7,57 @@ function numberValue(value) {
   return Number(value || 0)
 }
 
+function mysqlDate(year, monthIndex, day = 1) {
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function buildLastMonths(totalMonths = 6) {
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+
+  return Array.from({ length: totalMonths }, (_, index) => {
+    const date = new Date(currentYear, currentMonth - (totalMonths - 1 - index), 1)
+
+    return {
+      month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      label: new Intl.DateTimeFormat('id-ID', {
+        month: 'short',
+      }).format(date),
+      income: 0,
+      expense: 0,
+      net_cashflow: 0,
+    }
+  })
+}
+
 /*
   GET /api/dashboard/summary
 
-  Mengambil ringkasan dashboard dari:
-  - saldo akun hasil jurnal posted
-  - total pendapatan dan beban bulan berjalan
-  - jumlah proyek ongoing
-  - jumlah invoice overdue
-  - transaksi posted terbaru
+  Mengambil ringkasan Dashboard dari jurnal berstatus posted.
+  Termasuk cashflow_series untuk grafik garis 6 bulan terakhir.
 */
 router.get('/summary', async (req, res) => {
   try {
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth()
+
+    const firstMonth = new Date(currentYear, currentMonth - 5, 1)
+    const nextMonth = new Date(currentYear, currentMonth + 1, 1)
+
+    const chartStartDate = mysqlDate(
+      firstMonth.getFullYear(),
+      firstMonth.getMonth(),
+      1,
+    )
+
+    const chartEndDate = mysqlDate(
+      nextMonth.getFullYear(),
+      nextMonth.getMonth(),
+      1,
+    )
+
     const [
       [cashRows],
       [receivableRows],
@@ -28,6 +67,7 @@ router.get('/summary', async (req, res) => {
       [projectRows],
       [invoiceRows],
       [recentTransactions],
+      [cashflowRows],
     ] = await Promise.all([
       db.query(`
         SELECT COALESCE(SUM(current_balance), 0) AS cash_balance
@@ -128,6 +168,48 @@ router.get('/summary', async (req, res) => {
           journal_entries.id DESC
         LIMIT 5
       `),
+
+      db.query(
+        `
+          SELECT
+            DATE_FORMAT(journal_entries.transaction_date, '%Y-%m') AS month,
+
+            COALESCE(SUM(
+              CASE
+                WHEN accounts.type = 'revenue'
+                THEN journal_lines.credit - journal_lines.debit
+                ELSE 0
+              END
+            ), 0) AS income,
+
+            COALESCE(SUM(
+              CASE
+                WHEN accounts.type = 'expense'
+                THEN journal_lines.debit - journal_lines.credit
+                ELSE 0
+              END
+            ), 0) AS expense,
+
+            COALESCE(SUM(
+              CASE
+                WHEN accounts.code IN ('1110', '1120')
+                THEN journal_lines.debit - journal_lines.credit
+                ELSE 0
+              END
+            ), 0) AS net_cashflow
+          FROM journal_entries
+          INNER JOIN journal_lines
+            ON journal_lines.journal_entry_id = journal_entries.id
+          INNER JOIN accounts
+            ON accounts.id = journal_lines.account_id
+          WHERE journal_entries.status = 'posted'
+            AND journal_entries.transaction_date >= ?
+            AND journal_entries.transaction_date < ?
+          GROUP BY DATE_FORMAT(journal_entries.transaction_date, '%Y-%m')
+          ORDER BY month ASC
+        `,
+        [chartStartDate, chartEndDate],
+      ),
     ])
 
     const cashBalance = numberValue(cashRows[0]?.cash_balance)
@@ -144,6 +226,22 @@ router.get('/summary', async (req, res) => {
 
     const activeProjects = Number(projectRows[0]?.active_projects || 0)
     const overdueInvoices = Number(invoiceRows[0]?.overdue_invoices || 0)
+
+    const chartMap = new Map(
+      cashflowRows.map((row) => [
+        row.month,
+        {
+          income: numberValue(row.income),
+          expense: numberValue(row.expense),
+          net_cashflow: numberValue(row.net_cashflow),
+        },
+      ]),
+    )
+
+    const cashflowSeries = buildLastMonths(6).map((month) => ({
+      ...month,
+      ...(chartMap.get(month.month) || {}),
+    }))
 
     res.json({
       success: true,
@@ -162,6 +260,8 @@ router.get('/summary', async (req, res) => {
 
         active_projects: activeProjects,
         overdue_invoices: overdueInvoices,
+
+        cashflow_series: cashflowSeries,
 
         recent_transactions: recentTransactions.map((transaction) => ({
           ...transaction,
