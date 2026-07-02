@@ -7,6 +7,7 @@ const db = require('./config/db')
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
 const accountsRouter = require('./routes/accounts')
+const journalsRouter = require('./routes/journals')
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -42,6 +43,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/clients', clientsRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/accounts', accountsRouter)
+app.use('/api/journals', journalsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
