@@ -1,192 +1,1259 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useFinanceStore } from '../stores/financeStore'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
 
-const financeStore = useFinanceStore()
-const clients = computed(() => financeStore.clients)
-const projects = computed(() => financeStore.projects)
-const invoiceList = computed(() => financeStore.receivables)
+/*
+  PIUTANG FINSTART
+  Endpoint yang digunakan:
+  GET    /api/invoices
+  GET    /api/invoices/summary
+  POST   /api/invoices
+  POST   /api/invoices/:id/issue
+  POST   /api/invoices/:id/payments
+  DELETE /api/invoices/:id
+*/
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+})
+
+const clients = ref([])
+const projects = ref([])
+const accounts = ref([])
+const invoices = ref([])
+
+const summary = ref({
+  total_receivable: 0,
+  total_overdue: 0,
+  total_paid: 0,
+  draft_count: 0,
+  open_count: 0,
+  overdue_count: 0,
+  aging: {
+    days_0_30: 0,
+    days_31_60: 0,
+    days_61_90: 0,
+    days_over_90: 0,
+  },
+})
 
 const keyword = ref('')
-const selectedStatus = ref('Semua')
+const selectedStatus = ref('all')
+const isLoading = ref(false)
+const isSaving = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
+
 const showInvoiceModal = ref(false)
 const showPaymentModal = ref(false)
+
 const today = new Date().toISOString().slice(0, 10)
 
-const invoiceForm = ref({ client: '', project: '', invoiceDate: today, dueDate: '', amount: 0, description: '' })
-const paymentForm = ref({ invoiceId: '', paymentDate: today, cashSource: 'Bank BCA', amount: 0 })
+function numberValue(value) {
+  return Number(value || 0)
+}
+
+function emptyInvoiceForm() {
+  return {
+    client_id: '',
+    project_id: '',
+    invoice_number: '',
+    issue_date: today,
+    due_date: '',
+    notes: '',
+    items: [
+      {
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+      },
+    ],
+  }
+}
+
+function emptyPaymentForm() {
+  return {
+    invoice_id: '',
+    payment_date: today,
+    payment_method: 'Transfer Bank',
+    amount: 0,
+    reference_number: '',
+    notes: '',
+    cash_account_id: '',
+  }
+}
+
+const invoiceForm = ref(emptyInvoiceForm())
+const paymentForm = ref(emptyPaymentForm())
 
 const availableProjects = computed(() => {
-  if (!invoiceForm.value.client) return projects.value
-  return projects.value.filter((project) => project.client === invoiceForm.value.client)
+  if (!invoiceForm.value.client_id) return projects.value
+
+  return projects.value.filter((project) => {
+    return Number(project.client_id) === Number(invoiceForm.value.client_id)
+  })
 })
 
-function number(value) { return Number(value || 0) }
-function getOutstanding(invoice) { return Math.max(number(invoice.total) - number(invoice.paidAmount), 0) }
-function formatCurrency(value) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(number(value)) }
-function formatDate(date) { return date ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`)) : '-' }
+const cashAccounts = computed(() => {
+  return accounts.value.filter((account) => {
+    const isAsset = account.type === 'asset'
+    const isReceivable = String(account.code) === '1130'
+    const isCashOrBank =
+      ['1110', '1120'].includes(String(account.code)) ||
+      /(kas|bank)/i.test(String(account.name || ''))
 
-function getDisplayStatus(invoice) {
-  if (invoice.status === 'Paid' || invoice.status === 'Draft') return invoice.status
-  if (invoice.dueDate && invoice.dueDate < today && getOutstanding(invoice) > 0) return 'Overdue'
-  return invoice.status
-}
-
-function getStatusClass(status) {
-  return { warning: ['Draft', 'Sent', 'Partially Paid'].includes(status), danger: status === 'Overdue' }
-}
+    return isAsset && !isReceivable && isCashOrBank
+  })
+})
 
 const filteredInvoices = computed(() => {
-  const search = keyword.value.toLowerCase()
-  return invoiceList.value.filter((invoice) => {
-    const status = getDisplayStatus(invoice)
-    const matchKeyword = String(invoice.invoiceNumber || '').toLowerCase().includes(search) || String(invoice.client || '').toLowerCase().includes(search) || String(invoice.project || '').toLowerCase().includes(search) || status.toLowerCase().includes(search)
-    const matchStatus = selectedStatus.value === 'Semua' || status === selectedStatus.value
-    return matchKeyword && matchStatus
+  const search = keyword.value.toLowerCase().trim()
+
+  return invoices.value.filter((invoice) => {
+    const invoiceStatus = String(
+      invoice.display_status || invoice.status || '',
+    ).toLowerCase()
+
+    const matchesStatus =
+      selectedStatus.value === 'all' || invoiceStatus === selectedStatus.value
+
+    const matchesKeyword =
+      !search ||
+      [
+        invoice.invoice_number,
+        invoice.client_name,
+        invoice.project_name,
+        invoiceStatus,
+      ].some((value) => String(value || '').toLowerCase().includes(search))
+
+    return matchesStatus && matchesKeyword
   })
 })
 
-const totalReceivable = computed(() => invoiceList.value.filter((invoice) => invoice.status !== 'Draft').reduce((total, invoice) => total + getOutstanding(invoice), 0))
-const totalOverdue = computed(() => invoiceList.value.filter((invoice) => invoice.status !== 'Draft' && getDisplayStatus(invoice) === 'Overdue').reduce((total, invoice) => total + getOutstanding(invoice), 0))
-const totalPaid = computed(() => invoiceList.value.reduce((total, invoice) => total + number(invoice.paidAmount), 0))
+const invoiceTotal = computed(() => {
+  return invoiceForm.value.items.reduce((total, item) => {
+    return total + numberValue(item.quantity) * numberValue(item.unit_price)
+  }, 0)
+})
 
-const selectedPaymentInvoice = computed(() => invoiceList.value.find((invoice) => invoice.id === Number(paymentForm.value.invoiceId)))
+const selectedPaymentInvoice = computed(() => {
+  return invoices.value.find((invoice) => {
+    return Number(invoice.id) === Number(paymentForm.value.invoice_id)
+  })
+})
 
-function getNewInvoiceNumber() { return `INV/${new Date().getFullYear()}/${String(invoiceList.value.length + 1).padStart(3, '0')}` }
+const paymentOutstanding = computed(() => {
+  return numberValue(selectedPaymentInvoice.value?.outstanding_amount)
+})
+
+const agingCards = computed(() => {
+  return [
+    {
+      label: '0–30 Hari',
+      value: summary.value.aging?.days_0_30 || 0,
+    },
+    {
+      label: '31–60 Hari',
+      value: summary.value.aging?.days_31_60 || 0,
+    },
+    {
+      label: '61–90 Hari',
+      value: summary.value.aging?.days_61_90 || 0,
+    },
+    {
+      label: '> 90 Hari',
+      value: summary.value.aging?.days_over_90 || 0,
+    },
+  ]
+})
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(numberValue(value))
+}
+
+function formatDate(value) {
+  if (!value) return '-'
+
+  const text = String(value).slice(0, 10)
+  const [year, month, day] = text.split('-')
+
+  if (!year || !month || !day) return '-'
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(Number(year), Number(month) - 1, Number(day)))
+}
+
+function invoiceStatusLabel(status) {
+  const labels = {
+    draft: 'Draft',
+    unpaid: 'Belum Dibayar',
+    partial: 'Dibayar Sebagian',
+    paid: 'Lunas',
+    overdue: 'Terlambat',
+    cancelled: 'Dibatalkan',
+  }
+
+  return labels[status] || status || '-'
+}
+
+function statusClass(status) {
+  return {
+    warning: ['draft', 'partial'].includes(status),
+    danger: status === 'overdue',
+    success: status === 'paid',
+  }
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error?.response?.data?.message || fallbackMessage
+}
+
+function clearMessages() {
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
+async function loadData() {
+  isLoading.value = true
+  clearMessages()
+
+  try {
+    const [
+      invoiceResponse,
+      summaryResponse,
+      clientResponse,
+      projectResponse,
+      accountResponse,
+    ] = await Promise.all([
+      api.get('/invoices'),
+      api.get('/invoices/summary'),
+      api.get('/clients'),
+      api.get('/projects'),
+      api.get('/accounts'),
+    ])
+
+    invoices.value = invoiceResponse.data.data || []
+    summary.value = {
+      ...summary.value,
+      ...(summaryResponse.data.data || {}),
+      aging: {
+        ...summary.value.aging,
+        ...(summaryResponse.data.data?.aging || {}),
+      },
+    }
+
+    clients.value = clientResponse.data.data || []
+    projects.value = projectResponse.data.data || []
+    accounts.value = accountResponse.data.data || []
+  } catch (error) {
+    errorMessage.value = getErrorMessage(
+      error,
+      'Gagal mengambil data piutang. Pastikan backend Node.js berjalan.',
+    )
+  } finally {
+    isLoading.value = false
+  }
+}
 
 function openInvoiceModal() {
-  invoiceForm.value = { client: '', project: '', invoiceDate: today, dueDate: '', amount: 0, description: '' }
+  clearMessages()
+
+  if (clients.value.length === 0) {
+    errorMessage.value = 'Tambahkan data klien terlebih dahulu melalui menu CRM & Proyek.'
+    return
+  }
+
+  invoiceForm.value = emptyInvoiceForm()
   showInvoiceModal.value = true
 }
-function closeInvoiceModal() { showInvoiceModal.value = false }
-function closePaymentModal() { showPaymentModal.value = false }
 
-function syncProjectClient() {
-  const project = projects.value.find((item) => item.name === invoiceForm.value.project)
-  if (project) invoiceForm.value.client = project.client
-}
-
-function addInvoice() {
-  if (!invoiceForm.value.client || !invoiceForm.value.project || !invoiceForm.value.invoiceDate || !invoiceForm.value.dueDate || number(invoiceForm.value.amount) <= 0) {
-    return alert('Lengkapi klien, proyek, tanggal, dan nominal invoice.')
-  }
-  if (invoiceForm.value.dueDate < invoiceForm.value.invoiceDate) return alert('Batas bayar tidak boleh lebih awal dari tanggal invoice.')
-
-  financeStore.addInvoice({
-    invoiceNumber: getNewInvoiceNumber(),
-    client: invoiceForm.value.client,
-    project: invoiceForm.value.project,
-    invoiceDate: invoiceForm.value.invoiceDate,
-    dueDate: invoiceForm.value.dueDate,
-    total: number(invoiceForm.value.amount),
-    paidAmount: 0,
-    status: 'Draft',
-    description: invoiceForm.value.description,
-  })
-
-  closeInvoiceModal()
-  alert('Invoice disimpan sebagai Draft. Klik Terbitkan untuk memperbarui piutang, pendapatan, buku besar, laporan, dan AI.')
-}
-
-function issueInvoice(invoice) {
-  const result = financeStore.issueInvoice(invoice.id)
-  if (!result.ok) return alert(result.message)
-  alert('Invoice berhasil diterbitkan dan diposting ke buku besar.')
+function closeInvoiceModal() {
+  showInvoiceModal.value = false
+  invoiceForm.value = emptyInvoiceForm()
 }
 
 function openPaymentModal(invoice = null) {
-  const target = invoice || invoiceList.value.find((item) => ['Sent', 'Partially Paid', 'Overdue'].includes(getDisplayStatus(item)) && getOutstanding(item) > 0)
-  if (!target) return alert('Tidak ada invoice yang dapat dilunasi. Terbitkan invoice Draft terlebih dahulu.')
+  clearMessages()
 
-  paymentForm.value = { invoiceId: target.id, paymentDate: today, cashSource: 'Bank BCA', amount: getOutstanding(target) }
+  const target =
+    invoice ||
+    invoices.value.find((item) => {
+      const status = item.display_status || item.status
+
+      return ['unpaid', 'partial', 'overdue'].includes(status) &&
+        numberValue(item.outstanding_amount) > 0
+    })
+
+  if (!target) {
+    errorMessage.value =
+      'Belum ada invoice aktif yang dapat menerima pembayaran. Terbitkan invoice draft terlebih dahulu.'
+    return
+  }
+
+  const bankAccount = cashAccounts.value.find(
+    (account) => String(account.code) === '1120',
+  )
+
+  paymentForm.value = {
+    ...emptyPaymentForm(),
+    invoice_id: target.id,
+    amount: numberValue(target.outstanding_amount),
+    cash_account_id: bankAccount?.id || cashAccounts.value[0]?.id || '',
+  }
+
   showPaymentModal.value = true
 }
 
-function savePayment() {
-  const invoice = selectedPaymentInvoice.value
-  if (!invoice) return alert('Pilih invoice yang akan dilunasi.')
-  const amount = number(paymentForm.value.amount)
-  if (amount <= 0 || amount > getOutstanding(invoice)) return alert('Nominal pembayaran tidak valid.')
+function closePaymentModal() {
+  showPaymentModal.value = false
+  paymentForm.value = emptyPaymentForm()
+}
 
-  const result = financeStore.receiveInvoicePayment({
-    invoiceId: invoice.id,
-    amount,
-    paymentDate: paymentForm.value.paymentDate,
-    cashAccountCode: paymentForm.value.cashSource === 'Kas' ? '1101' : '1102',
+function syncProjectClient() {
+  const selectedProject = projects.value.find((project) => {
+    return Number(project.id) === Number(invoiceForm.value.project_id)
   })
 
-  if (!result.ok) return alert(result.message)
-  closePaymentModal()
-  alert('Pelunasan piutang berhasil dicatat dan seluruh data keuangan diperbarui.')
+  if (selectedProject) {
+    invoiceForm.value.client_id = String(selectedProject.client_id)
+  }
 }
+
+function syncClientProject() {
+  const selectedProject = projects.value.find((project) => {
+    return Number(project.id) === Number(invoiceForm.value.project_id)
+  })
+
+  if (
+    selectedProject &&
+    Number(selectedProject.client_id) !== Number(invoiceForm.value.client_id)
+  ) {
+    invoiceForm.value.project_id = ''
+  }
+}
+
+function addItem() {
+  invoiceForm.value.items.push({
+    description: '',
+    quantity: 1,
+    unit_price: 0,
+  })
+}
+
+function removeItem(index) {
+  if (invoiceForm.value.items.length === 1) return
+
+  invoiceForm.value.items.splice(index, 1)
+}
+
+async function createInvoice() {
+  clearMessages()
+
+  if (!invoiceForm.value.client_id) {
+    errorMessage.value = 'Pilih klien untuk invoice.'
+    return
+  }
+
+  if (!invoiceForm.value.issue_date || !invoiceForm.value.due_date) {
+    errorMessage.value = 'Tanggal invoice dan jatuh tempo wajib diisi.'
+    return
+  }
+
+  if (invoiceForm.value.due_date < invoiceForm.value.issue_date) {
+    errorMessage.value = 'Tanggal jatuh tempo tidak boleh lebih awal dari tanggal invoice.'
+    return
+  }
+
+  if (invoiceTotal.value <= 0) {
+    errorMessage.value = 'Total invoice harus lebih dari Rp0.'
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    const response = await api.post('/invoices', {
+      ...invoiceForm.value,
+      client_id: Number(invoiceForm.value.client_id),
+      project_id: invoiceForm.value.project_id
+        ? Number(invoiceForm.value.project_id)
+        : null,
+      items: invoiceForm.value.items.map((item) => ({
+        description: item.description,
+        quantity: numberValue(item.quantity),
+        unit_price: numberValue(item.unit_price),
+      })),
+    })
+
+    closeInvoiceModal()
+    successMessage.value =
+      response.data.message ||
+      'Invoice draft berhasil dibuat. Terbitkan untuk mencatat piutang dan pendapatan.'
+
+    await loadData()
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal membuat invoice.')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function issueInvoice(invoice) {
+  clearMessages()
+
+  const confirmed = window.confirm(
+    `Terbitkan ${invoice.invoice_number}?\n\nSistem akan membuat jurnal otomatis:\nDebit Piutang Usaha\nKredit Pendapatan`,
+  )
+
+  if (!confirmed) return
+
+  isSaving.value = true
+
+  try {
+    const response = await api.post(`/invoices/${invoice.id}/issue`)
+
+    successMessage.value =
+      response.data.message ||
+      'Invoice berhasil diterbitkan dan jurnal piutang otomatis diposting.'
+
+    await loadData()
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal menerbitkan invoice.')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function deleteDraft(invoice) {
+  clearMessages()
+
+  const confirmed = window.confirm(
+    `Hapus draft ${invoice.invoice_number}?`,
+  )
+
+  if (!confirmed) return
+
+  isSaving.value = true
+
+  try {
+    const response = await api.delete(`/invoices/${invoice.id}`)
+
+    successMessage.value = response.data.message || 'Invoice draft dihapus.'
+    await loadData()
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal menghapus invoice draft.')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+async function savePayment() {
+  clearMessages()
+
+  if (!paymentForm.value.invoice_id) {
+    errorMessage.value = 'Pilih invoice yang akan dibayar.'
+    return
+  }
+
+  if (!paymentForm.value.cash_account_id) {
+    errorMessage.value =
+      'Akun Kas atau Bank belum tersedia. Pastikan COA 1110 Kas atau 1120 Bank aktif.'
+    return
+  }
+
+  if (
+    numberValue(paymentForm.value.amount) <= 0 ||
+    numberValue(paymentForm.value.amount) > paymentOutstanding.value
+  ) {
+    errorMessage.value = 'Nominal pembayaran tidak valid.'
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    const response = await api.post(
+      `/invoices/${paymentForm.value.invoice_id}/payments`,
+      {
+        payment_date: paymentForm.value.payment_date,
+        payment_method: paymentForm.value.payment_method,
+        amount: numberValue(paymentForm.value.amount),
+        reference_number: paymentForm.value.reference_number,
+        notes: paymentForm.value.notes,
+        cash_account_id: Number(paymentForm.value.cash_account_id),
+      },
+    )
+
+    closePaymentModal()
+    successMessage.value =
+      response.data.message ||
+      'Pembayaran berhasil dicatat dan jurnal otomatis diposting.'
+
+    await loadData()
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal mencatat pembayaran.')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
   <section>
     <div class="page-heading">
-      <div><p class="eyebrow">ACCOUNTS RECEIVABLE</p><h1>Piutang</h1><p>Kelola invoice, tagihan klien, sisa piutang, serta pelunasan yang langsung tersambung ke kas dan jurnal.</p></div>
-      <div class="page-button-group"><button class="secondary-button" @click="openPaymentModal()">Catat Pelunasan Piutang</button><button class="primary-button" @click="openInvoiceModal">+ Buat Invoice Baru</button></div>
+      <div>
+        <p class="eyebrow">ACCOUNTS RECEIVABLE</p>
+        <h1>Piutang</h1>
+        <p>
+          Kelola invoice, tagihan klien, sisa piutang, serta pelunasan yang
+          langsung tersambung ke kas, jurnal, dashboard, dan laporan.
+        </p>
+      </div>
+
+      <div class="page-button-group">
+        <button
+          type="button"
+          class="secondary-button"
+          :disabled="isSaving"
+          @click="openPaymentModal()"
+        >
+          Catat Pelunasan Piutang
+        </button>
+
+        <button
+          type="button"
+          class="primary-button"
+          :disabled="isSaving"
+          @click="openInvoiceModal"
+        >
+          + Buat Invoice Baru
+        </button>
+      </div>
     </div>
+
+    <article v-if="errorMessage" class="receivable-message error-message">
+      {{ errorMessage }}
+    </article>
+
+    <article v-if="successMessage" class="receivable-message success-message">
+      {{ successMessage }}
+    </article>
 
     <div class="receivable-metrics">
-      <article class="receivable-stat"><p>Total Piutang Berjalan</p><h2>{{ formatCurrency(totalReceivable) }}</h2><small>Nilai invoice yang belum lunas</small></article>
-      <article class="receivable-stat"><p>Piutang Terlambat</p><h2>{{ formatCurrency(totalOverdue) }}</h2><small>Invoice melewati jatuh tempo</small></article>
-      <article class="receivable-stat"><p>Total Pelunasan</p><h2>{{ formatCurrency(totalPaid) }}</h2><small>Pembayaran yang sudah diterima</small></article>
+      <article class="receivable-stat">
+        <p>Total Piutang Berjalan</p>
+        <h2>{{ formatCurrency(summary.total_receivable) }}</h2>
+        <small>{{ summary.open_count }} invoice belum lunas</small>
+      </article>
+
+      <article class="receivable-stat">
+        <p>Piutang Terlambat</p>
+        <h2>{{ formatCurrency(summary.total_overdue) }}</h2>
+        <small>{{ summary.overdue_count }} invoice melewati jatuh tempo</small>
+      </article>
+
+      <article class="receivable-stat">
+        <p>Total Pelunasan</p>
+        <h2>{{ formatCurrency(summary.total_paid) }}</h2>
+        <small>Pembayaran yang sudah diterima</small>
+      </article>
+
+      <article class="receivable-stat">
+        <p>Invoice Draft</p>
+        <h2>{{ summary.draft_count }}</h2>
+        <small>Belum memengaruhi akun dan laporan</small>
+      </article>
     </div>
 
+    <article class="panel aging-panel">
+      <div class="panel-header">
+        <div>
+          <h3>Aging Piutang</h3>
+          <p>Umur piutang terbuka berdasarkan tanggal invoice.</p>
+        </div>
+      </div>
+
+      <div class="aging-grid">
+        <div v-for="item in agingCards" :key="item.label" class="aging-item">
+          <span>{{ item.label }}</span>
+          <strong>{{ formatCurrency(item.value) }}</strong>
+        </div>
+      </div>
+    </article>
+
     <div class="module-toolbar">
-      <div class="filter-group"><input v-model="keyword" class="module-search" type="text" placeholder="Cari invoice, klien, proyek, atau status..." /><select v-model="selectedStatus" class="filter-select"><option>Semua</option><option>Draft</option><option>Sent</option><option>Partially Paid</option><option>Paid</option><option>Overdue</option></select></div>
+      <div class="filter-group">
+        <input
+          v-model="keyword"
+          class="module-search"
+          type="text"
+          placeholder="Cari nomor invoice, klien, proyek, atau status..."
+        />
+
+        <select v-model="selectedStatus" class="filter-select">
+          <option value="all">Semua Status</option>
+          <option value="draft">Draft</option>
+          <option value="unpaid">Belum Dibayar</option>
+          <option value="partial">Dibayar Sebagian</option>
+          <option value="paid">Lunas</option>
+          <option value="overdue">Terlambat</option>
+        </select>
+
+        <button
+          type="button"
+          class="table-action"
+          :disabled="isLoading"
+          @click="loadData"
+        >
+          {{ isLoading ? 'Memuat...' : 'Refresh' }}
+        </button>
+      </div>
+
       <span class="table-count">{{ filteredInvoices.length }} invoice</span>
     </div>
 
     <article class="panel">
-      <div class="panel-header"><div><h3>Daftar Piutang</h3><p>Terbitkan invoice untuk mencatat piutang dan pendapatan. Pelunasan akan menambah kas serta mengurangi piutang.</p></div></div>
-      <div class="table-wrapper"><table>
-        <thead><tr><th>No. Invoice</th><th>Klien & Proyek</th><th>Nominal</th><th>Dibayar</th><th>Sisa Piutang</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead>
-        <tbody>
-          <tr v-for="invoice in filteredInvoices" :key="invoice.id">
-            <td><strong>{{ invoice.invoiceNumber }}</strong><small class="table-subtext">{{ formatDate(invoice.invoiceDate) }}</small></td>
-            <td><strong>{{ invoice.client }}</strong><small class="table-subtext">{{ invoice.project }}</small></td>
-            <td>{{ formatCurrency(invoice.total) }}</td><td>{{ formatCurrency(invoice.paidAmount) }}</td><td><strong>{{ formatCurrency(getOutstanding(invoice)) }}</strong></td><td>{{ formatDate(invoice.dueDate) }}</td>
-            <td><span class="status-badge" :class="getStatusClass(getDisplayStatus(invoice))">{{ getDisplayStatus(invoice) }}</span></td>
-            <td class="action-cell">
-              <button v-if="invoice.status === 'Draft'" class="table-action" @click="issueInvoice(invoice)">Terbitkan</button>
-              <button v-else-if="invoice.status !== 'Paid'" class="table-action" @click="openPaymentModal(invoice)">Lunasi</button>
-              <span v-else class="table-subtext">Lunas</span>
-            </td>
-          </tr>
-          <tr v-if="filteredInvoices.length === 0"><td colspan="8" class="empty-table">Invoice tidak ditemukan.</td></tr>
-        </tbody>
-      </table></div>
+      <div class="panel-header">
+        <div>
+          <h3>Daftar Piutang</h3>
+          <p>
+            Terbitkan invoice untuk mencatat piutang dan pendapatan. Pembayaran
+            akan menambah Kas/Bank serta mengurangi Piutang Usaha.
+          </p>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>No. Invoice</th>
+              <th>Klien & Proyek</th>
+              <th>Nominal</th>
+              <th>Dibayar</th>
+              <th>Sisa Piutang</th>
+              <th>Jatuh Tempo</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="invoice in filteredInvoices" :key="invoice.id">
+              <td>
+                <strong>{{ invoice.invoice_number }}</strong>
+                <small class="table-subtext">
+                  {{ formatDate(invoice.issue_date) }}
+                </small>
+              </td>
+
+              <td>
+                <strong>{{ invoice.client_name }}</strong>
+                <small class="table-subtext">
+                  {{ invoice.project_name || 'Tanpa proyek' }}
+                </small>
+              </td>
+
+              <td>{{ formatCurrency(invoice.total_amount) }}</td>
+              <td>{{ formatCurrency(invoice.paid_amount) }}</td>
+
+              <td>
+                <strong>{{ formatCurrency(invoice.outstanding_amount) }}</strong>
+              </td>
+
+              <td>{{ formatDate(invoice.due_date) }}</td>
+
+              <td>
+                <span
+                  class="status-badge"
+                  :class="statusClass(invoice.display_status || invoice.status)"
+                >
+                  {{ invoiceStatusLabel(invoice.display_status || invoice.status) }}
+                </span>
+              </td>
+
+              <td class="action-cell">
+                <button
+                  v-if="invoice.status === 'draft'"
+                  type="button"
+                  class="table-action"
+                  :disabled="isSaving"
+                  @click="issueInvoice(invoice)"
+                >
+                  Terbitkan
+                </button>
+
+                <button
+                  v-if="invoice.status === 'draft'"
+                  type="button"
+                  class="table-action danger-action"
+                  :disabled="isSaving"
+                  @click="deleteDraft(invoice)"
+                >
+                  Hapus
+                </button>
+
+                <button
+                  v-if="['unpaid', 'partial', 'overdue'].includes(invoice.display_status || invoice.status)"
+                  type="button"
+                  class="table-action"
+                  :disabled="isSaving"
+                  @click="openPaymentModal(invoice)"
+                >
+                  Catat Bayar
+                </button>
+
+                <span
+                  v-if="invoice.status === 'paid'"
+                  class="table-subtext"
+                >
+                  Lunas
+                </span>
+              </td>
+            </tr>
+
+            <tr v-if="!isLoading && filteredInvoices.length === 0">
+              <td colspan="8" class="empty-table">
+                Belum ada invoice. Buat invoice baru untuk mulai mencatat piutang.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </article>
 
-    <div v-if="showInvoiceModal" class="modal-backdrop" @click.self="closeInvoiceModal">
-      <form class="modal-card" @submit.prevent="addInvoice">
-        <div class="modal-header"><div><p class="eyebrow">PIUTANG</p><h3>Buat Invoice Baru</h3></div><button type="button" class="modal-close" @click="closeInvoiceModal">×</button></div>
-        <div class="form-grid">
-          <label>Klien<select v-model="invoiceForm.client" required><option value="">Pilih klien</option><option v-for="client in clients" :key="client.id" :value="client.company">{{ client.company }}</option></select></label>
-          <label>Proyek<select v-model="invoiceForm.project" required @change="syncProjectClient"><option value="">Pilih proyek</option><option v-for="project in availableProjects" :key="project.id" :value="project.name">{{ project.name }}</option></select></label>
-          <label>Tanggal Invoice<input v-model="invoiceForm.invoiceDate" type="date" required /></label>
-          <label>Jatuh Tempo<input v-model="invoiceForm.dueDate" type="date" required /></label>
-          <label>Nominal Invoice<input v-model.number="invoiceForm.amount" type="number" min="0" required /></label>
-          <label class="full-width">Keterangan<input v-model="invoiceForm.description" type="text" placeholder="Contoh: Termin pertama proyek" /></label>
+    <div
+      v-if="showInvoiceModal"
+      class="modal-backdrop"
+      @click.self="closeInvoiceModal"
+    >
+      <form class="modal-card invoice-modal" @submit.prevent="createInvoice">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">PIUTANG</p>
+            <h3>Buat Invoice Baru</h3>
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            @click="closeInvoiceModal"
+          >
+            ×
+          </button>
         </div>
-        <div class="modal-actions"><button type="button" class="secondary-button" @click="closeInvoiceModal">Batal</button><button type="submit" class="primary-button">Simpan Draft Invoice</button></div>
+
+        <div class="form-grid">
+          <label>
+            Klien
+            <select
+              v-model="invoiceForm.client_id"
+              required
+              @change="syncClientProject"
+            >
+              <option value="">Pilih klien</option>
+              <option
+                v-for="client in clients"
+                :key="client.id"
+                :value="String(client.id)"
+              >
+                {{ client.company_name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Proyek <span class="optional-label">(opsional)</span>
+            <select
+              v-model="invoiceForm.project_id"
+              @change="syncProjectClient"
+            >
+              <option value="">Tanpa proyek</option>
+              <option
+                v-for="project in availableProjects"
+                :key="project.id"
+                :value="String(project.id)"
+              >
+                {{ project.project_name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Nomor Invoice <span class="optional-label">(otomatis bila kosong)</span>
+            <input
+              v-model="invoiceForm.invoice_number"
+              type="text"
+              placeholder="Contoh: INV/202607/001"
+            />
+          </label>
+
+          <label>
+            Tanggal Invoice
+            <input v-model="invoiceForm.issue_date" type="date" required />
+          </label>
+
+          <label>
+            Jatuh Tempo
+            <input
+              v-model="invoiceForm.due_date"
+              type="date"
+              :min="invoiceForm.issue_date"
+              required
+            />
+          </label>
+
+          <label class="full-width">
+            Catatan <span class="optional-label">(opsional)</span>
+            <input
+              v-model="invoiceForm.notes"
+              type="text"
+              placeholder="Contoh: Termin pertama proyek"
+            />
+          </label>
+        </div>
+
+        <section class="invoice-item-section">
+          <div class="invoice-item-heading">
+            <div>
+              <h4>Item Invoice</h4>
+              <p>Minimal satu item wajib diisi.</p>
+            </div>
+
+            <button type="button" class="secondary-button" @click="addItem">
+              + Tambah Item
+            </button>
+          </div>
+
+          <div
+            v-for="(item, index) in invoiceForm.items"
+            :key="index"
+            class="invoice-item-row"
+          >
+            <label class="item-description">
+              Deskripsi
+              <input
+                v-model="item.description"
+                type="text"
+                placeholder="Contoh: Jasa desain dashboard"
+                required
+              />
+            </label>
+
+            <label>
+              Qty
+              <input
+                v-model.number="item.quantity"
+                type="number"
+                min="1"
+                step="1"
+                required
+              />
+            </label>
+
+            <label>
+              Harga Satuan
+              <input
+                v-model.number="item.unit_price"
+                type="number"
+                min="1"
+                required
+              />
+            </label>
+
+            <div class="item-total">
+              <span>Total</span>
+              <strong>
+                {{ formatCurrency(numberValue(item.quantity) * numberValue(item.unit_price)) }}
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              class="remove-item-button"
+              :disabled="invoiceForm.items.length === 1"
+              @click="removeItem(index)"
+            >
+              ×
+            </button>
+          </div>
+
+          <div class="invoice-grand-total">
+            <span>Total Invoice</span>
+            <strong>{{ formatCurrency(invoiceTotal) }}</strong>
+          </div>
+        </section>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="isSaving"
+            @click="closeInvoiceModal"
+          >
+            Batal
+          </button>
+
+          <button type="submit" class="primary-button" :disabled="isSaving">
+            {{ isSaving ? 'Menyimpan...' : 'Simpan Draft Invoice' }}
+          </button>
+        </div>
       </form>
     </div>
 
-    <div v-if="showPaymentModal" class="modal-backdrop" @click.self="closePaymentModal">
+    <div
+      v-if="showPaymentModal"
+      class="modal-backdrop"
+      @click.self="closePaymentModal"
+    >
       <form class="modal-card" @submit.prevent="savePayment">
-        <div class="modal-header"><div><p class="eyebrow">PELUNASAN PIUTANG</p><h3>Catat Pembayaran Klien</h3></div><button type="button" class="modal-close" @click="closePaymentModal">×</button></div>
-        <div class="form-grid">
-          <label class="full-width">Invoice<select v-model.number="paymentForm.invoiceId" required><option value="">Pilih invoice</option><option v-for="invoice in invoiceList.filter((item) => item.status !== 'Draft' && item.status !== 'Paid' && getOutstanding(item) > 0)" :key="invoice.id" :value="invoice.id">{{ invoice.invoiceNumber }} — {{ invoice.client }}</option></select></label>
-          <label>Sumber Kas<select v-model="paymentForm.cashSource"><option>Bank BCA</option><option>Kas</option></select></label>
-          <label>Tanggal Bayar<input v-model="paymentForm.paymentDate" type="date" :max="today" required /></label>
-          <label class="full-width">Nominal Dibayar<input v-model.number="paymentForm.amount" type="number" min="0" :max="selectedPaymentInvoice ? getOutstanding(selectedPaymentInvoice) : 0" required /></label>
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">PELUNASAN PIUTANG</p>
+            <h3>Catat Pembayaran Klien</h3>
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            @click="closePaymentModal"
+          >
+            ×
+          </button>
         </div>
-        <div v-if="selectedPaymentInvoice" class="payment-summary"><p>Klien: <strong>{{ selectedPaymentInvoice.client }}</strong></p><p>Sisa piutang: <strong>{{ formatCurrency(getOutstanding(selectedPaymentInvoice)) }}</strong></p></div>
-        <div class="modal-actions"><button type="button" class="secondary-button" @click="closePaymentModal">Batal</button><button type="submit" class="primary-button">Simpan Pelunasan</button></div>
+
+        <div class="form-grid">
+          <label class="full-width">
+            Invoice
+            <select v-model="paymentForm.invoice_id" required>
+              <option value="">Pilih invoice</option>
+              <option
+                v-for="invoice in invoices.filter((item) => ['unpaid', 'partial', 'overdue'].includes(item.display_status || item.status) && numberValue(item.outstanding_amount) > 0)"
+                :key="invoice.id"
+                :value="String(invoice.id)"
+              >
+                {{ invoice.invoice_number }} — {{ invoice.client_name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Akun Penerimaan
+            <select v-model="paymentForm.cash_account_id" required>
+              <option value="">Pilih Kas/Bank</option>
+              <option
+                v-for="account in cashAccounts"
+                :key="account.id"
+                :value="String(account.id)"
+              >
+                {{ account.code }} — {{ account.name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Metode Pembayaran
+            <select v-model="paymentForm.payment_method">
+              <option>Transfer Bank</option>
+              <option>Tunai</option>
+              <option>Virtual Account</option>
+              <option>QRIS</option>
+            </select>
+          </label>
+
+          <label>
+            Tanggal Pembayaran
+            <input
+              v-model="paymentForm.payment_date"
+              type="date"
+              required
+            />
+          </label>
+
+          <label>
+            Nominal Dibayar
+            <input
+              v-model.number="paymentForm.amount"
+              type="number"
+              min="1"
+              :max="paymentOutstanding"
+              required
+            />
+          </label>
+
+          <label class="full-width">
+            Nomor Referensi <span class="optional-label">(opsional)</span>
+            <input
+              v-model="paymentForm.reference_number"
+              type="text"
+              placeholder="Contoh: TRF-20260702-001"
+            />
+          </label>
+
+          <label class="full-width">
+            Catatan <span class="optional-label">(opsional)</span>
+            <input
+              v-model="paymentForm.notes"
+              type="text"
+              placeholder="Keterangan pembayaran"
+            />
+          </label>
+        </div>
+
+        <div v-if="selectedPaymentInvoice" class="payment-summary">
+          <p>
+            Klien:
+            <strong>{{ selectedPaymentInvoice.client_name }}</strong>
+          </p>
+          <p>
+            Sisa piutang:
+            <strong>{{ formatCurrency(paymentOutstanding) }}</strong>
+          </p>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="isSaving"
+            @click="closePaymentModal"
+          >
+            Batal
+          </button>
+
+          <button type="submit" class="primary-button" :disabled="isSaving">
+            {{ isSaving ? 'Menyimpan...' : 'Simpan Pelunasan' }}
+          </button>
+        </div>
       </form>
     </div>
   </section>
 </template>
+
+<style scoped>
+.receivable-message {
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+
+.error-message {
+  border: 1px solid #f3c7c7;
+  background: #fff6f6;
+  color: #a84343;
+}
+
+.success-message {
+  border: 1px solid #bfe8d0;
+  background: #f1fff6;
+  color: #23774b;
+}
+
+.aging-panel {
+  margin-top: 18px;
+}
+
+.aging-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aging-item {
+  border: 1px solid #e4eaf3;
+  border-radius: 10px;
+  padding: 13px;
+  background: #fbfdff;
+}
+
+.aging-item span,
+.aging-item strong {
+  display: block;
+}
+
+.aging-item span {
+  color: #8092ab;
+  font-size: 11px;
+}
+
+.aging-item strong {
+  margin-top: 7px;
+  color: #163b63;
+  font-size: 14px;
+}
+
+.action-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.danger-action {
+  border-color: #f2c7c7;
+  color: #b34c4c;
+}
+
+.invoice-modal {
+  width: min(960px, calc(100vw - 32px));
+}
+
+.optional-label {
+  color: #8d9cb3;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.invoice-item-section {
+  margin-top: 18px;
+  border-top: 1px solid #e6edf5;
+  padding-top: 16px;
+}
+
+.invoice-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.invoice-item-heading h4 {
+  margin: 0;
+  color: #183d66;
+  font-size: 14px;
+}
+
+.invoice-item-heading p {
+  margin: 4px 0 0;
+  color: #8293ab;
+  font-size: 11px;
+}
+
+.invoice-item-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.8fr) 76px minmax(130px, 1fr) minmax(130px, 1fr) 30px;
+  align-items: end;
+  gap: 10px;
+  margin-top: 10px;
+  border-radius: 10px;
+  padding: 11px;
+  background: #f7faff;
+}
+
+.invoice-item-row label {
+  display: grid;
+  gap: 6px;
+  color: #58708e;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.invoice-item-row input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #dbe5f0;
+  border-radius: 7px;
+  padding: 9px 10px;
+  outline: none;
+}
+
+.item-total {
+  padding-bottom: 9px;
+}
+
+.item-total span,
+.item-total strong {
+  display: block;
+}
+
+.item-total span {
+  color: #8797ad;
+  font-size: 10px;
+}
+
+.item-total strong {
+  margin-top: 5px;
+  color: #163b63;
+  font-size: 12px;
+}
+
+.remove-item-button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #f0c8c8;
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #bd5656;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.remove-item-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.invoice-grand-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  border-radius: 8px;
+  padding: 13px;
+  background: #eaf5ff;
+  color: #16416c;
+}
+
+.invoice-grand-total strong {
+  font-size: 15px;
+}
+
+@media (max-width: 860px) {
+  .aging-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invoice-item-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .invoice-item-row .item-description {
+    grid-column: 1 / -1;
+  }
+
+  .item-total {
+    padding-bottom: 0;
+  }
+
+  .remove-item-button {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 560px) {
+  .aging-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-item-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .invoice-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-item-row .item-description {
+    grid-column: auto;
+  }
+}
+</style>

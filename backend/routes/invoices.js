@@ -726,9 +726,17 @@ router.post('/:id/issue', async (req, res) => {
       'asset',
     )
 
-    const revenueAccount = req.body.revenue_account_id
-      ? await findAccountById(connection, req.body.revenue_account_id, 'revenue')
-      : await findAccountByCode(connection, DEFAULT_REVENUE_ACCOUNT_CODE, 'revenue')
+    // Tombol Terbitkan dari Vue tidak mengirim body.
+    // Karena itu req.body bisa undefined, sehingga harus dibuat aman.
+    const revenueAccountId = req.body?.revenue_account_id
+
+    const revenueAccount = revenueAccountId
+      ? await findAccountById(connection, revenueAccountId, 'revenue')
+      : await findAccountByCode(
+          connection,
+          DEFAULT_REVENUE_ACCOUNT_CODE,
+          'revenue',
+        )
 
     if (!receivableAccount) {
       throw new Error(`Akun Piutang Usaha dengan kode ${AR_ACCOUNT_CODE} tidak ditemukan.`)
