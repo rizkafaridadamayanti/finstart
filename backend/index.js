@@ -3,6 +3,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
+const clientsRouter = require('./routes/clients')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -34,6 +35,8 @@ app.get('/api/health', async (req, res) => {
     })
   }
 })
+
+app.use('/api/clients', clientsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
