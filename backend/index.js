@@ -3,6 +3,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
+
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
 
@@ -11,12 +12,13 @@ const positionsRouter = require('./routes/positions')
 const employeesRouter = require('./routes/employees')
 const bpjsConfigRouter = require('./routes/bpjs-config')
 const companySettingsRouter = require('./routes/company-settings')
+const payrollRouter = require('./routes/payroll')
 
 const app = express()
 const PORT = process.env.PORT || 4000
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 }))
 
 app.use(express.json())
@@ -51,6 +53,8 @@ app.use('/api/positions', positionsRouter)
 app.use('/api/employees', employeesRouter)
 app.use('/api/bpjs-config', bpjsConfigRouter)
 app.use('/api/company-settings', companySettingsRouter)
+
+app.use('/api/payroll', payrollRouter)
 
 app.use((req, res) => {
   res.status(404).json({

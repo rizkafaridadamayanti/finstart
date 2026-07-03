@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { masterDataApi } from '@/services/masterDataApi'
 import { useEmployeeMasterData } from '@/composables/useEmployeeMasterData'
+import { payrollApi } from '@/services/payrollApi'
 
 const {
   employees,
@@ -29,8 +30,20 @@ const showEmployeeModal = ref(false)
 const showPayrollModal = ref(false)
 const selectedEmployee = ref(null)
 const isSavingBpjs = ref(false)
+const isProcessingPayroll = ref(false)
+const payrollCashAccounts = ref([])
+const payrollForm = ref(emptyPayrollForm())
 
 const bpjsForm = ref(emptyBpjsForm())
+
+function emptyPayrollForm() {
+  return {
+    payroll_period: new Date().toISOString().slice(0, 7),
+    payment_date: new Date().toISOString().slice(0, 10),
+    cash_account_id: '',
+    notes: '',
+  }
+}
 
 function emptyBpjsForm() {
   return {
@@ -213,14 +226,80 @@ async function submitEmployee() {
   }
 }
 
-function openPayrollModal(employee) {
+async function openPayrollModal(employee) {
+  errorMessage.value = ''
+  successMessage.value = ''
   selectedEmployee.value = employee
+  payrollForm.value = emptyPayrollForm()
   showPayrollModal.value = true
+
+  try {
+    payrollCashAccounts.value = await payrollApi.getCashAccounts()
+    const defaultAccount = payrollCashAccounts.value.find(
+      (account) => String(account.code) === '1120',
+    ) || payrollCashAccounts.value[0]
+
+    payrollForm.value.cash_account_id = defaultAccount
+      ? String(defaultAccount.id)
+      : ''
+  } catch (error) {
+    errorMessage.value =
+      error?.response?.data?.message ||
+      'Gagal mengambil akun Kas/Bank untuk pembayaran payroll.'
+  }
 }
 
 function closePayrollModal() {
   selectedEmployee.value = null
+  payrollForm.value = emptyPayrollForm()
   showPayrollModal.value = false
+}
+
+async function processPayroll() {
+  if (!selectedEmployee.value) return
+
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  if (!payrollForm.value.payroll_period || !payrollForm.value.payment_date) {
+    errorMessage.value = 'Periode payroll dan tanggal pembayaran wajib diisi.'
+    return
+  }
+
+  if (!payrollForm.value.cash_account_id) {
+    errorMessage.value = 'Pilih akun Kas atau Bank untuk pembayaran payroll.'
+    return
+  }
+
+  const confirmed = window.confirm(
+    `Catat payroll ${selectedEmployee.value.full_name} untuk periode ${payrollForm.value.payroll_period}?\n\nSistem akan membuat jurnal otomatis: Beban Gaji, Beban BPJS Perusahaan, Bank, dan Utang BPJS.`,
+  )
+
+  if (!confirmed) return
+
+  isProcessingPayroll.value = true
+
+  try {
+    const payroll = await payrollApi.process({
+      employee_id: Number(selectedEmployee.value.id),
+      payroll_period: payrollForm.value.payroll_period,
+      payment_date: payrollForm.value.payment_date,
+      cash_account_id: Number(payrollForm.value.cash_account_id),
+      notes: payrollForm.value.notes,
+    })
+
+    successMessage.value =
+      `Payroll berhasil diposting. Voucher jurnal: ${payroll?.voucher_number || '-'}.`
+
+    closePayrollModal()
+    await loadMasterData()
+  } catch (error) {
+    errorMessage.value =
+      error?.response?.data?.message ||
+      'Gagal memproses payroll.'
+  } finally {
+    isProcessingPayroll.value = false
+  }
 }
 
 async function toggleEmployeeStatus(employee) {
@@ -518,10 +597,6 @@ async function saveBpjs() {
           </button>
         </div>
 
-        <article v-if="errorMessage" class="receivable-message error-message">
-          {{ errorMessage }}
-        </article>
-        
         <div class="form-grid">
           <label>
             Kode Pegawai <span class="optional-label">(otomatis bila kosong)</span>
@@ -729,12 +804,54 @@ async function saveBpjs() {
           </div>
         </div>
 
+        <div class="form-grid payroll-form-grid">
+          <label>
+            Periode Payroll
+            <input v-model="payrollForm.payroll_period" type="month" required />
+          </label>
+
+          <label>
+            Tanggal Pembayaran
+            <input v-model="payrollForm.payment_date" type="date" required />
+          </label>
+
+          <label class="full-width">
+            Akun Pembayaran
+            <select v-model="payrollForm.cash_account_id" required>
+              <option value="">Pilih Kas/Bank</option>
+              <option
+                v-for="account in payrollCashAccounts"
+                :key="account.id"
+                :value="String(account.id)"
+              >
+                {{ account.code }} — {{ account.name }}
+              </option>
+            </select>
+          </label>
+
+          <label class="full-width">
+            Catatan <span class="optional-label">(opsional)</span>
+            <input
+              v-model="payrollForm.notes"
+              type="text"
+              placeholder="Contoh: Payroll bulan berjalan"
+            />
+          </label>
+        </div>
+
         <p class="payroll-note">
-          Ini adalah simulasi dari master pegawai dan konfigurasi BPJS database. Pencatatan jurnal payroll belum dilakukan karena endpoint payroll belum dibuat.
+          Catat payroll akan menyimpan payroll ke database dan membuat jurnal otomatis: Debit Beban Gaji, Debit Beban BPJS Perusahaan, Kredit Kas/Bank, serta Kredit Utang BPJS. PPh 21 belum dihitung pada proses ini.
         </p>
 
         <div class="modal-actions">
-          <button class="secondary-button" @click="closePayrollModal">Tutup</button>
+          <button class="secondary-button" :disabled="isProcessingPayroll" @click="closePayrollModal">Tutup</button>
+          <button
+            class="primary-button"
+            :disabled="isProcessingPayroll || selectedEmployee.employment_status !== 'active'"
+            @click="processPayroll"
+          >
+            {{ isProcessingPayroll ? 'Memproses...' : 'Catat Payroll' }}
+          </button>
         </div>
       </article>
     </div>
@@ -762,5 +879,8 @@ async function saveBpjs() {
   color: #8d9cb3;
   font-size: 10px;
   font-weight: 500;
+}
+.payroll-form-grid {
+  margin-top: 16px;
 }
 </style>
