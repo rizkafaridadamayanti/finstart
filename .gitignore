@@ -143,3 +143,4 @@ vite.config.ts.timestamp-*
 .vite/
 backup_finstart_db_sebelum_master_data.sql
 backup_finstart_db_sebelum_payroll.sql
+backup_finstart_db_sebelum_payroll.sql
