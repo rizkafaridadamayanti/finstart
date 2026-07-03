@@ -1,13 +1,18 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { useFinanceStore } from '../stores/financeStore'
+import { useCompanySettings } from '@/composables/useCompanySettings'
 
-const financeStore = useFinanceStore()
 const activeTab = ref('company')
 
-const companyForm = ref({ ...financeStore.companySettings })
-
-const securityForm = ref({ ...financeStore.securitySettings })
+const {
+  companyForm,
+  isLoading,
+  isSavingCompany,
+  errorMessage,
+  successMessage,
+  loadSettings,
+  saveCompanySettings,
+} = useCompanySettings()
 
 const passwordForm = ref({
   currentPassword: '',
@@ -15,36 +20,23 @@ const passwordForm = ref({
   confirmPassword: '',
 })
 
-const userList = computed(() => financeStore.accessUsers)
-const showUserModal = ref(false)
-
-const userForm = ref({
-  name: '',
-  email: '',
-  role: 'Finance Staff',
+const fiscalYearText = computed(() => {
+  const year = Number(companyForm.value.fiscal_year)
+  return Number.isFinite(year) ? `Tahun buku ${year}` : 'Tahun buku belum diatur'
 })
 
-const activeUsers = computed(() => {
-  return userList.value.filter((user) => user.status === 'Aktif').length
-})
-
-function saveCompanyProfile() {
+async function saveCompanyProfile() {
   if (
-    !companyForm.value.entityName.trim() ||
-    !companyForm.value.email.trim() ||
-    !companyForm.value.baseCurrency
+    !String(companyForm.value.company_name || '').trim() ||
+    !String(companyForm.value.email || '').trim() ||
+    !companyForm.value.currency ||
+    !companyForm.value.fiscal_year
   ) {
-    alert('Nama perusahaan, email, dan mata uang utama wajib diisi.')
+    errorMessage.value = 'Nama perusahaan, email, mata uang, dan tahun buku wajib diisi.'
     return
   }
 
-  financeStore.updateCompanySettings(companyForm.value)
-  alert('Profil perusahaan berhasil disimpan dan akan tetap tersimpan setelah refresh.')
-}
-
-function saveSecuritySettings() {
-  financeStore.updateSecuritySettings(securityForm.value)
-  alert('Pengaturan keamanan berhasil disimpan.')
+  await saveCompanySettings()
 }
 
 function changePassword() {
@@ -53,17 +45,17 @@ function changePassword() {
     !passwordForm.value.newPassword ||
     !passwordForm.value.confirmPassword
   ) {
-    alert('Lengkapi seluruh data kata sandi.')
+    window.alert('Lengkapi seluruh data kata sandi.')
     return
   }
 
   if (passwordForm.value.newPassword.length < 8) {
-    alert('Kata sandi baru minimal terdiri dari 8 karakter.')
+    window.alert('Kata sandi baru minimal terdiri dari 8 karakter.')
     return
   }
 
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    alert('Konfirmasi kata sandi belum sama.')
+    window.alert('Konfirmasi kata sandi belum sama.')
     return
   }
 
@@ -73,51 +65,9 @@ function changePassword() {
     confirmPassword: '',
   }
 
-  alert('Prototype: kata sandi berhasil diperbarui.')
-}
-
-function openUserModal() {
-  userForm.value = {
-    name: '',
-    email: '',
-    role: 'Finance Staff',
-  }
-
-  showUserModal.value = true
-}
-
-function closeUserModal() {
-  showUserModal.value = false
-}
-
-function addUser() {
-  if (!userForm.value.name.trim() || !userForm.value.email.trim()) {
-    alert('Nama dan email pengguna wajib diisi.')
-    return
-  }
-
-  const result = financeStore.addAccessUser({
-    name: userForm.value.name,
-    email: userForm.value.email,
-    role: userForm.value.role,
-  })
-
-  if (!result.ok) {
-    alert(result.message)
-    return
-  }
-
-  closeUserModal()
-  alert('Pengguna baru berhasil ditambahkan.')
-}
-
-function toggleUserStatus(user) {
-  if (user.role === 'Owner') {
-    alert('Akun Owner tidak dapat dinonaktifkan.')
-    return
-  }
-
-  financeStore.toggleAccessUserStatus(user.id)
+  window.alert(
+    'Fitur ubah kata sandi membutuhkan API autentikasi khusus. Data tidak disimpan ke localStorage.',
+  )
 }
 </script>
 
@@ -128,7 +78,7 @@ function toggleUserStatus(user) {
         <p class="eyebrow">SYSTEM SETTINGS</p>
         <h1>Settings</h1>
         <p>
-          Kelola profil perusahaan, tahun fiskal, keamanan, dan akses pengguna.
+          Kelola profil perusahaan, tahun buku, keamanan, dan akses pengguna.
         </p>
       </div>
     </div>
@@ -151,6 +101,14 @@ function toggleUserStatus(user) {
       </button>
     </div>
 
+    <article v-if="errorMessage" class="receivable-message error-message">
+      {{ errorMessage }}
+    </article>
+
+    <article v-if="successMessage" class="receivable-message success-message">
+      {{ successMessage }}
+    </article>
+
     <template v-if="activeTab === 'company'">
       <div class="settings-layout">
         <article class="panel">
@@ -159,6 +117,15 @@ function toggleUserStatus(user) {
               <h3>Profil Entitas Perusahaan</h3>
               <p>Informasi utama perusahaan yang digunakan pada dokumen keuangan.</p>
             </div>
+
+            <button
+              type="button"
+              class="table-action"
+              :disabled="isLoading"
+              @click="loadSettings"
+            >
+              {{ isLoading ? 'Memuat...' : 'Refresh' }}
+            </button>
           </div>
 
           <form @submit.prevent="saveCompanyProfile">
@@ -166,7 +133,7 @@ function toggleUserStatus(user) {
               <label>
                 Nama Entitas
                 <input
-                  v-model="companyForm.entityName"
+                  v-model="companyForm.company_name"
                   type="text"
                   placeholder="Nama perusahaan"
                   required
@@ -174,11 +141,11 @@ function toggleUserStatus(user) {
               </label>
 
               <label>
-                Jenis Bisnis
+                URL Logo <span class="optional-label">(opsional)</span>
                 <input
-                  v-model="companyForm.businessType"
-                  type="text"
-                  placeholder="Contoh: Startup Teknologi"
+                  v-model="companyForm.logo_url"
+                  type="url"
+                  placeholder="https://contoh.id/logo.png"
                 />
               </label>
 
@@ -212,7 +179,7 @@ function toggleUserStatus(user) {
 
               <label>
                 Mata Uang Utama
-                <select v-model="companyForm.baseCurrency">
+                <select v-model="companyForm.currency">
                   <option>IDR</option>
                   <option>USD</option>
                   <option>SGD</option>
@@ -220,12 +187,50 @@ function toggleUserStatus(user) {
               </label>
 
               <label>
-                Tahun Fiskal
-                <select v-model="companyForm.fiscalYear">
-                  <option>Januari - Desember</option>
-                  <option>April - Maret</option>
-                  <option>Juli - Juni</option>
-                </select>
+                Tahun Buku
+                <input
+                  v-model.number="companyForm.fiscal_year"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  required
+                />
+              </label>
+
+              <label>
+                Kota <span class="optional-label">(opsional)</span>
+                <input
+                  v-model="companyForm.city"
+                  type="text"
+                  placeholder="Contoh: Yogyakarta"
+                />
+              </label>
+
+              <label>
+                Provinsi <span class="optional-label">(opsional)</span>
+                <input
+                  v-model="companyForm.province"
+                  type="text"
+                  placeholder="Contoh: DI Yogyakarta"
+                />
+              </label>
+
+              <label>
+                Kode Pos <span class="optional-label">(opsional)</span>
+                <input
+                  v-model="companyForm.postal_code"
+                  type="text"
+                  placeholder="Contoh: 55281"
+                />
+              </label>
+
+              <label class="full-width">
+                Website <span class="optional-label">(opsional)</span>
+                <input
+                  v-model="companyForm.website"
+                  type="url"
+                  placeholder="https://perusahaan.id"
+                />
               </label>
 
               <label class="full-width">
@@ -239,8 +244,8 @@ function toggleUserStatus(user) {
             </div>
 
             <div class="modal-actions">
-              <button type="submit" class="primary-button">
-                Simpan Profil Perusahaan
+              <button type="submit" class="primary-button" :disabled="isSavingCompany">
+                {{ isSavingCompany ? 'Menyimpan...' : 'Simpan Profil Perusahaan' }}
               </button>
             </div>
           </form>
@@ -248,17 +253,17 @@ function toggleUserStatus(user) {
 
         <aside class="settings-info-card">
           <p class="eyebrow">INFORMASI SISTEM</p>
-          <h3>FinStart Accounting</h3>
+          <h3>{{ companyForm.company_name || 'FinStart Accounting' }}</h3>
 
           <div class="settings-info-list">
             <div>
               <span>Mata Uang</span>
-              <strong>{{ companyForm.baseCurrency }}</strong>
+              <strong>{{ companyForm.currency || 'IDR' }}</strong>
             </div>
 
             <div>
               <span>Tahun Fiskal</span>
-              <strong>{{ companyForm.fiscalYear }}</strong>
+              <strong>{{ fiscalYearText }}</strong>
             </div>
 
             <div>
@@ -268,8 +273,8 @@ function toggleUserStatus(user) {
           </div>
 
           <p class="settings-note">
-            Data prototype tersimpan pada browser menggunakan localStorage.
-            Backend/database dapat ditambahkan pada tahap berikutnya.
+            Profil perusahaan disimpan pada database MySQL melalui API FinStart,
+            bukan pada browser atau localStorage.
           </p>
         </aside>
       </div>
@@ -278,21 +283,21 @@ function toggleUserStatus(user) {
     <template v-else>
       <div class="security-metrics">
         <article class="security-stat">
-          <p>Pengguna Aktif</p>
-          <h2>{{ activeUsers }} Pengguna</h2>
-          <small>Akun yang masih dapat masuk ke sistem</small>
+          <p>Pengaturan Keamanan</p>
+          <h2>Belum Terhubung</h2>
+          <small>Memerlukan endpoint autentikasi dan manajemen pengguna</small>
         </article>
 
         <article class="security-stat">
           <p>Autentikasi Dua Faktor</p>
-          <h2>{{ securityForm.twoFactor ? 'Aktif' : 'Nonaktif' }}</h2>
-          <small>Lapisan keamanan akun tambahan</small>
+          <h2>Belum Diatur</h2>
+          <small>Belum disimpan agar tidak menjadi data browser semu</small>
         </article>
 
         <article class="security-stat">
-          <p>Batas Sesi Login</p>
-          <h2>{{ securityForm.sessionTimeout }} Menit</h2>
-          <small>Pengguna perlu login kembali setelah sesi berakhir</small>
+          <p>Manajemen Akses</p>
+          <h2>Backend Terpisah</h2>
+          <small>Gunakan API users/roles saat modul autentikasi tersedia</small>
         </article>
       </div>
 
@@ -301,52 +306,35 @@ function toggleUserStatus(user) {
           <div class="panel-header">
             <div>
               <h3>Keamanan Akun</h3>
-              <p>Atur keamanan dasar pada aplikasi FinStart.</p>
+              <p>Pengaturan keamanan tidak lagi menggunakan financeStore atau localStorage.</p>
             </div>
           </div>
 
           <div class="security-option">
             <div>
               <strong>Autentikasi Dua Faktor</strong>
-              <p>Tambahkan verifikasi tambahan ketika pengguna login.</p>
+              <p>Fitur ini membutuhkan konfigurasi dari backend autentikasi.</p>
             </div>
 
-            <label class="switch">
-              <input v-model="securityForm.twoFactor" type="checkbox" />
-              <span></span>
-            </label>
+            <span class="account-type">Menunggu API</span>
           </div>
 
           <div class="security-option">
             <div>
               <strong>Notifikasi Login</strong>
-              <p>Kirim notifikasi ketika ada login dari perangkat baru.</p>
+              <p>Fitur ini membutuhkan pencatatan perangkat dan notifikasi server.</p>
             </div>
 
-            <label class="switch">
-              <input v-model="securityForm.loginAlert" type="checkbox" />
-              <span></span>
-            </label>
+            <span class="account-type">Menunggu API</span>
           </div>
 
           <div class="security-option">
             <div>
               <strong>Batas Waktu Sesi</strong>
-              <p>Atur durasi sesi pengguna sebelum login ulang.</p>
+              <p>Fitur ini harus diatur dari token/session backend, bukan dari browser.</p>
             </div>
 
-            <select v-model="securityForm.sessionTimeout" class="filter-select">
-              <option value="15">15 Menit</option>
-              <option value="30">30 Menit</option>
-              <option value="60">60 Menit</option>
-              <option value="120">120 Menit</option>
-            </select>
-          </div>
-
-          <div class="modal-actions">
-            <button class="primary-button" @click="saveSecuritySettings">
-              Simpan Keamanan
-            </button>
+            <span class="account-type">Menunggu API</span>
           </div>
         </article>
 
@@ -401,122 +389,38 @@ function toggleUserStatus(user) {
         <div class="panel-header">
           <div>
             <h3>Manajemen Akses Pengguna</h3>
-            <p>Kelola peran dan status pengguna yang dapat mengakses FinStart.</p>
+            <p>Data pengguna dan role belum ditampilkan karena endpoint users belum dibuat.</p>
           </div>
-
-          <button class="primary-button" @click="openUserModal">
-            + Tambah Pengguna
-          </button>
         </div>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Pengguna</th>
-                <th>Email</th>
-                <th>Peran</th>
-                <th>Status</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr v-for="user in userList" :key="user.id">
-                <td>
-                  <strong>{{ user.name }}</strong>
-                </td>
-
-                <td>{{ user.email }}</td>
-
-                <td>
-                  <span class="account-type">{{ user.role }}</span>
-                </td>
-
-                <td>
-                  <span
-                    class="status-badge"
-                    :class="{ danger: user.status === 'Tidak Aktif' }"
-                  >
-                    {{ user.status }}
-                  </span>
-                </td>
-
-                <td>
-                  <button
-                    class="table-action"
-                    @click="toggleUserStatus(user)"
-                  >
-                    {{ user.status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan' }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="empty-table">
+          Modul akses pengguna perlu dihubungkan ke API autentikasi/roles tersendiri.
         </div>
       </article>
     </template>
-
-    <div
-      v-if="showUserModal"
-      class="modal-backdrop"
-      @click.self="closeUserModal"
-    >
-      <form class="modal-card" @submit.prevent="addUser">
-        <div class="modal-header">
-          <div>
-            <p class="eyebrow">AKSES PENGGUNA</p>
-            <h3>Tambah Pengguna Baru</h3>
-          </div>
-
-          <button type="button" class="modal-close" @click="closeUserModal">
-            ×
-          </button>
-        </div>
-
-        <div class="form-grid">
-          <label>
-            Nama Pengguna
-            <input
-              v-model="userForm.name"
-              type="text"
-              placeholder="Contoh: Dinda Lestari"
-              required
-            />
-          </label>
-
-          <label>
-            Email Pengguna
-            <input
-              v-model="userForm.email"
-              type="email"
-              placeholder="dinda@finstart.id"
-              required
-            />
-          </label>
-
-          <label class="full-width">
-            Peran Pengguna
-            <select v-model="userForm.role">
-              <option>Owner</option>
-              <option>Finance Manager</option>
-              <option>Finance Staff</option>
-              <option>Project Manager</option>
-              <option>Viewer</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="secondary-button" @click="closeUserModal">
-            Batal
-          </button>
-
-          <button type="submit" class="primary-button">
-            Simpan Pengguna
-          </button>
-        </div>
-      </form>
-    </div>
   </section>
 </template>
+
+<style scoped>
+.receivable-message {
+  margin-bottom: 16px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+}
+.error-message {
+  border: 1px solid #f3c7c7;
+  background: #fff6f6;
+  color: #a84343;
+}
+.success-message {
+  border: 1px solid #bfe8d0;
+  background: #f1fff6;
+  color: #23774b;
+}
+.optional-label {
+  color: #8d9cb3;
+  font-size: 10px;
+  font-weight: 500;
+}
+</style>

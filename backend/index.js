@@ -6,6 +6,12 @@ const db = require('./config/db')
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
 
+const divisionsRouter = require('./routes/divisions')
+const positionsRouter = require('./routes/positions')
+const employeesRouter = require('./routes/employees')
+const bpjsConfigRouter = require('./routes/bpjs-config')
+const companySettingsRouter = require('./routes/company-settings')
+
 const app = express()
 const PORT = process.env.PORT || 4000
 
@@ -39,6 +45,12 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api/clients', clientsRouter)
 app.use('/api/projects', projectsRouter)
+
+app.use('/api/divisions', divisionsRouter)
+app.use('/api/positions', positionsRouter)
+app.use('/api/employees', employeesRouter)
+app.use('/api/bpjs-config', bpjsConfigRouter)
+app.use('/api/company-settings', companySettingsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
