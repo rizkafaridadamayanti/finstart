@@ -3,14 +3,27 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
+
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
+const accountsRouter = require('./routes/accounts')
+const journalsRouter = require('./routes/journals')
+const journalTransactionsRouter = require('./routes/journal-transactions')
+const dashboardRouter = require('./routes/dashboard')
+const reportsRouter = require('./routes/reports')
+const invoicesRouter = require('./routes/invoices')
+const billsRouter = require('./routes/bills')
+const subscriptionsRouter = require('./routes/subscriptions')
+const taxesRouter = require('./routes/taxes')
+const taxEngineRouter = require('./routes/tax-engine')
+const projectionsRouter = require('./routes/projections')
+const assetsRouter = require('./routes/assets')
 
 const app = express()
 const PORT = process.env.PORT || 4000
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 }))
 
 app.use(express.json())
@@ -39,6 +52,18 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api/clients', clientsRouter)
 app.use('/api/projects', projectsRouter)
+app.use('/api/accounts', accountsRouter)
+app.use('/api/journals', journalsRouter)
+app.use('/api/journal-transactions', journalTransactionsRouter)
+app.use('/api/dashboard', dashboardRouter)
+app.use('/api/reports', reportsRouter)
+app.use('/api/invoices', invoicesRouter)
+app.use('/api/bills', billsRouter)
+app.use('/api/subscriptions', subscriptionsRouter)
+app.use('/api/taxes', taxesRouter)
+app.use('/api/tax-engine', taxEngineRouter)
+app.use('/api/projections', projectionsRouter)
+app.use('/api/assets', assetsRouter)
 
 app.use((req, res) => {
   res.status(404).json({
