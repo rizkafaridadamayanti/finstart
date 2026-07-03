@@ -1,126 +1,391 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useFinanceStore } from '../stores/financeStore'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
 
-const financeStore = useFinanceStore()
-const transactionList = computed(() => financeStore.transactions)
-const accounts = computed(() => financeStore.accounts.filter((account) => account.status === 'Aktif'))
+/*
+  Halaman Transaksi FinStart
+  API yang digunakan:
+  GET    /api/accounts
+  GET    /api/journals
+  GET    /api/journals/:id
+  POST   /api/journals
+  POST   /api/journals/:id/approve
+  POST   /api/journals/:id/post
+  DELETE /api/journals/:id
+*/
 
-const keyword = ref('')
-const showModal = ref(false)
-const selectedTemplate = ref('Jurnal Umum')
-const today = new Date().toISOString().slice(0, 10)
-
-const form = ref({
-  date: today,
-  voucher: '',
-  memo: '',
-  debitLines: [{ accountId: '', amount: 0 }],
-  creditLines: [{ accountId: '', amount: 0 }],
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
 })
 
-const filteredTransactions = computed(() => {
-  const search = keyword.value.toLowerCase()
-  return transactionList.value.filter((transaction) => {
-    return String(transaction.ref || '').toLowerCase().includes(search) ||
-      String(transaction.memo || '').toLowerCase().includes(search) ||
-      String(transaction.status || '').toLowerCase().includes(search)
+const accounts = ref([])
+const journals = ref([])
+
+const keyword = ref('')
+const showJournalModal = ref(false)
+const showDetailModal = ref(false)
+
+const isLoading = ref(false)
+const isSaving = ref(false)
+const pendingAction = ref('')
+const errorMessage = ref('')
+
+const selectedTemplate = ref('Jurnal Umum')
+const selectedJournal = ref(null)
+
+const today = new Date().toISOString().slice(0, 10)
+
+function emptyLine() {
+  return {
+    account_id: '',
+    amount: 0,
+  }
+}
+
+function emptyForm() {
+  return {
+    transaction_date: today,
+    voucher_number: '',
+    description: '',
+    debit_lines: [emptyLine()],
+    credit_lines: [emptyLine()],
+  }
+}
+
+const form = ref(emptyForm())
+
+const activeAccounts = computed(() => {
+  return accounts.value.filter((account) => account.status === 'active')
+})
+
+const filteredJournals = computed(() => {
+  const search = keyword.value.toLowerCase().trim()
+
+  if (!search) return journals.value
+
+  return journals.value.filter((journal) => {
+    return [
+      journal.voucher_number,
+      journal.description,
+      journal.status,
+      journal.transaction_date,
+    ].some((value) => String(value || '').toLowerCase().includes(search))
   })
 })
 
-const debitTotal = computed(() => form.value.debitLines.reduce((total, line) => total + Number(line.amount || 0), 0))
-const creditTotal = computed(() => form.value.creditLines.reduce((total, line) => total + Number(line.amount || 0), 0))
-const isBalanced = computed(() => debitTotal.value > 0 && debitTotal.value === creditTotal.value)
+const debitTotal = computed(() => {
+  return form.value.debit_lines.reduce((total, line) => {
+    return total + Number(line.amount || 0)
+  }, 0)
+})
+
+const creditTotal = computed(() => {
+  return form.value.credit_lines.reduce((total, line) => {
+    return total + Number(line.amount || 0)
+  }, 0)
+})
+
+const isBalanced = computed(() => {
+  return (
+    debitTotal.value > 0 &&
+    creditTotal.value > 0 &&
+    Math.abs(debitTotal.value - creditTotal.value) < 0.01
+  )
+})
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0))
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0))
 }
 
-function formatDate(date) {
-  if (!date) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${date}T00:00:00`))
+function formatDate(value) {
+  if (!value) return '-'
+
+  const dateText = String(value).slice(0, 10)
+  const [year, month, day] = dateText.split('-')
+
+  if (!year || !month || !day) return '-'
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(Number(year), Number(month) - 1, Number(day)))
+}
+
+function statusLabel(status) {
+  const labels = {
+    draft: 'Draft',
+    approved: 'Disetujui',
+    posted: 'Diposting',
+    rejected: 'Ditolak',
+  }
+
+  return labels[status] || status || '-'
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error?.response?.data?.message || fallbackMessage
 }
 
 function getNewVoucher() {
-  return `JRN/${new Date().getFullYear()}/${String(transactionList.value.length + 1).padStart(3, '0')}`
+  const [year, month, day] = today.split('-')
+  const sequence = String(journals.value.length + 1).padStart(3, '0')
+
+  return `JV-${year}${month}${day}-${sequence}`
 }
 
-function openModal() {
-  selectedTemplate.value = 'Jurnal Umum'
-  form.value = {
-    date: today,
-    voucher: getNewVoucher(),
-    memo: '',
-    debitLines: [{ accountId: '', amount: 0 }],
-    creditLines: [{ accountId: '', amount: 0 }],
+function findAccountIdByCode(code) {
+  return activeAccounts.value.find((account) => account.code === code)?.id || ''
+}
+
+async function loadData() {
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const [accountResponse, journalResponse] = await Promise.all([
+      api.get('/accounts'),
+      api.get('/journals'),
+    ])
+
+    accounts.value = accountResponse.data.data || []
+    journals.value = journalResponse.data.data || []
+  } catch (error) {
+    errorMessage.value = getErrorMessage(
+      error,
+      'Gagal mengambil data. Pastikan backend Node.js berjalan di http://localhost:4000.',
+    )
+  } finally {
+    isLoading.value = false
   }
-  showModal.value = true
 }
 
-function closeModal() {
-  showModal.value = false
+function openJournalModal() {
+  selectedTemplate.value = 'Jurnal Umum'
+
+  form.value = {
+    transaction_date: today,
+    voucher_number: getNewVoucher(),
+    description: '',
+    debit_lines: [emptyLine()],
+    credit_lines: [emptyLine()],
+  }
+
+  showJournalModal.value = true
+}
+
+function closeJournalModal() {
+  showJournalModal.value = false
+  form.value = emptyForm()
 }
 
 function applyTemplate() {
-  const bankAccount = accounts.value.find((account) => account.code === '1102')
-  const expenseAccount = accounts.value.find((account) => account.code === '5101')
-  const revenueAccount = accounts.value.find((account) => account.code === '4101')
+  const cashAccount = findAccountIdByCode('1110')
+  const bankAccount = findAccountIdByCode('1120') || cashAccount
+  const revenueAccount = findAccountIdByCode('4100')
+  const salaryExpenseAccount = findAccountIdByCode('5100')
+  const operatingExpenseAccount = findAccountIdByCode('5200')
+  const ownerCapitalAccount = findAccountIdByCode('3100')
+
+  if (selectedTemplate.value === 'Setoran Modal') {
+    form.value.description = 'Setoran modal awal perusahaan'
+    form.value.debit_lines = [{ account_id: cashAccount, amount: 0 }]
+    form.value.credit_lines = [{ account_id: ownerCapitalAccount, amount: 0 }]
+    return
+  }
 
   if (selectedTemplate.value === 'Pendapatan') {
-    form.value.memo = 'Penerimaan pendapatan jasa'
-    form.value.debitLines = [{ accountId: bankAccount?.id || '', amount: 0 }]
-    form.value.creditLines = [{ accountId: revenueAccount?.id || '', amount: 0 }]
-  } else if (selectedTemplate.value === 'Bayar Gaji') {
-    form.value.memo = 'Pembayaran gaji pegawai'
-    form.value.debitLines = [{ accountId: expenseAccount?.id || '', amount: 0 }]
-    form.value.creditLines = [{ accountId: bankAccount?.id || '', amount: 0 }]
-  } else if (selectedTemplate.value === 'Langganan') {
-    form.value.memo = 'Pembayaran langganan digital'
-    form.value.debitLines = [{ accountId: expenseAccount?.id || '', amount: 0 }]
-    form.value.creditLines = [{ accountId: bankAccount?.id || '', amount: 0 }]
-  } else {
-    form.value.memo = ''
-    form.value.debitLines = [{ accountId: '', amount: 0 }]
-    form.value.creditLines = [{ accountId: '', amount: 0 }]
+    form.value.description = 'Penerimaan pendapatan jasa'
+    form.value.debit_lines = [{ account_id: bankAccount, amount: 0 }]
+    form.value.credit_lines = [{ account_id: revenueAccount, amount: 0 }]
+    return
+  }
+
+  if (selectedTemplate.value === 'Bayar Gaji') {
+    form.value.description = 'Pembayaran gaji pegawai'
+    form.value.debit_lines = [{ account_id: salaryExpenseAccount, amount: 0 }]
+    form.value.credit_lines = [{ account_id: bankAccount, amount: 0 }]
+    return
+  }
+
+  if (selectedTemplate.value === 'Beban Operasional') {
+    form.value.description = 'Pembayaran beban operasional'
+    form.value.debit_lines = [{ account_id: operatingExpenseAccount, amount: 0 }]
+    form.value.credit_lines = [{ account_id: bankAccount, amount: 0 }]
+    return
+  }
+
+  form.value.description = ''
+  form.value.debit_lines = [emptyLine()]
+  form.value.credit_lines = [emptyLine()]
+}
+
+function addDebitLine() {
+  form.value.debit_lines.push(emptyLine())
+}
+
+function addCreditLine() {
+  form.value.credit_lines.push(emptyLine())
+}
+
+function removeDebitLine(index) {
+  if (form.value.debit_lines.length > 1) {
+    form.value.debit_lines.splice(index, 1)
   }
 }
 
-function addDebitLine() { form.value.debitLines.push({ accountId: '', amount: 0 }) }
-function addCreditLine() { form.value.creditLines.push({ accountId: '', amount: 0 }) }
-function removeDebitLine(index) { if (form.value.debitLines.length > 1) form.value.debitLines.splice(index, 1) }
-function removeCreditLine(index) { if (form.value.creditLines.length > 1) form.value.creditLines.splice(index, 1) }
+function removeCreditLine(index) {
+  if (form.value.credit_lines.length > 1) {
+    form.value.credit_lines.splice(index, 1)
+  }
+}
 
-function saveTransaction() {
-  const hasEmptyDebit = form.value.debitLines.some((line) => !line.accountId || Number(line.amount) <= 0)
-  const hasEmptyCredit = form.value.creditLines.some((line) => !line.accountId || Number(line.amount) <= 0)
+function buildJournalLines() {
+  const debitLines = form.value.debit_lines.map((line) => ({
+    account_id: Number(line.account_id),
+    debit: Number(line.amount || 0),
+    credit: 0,
+  }))
 
-  if (!form.value.memo.trim()) return alert('Keterangan memo wajib diisi.')
-  if (hasEmptyDebit || hasEmptyCredit) return alert('Pilih akun dan isi nominal pada setiap baris debit serta kredit.')
-  if (!isBalanced.value) return alert('Total debit harus sama dengan total kredit.')
+  const creditLines = form.value.credit_lines.map((line) => ({
+    account_id: Number(line.account_id),
+    debit: 0,
+    credit: Number(line.amount || 0),
+  }))
 
-  const lines = [
-    ...form.value.debitLines.map((line) => ({ accountId: Number(line.accountId), side: 'Debit', amount: Number(line.amount) })),
-    ...form.value.creditLines.map((line) => ({ accountId: Number(line.accountId), side: 'Credit', amount: Number(line.amount) })),
-  ]
+  return [...debitLines, ...creditLines]
+}
 
-  financeStore.addTransaction({
-    date: form.value.date,
-    ref: form.value.voucher,
-    memo: form.value.memo,
-    amount: debitTotal.value,
-    status: 'Draft',
-    lines,
+function hasInvalidLine(lines) {
+  return lines.some((line) => {
+    return !Number.isInteger(line.account_id) || line.account_id <= 0
   })
-
-  closeModal()
-  alert('Jurnal disimpan sebagai Draft. Klik Posting agar saldo akun, Dashboard, laporan, dan AI diperbarui.')
 }
 
-function postTransaction(transaction) {
-  const result = financeStore.postTransaction(transaction.id)
-  if (!result.ok) return alert(result.message)
-  alert('Jurnal berhasil diposting ke buku besar.')
+async function saveJournal() {
+  const journalLines = buildJournalLines()
+
+  if (!form.value.voucher_number.trim()) {
+    alert('Nomor voucher wajib diisi.')
+    return
+  }
+
+  if (!form.value.description.trim()) {
+    alert('Keterangan jurnal wajib diisi.')
+    return
+  }
+
+  if (hasInvalidLine(journalLines)) {
+    alert('Pilih akun pada setiap baris debit dan kredit.')
+    return
+  }
+
+  if (!isBalanced.value) {
+    alert('Total debit harus sama dengan total kredit.')
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    await api.post('/journals', {
+      voucher_number: form.value.voucher_number.trim(),
+      transaction_date: form.value.transaction_date,
+      description: form.value.description.trim(),
+      lines: journalLines,
+    })
+
+    await loadData()
+    closeJournalModal()
+
+    alert('Jurnal berhasil dibuat sebagai Draft. Setujui lalu posting agar saldo akun berubah.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal membuat jurnal.'))
+  } finally {
+    isSaving.value = false
+  }
 }
+
+async function openJournalDetail(journal) {
+  pendingAction.value = `detail-${journal.id}`
+
+  try {
+    const response = await api.get(`/journals/${journal.id}`)
+    selectedJournal.value = response.data.data
+    showDetailModal.value = true
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal mengambil detail jurnal.'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+  selectedJournal.value = null
+}
+
+async function approveJournal(journal) {
+  if (!confirm(`Setujui jurnal ${journal.voucher_number}?`)) return
+
+  pendingAction.value = `approve-${journal.id}`
+
+  try {
+    const response = await api.post(`/journals/${journal.id}/approve`, {})
+    selectedJournal.value = response.data.data
+
+    await loadData()
+    alert('Jurnal berhasil disetujui.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menyetujui jurnal.'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+async function postJournal(journal) {
+  if (!confirm(`Posting jurnal ${journal.voucher_number}? Saldo akun akan diperbarui.`)) {
+    return
+  }
+
+  pendingAction.value = `post-${journal.id}`
+
+  try {
+    const response = await api.post(`/journals/${journal.id}/post`, {})
+    selectedJournal.value = response.data.data
+
+    await loadData()
+    alert('Jurnal berhasil diposting dan saldo akun sudah diperbarui.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal memposting jurnal.'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+async function deleteJournal(journal) {
+  if (!confirm(`Hapus jurnal draft ${journal.voucher_number}?`)) return
+
+  pendingAction.value = `delete-${journal.id}`
+
+  try {
+    await api.delete(`/journals/${journal.id}`)
+    closeDetailModal()
+
+    await loadData()
+    alert('Jurnal draft berhasil dihapus.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menghapus jurnal.'))
+  } finally {
+    pendingAction.value = ''
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
@@ -129,72 +394,477 @@ function postTransaction(transaction) {
       <div>
         <p class="eyebrow">PENCATATAN KEUANGAN</p>
         <h1>Transaksi</h1>
-        <p>Catat jurnal debit-kredit, simpan Draft, lalu posting untuk memperbarui buku besar dan laporan.</p>
+        <p>Catat jurnal debit-kredit, setujui, lalu posting agar saldo akun diperbarui.</p>
       </div>
-      <button class="primary-button" @click="openModal">+ Entri Jurnal Baru</button>
+
+      <button type="button" class="primary-button" @click="openJournalModal">
+        + Entri Jurnal Baru
+      </button>
     </div>
 
     <div class="module-toolbar">
-      <input v-model="keyword" class="module-search" type="text" placeholder="Cari voucher, memo, atau status..." />
-      <span class="table-count">{{ filteredTransactions.length }} transaksi</span>
+      <input
+        v-model="keyword"
+        class="module-search"
+        type="text"
+        placeholder="Cari voucher, keterangan, atau status..."
+      />
+
+      <span class="table-count">{{ filteredJournals.length }} transaksi</span>
     </div>
 
+    <article v-if="errorMessage" class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>API Belum Terhubung</h3>
+          <p>{{ errorMessage }}</p>
+        </div>
+
+        <button type="button" class="table-action" @click="loadData">
+          Coba Lagi
+        </button>
+      </div>
+    </article>
+
     <article class="panel">
-      <div class="panel-header"><div><h3>Riwayat Transaksi</h3><p>Hanya jurnal Approved yang akan memperbarui saldo pada Buku Besar, Dashboard, laporan, dan AI.</p></div></div>
+      <div class="panel-header">
+        <div>
+          <h3>Riwayat Transaksi</h3>
+          <p>Saldo akun hanya berubah saat jurnal berstatus Diposting.</p>
+        </div>
+      </div>
+
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Tanggal</th><th>Ref. Voucher</th><th>Keterangan Memo</th><th>Nominal</th><th>Status</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Ref. Voucher</th>
+              <th>Keterangan</th>
+              <th>Nominal</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+
           <tbody>
-            <tr v-for="transaction in filteredTransactions" :key="transaction.id">
-              <td>{{ formatDate(transaction.date) }}</td>
-              <td><strong>{{ transaction.ref }}</strong></td>
-              <td>{{ transaction.memo }}</td>
-              <td>{{ formatCurrency(transaction.amount) }}</td>
-              <td><span class="status-badge" :class="{ warning: transaction.status === 'Draft' }">{{ transaction.status }}</span></td>
-              <td>
-                <button v-if="transaction.status === 'Draft'" class="table-action" @click="postTransaction(transaction)">Posting</button>
-                <span v-else class="table-subtext">Diposting</span>
+            <tr v-if="isLoading">
+              <td colspan="6" class="empty-table">
+                Memuat data jurnal...
               </td>
             </tr>
-            <tr v-if="filteredTransactions.length === 0"><td colspan="6" class="empty-table">Transaksi tidak ditemukan.</td></tr>
+
+            <tr v-else v-for="journal in filteredJournals" :key="journal.id">
+              <td>{{ formatDate(journal.transaction_date) }}</td>
+
+              <td>
+                <strong>{{ journal.voucher_number }}</strong>
+              </td>
+
+              <td>{{ journal.description || '-' }}</td>
+
+              <td>{{ formatCurrency(journal.total_debit) }}</td>
+
+              <td>
+                <span
+                  class="status-badge"
+                  :class="{
+                    warning: journal.status === 'draft',
+                    danger: journal.status === 'rejected',
+                  }"
+                >
+                  {{ statusLabel(journal.status) }}
+                </span>
+              </td>
+
+              <td>
+                <button
+                  type="button"
+                  class="table-action"
+                  :disabled="pendingAction === `detail-${journal.id}`"
+                  @click="openJournalDetail(journal)"
+                >
+                  Detail
+                </button>
+
+                <button
+                  v-if="journal.status === 'draft'"
+                  type="button"
+                  class="table-action"
+                  :disabled="pendingAction === `approve-${journal.id}`"
+                  @click="approveJournal(journal)"
+                >
+                  Setujui
+                </button>
+
+                <button
+                  v-if="journal.status === 'approved'"
+                  type="button"
+                  class="table-action"
+                  :disabled="pendingAction === `post-${journal.id}`"
+                  @click="postJournal(journal)"
+                >
+                  Posting
+                </button>
+
+                <span
+                  v-if="journal.status === 'posted'"
+                  class="table-subtext"
+                >
+                  Saldo diperbarui
+                </span>
+              </td>
+            </tr>
+
+            <tr v-if="!isLoading && filteredJournals.length === 0">
+              <td colspan="6" class="empty-table">
+                Belum ada transaksi jurnal.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
     </article>
 
-    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
-      <form class="modal-card transaction-modal" @submit.prevent="saveTransaction">
-        <div class="modal-header"><div><p class="eyebrow">ENTRI JURNAL</p><h3>Jurnal Transaksi Baru</h3></div><button type="button" class="modal-close" @click="closeModal">×</button></div>
+    <!-- Modal input jurnal baru -->
+    <div
+      v-if="showJournalModal"
+      class="modal-backdrop"
+      @click.self="closeJournalModal"
+    >
+      <form class="modal-card transaction-modal" @submit.prevent="saveJournal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">ENTRI JURNAL</p>
+            <h3>Jurnal Transaksi Baru</h3>
+          </div>
+
+          <button type="button" class="modal-close" @click="closeJournalModal">
+            ×
+          </button>
+        </div>
+
         <div class="form-grid">
-          <label class="full-width">Template Jurnal Cepat<select v-model="selectedTemplate" @change="applyTemplate"><option>Jurnal Umum</option><option>Pendapatan</option><option>Bayar Gaji</option><option>Langganan</option></select></label>
-          <label>Tanggal Transaksi<input v-model="form.date" type="date" :max="today" required /></label>
-          <label>Nomor Voucher<input v-model="form.voucher" type="text" readonly /></label>
-          <label class="full-width">Keterangan Memo<input v-model="form.memo" type="text" placeholder="Contoh: Penerimaan pembayaran dari klien" required /></label>
+          <label class="full-width">
+            Template Jurnal Cepat
+            <select v-model="selectedTemplate" @change="applyTemplate">
+              <option value="Jurnal Umum">Jurnal Umum</option>
+              <option value="Setoran Modal">Setoran Modal</option>
+              <option value="Pendapatan">Pendapatan</option>
+              <option value="Bayar Gaji">Bayar Gaji</option>
+              <option value="Beban Operasional">Beban Operasional</option>
+            </select>
+          </label>
+
+          <label>
+            Tanggal Transaksi
+            <input
+              v-model="form.transaction_date"
+              type="date"
+              required
+            />
+          </label>
+
+          <label>
+            Nomor Voucher
+            <input
+              v-model="form.voucher_number"
+              type="text"
+              placeholder="Contoh: JV-20260702-001"
+              required
+            />
+          </label>
+
+          <label class="full-width">
+            Keterangan Jurnal
+            <input
+              v-model="form.description"
+              type="text"
+              placeholder="Contoh: Penerimaan pembayaran jasa dari klien"
+              required
+            />
+          </label>
         </div>
 
         <section class="journal-section">
-          <div class="journal-heading"><div><h4>Entri Debit</h4><p>Pilih akun yang menerima nilai debit.</p></div><strong>{{ formatCurrency(debitTotal) }}</strong></div>
-          <div v-for="(line, index) in form.debitLines" :key="`debit-${index}`" class="journal-line">
-            <select v-model="line.accountId"><option value="">Pilih akun debit</option><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.code }} - {{ account.name }}</option></select>
-            <input v-model.number="line.amount" type="number" min="0" placeholder="Nominal" />
-            <button type="button" class="remove-line" @click="removeDebitLine(index)">×</button>
+          <div class="journal-heading">
+            <div>
+              <h4>Entri Debit</h4>
+              <p>Pilih akun yang menerima nilai debit.</p>
+            </div>
+
+            <strong>{{ formatCurrency(debitTotal) }}</strong>
           </div>
-          <button type="button" class="add-line-button" @click="addDebitLine">+ Tambah Baris Debit</button>
+
+          <div
+            v-for="(line, index) in form.debit_lines"
+            :key="`debit-${index}`"
+            class="journal-line"
+          >
+            <select v-model="line.account_id">
+              <option value="">Pilih akun debit</option>
+
+              <option
+                v-for="account in activeAccounts"
+                :key="account.id"
+                :value="account.id"
+              >
+                {{ account.code }} - {{ account.name }}
+              </option>
+            </select>
+
+            <input
+              v-model.number="line.amount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Nominal"
+            />
+
+            <button
+              type="button"
+              class="remove-line"
+              title="Hapus baris debit"
+              @click="removeDebitLine(index)"
+            >
+              ×
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="add-line-button"
+            @click="addDebitLine"
+          >
+            + Tambah Baris Debit
+          </button>
         </section>
 
         <section class="journal-section">
-          <div class="journal-heading"><div><h4>Entri Kredit</h4><p>Pilih akun yang menerima nilai kredit.</p></div><strong>{{ formatCurrency(creditTotal) }}</strong></div>
-          <div v-for="(line, index) in form.creditLines" :key="`credit-${index}`" class="journal-line">
-            <select v-model="line.accountId"><option value="">Pilih akun kredit</option><option v-for="account in accounts" :key="account.id" :value="account.id">{{ account.code }} - {{ account.name }}</option></select>
-            <input v-model.number="line.amount" type="number" min="0" placeholder="Nominal" />
-            <button type="button" class="remove-line" @click="removeCreditLine(index)">×</button>
+          <div class="journal-heading">
+            <div>
+              <h4>Entri Kredit</h4>
+              <p>Pilih akun yang menerima nilai kredit.</p>
+            </div>
+
+            <strong>{{ formatCurrency(creditTotal) }}</strong>
           </div>
-          <button type="button" class="add-line-button" @click="addCreditLine">+ Tambah Baris Kredit</button>
+
+          <div
+            v-for="(line, index) in form.credit_lines"
+            :key="`credit-${index}`"
+            class="journal-line"
+          >
+            <select v-model="line.account_id">
+              <option value="">Pilih akun kredit</option>
+
+              <option
+                v-for="account in activeAccounts"
+                :key="account.id"
+                :value="account.id"
+              >
+                {{ account.code }} - {{ account.name }}
+              </option>
+            </select>
+
+            <input
+              v-model.number="line.amount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Nominal"
+            />
+
+            <button
+              type="button"
+              class="remove-line"
+              title="Hapus baris kredit"
+              @click="removeCreditLine(index)"
+            >
+              ×
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="add-line-button"
+            @click="addCreditLine"
+          >
+            + Tambah Baris Kredit
+          </button>
         </section>
 
-        <div class="journal-total" :class="{ balanced: isBalanced, unbalanced: !isBalanced }"><div><span>Total Debit</span><strong>{{ formatCurrency(debitTotal) }}</strong></div><div><span>Total Kredit</span><strong>{{ formatCurrency(creditTotal) }}</strong></div><p v-if="isBalanced">✓ Debit dan kredit sudah seimbang.</p><p v-else>Debit dan kredit harus memiliki nominal yang sama.</p></div>
-        <div class="modal-actions"><button type="button" class="secondary-button" @click="closeModal">Batal</button><button type="submit" class="primary-button">Simpan sebagai Draft</button></div>
+        <div
+          class="journal-total"
+          :class="{ balanced: isBalanced, unbalanced: !isBalanced }"
+        >
+          <div>
+            <span>Total Debit</span>
+            <strong>{{ formatCurrency(debitTotal) }}</strong>
+          </div>
+
+          <div>
+            <span>Total Kredit</span>
+            <strong>{{ formatCurrency(creditTotal) }}</strong>
+          </div>
+
+          <p v-if="isBalanced">
+            ✓ Debit dan kredit sudah seimbang.
+          </p>
+
+          <p v-else>
+            Debit dan kredit harus memiliki nominal yang sama.
+          </p>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            @click="closeJournalModal"
+          >
+            Batal
+          </button>
+
+          <button
+            type="submit"
+            class="primary-button"
+            :disabled="isSaving || !isBalanced"
+          >
+            {{ isSaving ? 'Menyimpan...' : 'Simpan sebagai Draft' }}
+          </button>
+        </div>
       </form>
+    </div>
+
+    <!-- Modal detail jurnal -->
+    <div
+      v-if="showDetailModal && selectedJournal"
+      class="modal-backdrop"
+      @click.self="closeDetailModal"
+    >
+      <section class="modal-card transaction-modal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">DETAIL JURNAL</p>
+            <h3>{{ selectedJournal.voucher_number }}</h3>
+          </div>
+
+          <button type="button" class="modal-close" @click="closeDetailModal">
+            ×
+          </button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Tanggal Transaksi
+            <input :value="formatDate(selectedJournal.transaction_date)" disabled />
+          </label>
+
+          <label>
+            Status
+            <input :value="statusLabel(selectedJournal.status)" disabled />
+          </label>
+
+          <label class="full-width">
+            Keterangan
+            <input :value="selectedJournal.description || '-'" disabled />
+          </label>
+        </div>
+
+        <section class="journal-section">
+          <div class="journal-heading">
+            <div>
+              <h4>Rincian Debit dan Kredit</h4>
+              <p>Data baris jurnal yang tersimpan di database.</p>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Akun</th>
+                  <th>Keterangan</th>
+                  <th>Debit</th>
+                  <th>Kredit</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr
+                  v-for="line in selectedJournal.lines"
+                  :key="line.id"
+                >
+                  <td>
+                    <strong>{{ line.account_code }}</strong>
+                    <small class="table-subtext">{{ line.account_name }}</small>
+                  </td>
+
+                  <td>{{ line.description || '-' }}</td>
+                  <td>{{ formatCurrency(line.debit) }}</td>
+                  <td>{{ formatCurrency(line.credit) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="journal-total balanced">
+          <div>
+            <span>Total Debit</span>
+            <strong>{{ formatCurrency(selectedJournal.total_debit) }}</strong>
+          </div>
+
+          <div>
+            <span>Total Kredit</span>
+            <strong>{{ formatCurrency(selectedJournal.total_credit) }}</strong>
+          </div>
+
+          <p>Jurnal seimbang.</p>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            v-if="selectedJournal.status === 'draft'"
+            type="button"
+            class="secondary-button"
+            :disabled="pendingAction === `delete-${selectedJournal.id}`"
+            @click="deleteJournal(selectedJournal)"
+          >
+            Hapus Draft
+          </button>
+
+          <button
+            v-if="selectedJournal.status === 'draft'"
+            type="button"
+            class="secondary-button"
+            :disabled="pendingAction === `approve-${selectedJournal.id}`"
+            @click="approveJournal(selectedJournal)"
+          >
+            {{ pendingAction === `approve-${selectedJournal.id}` ? 'Menyetujui...' : 'Setujui Jurnal' }}
+          </button>
+
+          <button
+            v-if="selectedJournal.status === 'approved'"
+            type="button"
+            class="primary-button"
+            :disabled="pendingAction === `post-${selectedJournal.id}`"
+            @click="postJournal(selectedJournal)"
+          >
+            {{ pendingAction === `post-${selectedJournal.id}` ? 'Memposting...' : 'Posting Jurnal' }}
+          </button>
+
+          <button
+            v-if="selectedJournal.status === 'posted'"
+            type="button"
+            class="secondary-button"
+            @click="closeDetailModal"
+          >
+            Jurnal Sudah Diposting
+          </button>
+        </div>
+      </section>
     </div>
   </section>
 </template>
