@@ -4,6 +4,7 @@ const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
 
+// Route keuangan
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
 const accountsRouter = require('./routes/accounts')
@@ -18,6 +19,14 @@ const taxesRouter = require('./routes/taxes')
 const taxEngineRouter = require('./routes/tax-engine')
 const projectionsRouter = require('./routes/projections')
 const assetsRouter = require('./routes/assets')
+
+// Route Master Data Operasional dan Payroll
+const divisionsRouter = require('./routes/divisions')
+const positionsRouter = require('./routes/positions')
+const employeesRouter = require('./routes/employees')
+const bpjsConfigRouter = require('./routes/bpjs-config')
+const companySettingsRouter = require('./routes/company-settings')
+const payrollRouter = require('./routes/payroll')
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -50,6 +59,7 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
+// API Keuangan
 app.use('/api/clients', clientsRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/accounts', accountsRouter)
@@ -64,6 +74,16 @@ app.use('/api/taxes', taxesRouter)
 app.use('/api/tax-engine', taxEngineRouter)
 app.use('/api/projections', projectionsRouter)
 app.use('/api/assets', assetsRouter)
+
+// API Master Data Operasional
+app.use('/api/divisions', divisionsRouter)
+app.use('/api/positions', positionsRouter)
+app.use('/api/employees', employeesRouter)
+app.use('/api/bpjs-config', bpjsConfigRouter)
+app.use('/api/company-settings', companySettingsRouter)
+
+// API Payroll
+app.use('/api/payroll', payrollRouter)
 
 app.use((req, res) => {
   res.status(404).json({
