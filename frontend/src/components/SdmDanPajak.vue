@@ -1,8 +1,9 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, ref } from "vue";
+import { Fragment, defineComponent, h, onMounted, ref } from "vue";
 import { Users, Percent, ShieldCheck, HeartPulse, Plus, Search, CheckCircle2, DollarSign, ArrowRight, Calculator, Landmark, FileText, RefreshCw, AlertTriangle, CreditCard, X, Save, Upload, Building2, UserCircle } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Pegawai, AkunBukuBesar } from '../types.ts';
+import { financeApi, getApiErrorMessage } from '../services/financeApi.js';
 interface SdmDanPajakProps {
   activeSection: 'sdm' | 'perpajakan';
   pegawai: Pegawai[];
@@ -13,6 +14,7 @@ interface SdmDanPajakProps {
   onAddJournalFromSubledger: (memo: string, amount: number, drCode: string, crCode: string) => Promise<void> | void;
   onCreateTax: (tax: any) => Promise<void> | void;
   onPayTax: (tax: PajakKewajiban, payment: any) => Promise<void> | void;
+  onRefreshData?: () => Promise<any> | void;
   showToast: (msg: string) => void;
 }
 interface PajakKewajiban {
@@ -24,9 +26,23 @@ interface PajakKewajiban {
   status: 'Belum Setor' | 'Sudah Setor';
   ntpn?: string;
 }
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function currentPayrollPeriod() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function asNumber(value: any) {
+  const result = Number(value || 0);
+  return Number.isFinite(result) ? result : 0;
+}
 export default defineComponent({
   name: "SdmDanPajak",
-  props: ["activeSection", "pegawai", "akun", "taxes", "taxSummary", "taxCalculationData", "onAddJournalFromSubledger", "onCreateTax", "onPayTax", "showToast"],
+  props: ["activeSection", "pegawai", "akun", "taxes", "taxSummary", "taxCalculationData", "onAddJournalFromSubledger", "onCreateTax", "onPayTax", "onRefreshData", "showToast"],
   setup(props) {
     const {
       activeSection,
@@ -37,6 +53,7 @@ export default defineComponent({
       onAddJournalFromSubledger,
       onCreateTax,
       onPayTax,
+      onRefreshData,
       showToast
     }: SdmDanPajakProps = props;
     const activeTab = ref(activeSection === 'sdm' ? 'sdm' : 'pajak'),
@@ -76,27 +93,40 @@ export default defineComponent({
         notes: ''
       }),
       setManualTaxForm = next => manualTaxForm.value = typeof next === "function" ? next(manualTaxForm.value) : next; // BPJS Rate settings in local state
-    const bpjsKesEmployer = ref(4.0),
-      setBpjsKesEmployer = next => bpjsKesEmployer.value = typeof next === "function" ? next(bpjsKesEmployer.value) : next; // 4% dibayar perusahaan
-    const bpjsKesEmployee = ref(1.0),
-      setBpjsKesEmployee = next => bpjsKesEmployee.value = typeof next === "function" ? next(bpjsKesEmployee.value) : next; // 1% dibayar karyawan
-    const bpjsJhtEmployer = ref(3.7),
-      setBpjsJhtEmployer = next => bpjsJhtEmployer.value = typeof next === "function" ? next(bpjsJhtEmployer.value) : next; // 3.7% JHT perusahaan
-    const bpjsJhtEmployee = ref(2.0),
-      setBpjsJhtEmployee = next => bpjsJhtEmployee.value = typeof next === "function" ? next(bpjsJhtEmployee.value) : next; // 2% JHT karyawan
-    const bpjsJpEmployer = ref(2.0),
+    const bpjsKesEmployer = ref(0),
+      setBpjsKesEmployer = next => bpjsKesEmployer.value = typeof next === "function" ? next(bpjsKesEmployer.value) : next;
+    const bpjsKesEmployee = ref(0),
+      setBpjsKesEmployee = next => bpjsKesEmployee.value = typeof next === "function" ? next(bpjsKesEmployee.value) : next;
+    const bpjsJhtEmployer = ref(0),
+      setBpjsJhtEmployer = next => bpjsJhtEmployer.value = typeof next === "function" ? next(bpjsJhtEmployer.value) : next;
+    const bpjsJhtEmployee = ref(0),
+      setBpjsJhtEmployee = next => bpjsJhtEmployee.value = typeof next === "function" ? next(bpjsJhtEmployee.value) : next;
+    const bpjsJpEmployer = ref(0),
       setBpjsJpEmployer = next => bpjsJpEmployer.value = typeof next === "function" ? next(bpjsJpEmployer.value) : next;
-    const bpjsJpEmployee = ref(1.0),
+    const bpjsJpEmployee = ref(0),
       setBpjsJpEmployee = next => bpjsJpEmployee.value = typeof next === "function" ? next(bpjsJpEmployee.value) : next;
+
+    const divisions = ref<any[]>([]);
+    const positions = ref<any[]>([]);
+    const payrollAccounts = ref<any[]>([]);
+    const payrollSummary = ref<any>({
+      payroll_count: 0,
+      total_base_salary: 0,
+      total_employee_bpjs_deduction: 0,
+      total_employer_bpjs_contribution: 0,
+      total_net_pay: 0,
+    });
     const employeeForm = ref({
         nama: '',
-        nip: 'EMP001',
+        nip: '',
         nik: '',
         email: '',
         whatsapp: '',
         npwp: '',
         jabatan: '',
-        departemen: 'Teknologi',
+        departemen: '',
+        divisionId: '',
+        positionId: '',
         statusKontrak: 'Karyawan Tetap',
         tanggalBergabung: '2026-07-01',
         bpjsKesehatanNo: '',
@@ -107,7 +137,15 @@ export default defineComponent({
         bankNama: '',
         noRekening: ''
       }),
-      setEmployeeForm = next => employeeForm.value = typeof next === "function" ? next(employeeForm.value) : next; // Tax obligations local mock state
+      setEmployeeForm = next => employeeForm.value = typeof next === "function" ? next(employeeForm.value) : next;
+
+    const payrollForm = ref({
+      employeeId: '',
+      payrollPeriod: currentPayrollPeriod(),
+      paymentDate: todayIso(),
+      cashAccountId: '',
+    });
+
     // Kewajiban pajak berasal dari database melalui API.
     const taxes = ref<any[]>(props.taxes || []);
     const selectedTaxId = ref(''),
@@ -145,19 +183,167 @@ export default defineComponent({
       setManualTaxForm({ jenis: 'PPN', period: 'Juli 2026', nominal: 0, dueDate: '', reference: '', notes: '' });
     };
 
-    // Run full payroll calculations and disbursements
-    const handleProcessPayroll = () => {
-      // Calculate total base salary & allowances
-      const totalSalary = pegawai.reduce((acc, p) => acc + p.gajiBersih, 0);
-      setIsPayrollModalOpen(false);
+    async function refreshMasterData() {
+      const period = payrollForm.value.payrollPeriod || currentPayrollPeriod();
+      const jobs = await Promise.allSettled([
+        financeApi.get('/divisions'),
+        financeApi.get('/positions'),
+        financeApi.get('/bpjs-config'),
+        financeApi.get('/payroll/summary', { period }),
+        financeApi.get('/payroll/accounts'),
+      ]);
 
-      // Post to Journal: Debit Beban Gaji (5001) & Credit Kas/Bank (1001)
-      onAddJournalFromSubledger(`Pembayaran Gaji Karyawan PT Kedata Indonesia Digital - Masa Juni 2026 (${pegawai.length} Karyawan)`, totalSalary, '5001',
-      // Beban Gaji
-      '1001' // Kas & Bank
-      );
-      showToast(`Gaji Juni 2026 untuk ${pegawai.length} karyawan berhasil didistribusikan & diposting ke Jurnal.`);
-    };
+      const value = (index: number, fallback: any) => jobs[index].status === 'fulfilled'
+        ? (jobs[index] as PromiseFulfilledResult<any>).value
+        : fallback;
+
+      divisions.value = Array.isArray(value(0, [])) ? value(0, []) : [];
+      positions.value = Array.isArray(value(1, [])) ? value(1, []) : [];
+
+      const bpjs = value(2, {});
+      setBpjsKesEmployer(asNumber(bpjs.health_company_rate));
+      setBpjsKesEmployee(asNumber(bpjs.health_employee_rate));
+      setBpjsJhtEmployer(asNumber(bpjs.jht_company_rate));
+      setBpjsJhtEmployee(asNumber(bpjs.jht_employee_rate));
+      setBpjsJpEmployer(asNumber(bpjs.jp_company_rate));
+      setBpjsJpEmployee(asNumber(bpjs.jp_employee_rate));
+
+      Object.assign(payrollSummary.value, value(3, {}));
+      payrollAccounts.value = Array.isArray(value(4, [])) ? value(4, []) : [];
+
+      if (!payrollForm.value.employeeId && pegawai.length) {
+        payrollForm.value.employeeId = String(pegawai[0]?._raw?.id || '');
+      }
+      if (!payrollForm.value.cashAccountId && payrollAccounts.value.length) {
+        payrollForm.value.cashAccountId = String(payrollAccounts.value[0].id);
+      }
+
+      const failed = jobs.find((job) => job.status === 'rejected') as PromiseRejectedResult | undefined;
+      if (failed) {
+        console.error(failed.reason);
+        showToast(getApiErrorMessage(failed.reason, 'Sebagian data SDM belum dapat dimuat.'));
+      }
+    }
+
+    async function refreshAllData() {
+      await refreshMasterData();
+      if (onRefreshData) await onRefreshData();
+    }
+
+    async function handleSaveBpjs() {
+      try {
+        await financeApi.put('/bpjs-config', {
+          health_company_rate: asNumber(bpjsKesEmployer.value),
+          health_employee_rate: asNumber(bpjsKesEmployee.value),
+          jht_company_rate: asNumber(bpjsJhtEmployer.value),
+          jht_employee_rate: asNumber(bpjsJhtEmployee.value),
+          jp_company_rate: asNumber(bpjsJpEmployer.value),
+          jp_employee_rate: asNumber(bpjsJpEmployee.value),
+          effective_date: todayIso(),
+          notes: 'Konfigurasi BPJS diperbarui dari workspace FinStart.',
+        });
+        await refreshMasterData();
+        setIsBpjsModalOpen(false);
+        showToast('Tarif iuran BPJS berhasil disimpan ke database.');
+      } catch (error) {
+        console.error(error);
+        showToast(getApiErrorMessage(error, 'Gagal menyimpan konfigurasi BPJS.'));
+      }
+    }
+
+    async function handleCreateEmployee(event: Event) {
+      event.preventDefault();
+
+      const divisionId = Number(employeeForm.value.divisionId);
+      const positionId = Number(employeeForm.value.positionId);
+      if (!employeeForm.value.nama || !employeeForm.value.nik || !divisionId || !positionId) {
+        showToast('Nama, NIK, divisi, dan jabatan wajib diisi.');
+        return;
+      }
+
+      const employmentType = employeeForm.value.statusKontrak === 'Karyawan Tetap'
+        ? 'permanent'
+        : employeeForm.value.statusKontrak === 'Kontrak'
+          ? 'contract'
+          : 'intern';
+
+      try {
+        await financeApi.post('/employees', {
+          employee_code: employeeForm.value.nip || undefined,
+          full_name: employeeForm.value.nama,
+          nik: employeeForm.value.nik,
+          email: employeeForm.value.email || '',
+          phone: employeeForm.value.whatsapp || '',
+          division_id: divisionId,
+          position_id: positionId,
+          employment_type: employmentType,
+          ptkp_status: 'TK/0',
+          bpjs_status: 'active',
+          employment_status: 'active',
+          join_date: employeeForm.value.tanggalBergabung || todayIso(),
+          base_salary: asNumber(employeeForm.value.gajiPokok),
+        });
+
+        setEmployeeForm({
+          nama: '',
+          nip: '',
+          nik: '',
+          email: '',
+          whatsapp: '',
+          npwp: '',
+          jabatan: '',
+          departemen: '',
+          divisionId: '',
+          positionId: '',
+          statusKontrak: 'Karyawan Tetap',
+          tanggalBergabung: todayIso(),
+          bpjsKesehatanNo: '',
+          bpjsKesehatanTipe: 'PPU (Penerima Upah)',
+          bpjsKesehatanKelas: 'Kelas 1',
+          bpjsKetenagakerjaanNo: '',
+          gajiPokok: 0,
+          bankNama: '',
+          noRekening: '',
+        });
+
+        setIsEmployeeModalOpen(false);
+        await refreshAllData();
+        showToast('Pegawai berhasil disimpan ke database.');
+      } catch (error) {
+        console.error(error);
+        showToast(getApiErrorMessage(error, 'Gagal menyimpan pegawai.'));
+      }
+    }
+
+    function selectedPayrollEmployee() {
+      return pegawai.find((item: any) => String(item?._raw?.id || '') === String(payrollForm.value.employeeId || ''));
+    }
+
+    async function handleProcessPayroll() {
+      const employeeId = Number(payrollForm.value.employeeId);
+      const cashAccountId = Number(payrollForm.value.cashAccountId);
+      if (!employeeId || !cashAccountId) {
+        showToast('Pilih pegawai dan akun Kas/Bank terlebih dahulu.');
+        return;
+      }
+
+      try {
+        const result = await financeApi.post('/payroll/process', {
+          employee_id: employeeId,
+          payroll_period: payrollForm.value.payrollPeriod || currentPayrollPeriod(),
+          payment_date: payrollForm.value.paymentDate || todayIso(),
+          cash_account_id: cashAccountId,
+          notes: 'Payroll diproses dari workspace FinStart.',
+        });
+
+        setIsPayrollModalOpen(false);
+        await refreshAllData();
+        showToast(`Payroll ${result.employee_name || 'pegawai'} berhasil diposting dengan voucher ${result.voucher_number || '-'}.`);
+      } catch (error) {
+        console.error(error);
+        showToast(getApiErrorMessage(error, 'Gagal memproses payroll.'));
+      }
+    }
     const filteredEmployees = pegawai.filter(p => {
       return p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.jabatan.toLowerCase().includes(searchQuery.value.toLowerCase());
     });
@@ -237,20 +423,32 @@ export default defineComponent({
     }];
     const labelClass = 'text-[9px] font-extrabold text-[#94A3B8] uppercase tracking-wide';
     const inputClass = 'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all';
-    const Field = ({
-      label,
-      children,
-      dark = false
-    }: {
-      label: string;
-      children: any;
-      dark?: boolean;
-    }) => <div class="space-y-2">
+    // Vue JSX mengirim isi <Field> sebagai default slot, bukan props.children.
+    // Karena itu gunakan slots.default() agar semua input/select di form tampil.
+    const Field = (
+      { label, dark = false }: { label: string; dark?: boolean },
+      { slots }: any,
+    ) => <div class="space-y-2">
       <label class={dark ? 'text-[9px] font-extrabold text-[#64708F] uppercase tracking-wide' : labelClass}>{label}</label>
-      {children}
+      {slots.default ? slots.default() : null}
     </div>;
     const formatPercentInput = (value: number) => String(value).replace('.', ',');
     const parsePercentInput = (value: string) => Number(value.replace(',', '.')) || 0;
+
+    const employeeCount = () => pegawai.length;
+    const activeBpjsCount = () => pegawai.filter((item: any) => String(item?._raw?.bpjs_status || '').toLowerCase() === 'active').length;
+    const bpjsCompliancePercent = () => employeeCount() ? Math.round(activeBpjsCount() / employeeCount() * 100) : 0;
+    const filteredPositions = () => positions.value.filter((position: any) => {
+      const divisionId = Number(employeeForm.value.divisionId || 0);
+      return !divisionId || !position.division_id || Number(position.division_id) === divisionId;
+    });
+    const currentPayrollEmployee = () => selectedPayrollEmployee();
+    const currentPayrollAmount = () => asNumber(currentPayrollEmployee()?.gajiBersih);
+
+    onMounted(() => {
+      refreshMasterData();
+    });
+
     return () => <div class="space-y-6 font-sans">
       {/* Header switches */}
       {activeTab.value === 'sdm' && <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
@@ -260,17 +458,40 @@ export default defineComponent({
         </div>
 
         <div class="flex flex-col sm:flex-row gap-3">
-          <button id="btn-open-bpjs-rates" onClick={() => setIsBpjsModalOpen(true)} class="h-10 px-6 rounded-2xl bg-white border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-extrabold text-sm shadow-sm flex items-center justify-center gap-2 transition-all">
-            <Calculator class="w-4 h-4" /> Tarif BPJS
+          <button id="btn-open-bpjs-rates" onClick={() => setIsBpjsModalOpen(true)} class="h-10 px-5 rounded-2xl bg-white border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-extrabold text-sm shadow-sm flex items-center justify-center gap-2 transition-all">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-[#EEF5FC] text-[10px] text-[#1E5AA8]">1</span>
+            <Calculator class="w-4 h-4" /> Atur BPJS
           </button>
-          <button id="btn-register-employee" type="button" onClick={() => setIsEmployeeModalOpen(true)} class="h-10 px-6 rounded-2xl bg-[#0B1F4A] hover:bg-[#102A56] text-white font-extrabold text-sm shadow-lg shadow-[#0B1F4A]/20 flex items-center justify-center gap-2 transition-all">
-            <Plus class="w-4 h-4" /> Registrasi Pegawai
+          <button id="btn-register-employee" type="button" onClick={() => setIsEmployeeModalOpen(true)} class="h-10 px-5 rounded-2xl bg-[#0B1F4A] hover:bg-[#102A56] text-white font-extrabold text-sm shadow-lg shadow-[#0B1F4A]/20 flex items-center justify-center gap-2 transition-all">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-[10px]">2</span>
+            <Plus class="w-4 h-4" /> Tambah Pegawai
+          </button>
+          <button id="btn-open-payroll" type="button" onClick={() => {
+            if (!pegawai.length) {
+              showToast('Tambahkan pegawai aktif terlebih dahulu.');
+              return;
+            }
+            refreshMasterData();
+            setIsPayrollModalOpen(true);
+          }} class="h-10 px-5 rounded-2xl bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold text-sm shadow-lg shadow-[#10182C]/20 flex items-center justify-center gap-2 transition-all">
+            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 text-[10px]">3</span>
+            <DollarSign class="w-4 h-4" /> Proses Payroll
           </button>
         </div>
       </div>}
 
       {/* 1. DIRECTORI SDM & BPJS SETTING view */}
       {activeTab.value === 'sdm' && <div class="space-y-6">
+          <div class="rounded-2xl border border-[#D8E5F4] bg-white px-5 py-4 shadow-sm">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]">Alur cepat</p>
+                <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">Atur tarif BPJS sekali, tambah pegawai, lalu proses payroll setiap bulan.</p>
+              </div>
+              <p class="text-[11px] leading-5 text-[#6B7A90]">Tarif BPJS hanya berlaku untuk payroll baru; payroll yang sudah diposting tidak berubah.</p>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="bg-white border border-slate-100 rounded-[26px] p-6 shadow-sm flex items-center gap-4">
               <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-[#0B1F4A] flex items-center justify-center">
@@ -278,7 +499,7 @@ export default defineComponent({
               </div>
               <div>
                 <span class="text-[10px] text-[#94A3B8] font-extrabold tracking-widest uppercase">Total Pegawai</span>
-                <p class="text-2xl font-extrabold text-[#020B2D] leading-tight">0 Orang</p>
+                <p class="text-2xl font-extrabold text-[#020B2D] leading-tight">{employeeCount()} Orang</p>
               </div>
             </div>
 
@@ -288,7 +509,7 @@ export default defineComponent({
               </div>
               <div>
                 <span class="text-[10px] text-[#94A3B8] font-extrabold tracking-widest uppercase">Kepatuhan BPJS</span>
-                <p class="text-2xl font-extrabold text-[#1E5AA8] leading-tight">100% Aktif</p>
+                <p class="text-2xl font-extrabold text-[#1E5AA8] leading-tight">{bpjsCompliancePercent()}% Aktif</p>
               </div>
             </div>
 
@@ -298,7 +519,7 @@ export default defineComponent({
               </div>
               <div>
                 <span class="text-[10px] text-[#94A3B8] font-extrabold tracking-widest uppercase">Net Payroll MTD</span>
-                <p class="text-2xl font-extrabold text-[#7C83FF] leading-tight">Rp 0</p>
+                <p class="text-2xl font-extrabold text-[#7C83FF] leading-tight">{formatRupiah(asNumber(payrollSummary.value.total_net_pay))}</p>
               </div>
             </div>
           </div>
@@ -577,7 +798,9 @@ export default defineComponent({
           <div class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[560px] overflow-hidden shadow-2xl">
             <div class="px-8 py-7 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 class="font-extrabold text-lg text-[#111827] uppercase tracking-tight">Tarif BPJS Compliance</h3>
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]">Langkah 1 dari 3</p>
+                <h3 class="mt-1 font-extrabold text-lg text-[#111827] tracking-tight">Pengaturan Tarif BPJS</h3>
+                <p class="mt-1 text-xs text-[#64748B]">Diatur sekali oleh admin dan dipakai untuk payroll berikutnya.</p>
               </div>
               <button id="btn-close-bpjs" onClick={() => setIsBpjsModalOpen(false)} class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors">
                 <X class="w-5 h-5" />
@@ -625,192 +848,71 @@ export default defineComponent({
                 </div>
               </div>
 
-              <button id="btn-save-bpjs-rates" onClick={() => {
-              setIsBpjsModalOpen(false);
-              showToast('Tarif iuran BPJS berhasil diubah.');
-            }} class="w-full h-12 bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold rounded-2xl transition-all uppercase tracking-widest text-xs">
-                Simpan Perubahan Konfigurasi
+              <button id="btn-save-bpjs-rates" onClick={handleSaveBpjs} class="w-full h-12 bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold rounded-2xl transition-all uppercase tracking-widest text-xs">
+                Simpan Tarif BPJS
               </button>
             </div>
           </div>
         </div>}
 
       {/* 4. EMPLOYEE REGISTRATION MODAL */}
-      {isEmployeeModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 overflow-y-auto">
-          <div class="bg-white border border-slate-100 rounded-[40px] w-full max-w-[960px] overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
-            <div class="px-10 py-8 border-b border-slate-100 flex justify-between items-start shrink-0">
+      {isEmployeeModalOpen.value && <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-3 backdrop-blur-sm">
+          <div class="my-6 flex w-full max-w-[760px] flex-col overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-2xl">
+            <div class="flex items-start justify-between border-b border-slate-100 px-7 py-6">
               <div>
-                <h3 class="font-extrabold text-2xl text-[#111827] uppercase tracking-tight">Registrasi Pegawai Baru</h3>
-                <span class="text-[10px] text-[#64748B] font-extrabold uppercase tracking-[0.35em] block mt-1">Human Capital Management System</span>
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#1E5AA8]">Langkah 2 dari 3</p>
+                <h3 class="mt-1 text-xl font-extrabold tracking-tight text-[#111827]">Tambah Pegawai</h3>
+                <p class="mt-1 text-xs leading-5 text-[#64748B]">Isi data wajib terlebih dahulu. Data tambahan dapat dilengkapi kemudian.</p>
               </div>
-              <button id="btn-close-employee-modal" type="button" onClick={() => setIsEmployeeModalOpen(false)} class="w-12 h-12 flex items-center justify-center rounded-2xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors">
-                <X class="w-6 h-6" />
+              <button id="btn-close-employee-modal" type="button" onClick={() => setIsEmployeeModalOpen(false)} class="flex h-10 w-10 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-slate-600">
+                <X class="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={e => {
-            e.preventDefault();
-            setIsEmployeeModalOpen(false);
-            showToast('Data registrasi pegawai berhasil disiapkan.');
-          }} class="overflow-y-auto px-10 py-9 space-y-10 text-xs">
-              <section class="space-y-6">
-                <div class="flex items-center gap-2.5 pb-3 border-b border-[#D8E5F4]">
+            <form onSubmit={handleCreateEmployee} class="space-y-6 px-7 py-6 text-xs">
+              <section class="space-y-4">
+                <div class="flex items-center gap-2 border-b border-[#D8E5F4] pb-3">
                   <UserCircle class="w-4 h-4 text-[#0B1F4A]" />
-                  <h4 class="font-extrabold text-[12px] tracking-wider text-[#1F2A44] uppercase">Identitas Legal & Personal</h4>
+                  <h4 class="font-extrabold uppercase tracking-wider text-[#1F2A44]">Data Wajib Pegawai</h4>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-5">
-                  <Field label="Nama Lengkap Sesuai KTP"><input value={employeeForm.value.nama} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    nama: e.target.value
-                  })} class={inputClass} /></Field>
-                  <Field label="NIP (System)"><input value={employeeForm.value.nip} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    nip: e.target.value
-                  })} class={inputClass} /></Field>
-                  <Field label="NIK (16 Digit)"><input value={employeeForm.value.nik} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    nik: e.target.value
-                  })} class={inputClass} /></Field>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <Field label="Email Perusahaan"><input type="email" value={employeeForm.value.email} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    email: e.target.value
-                  })} class={inputClass} /></Field>
-                  <Field label="No. WhatsApp"><input value={employeeForm.value.whatsapp} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    whatsapp: e.target.value
-                  })} class={inputClass} /></Field>
-                  <Field label="NPWP (15/16 Digit)"><input value={employeeForm.value.npwp} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    npwp: e.target.value
-                  })} class={inputClass} /></Field>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="Nama Lengkap"><input required value={employeeForm.value.nama} onChange={e => setEmployeeForm({ ...employeeForm.value, nama: e.target.value })} class={inputClass} placeholder="Contoh: Rizka Farida Damayanti" /></Field>
+                  <Field label="NIK"><input required value={employeeForm.value.nik} onChange={e => setEmployeeForm({ ...employeeForm.value, nik: e.target.value })} class={inputClass} placeholder="Nomor identitas pegawai" /></Field>
+                  <Field label="Email"><input type="email" value={employeeForm.value.email} onChange={e => setEmployeeForm({ ...employeeForm.value, email: e.target.value })} class={inputClass} placeholder="nama@perusahaan.com" /></Field>
+                  <Field label="No. WhatsApp"><input value={employeeForm.value.whatsapp} onChange={e => setEmployeeForm({ ...employeeForm.value, whatsapp: e.target.value })} class={inputClass} placeholder="08xxxxxxxxxx" /></Field>
+                  <Field label="Divisi"><select required value={employeeForm.value.divisionId} onChange={e => setEmployeeForm({ ...employeeForm.value, divisionId: e.target.value, positionId: '' })} class={inputClass}>
+                    <option value="">Pilih divisi</option>
+                    {divisions.value.map((division: any) => <option key={division.id} value={String(division.id)}>{division.name}</option>)}
+                  </select></Field>
+                  <Field label="Jabatan"><select required value={employeeForm.value.positionId} onChange={e => setEmployeeForm({ ...employeeForm.value, positionId: e.target.value })} class={inputClass}>
+                    <option value="">Pilih jabatan</option>
+                    {filteredPositions().map((position: any) => <option key={position.id} value={String(position.id)}>{position.name}</option>)}
+                  </select></Field>
+                  <Field label="Status Kerja"><select value={employeeForm.value.statusKontrak} onChange={e => setEmployeeForm({ ...employeeForm.value, statusKontrak: e.target.value })} class={inputClass}>
+                    <option>Karyawan Tetap</option><option>Kontrak</option><option>Probation</option>
+                  </select></Field>
+                  <Field label="Tanggal Bergabung"><input required type="date" value={employeeForm.value.tanggalBergabung} onChange={e => setEmployeeForm({ ...employeeForm.value, tanggalBergabung: e.target.value })} class={inputClass} /></Field>
+                  <div class="md:col-span-2"><Field label="Gaji Pokok"><div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#1E5AA8]">Rp</span><input required type="number" min="0" value={employeeForm.value.gajiPokok || ''} onChange={e => setEmployeeForm({ ...employeeForm.value, gajiPokok: Number(e.target.value) })} class={`${inputClass} pl-12`} placeholder="0" /></div></Field></div>
                 </div>
               </section>
 
-              <section class="bg-white border border-[#D8E5F4]/70 rounded-[30px] p-7 space-y-6">
-                <div class="flex items-center gap-2.5 pb-3 border-b border-[#D8E5F4]">
-                  <Building2 class="w-4 h-4 text-slate-500" />
-                  <h4 class="font-extrabold text-[12px] tracking-wider text-[#1F2A44] uppercase">Detail Kepegawaian</h4>
+              <details class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] px-5 py-4">
+                <summary class="cursor-pointer list-none font-extrabold text-[#0B1F4A]">+ Data tambahan (opsional)</summary>
+                <p class="mt-2 text-[11px] leading-5 text-[#6B7A90]">Nomor BPJS, bank, dan NIP dapat dilengkapi nanti. Data ini belum diperlukan untuk membuat payroll dasar.</p>
+                <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Field label="NIP Sistem"><input value={employeeForm.value.nip} onChange={e => setEmployeeForm({ ...employeeForm.value, nip: e.target.value })} class={inputClass} /></Field>
+                  <Field label="Nomor BPJS Kesehatan"><input value={employeeForm.value.bpjsKesehatanNo} onChange={e => setEmployeeForm({ ...employeeForm.value, bpjsKesehatanNo: e.target.value })} class={inputClass} /></Field>
+                  <Field label="Nomor KPJ"><input value={employeeForm.value.bpjsKetenagakerjaanNo} onChange={e => setEmployeeForm({ ...employeeForm.value, bpjsKetenagakerjaanNo: e.target.value })} class={inputClass} /></Field>
+                  <Field label="Nama Bank"><input value={employeeForm.value.bankNama} onChange={e => setEmployeeForm({ ...employeeForm.value, bankNama: e.target.value })} class={inputClass} /></Field>
+                  <Field label="Nomor Rekening"><input value={employeeForm.value.noRekening} onChange={e => setEmployeeForm({ ...employeeForm.value, noRekening: e.target.value })} class={inputClass} /></Field>
+                  <Field label="NPWP"><input value={employeeForm.value.npwp} onChange={e => setEmployeeForm({ ...employeeForm.value, npwp: e.target.value })} class={inputClass} /></Field>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                  <Field label="Jabatan / Role"><input value={employeeForm.value.jabatan} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    jabatan: e.target.value
-                  })} class={inputClass} /></Field>
-                  <Field label="Departemen"><select value={employeeForm.value.departemen} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    departemen: e.target.value
-                  })} class={inputClass}><option>Teknologi</option><option>Finance</option><option>HR</option><option>Operasional</option></select></Field>
-                  <Field label="Status Kontrak"><select value={employeeForm.value.statusKontrak} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    statusKontrak: e.target.value
-                  })} class={inputClass}><option>Karyawan Tetap</option><option>Kontrak</option><option>Probation</option></select></Field>
-                  <Field label="Tanggal Bergabung"><input type="date" value={employeeForm.value.tanggalBergabung} onChange={e => setEmployeeForm({
-                    ...employeeForm.value,
-                    tanggalBergabung: e.target.value
-                  })} class={inputClass} /></Field>
-                </div>
-              </section>
+              </details>
 
-              <section class="space-y-6">
-                <div class="flex items-center gap-2.5 pb-3 border-b border-[#D8E5F4]">
-                  <HeartPulse class="w-4 h-4 text-[#1E5AA8]" />
-                  <h4 class="font-extrabold text-[12px] tracking-wider text-[#1F2A44] uppercase">BPJS & Jaminan Sosial</h4>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div class="space-y-5">
-                    <span class="inline-flex px-3 py-1 rounded-full bg-[#EEF5FC] text-[#1E5AA8] text-[9px] font-extrabold uppercase">BPJS Kesehatan</span>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field label="No. Peserta"><input value={employeeForm.value.bpjsKesehatanNo} onChange={e => setEmployeeForm({
-                        ...employeeForm.value,
-                        bpjsKesehatanNo: e.target.value
-                      })} class={inputClass} /></Field>
-                      <Field label="Tipe Kepesertaan"><select value={employeeForm.value.bpjsKesehatanTipe} onChange={e => setEmployeeForm({
-                        ...employeeForm.value,
-                        bpjsKesehatanTipe: e.target.value
-                      })} class={inputClass}><option>PPU (Penerima Upah)</option><option>Mandiri</option></select></Field>
-                    </div>
-                    <Field label="Fasilitas Kelas"><select value={employeeForm.value.bpjsKesehatanKelas} onChange={e => setEmployeeForm({
-                      ...employeeForm.value,
-                      bpjsKesehatanKelas: e.target.value
-                    })} class={inputClass}><option>Kelas 1</option><option>Kelas 2</option><option>Kelas 3</option></select></Field>
-                  </div>
-                  <div class="space-y-5">
-                    <span class="inline-flex px-3 py-1 rounded-full bg-indigo-50 text-[#0B1F4A] text-[9px] font-extrabold uppercase">BPJS Ketenagakerjaan</span>
-                    <Field label="No. KPJ"><input value={employeeForm.value.bpjsKetenagakerjaanNo} onChange={e => setEmployeeForm({
-                      ...employeeForm.value,
-                      bpjsKetenagakerjaanNo: e.target.value
-                    })} class={inputClass} /></Field>
-                    <div class="space-y-2">
-                      <label class={labelClass}>Manfaat Aktif</label>
-                      <div class="flex flex-wrap gap-2">
-                        {['JKK', 'JKM', 'JHT', 'JP'].map(item => <span key={item} class="px-4 py-2 rounded-xl bg-[#0B1F4A] text-white text-[10px] font-extrabold">{item}</span>)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section class="bg-[#10182C] rounded-[36px] p-8 text-white space-y-7">
-                <div class="flex items-center gap-2.5 pb-4 border-b border-white/10">
-                  <CreditCard class="w-4 h-4 text-[#7C83FF]" />
-                  <h4 class="font-extrabold text-[12px] tracking-wider uppercase">Kompensasi & Payroll</h4>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8 items-start">
-                  <div class="space-y-5">
-                    <Field label="Gaji Pokok (Gross)" dark><div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-[#7C83FF] font-bold">Rp</span><input type="number" value={employeeForm.value.gajiPokok || ''} onChange={e => setEmployeeForm({
-                        ...employeeForm.value,
-                        gajiPokok: Number(e.target.value)
-                      })} class="w-full h-14 pl-12 pr-4 rounded-2xl bg-white/5 border border-white/15 text-white font-bold focus:outline-none" placeholder="0" /></div></Field>
-                    <div class="grid grid-cols-2 gap-3">
-                      <Field label="Bank Nama" dark><input placeholder="BCA/Mandiri..." value={employeeForm.value.bankNama} onChange={e => setEmployeeForm({
-                        ...employeeForm.value,
-                        bankNama: e.target.value
-                      })} class="w-full h-10 px-4 rounded-xl bg-white/5 border border-white/15 text-white font-bold focus:outline-none" /></Field>
-                      <Field label="No. Rekening" dark><input value={employeeForm.value.noRekening} onChange={e => setEmployeeForm({
-                        ...employeeForm.value,
-                        noRekening: e.target.value
-                      })} class="w-full h-10 px-4 rounded-xl bg-white/5 border border-white/15 text-white font-bold focus:outline-none" /></Field>
-                    </div>
-                  </div>
-                  <div class="rounded-[28px] border border-white/15 bg-white/5 p-7 min-h-[180px]">
-                    <div class="flex justify-between items-start">
-                      <span class="text-[10px] text-[#9AA4C7] font-extrabold uppercase tracking-wider">Simulasi Gaji Bersih (Net)</span>
-                      <span class="px-3 py-1 rounded-full bg-[#EEF5FC]0/20 text-blue-200 text-[9px] font-extrabold uppercase">Pajak Ditanggung Perusahaan</span>
-                    </div>
-                    <div class="grid grid-cols-2 mt-9">
-                      <div>
-                        <span class="text-[10px] text-[#9AA4C7] font-bold uppercase">Gaji Kotor</span>
-                        <p class="text-3xl font-black mt-2">{formatRupiah(employeeForm.value.gajiPokok)}</p>
-                      </div>
-                      <div class="text-right">
-                        <span class="text-[10px] text-[#9AA4C7] font-bold uppercase">Gaji Bersih</span>
-                        <p class="text-4xl font-black mt-2">{formatRupiah(employeeForm.value.gajiPokok)}</p>
-                      </div>
-                    </div>
-                    <p class="text-[9px] text-[#7C849F] italic mt-6">* Perhitungan mencakup potongan iuran BPJS Pegawai sesuai konfigurasi sistem.</p>
-                  </div>
-                </div>
-              </section>
-
-              <section class="space-y-6">
-                <div class="flex items-center gap-2.5 pb-3 border-b border-orange-100">
-                  <FileText class="w-4 h-4 text-orange-500" />
-                  <h4 class="font-extrabold text-[12px] tracking-wider text-[#1F2A44] uppercase">Arsip Dokumen Digital</h4>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
-                  {['Upload CV', 'Upload NIK', 'Upload NPWP', 'Upload Ijazah'].map(item => <button key={item} type="button" class="h-36 rounded-[22px] bg-[#F8FAFC] border border-dashed border-[#D8E5F4] flex flex-col items-center justify-center gap-3 text-[#94A3B8]">
-                      <span class="w-10 h-10 rounded-2xl bg-[#E8EEF7] flex items-center justify-center"><Upload class="w-5 h-5" /></span>
-                      <span class="text-[10px] font-extrabold uppercase">{item}</span>
-                      <span class="text-[8px] font-bold uppercase text-slate-300">PDF / Image</span>
-                    </button>)}
-                </div>
-              </section>
-
-              <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 pt-3">
-                <button type="button" onClick={() => setIsEmployeeModalOpen(false)} class="h-[52px] border border-[#D8E5F4] rounded-2xl text-[#64748B] font-extrabold uppercase tracking-wider">Batal</button>
-                <button id="btn-submit-employee" type="submit" class="h-[52px] bg-[#10182C] hover:bg-[#0B1120] text-white rounded-2xl font-extrabold uppercase tracking-widest flex items-center justify-center gap-2"><CheckCircle2 class="w-4 h-4" /> Selesaikan Registrasi Pegawai</button>
+              <div class="flex flex-col-reverse gap-3 border-t border-[#E8EEF7] pt-5 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setIsEmployeeModalOpen(false)} class="h-11 rounded-xl border border-[#D8E5F4] px-5 font-extrabold text-[#64748B]">Batal</button>
+                <button id="btn-submit-employee" type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#10182C] px-6 font-extrabold text-white shadow-lg shadow-[#10182C]/20"><CheckCircle2 class="w-4 h-4" /> Simpan Pegawai</button>
               </div>
             </form>
           </div>
@@ -821,8 +923,9 @@ export default defineComponent({
           <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 class="font-extrabold text-sm text-[#0B1F4A]">Proses Payout Payroll Gaji</h3>
-                <span class="text-[10px] text-slate-400">Distribusi dana upah bulanan tim Kedata</span>
+                <p class="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]">Langkah 3 dari 3</p>
+                <h3 class="mt-1 font-extrabold text-sm text-[#0B1F4A]">Proses Payroll</h3>
+                <span class="text-[10px] text-slate-400">Pilih pegawai, periode, dan akun pembayaran.</span>
               </div>
               <button id="btn-close-payroll" onClick={() => setIsPayrollModalOpen(false)} class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
                 Batal
@@ -830,27 +933,47 @@ export default defineComponent({
             </div>
 
             <div class="p-6 space-y-4 text-xs">
+              <div class="space-y-1.5">
+                <label class="font-bold text-slate-700">Pegawai yang Diproses</label>
+                <select id="payroll-employee" value={payrollForm.value.employeeId} onChange={event => payrollForm.value.employeeId = event.target.value} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs">
+                  <option value="">-- Pilih pegawai --</option>
+                  {pegawai.map((employee: any) => <option key={employee?._raw?.id || employee.id} value={String(employee?._raw?.id || '')}>{employee.nama} · {employee.id}</option>)}
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label class="font-bold text-slate-700">Periode Payroll</label>
+                  <input id="payroll-period" type="month" value={payrollForm.value.payrollPeriod} onChange={event => payrollForm.value.payrollPeriod = event.target.value} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs" />
+                </div>
+                <div class="space-y-1.5">
+                  <label class="font-bold text-slate-700">Tanggal Bayar</label>
+                  <input id="payroll-payment-date" type="date" value={payrollForm.value.paymentDate} onChange={event => payrollForm.value.paymentDate = event.target.value} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs" />
+                </div>
+              </div>
+
               <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl space-y-2 text-blue-900">
-                <p class="font-bold">Estimasi Pengeluaran Payroll:</p>
+                <p class="font-bold">Estimasi Payroll Terpilih:</p>
                 <div class="font-mono space-y-1 text-xs">
-                  <p>&bull; Karyawan Aktif: <span class="font-bold">{pegawai.length} Orang</span></p>
-                  <p>&bull; Akumulasi Pokok (80%): <span class="font-bold">{formatRupiah(pegawai.reduce((acc, p) => acc + Math.round(p.gajiBersih * 0.8), 0))}</span></p>
-                  <p>&bull; Akumulasi Tunjangan (20%): <span class="font-bold">{formatRupiah(pegawai.reduce((acc, p) => acc + Math.round(p.gajiBersih * 0.2), 0))}</span></p>
+                  <p>&bull; Pegawai: <span class="font-bold">{currentPayrollEmployee()?.nama || '—'}</span></p>
+                  <p>&bull; Gaji Pokok: <span class="font-bold">{formatRupiah(currentPayrollAmount())}</span></p>
+                  <p>&bull; Net Payroll MTD: <span class="font-bold">{formatRupiah(asNumber(payrollSummary.value.total_net_pay))}</span></p>
                   <p class="border-t border-blue-200 pt-1.5 font-sans font-extrabold text-[#0B1F4A] text-sm">
-                    Grand Total: {formatRupiah(pegawai.reduce((acc, p) => acc + p.gajiBersih, 0))}
+                    Nilai Payroll: {formatRupiah(currentPayrollAmount())}
                   </p>
                 </div>
               </div>
 
               <div class="space-y-1.5">
                 <label class="font-bold text-slate-700">Sumber Rekening Dana Payout</label>
-                <select id="payroll-source-bank" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs">
-                  {akun.filter(a => a.kode.startsWith('1001')).map(a => <option key={a.id} value={a.kode}>{a.kode} - {a.nama} ({formatRupiah(a.saldo)})</option>)}
+                <select id="payroll-source-bank" value={payrollForm.value.cashAccountId} onChange={event => payrollForm.value.cashAccountId = event.target.value} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs">
+                  <option value="">-- Pilih Kas/Bank --</option>
+                  {payrollAccounts.value.map((account: any) => <option key={account.id} value={String(account.id)}>{account.code} - {account.name}</option>)}
                 </select>
               </div>
 
               <button id="btn-confirm-payout" onClick={handleProcessPayroll} class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2">
-                <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Konfirmasi Disbursmen Payroll Gaji
+                <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Proses & Posting Payroll
               </button>
             </div>
           </div>
