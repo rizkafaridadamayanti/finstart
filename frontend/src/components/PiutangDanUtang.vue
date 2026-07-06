@@ -1,0 +1,626 @@
+<script lang="tsx">
+import { Fragment, defineComponent, h, ref } from "vue";
+import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Receipt, Trash2, Calendar, FilePlus, X, Save, CreditCard } from "lucide-vue-next";
+import { formatRupiah } from '../data.ts';
+import { Proyek, Klien, AkunBukuBesar } from '../types.ts';
+interface Invoice {
+  id: string;
+  nomor: string;
+  proyekNama: string;
+  klienNama: string;
+  nominal: number;
+  tanggalKirim: string;
+  jatuhTempo: string;
+  status: 'Unpaid' | 'Overdue' | 'Paid';
+}
+interface TagihanVendor {
+  id: string;
+  vendor: string;
+  nomorTagihan: string;
+  keterangan: string;
+  nominal: number;
+  tanggalMasuk: string;
+  jatuhTempo: string;
+  status: 'Belum Bayar' | 'Lunas' | 'Terlambat' | 'Overdue';
+}
+interface PiutangDanUtangProps {
+  activeSection: 'piutang' | 'utang';
+  proyek: Proyek[];
+  klien: Klien[];
+  akun: AkunBukuBesar[];
+  invoices: Invoice[];
+  bills: TagihanVendor[];
+  onCreateInvoice: (data: any) => Promise<void> | void;
+  onRecordInvoicePayment: (invoice: Invoice, payment: any) => Promise<void> | void;
+  onCreateBill: (data: any) => Promise<void> | void;
+  onPayBill: (bill: TagihanVendor, payment: any) => Promise<void> | void;
+  showToast: (msg: string) => void;
+}
+export default defineComponent({
+  name: "PiutangDanUtang",
+  props: ["activeSection", "proyek", "klien", "akun", "invoices", "bills", "onCreateInvoice", "onRecordInvoicePayment", "onCreateBill", "onPayBill", "showToast"],
+  setup(props) {
+    const {
+      activeSection,
+      proyek,
+      klien,
+      akun,
+      onCreateInvoice,
+      onRecordInvoicePayment,
+      onCreateBill,
+      onPayBill,
+      showToast
+    }: PiutangDanUtangProps = props;
+    const activeTab = activeSection === 'piutang' ? 'receivables' : 'payables';
+
+    // Data piutang dan utang disuplai dari backend melalui App.vue.
+    // Komponen ini hanya mempertahankan modal dan tata letak UI desain asli.
+    const invoices = ref<any[]>(props.invoices || []);
+    const bills = ref<any[]>(props.bills || []);
+    const isInvoiceModalOpen = ref(false),
+      setIsInvoiceModalOpen = next => isInvoiceModalOpen.value = typeof next === "function" ? next(isInvoiceModalOpen.value) : next;
+    const isReceiptModalOpen = ref(false),
+      setIsReceiptModalOpen = next => isReceiptModalOpen.value = typeof next === "function" ? next(isReceiptModalOpen.value) : next;
+    const isBillModalOpen = ref(false),
+      setIsBillModalOpen = next => isBillModalOpen.value = typeof next === "function" ? next(isBillModalOpen.value) : next;
+    const isPayBillModalOpen = ref(false),
+      setIsPayBillModalOpen = next => isPayBillModalOpen.value = typeof next === "function" ? next(isPayBillModalOpen.value) : next; // New Invoice form input
+    const newInvoice = ref({
+        proyekId: proyek[0]?.id || '',
+        nominal: 120000000,
+        tanggalKirim: new Date().toISOString().split('T')[0],
+        jatuhTempo: ''
+      }),
+      setNewInvoice = next => newInvoice.value = typeof next === "function" ? next(newInvoice.value) : next; // Record Client Receipt form input
+    const selectedInvoiceId = ref(''),
+      setSelectedInvoiceId = next => selectedInvoiceId.value = typeof next === "function" ? next(selectedInvoiceId.value) : next;
+    const receiptAccount = ref('1001'),
+      setReceiptAccount = next => receiptAccount.value = typeof next === "function" ? next(receiptAccount.value) : next;
+    const receiptAmount = ref(0),
+      setReceiptAmount = next => receiptAmount.value = typeof next === "function" ? next(receiptAmount.value) : next; // New Vendor Bill form input
+    const newBill = ref({
+        vendor: '',
+        nomorTagihan: 'BILL/2026/001',
+        alokasiProyek: '',
+        keterangan: '',
+        nominal: 0,
+        tanggalMasuk: '2026-07-01',
+        jatuhTempo: '2026-07-08'
+      }),
+      setNewBill = next => newBill.value = typeof next === "function" ? next(newBill.value) : next; // Pay Vendor Bill form input
+    const selectedBillId = ref(''),
+      setSelectedBillId = next => selectedBillId.value = typeof next === "function" ? next(selectedBillId.value) : next;
+    const paymentAccount = ref('1001'),
+      setPaymentAccount = next => paymentAccount.value = typeof next === "function" ? next(paymentAccount.value) : next;
+    const paymentForm = ref({
+        vendor: '',
+        buktiBayar: 'PAY/2026/001',
+        tanggalBayar: '2026-07-01',
+        jumlah: 0,
+        catatan: ''
+      }),
+      setPaymentForm = next => paymentForm.value = typeof next === "function" ? next(paymentForm.value) : next; // Handle invoice submission
+    const handleSaveInvoice = async (e: Event) => {
+      e.preventDefault();
+      const projObj = proyek.find(p => p.id === newInvoice.value.proyekId);
+      if (!projObj) {
+        showToast('Harap pilih proyek terlebih dahulu.');
+        return;
+      }
+      await onCreateInvoice({ ...newInvoice.value });
+      setIsInvoiceModalOpen(false);
+    };
+
+    const handleRecordReceipt = async (e: Event) => {
+      e.preventDefault();
+      const fallbackInvoiceId = invoices.value.find(i => i.status !== 'Paid')?.id || '';
+      const invoiceId = selectedInvoiceId.value || fallbackInvoiceId;
+      const targetInv = invoices.value.find(i => i.id === invoiceId);
+      if (!targetInv) return;
+      await onRecordInvoicePayment(targetInv, {
+        accountCode: receiptAccount.value,
+        amount: receiptAmount.value || targetInv.outstandingAmount || targetInv.nominal,
+        paymentDate: new Date().toISOString().split('T')[0],
+        referenceNumber: '',
+        notes: '',
+      });
+      setIsReceiptModalOpen(false);
+    };
+
+    const handleSaveBill = async (e: Event) => {
+      e.preventDefault();
+      if (!newBill.value.vendor || !newBill.value.keterangan) {
+        showToast('Harap isi nama vendor dan rincian tagihan.');
+        return;
+      }
+      await onCreateBill({ ...newBill.value });
+      setIsBillModalOpen(false);
+      setNewBill({
+        vendor: '',
+        nomorTagihan: `BILL/2026/00${bills.value.length + 1}`,
+        alokasiProyek: '',
+        keterangan: '',
+        nominal: 0,
+        tanggalMasuk: '2026-07-01',
+        jatuhTempo: '2026-07-08'
+      });
+    };
+
+    const handlePayBill = async (e: Event) => {
+      e.preventDefault();
+      const targetBill = bills.value.find(b => b.id === selectedBillId.value);
+      if (!targetBill) return;
+      await onPayBill(targetBill, {
+        accountCode: paymentAccount.value,
+        amount: paymentForm.value.jumlah || targetBill.outstandingAmount || targetBill.nominal,
+        paymentDate: paymentForm.value.tanggalBayar,
+        referenceNumber: paymentForm.value.buktiBayar,
+        notes: paymentForm.value.catatan,
+      });
+      setIsPayBillModalOpen(false);
+    };
+
+    // Calculations for KPI Cards
+    // Gunakan saldo tersisa dari API agar invoice/tagihan yang dibayar sebagian tetap akurat.
+    const receivableBalance = (invoice: any) => Number(invoice.outstandingAmount ?? invoice.nominal ?? 0);
+    const payableBalance = (bill: any) => Number(bill.outstandingAmount ?? bill.nominal ?? 0);
+    const totalOutstandingPiutang = invoices.value.filter(i => i.status !== 'Paid').reduce((acc, i) => acc + receivableBalance(i), 0);
+    const totalOverduePiutang = invoices.value.filter(i => i.status === 'Overdue').reduce((acc, i) => acc + receivableBalance(i), 0);
+    const totalOutstandingUtang = bills.value.filter(b => b.status !== 'Lunas').reduce((acc, b) => acc + payableBalance(b), 0);
+    return () => <div class="space-y-6 font-sans">
+      {/* Upper header switch */}
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
+        <div>
+          <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">Piutang & Utang Korporasi</h1>
+          <p class="text-xs text-slate-400 font-light mt-1">Kelola siklus piutang usaha (Arus Kas Masuk) dan utang vendor penunjang (Arus Kas Keluar) secara detail.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-subledger-create" onClick={() => activeTab === 'receivables' ? setIsInvoiceModalOpen(true) : setIsBillModalOpen(true)} class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#102A56] px-4 text-[13px] font-medium text-white shadow-[0_8px_18px_rgba(16,42,86,0.16)] transition hover:bg-[#0B1F42]">
+              <Plus class="h-4 w-4" />
+              {activeTab === 'receivables' ? 'Buat Invoice Baru' : 'Input Tagihan Baru'}
+            </button>
+
+            <button id="btn-subledger-settlement" onClick={() => {
+              if (activeTab === 'receivables') {
+                const firstOutstanding = invoices.value.find(i => i.status !== 'Paid');
+                setSelectedInvoiceId(firstOutstanding?.id || '');
+                setReceiptAmount(firstOutstanding?.nominal || 0);
+                setIsReceiptModalOpen(true);
+              } else {
+                const firstOpenBill = bills.value.find(b => b.status !== 'Lunas');
+                setSelectedBillId(firstOpenBill?.id || '');
+                setPaymentForm({
+                  vendor: firstOpenBill?.vendor || '',
+                  buktiBayar: 'PAY/2026/001',
+                  tanggalBayar: '2026-07-01',
+                  jumlah: firstOpenBill?.nominal || 0,
+                  catatan: ''
+                });
+                setIsPayBillModalOpen(true);
+              }
+            }} class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BFE8D6] bg-[#F2FBF7] px-4 text-[13px] font-medium text-[#087A52] transition hover:border-[#8AD7B8] hover:bg-[#E8F8F0]">
+              <Landmark class="h-4 w-4" />
+              {activeTab === 'receivables' ? 'Catat Pelunasan' : 'Catat Pembayaran'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 1. PIUTANG USAHA Layout */}
+      {activeTab === 'receivables' && <div class="space-y-6">
+          {/* Piutang KPI metrics bar */}
+          <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div class="flex min-h-[112px] items-center gap-4 rounded-2xl border border-[#DCE7F4] bg-white p-5 shadow-[0_10px_28px_rgba(16,42,86,0.045)]">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1E5AA8]">
+                <FileText class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Total Outstanding Piutang</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingPiutang)}</span>
+                <span class="mt-1 block text-xs text-[#6B7A90]">Invoice belum tercatat sebagai pelunasan.</span>
+              </div>
+            </div>
+
+            <div class="flex min-h-[112px] items-center gap-4 rounded-2xl border border-[#F7D6DE] bg-[#FFF9FA] p-5 shadow-[0_10px_28px_rgba(16,42,86,0.035)]">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F3] text-[#D93858]">
+                <AlertTriangle class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#AA6477]">Piutang Overdue</span>
+                <span class="mt-2 block text-xl font-semibold text-[#B22D4B]">{formatRupiah(totalOverduePiutang)}</span>
+                <span class="mt-1 block text-xs text-[#B86A7C]">Perlu follow-up penagihan segera.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoices listings */}
+          <div class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+            <div class="p-4 bg-slate-50 border-b border-slate-150">
+              <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Piutang Usaha</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-500">
+                <thead class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="p-4">Nomor Invoice</th>
+                    <th class="p-4">Proyek & Klien Partner</th>
+                    <th class="p-4">Tanggal Penerbitan</th>
+                    <th class="p-4">Jatuh Tempo</th>
+                    <th class="p-4 text-right">Nominal Tagihan</th>
+                    <th class="p-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-150">
+                  {invoices.value.map(inv => <tr key={inv.id} class="hover:bg-slate-50 transition-colors">
+                      <td class="p-4 font-mono font-bold text-slate-800 text-sm">{inv.nomor}</td>
+                      <td class="p-4 space-y-1">
+                        <span class="font-bold text-[#0B1F4A] block text-sm">{inv.proyekNama}</span>
+                        <span class="text-[10px] text-slate-400 block font-light">{inv.klienNama}</span>
+                      </td>
+                      <td class="p-4 font-mono">{inv.tanggalKirim}</td>
+                      <td class="p-4 font-mono">{inv.jatuhTempo}</td>
+                      <td class="p-4 text-right font-mono font-bold text-[#0B1F4A] text-sm">{formatRupiah(inv.nominal)}</td>
+                      <td class="p-4 text-center">
+                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : inv.status === 'Overdue' ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>}
+
+      {/* 2. UTANG VENDOR Layout */}
+      {activeTab === 'payables' && <div class="space-y-6">
+          {/* Utang KPI metrics bar */}
+          <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div class="flex min-h-[112px] items-center gap-4 rounded-2xl border border-[#DCE7F4] bg-white p-5 shadow-[0_10px_28px_rgba(16,42,86,0.045)]">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF7E8] text-[#C47B00]">
+                <Clock class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Total Outstanding Utang Usaha</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang)}</span>
+                <span class="mt-1 block text-xs text-[#6B7A90]">Tagihan vendor yang masih terbuka.</span>
+              </div>
+            </div>
+
+            <div class="flex min-h-[112px] items-center gap-4 rounded-2xl border border-[#D7E8FA] bg-[#F7FBFF] p-5 shadow-[0_10px_28px_rgba(16,42,86,0.035)]">
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1E5AA8]">
+                <Receipt class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Tagihan Dalam Periode</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang)}</span>
+                <span class="mt-1 block text-xs text-[#6B7A90]">Siap diproses sesuai prioritas jatuh tempo.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bills Listings */}
+          <div class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+            <div class="p-4 bg-slate-50 border-b border-slate-150">
+              <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Utang Vendor</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-500">
+                <thead class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="p-4">ID Tagihan</th>
+                    <th class="p-4">Nama Vendor / Penyedia Layanan</th>
+                    <th class="p-4">Keterangan Pengeluaran</th>
+                    <th class="p-4 font-mono">Tgl Tagihan</th>
+                    <th class="p-4 font-mono">Jatuh Tempo</th>
+                    <th class="p-4 text-right">Nominal Utang</th>
+                    <th class="p-4 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-150">
+                  {bills.value.map(bill => <tr key={bill.id} class="hover:bg-slate-50 transition-colors">
+                      <td class="p-4 font-mono font-bold text-[#0B1F4A]">{bill.nomorTagihan}</td>
+                      <td class="p-4">
+                        <span class="font-bold text-slate-800 block text-sm">{bill.vendor}</span>
+                        <span class="text-[10px] text-slate-400 block font-light">ID Partner: {bill.id}</span>
+                      </td>
+                      <td class="p-4 text-slate-600">{bill.keterangan}</td>
+                      <td class="p-4 font-mono">{bill.tanggalMasuk}</td>
+                      <td class="p-4 font-mono">{bill.jatuhTempo}</td>
+                      <td class="p-4 text-right font-mono font-bold text-slate-800 text-sm">{formatRupiah(bill.nominal)}</td>
+                      <td class="p-4 text-center">
+                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${bill.status === 'Lunas' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (bill.status === 'Terlambat' || bill.status === 'Overdue') ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                          {bill.status}
+                        </span>
+                      </td>
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>}
+
+      {/* 3. INVOICE CREATION MODAL */}
+      {isInvoiceModalOpen.value && <div class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 class="font-extrabold text-sm text-[#0B1F4A]">Penerbitan Invoice Piutang</h3>
+                <span class="text-[10px] text-slate-400">Penerbitan tagihan termin kepada mitra klien</span>
+              </div>
+              <button id="btn-close-inv-modal" onClick={() => setIsInvoiceModalOpen(false)} class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
+                Batal
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveInvoice} class="p-6 space-y-4 text-xs">
+              <div class="space-y-1.5">
+                <label class="font-bold text-slate-700">Hubungkan dengan Proyek Aktif</label>
+                <select id="inv-form-project" value={newInvoice.value.proyekId} onChange={e => setNewInvoice({
+                ...newInvoice.value,
+                proyekId: e.target.value
+              })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs">
+                  {proyek.map(p => <option key={p.id} value={p.id}>{p.nama} ({formatRupiah(p.nilaiKontrak)})</option>)}
+                </select>
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="font-bold text-slate-700">Nominal Penagihan Termin (Rupiah)</label>
+                <input id="inv-form-val" type="number" required value={newInvoice.value.nominal} onChange={e => setNewInvoice({
+                ...newInvoice.value,
+                nominal: Number(e.target.value)
+              })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1.5">
+                  <label class="font-bold text-slate-700">Tanggal Invoice</label>
+                  <input id="inv-form-date" type="date" value={newInvoice.value.tanggalKirim} onChange={e => setNewInvoice({
+                  ...newInvoice.value,
+                  tanggalKirim: e.target.value
+                })} class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono" />
+                </div>
+                <div class="space-y-1.5">
+                  <label class="font-bold text-slate-700">Jatuh Tempo</label>
+                  <input id="inv-form-due" type="date" required value={newInvoice.value.jatuhTempo} onChange={e => setNewInvoice({
+                  ...newInvoice.value,
+                  jatuhTempo: e.target.value
+                })} class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono" />
+                </div>
+              </div>
+
+              <button id="btn-inv-submit" type="submit" class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2">
+                <FilePlus class="w-4 h-4 text-[#38BDF8]" /> Posting Invoice Piutang
+              </button>
+            </form>
+          </div>
+        </div>}
+
+      {/* 4. CLIENT PAYMENT RECEIPT RECORD MODAL */}
+      {isReceiptModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl">
+            <div class="px-9 py-8 bg-emerald-50/60 border-b border-emerald-50 flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/25">
+                  <Landmark class="w-5 h-5" />
+                </div>
+                <h3 class="font-extrabold text-2xl text-emerald-900 tracking-tight">Catat Pelunasan Piutang</h3>
+              </div>
+              <button id="btn-close-receipt-modal" onClick={() => setIsReceiptModalOpen(false)} class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors">
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordReceipt} class="px-9 py-11 space-y-9 text-sm">
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Jumlah Diterima</label>
+                <div class="relative">
+                  <span class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs">Rp</span>
+                  <input id="receipt-form-amount" type="number" min={0} value={receiptAmount.value || ''} onChange={e => setReceiptAmount(Number(e.target.value))} class="w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
+                <button id="btn-receipt-cancel" type="button" onClick={() => setIsReceiptModalOpen(false)} class="h-[66px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all">
+                  Batal
+                </button>
+                <button id="btn-receipt-submit" type="submit" disabled={!selectedInvoiceId.value && !invoices.value.some(i => i.status !== 'Paid')} class="h-[66px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2">
+                  <Save class="w-4 h-4" /> Catat Pelunasan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>}
+
+      {/* 5. VENDOR BILL CREATION MODAL */}
+      {isBillModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl">
+            <div class="px-9 py-8 bg-rose-50/60 border-b border-rose-50 flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-600/25">
+                  <Plus class="w-5 h-5" />
+                </div>
+                <h3 class="font-extrabold text-2xl text-rose-900 tracking-tight">Input Tagihan Baru (Bill)</h3>
+              </div>
+              <button id="btn-close-bill-modal" onClick={() => setIsBillModalOpen(false)} class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors">
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBill} class="px-9 py-10 space-y-7 text-sm">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Vendor / Supplier</label>
+                  <input id="bill-form-vendor" type="text" required placeholder="Nama perusahaan vendor..." value={newBill.value.vendor} onChange={e => setNewBill({
+                  ...newBill.value,
+                  vendor: e.target.value
+                })} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all" />
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Alokasi Projek</label>
+                  <select id="bill-form-project" value={newBill.value.alokasiProyek} onChange={e => setNewBill({
+                  ...newBill.value,
+                  alokasiProyek: e.target.value
+                })} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm transition-all">
+                    <option value="">-- Operasional Umum --</option>
+                    {proyek.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">No. Invoice Vendor</label>
+                  <input id="bill-form-number" type="text" required value={newBill.value.nomorTagihan} onChange={e => setNewBill({
+                  ...newBill.value,
+                  nomorTagihan: e.target.value
+                })} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-mono font-bold text-sm transition-all" />
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Tgl Tagihan</label>
+                  <div class="relative">
+                    <input id="bill-form-date" type="date" value={newBill.value.tanggalMasuk} onChange={e => setNewBill({
+                    ...newBill.value,
+                    tanggalMasuk: e.target.value
+                  })} class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all" />
+                    <Calendar class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]" />
+                  </div>
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-rose-600 uppercase">Batas Bayar (Alert)</label>
+                  <div class="relative">
+                    <input id="bill-form-due" type="date" required value={newBill.value.jatuhTempo} onChange={e => setNewBill({
+                    ...newBill.value,
+                    jatuhTempo: e.target.value
+                  })} class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all" />
+                    <Calendar class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Nominal Hutang</label>
+                <div class="relative">
+                  <span class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs">Rp</span>
+                  <input id="bill-form-val" type="number" required min={0} value={newBill.value.nominal || ''} onChange={e => setNewBill({
+                  ...newBill.value,
+                  nominal: Number(e.target.value)
+                })} class="w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all" />
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Keterangan Tagihan</label>
+                <textarea id="bill-form-desc" required placeholder="Detail pengadaan barang/jasa..." value={newBill.value.keterangan} onChange={e => setNewBill({
+                ...newBill.value,
+                keterangan: e.target.value
+              })} class="w-full min-h-[88px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y" />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 pt-1">
+                <button id="btn-bill-cancel" type="button" onClick={() => setIsBillModalOpen(false)} class="h-[52px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all">
+                  Batal
+                </button>
+                <button id="btn-bill-submit" type="submit" class="h-[52px] bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2">
+                  <Save class="w-4 h-4" /> Simpan Tagihan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>}
+
+      {/* 6. PAY VENDOR BILL MODAL */}
+      {isPayBillModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl">
+            <div class="px-9 py-8 bg-indigo-50/60 border-b border-indigo-50 flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-[#5146E8] text-white flex items-center justify-center shadow-lg shadow-[#5146E8]/25">
+                  <CreditCard class="w-5 h-5" />
+                </div>
+                <h3 class="font-extrabold text-2xl text-indigo-900 tracking-tight">Catat Pembayaran Vendor</h3>
+              </div>
+              <button id="btn-close-pay-modal" onClick={() => setIsPayBillModalOpen(false)} class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors">
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePayBill} class="px-9 py-10 space-y-7 text-sm">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Vendor Penerima</label>
+                  <input id="pay-form-vendor" type="text" placeholder="Nama vendor..." value={paymentForm.value.vendor} onChange={e => setPaymentForm({
+                  ...paymentForm.value,
+                  vendor: e.target.value
+                })} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all" />
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Sumber Kas / Bank</label>
+                  <select id="pay-form-bank" value={paymentAccount.value} onChange={e => setPaymentAccount(e.target.value)} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm transition-all">
+                    <option value="1001">Bank (1110)</option>
+                    {akun.filter(a => a.tipe === 'Aset' && a.kode !== '1001').map(a => <option key={a.id} value={a.kode}>{a.nama} ({a.kode})</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">No. Bukti Bayar</label>
+                  <input id="pay-form-proof" type="text" value={paymentForm.value.buktiBayar} onChange={e => setPaymentForm({
+                  ...paymentForm.value,
+                  buktiBayar: e.target.value
+                })} class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-mono font-bold text-sm transition-all" />
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Tanggal Bayar</label>
+                  <div class="relative">
+                    <input id="pay-form-date" type="date" value={paymentForm.value.tanggalBayar} onChange={e => setPaymentForm({
+                    ...paymentForm.value,
+                    tanggalBayar: e.target.value
+                  })} class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all" />
+                    <Calendar class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Jumlah Dibayar (Rp)</label>
+                <div class="relative">
+                  <span class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs">Rp</span>
+                  <input id="pay-form-amount" type="number" min={0} value={paymentForm.value.jumlah || ''} onChange={e => setPaymentForm({
+                  ...paymentForm.value,
+                  jumlah: Number(e.target.value)
+                })} class="w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all" />
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Catatan Tambahan</label>
+                <textarea id="pay-form-note" placeholder="Contoh: Pembayaran invoice bulan lalu..." value={paymentForm.value.catatan} onChange={e => setPaymentForm({
+                ...paymentForm.value,
+                catatan: e.target.value
+              })} class="w-full min-h-[86px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y" />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 pt-1">
+                <button id="btn-pay-cancel" type="button" onClick={() => setIsPayBillModalOpen(false)} class="h-[52px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all">
+                  Batal
+                </button>
+                <button id="btn-pay-submit" type="submit" disabled={!selectedBillId.value} class="h-[52px] bg-[#5146E8] hover:bg-[#4338CA] disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2">
+                  <Save class="w-4 h-4" /> Selesaikan Pembayaran
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>}
+    </div>;
+  }
+});
+</script>
