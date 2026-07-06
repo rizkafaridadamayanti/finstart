@@ -1,107 +1,61 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { masterDataApi } from '@/services/masterDataApi'
-import { useEmployeeMasterData } from '@/composables/useEmployeeMasterData'
-import { payrollApi } from '@/services/payrollApi'
+import { computed, ref } from 'vue'
+import { useFinanceStore } from '../stores/financeStore'
 
-const {
-  employees,
-  divisions,
-  bpjsConfig,
-  employeeForm,
-  isLoading,
-  isSaving,
-  errorMessage,
-  successMessage,
-  availablePositions,
-  loadMasterData,
-  prepareCreate,
-  prepareEdit,
-  changeDivision,
-  saveEmployee,
-  updateEmployeeStatus,
-} = useEmployeeMasterData()
+const financeStore = useFinanceStore()
+const employeeList = computed(() => financeStore.employees)
+const bpjsConfig = computed(() => financeStore.bpjsSettings)
 
 const keyword = ref('')
-const selectedDivision = ref('all')
-const selectedEmploymentType = ref('all')
+const selectedDivision = ref('Semua')
+const selectedEmploymentStatus = ref('Semua')
 
 const showEmployeeModal = ref(false)
 const showPayrollModal = ref(false)
 const selectedEmployee = ref(null)
-const isSavingBpjs = ref(false)
-const isProcessingPayroll = ref(false)
-const payrollCashAccounts = ref([])
-const payrollForm = ref(emptyPayrollForm())
 
-const bpjsForm = ref(emptyBpjsForm())
-
-function emptyPayrollForm() {
-  return {
-    payroll_period: new Date().toISOString().slice(0, 7),
-    payment_date: new Date().toISOString().slice(0, 10),
-    cash_account_id: '',
-    notes: '',
-  }
-}
-
-function emptyBpjsForm() {
-  return {
-    health_company_rate: 0,
-    health_employee_rate: 0,
-    jht_company_rate: 0,
-    jht_employee_rate: 0,
-    jp_company_rate: 0,
-    jp_employee_rate: 0,
-    effective_date: new Date().toISOString().slice(0, 10),
-    notes: '',
-  }
-}
-
-watch(
-  bpjsConfig,
-  (config) => {
-    bpjsForm.value = {
-      ...emptyBpjsForm(),
-      ...(config || {}),
-      effective_date: String(config?.effective_date || new Date().toISOString().slice(0, 10)).slice(0, 10),
-    }
-  },
-  { immediate: true },
-)
+const employeeForm = ref({
+  employeeId: '',
+  name: '',
+  division: 'Technology',
+  position: '',
+  employmentStatus: 'Tetap',
+  joinDate: '',
+  baseSalary: 0,
+  taxStatus: 'TK/0',
+  bpjsStatus: 'Terdaftar',
+})
 
 const activeEmployees = computed(() => {
-  return employees.value.filter((employee) => employee.employment_status === 'active')
+  return employeeList.value.filter((employee) => employee.active)
 })
 
 const filteredEmployees = computed(() => {
-  const search = keyword.value.toLowerCase().trim()
+  const search = keyword.value.toLowerCase()
 
-  return employees.value.filter((employee) => {
+  return employeeList.value.filter((employee) => {
     const matchesKeyword =
-      !search ||
-      [
-        employee.full_name,
-        employee.employee_code,
-        employee.nik,
-        employee.position_name,
-        employee.division_name,
-      ].some((value) => String(value || '').toLowerCase().includes(search))
+      employee.name.toLowerCase().includes(search) ||
+      employee.employeeId.toLowerCase().includes(search) ||
+      employee.position.toLowerCase().includes(search) ||
+      employee.division.toLowerCase().includes(search)
 
     const matchesDivision =
-      selectedDivision.value === 'all' ||
-      Number(employee.division_id) === Number(selectedDivision.value)
+      selectedDivision.value === 'Semua' ||
+      employee.division === selectedDivision.value
 
-    const matchesEmploymentType =
-      selectedEmploymentType.value === 'all' ||
-      employee.employment_type === selectedEmploymentType.value
+    const matchesEmploymentStatus =
+      selectedEmploymentStatus.value === 'Semua' ||
+      employee.employmentStatus === selectedEmploymentStatus.value
 
-    return matchesKeyword && matchesDivision && matchesEmploymentType
+    return matchesKeyword && matchesDivision && matchesEmploymentStatus
   })
 })
 
 const registeredBpjsCount = computed(() => {
-  return activeEmployees.value.filter((employee) => employee.bpjs_status === 'active').length
+  return activeEmployees.value.filter(
+    (employee) => employee.bpjsStatus === 'Terdaftar',
+  ).length
 })
 
 const totalEstimatedNetSalary = computed(() => {
@@ -112,80 +66,46 @@ const totalEstimatedNetSalary = computed(() => {
 
 const selectedPayroll = computed(() => {
   if (!selectedEmployee.value) return null
+
   return calculatePayroll(selectedEmployee.value)
 })
-
-const isEditing = computed(() => Boolean(employeeForm.value.id))
-
-function numberValue(value) {
-  return Number(value || 0)
-}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(numberValue(value))
+  }).format(value)
 }
 
-function formatDate(value) {
-  if (!value) return '-'
-
-  const text = String(value).slice(0, 10)
-  const [year, month, day] = text.split('-')
-
-  if (!year || !month || !day) return '-'
-
+function formatDate(date) {
   return new Intl.DateTimeFormat('id-ID', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(Number(year), Number(month) - 1, Number(day)))
-}
-
-function employmentTypeLabel(type) {
-  const labels = {
-    permanent: 'Tetap',
-    contract: 'Kontrak',
-    intern: 'Magang',
-    freelance: 'Freelance',
-    daily: 'Harian',
-  }
-
-  return labels[type] || type || '-'
-}
-
-function bpjsStatusLabel(status) {
-  return status === 'active' ? 'Terdaftar' : 'Belum Terdaftar'
-}
-
-function employmentStatusLabel(status) {
-  return status === 'active' ? 'Aktif' : 'Tidak Aktif'
+  }).format(new Date(`${date}T00:00:00`))
 }
 
 function calculatePayroll(employee) {
-  const baseSalary = numberValue(employee.base_salary)
-  const isBpjsActive = employee.bpjs_status === 'active'
+  const baseSalary = Number(employee.baseSalary)
 
-  const healthCompany = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.health_company_rate)) / 100
-    : 0
-  const healthEmployee = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.health_employee_rate)) / 100
-    : 0
-  const jhtCompany = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.jht_company_rate)) / 100
-    : 0
-  const jhtEmployee = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.jht_employee_rate)) / 100
-    : 0
-  const jpCompany = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.jp_company_rate)) / 100
-    : 0
-  const jpEmployee = isBpjsActive
-    ? (baseSalary * numberValue(bpjsForm.value.jp_employee_rate)) / 100
-    : 0
+  const healthCompany =
+    (baseSalary * Number(bpjsConfig.value.healthCompanyRate)) / 100
+
+  const healthEmployee =
+    (baseSalary * Number(bpjsConfig.value.healthEmployeeRate)) / 100
+
+  const jhtCompany =
+    (baseSalary * Number(bpjsConfig.value.jhtCompanyRate)) / 100
+
+  const jhtEmployee =
+    (baseSalary * Number(bpjsConfig.value.jhtEmployeeRate)) / 100
+
+  const jpCompany =
+    (baseSalary * Number(bpjsConfig.value.jpCompanyRate)) / 100
+
+  const jpEmployee =
+    (baseSalary * Number(bpjsConfig.value.jpEmployeeRate)) / 100
 
   const employeeDeduction = healthEmployee + jhtEmployee + jpEmployee
 
@@ -203,144 +123,90 @@ function calculatePayroll(employee) {
   }
 }
 
-function openEmployeeModal() {
-  prepareCreate()
-  showEmployeeModal.value = true
+function getNewEmployeeId() {
+  const number = String(employeeList.value.length + 1).padStart(3, '0')
+  return `EMP-${number}`
 }
 
-function openEditModal(employee) {
-  prepareEdit(employee)
+function openEmployeeModal() {
+  employeeForm.value = {
+    employeeId: getNewEmployeeId(),
+    name: '',
+    division: 'Technology',
+    position: '',
+    employmentStatus: 'Tetap',
+    joinDate: '',
+    baseSalary: 0,
+    taxStatus: 'TK/0',
+    bpjsStatus: 'Terdaftar',
+  }
+
   showEmployeeModal.value = true
 }
 
 function closeEmployeeModal() {
   showEmployeeModal.value = false
-  prepareCreate()
 }
 
-async function submitEmployee() {
-  const saved = await saveEmployee()
-
-  if (saved) {
-    showEmployeeModal.value = false
+function addEmployee() {
+  if (
+    !employeeForm.value.name.trim() ||
+    !employeeForm.value.position.trim() ||
+    !employeeForm.value.joinDate ||
+    Number(employeeForm.value.baseSalary) <= 0
+  ) {
+    alert('Lengkapi nama, jabatan, tanggal bergabung, dan gaji pokok.')
+    return
   }
+
+  financeStore.addEmployee({
+    employeeId: employeeForm.value.employeeId,
+    name: employeeForm.value.name,
+    division: employeeForm.value.division,
+    position: employeeForm.value.position,
+    employmentStatus: employeeForm.value.employmentStatus,
+    joinDate: employeeForm.value.joinDate,
+    baseSalary: Number(employeeForm.value.baseSalary),
+    taxStatus: employeeForm.value.taxStatus,
+    bpjsStatus: employeeForm.value.bpjsStatus,
+    active: true,
+  })
+
+  closeEmployeeModal()
+  alert('Data pegawai berhasil ditambahkan.')
 }
 
-async function openPayrollModal(employee) {
-  errorMessage.value = ''
-  successMessage.value = ''
+function openPayrollModal(employee) {
   selectedEmployee.value = employee
-  payrollForm.value = emptyPayrollForm()
   showPayrollModal.value = true
-
-  try {
-    payrollCashAccounts.value = await payrollApi.getCashAccounts()
-    const defaultAccount = payrollCashAccounts.value.find(
-      (account) => String(account.code) === '1120',
-    ) || payrollCashAccounts.value[0]
-
-    payrollForm.value.cash_account_id = defaultAccount
-      ? String(defaultAccount.id)
-      : ''
-  } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message ||
-      'Gagal mengambil akun Kas/Bank untuk pembayaran payroll.'
-  }
 }
 
 function closePayrollModal() {
   selectedEmployee.value = null
-  payrollForm.value = emptyPayrollForm()
   showPayrollModal.value = false
 }
 
-async function processPayroll() {
-  if (!selectedEmployee.value) return
+function toggleEmployeeStatus(employee) {
+  financeStore.toggleEmployeeStatus(employee.id)
+}
 
-  errorMessage.value = ''
-  successMessage.value = ''
+function processPayroll() {
+  if (!selectedEmployee.value || !selectedPayroll.value) return
 
-  if (!payrollForm.value.payroll_period || !payrollForm.value.payment_date) {
-    errorMessage.value = 'Periode payroll dan tanggal pembayaran wajib diisi.'
+  const result = financeStore.processPayroll({
+    employeeId: selectedEmployee.value.id,
+    paymentDate: new Date().toISOString().slice(0, 10),
+    netSalary: selectedPayroll.value.netSalary,
+    paymentRef: `PAYROLL-${selectedEmployee.value.employeeId}`,
+  })
+
+  if (!result.ok) {
+    alert(result.message)
     return
   }
 
-  if (!payrollForm.value.cash_account_id) {
-    errorMessage.value = 'Pilih akun Kas atau Bank untuk pembayaran payroll.'
-    return
-  }
-
-  const confirmed = window.confirm(
-    `Catat payroll ${selectedEmployee.value.full_name} untuk periode ${payrollForm.value.payroll_period}?\n\nSistem akan membuat jurnal otomatis: Beban Gaji, Beban BPJS Perusahaan, Bank, dan Utang BPJS.`,
-  )
-
-  if (!confirmed) return
-
-  isProcessingPayroll.value = true
-
-  try {
-    const payroll = await payrollApi.process({
-      employee_id: Number(selectedEmployee.value.id),
-      payroll_period: payrollForm.value.payroll_period,
-      payment_date: payrollForm.value.payment_date,
-      cash_account_id: Number(payrollForm.value.cash_account_id),
-      notes: payrollForm.value.notes,
-    })
-
-    successMessage.value =
-      `Payroll berhasil diposting. Voucher jurnal: ${payroll?.voucher_number || '-'}.`
-
-    closePayrollModal()
-    await loadMasterData()
-  } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message ||
-      'Gagal memproses payroll.'
-  } finally {
-    isProcessingPayroll.value = false
-  }
-}
-
-async function toggleEmployeeStatus(employee) {
-  const nextStatus =
-    employee.employment_status === 'active' ? 'inactive' : 'active'
-
-  const label = nextStatus === 'active' ? 'mengaktifkan' : 'menonaktifkan'
-  const confirmed = window.confirm(
-    `Yakin ingin ${label} ${employee.full_name}?`,
-  )
-
-  if (!confirmed) return
-
-  await updateEmployeeStatus(employee, nextStatus)
-}
-
-async function saveBpjs() {
-  errorMessage.value = ''
-  successMessage.value = ''
-  isSavingBpjs.value = true
-
-  try {
-    await masterDataApi.updateBpjsConfig({
-      ...bpjsForm.value,
-      health_company_rate: numberValue(bpjsForm.value.health_company_rate),
-      health_employee_rate: numberValue(bpjsForm.value.health_employee_rate),
-      jht_company_rate: numberValue(bpjsForm.value.jht_company_rate),
-      jht_employee_rate: numberValue(bpjsForm.value.jht_employee_rate),
-      jp_company_rate: numberValue(bpjsForm.value.jp_company_rate),
-      jp_employee_rate: numberValue(bpjsForm.value.jp_employee_rate),
-    })
-
-    successMessage.value = 'Konfigurasi BPJS berhasil disimpan ke database.'
-    await loadMasterData()
-  } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message ||
-      'Gagal menyimpan konfigurasi BPJS.'
-  } finally {
-    isSavingBpjs.value = false
-  }
+  alert('Payroll berhasil dicatat ke jurnal. Beban, kas, Dashboard, laporan, dan AI sudah diperbarui.')
+  closePayrollModal()
 }
 </script>
 
@@ -355,18 +221,10 @@ async function saveBpjs() {
         </p>
       </div>
 
-      <button class="primary-button" :disabled="isSaving" @click="openEmployeeModal">
+      <button class="primary-button" @click="openEmployeeModal">
         + Tambah Pegawai
       </button>
     </div>
-
-    <article v-if="errorMessage" class="receivable-message error-message">
-      {{ errorMessage }}
-    </article>
-
-    <article v-if="successMessage" class="receivable-message success-message">
-      {{ successMessage }}
-    </article>
 
     <div class="employee-metrics">
       <article class="employee-stat">
@@ -397,45 +255,38 @@ async function saveBpjs() {
           </p>
         </div>
 
-        <button
-          type="button"
-          class="secondary-button"
-          :disabled="isSavingBpjs"
-          @click="saveBpjs"
-        >
-          {{ isSavingBpjs ? 'Menyimpan...' : 'Simpan Konfigurasi' }}
-        </button>
+        <span class="table-count">Prototype payroll</span>
       </div>
 
       <div class="rate-grid">
         <label>
           BPJS Kesehatan Perusahaan (%)
-          <input v-model.number="bpjsForm.health_company_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.healthCompanyRate" type="number" min="0" step="0.1" />
         </label>
 
         <label>
           BPJS Kesehatan Pegawai (%)
-          <input v-model.number="bpjsForm.health_employee_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.healthEmployeeRate" type="number" min="0" step="0.1" />
         </label>
 
         <label>
           JHT Perusahaan (%)
-          <input v-model.number="bpjsForm.jht_company_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.jhtCompanyRate" type="number" min="0" step="0.1" />
         </label>
 
         <label>
           JHT Pegawai (%)
-          <input v-model.number="bpjsForm.jht_employee_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.jhtEmployeeRate" type="number" min="0" step="0.1" />
         </label>
 
         <label>
           JP Perusahaan (%)
-          <input v-model.number="bpjsForm.jp_company_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.jpCompanyRate" type="number" min="0" step="0.1" />
         </label>
 
         <label>
           JP Pegawai (%)
-          <input v-model.number="bpjsForm.jp_employee_rate" type="number" min="0" max="100" step="0.01" />
+          <input v-model.number="bpjsConfig.jpEmployeeRate" type="number" min="0" step="0.1" />
         </label>
       </div>
     </article>
@@ -446,37 +297,24 @@ async function saveBpjs() {
           v-model="keyword"
           class="module-search"
           type="text"
-          placeholder="Cari nama, kode pegawai, NIK, jabatan, atau divisi..."
+          placeholder="Cari nama, ID pegawai, jabatan, atau divisi..."
         />
 
         <select v-model="selectedDivision" class="filter-select">
-          <option value="all">Semua Divisi</option>
-          <option
-            v-for="division in divisions"
-            :key="division.id"
-            :value="String(division.id)"
-          >
-            {{ division.name }}
-          </option>
+          <option>Semua</option>
+          <option>Technology</option>
+          <option>Design</option>
+          <option>Marketing</option>
+          <option>Operations</option>
+          <option>Finance</option>
         </select>
 
-        <select v-model="selectedEmploymentType" class="filter-select">
-          <option value="all">Semua Jenis Kerja</option>
-          <option value="permanent">Tetap</option>
-          <option value="contract">Kontrak</option>
-          <option value="intern">Magang</option>
-          <option value="freelance">Freelance</option>
-          <option value="daily">Harian</option>
+        <select v-model="selectedEmploymentStatus" class="filter-select">
+          <option>Semua</option>
+          <option>Tetap</option>
+          <option>Kontrak</option>
+          <option>Magang</option>
         </select>
-
-        <button
-          type="button"
-          class="table-action"
-          :disabled="isLoading"
-          @click="loadMasterData"
-        >
-          {{ isLoading ? 'Memuat...' : 'Refresh' }}
-        </button>
       </div>
 
       <span class="table-count">{{ filteredEmployees.length }} pegawai</span>
@@ -508,33 +346,33 @@ async function saveBpjs() {
           <tbody>
             <tr v-for="employee in filteredEmployees" :key="employee.id">
               <td>
-                <strong>{{ employee.full_name }}</strong>
+                <strong>{{ employee.name }}</strong>
                 <small class="table-subtext">
-                  {{ employee.employee_code }} · Bergabung {{ formatDate(employee.join_date) }}
+                  {{ employee.employeeId }} · Bergabung {{ formatDate(employee.joinDate) }}
                 </small>
               </td>
 
               <td>
-                <strong>{{ employee.position_name || '-' }}</strong>
-                <small class="table-subtext">{{ employee.division_name || '-' }}</small>
+                <strong>{{ employee.position }}</strong>
+                <small class="table-subtext">{{ employee.division }}</small>
               </td>
 
               <td>
                 <span class="account-type">
-                  {{ employmentTypeLabel(employee.employment_type) }}
+                  {{ employee.employmentStatus }}
                 </span>
               </td>
 
               <td>
                 <span
                   class="status-badge"
-                  :class="{ warning: employee.bpjs_status !== 'active' }"
+                  :class="{ warning: employee.bpjsStatus === 'Belum Terdaftar' }"
                 >
-                  {{ bpjsStatusLabel(employee.bpjs_status) }}
+                  {{ employee.bpjsStatus }}
                 </span>
               </td>
 
-              <td>{{ formatCurrency(employee.base_salary) }}</td>
+              <td>{{ formatCurrency(employee.baseSalary) }}</td>
 
               <td>
                 <strong>{{ formatCurrency(calculatePayroll(employee).netSalary) }}</strong>
@@ -543,34 +381,26 @@ async function saveBpjs() {
               <td>
                 <span
                   class="status-badge"
-                  :class="{ danger: employee.employment_status !== 'active' }"
+                  :class="{ danger: !employee.active }"
                 >
-                  {{ employmentStatusLabel(employee.employment_status) }}
+                  {{ employee.active ? 'Aktif' : 'Tidak Aktif' }}
                 </span>
               </td>
 
               <td>
                 <div class="inline-actions">
-                  <button class="table-action" :disabled="isSaving" @click="openEditModal(employee)">
-                    Edit
-                  </button>
-
                   <button class="table-action" @click="openPayrollModal(employee)">
                     Detail
                   </button>
 
-                  <button
-                    class="table-action"
-                    :disabled="isSaving"
-                    @click="toggleEmployeeStatus(employee)"
-                  >
-                    {{ employee.employment_status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}
+                  <button class="table-action" @click="toggleEmployeeStatus(employee)">
+                    {{ employee.active ? 'Nonaktifkan' : 'Aktifkan' }}
                   </button>
                 </div>
               </td>
             </tr>
 
-            <tr v-if="!isLoading && filteredEmployees.length === 0">
+            <tr v-if="filteredEmployees.length === 0">
               <td colspan="8" class="empty-table">
                 Data pegawai tidak ditemukan.
               </td>
@@ -585,11 +415,11 @@ async function saveBpjs() {
       class="modal-backdrop"
       @click.self="closeEmployeeModal"
     >
-      <form class="modal-card" @submit.prevent="submitEmployee">
+      <form class="modal-card" @submit.prevent="addEmployee">
         <div class="modal-header">
           <div>
             <p class="eyebrow">DATA PEGAWAI</p>
-            <h3>{{ isEditing ? 'Edit Pegawai' : 'Tambah Pegawai Baru' }}</h3>
+            <h3>Tambah Pegawai Baru</h3>
           </div>
 
           <button type="button" class="modal-close" @click="closeEmployeeModal">
@@ -599,18 +429,14 @@ async function saveBpjs() {
 
         <div class="form-grid">
           <label>
-            Kode Pegawai <span class="optional-label">(otomatis bila kosong)</span>
-            <input
-              v-model="employeeForm.employee_code"
-              type="text"
-              placeholder="Contoh: EMP/202607/001"
-            />
+            ID Pegawai
+            <input v-model="employeeForm.employeeId" type="text" readonly />
           </label>
 
           <label>
             Nama Lengkap
             <input
-              v-model="employeeForm.full_name"
+              v-model="employeeForm.name"
               type="text"
               placeholder="Contoh: Rizka Farida"
               required
@@ -618,86 +444,44 @@ async function saveBpjs() {
           </label>
 
           <label>
-            NIK
-            <input
-              v-model="employeeForm.nik"
-              type="text"
-              inputmode="numeric"
-              placeholder="16 digit NIK"
-              required
-            />
-          </label>
-
-          <label>
-            Email <span class="optional-label">(opsional)</span>
-            <input
-              v-model="employeeForm.email"
-              type="email"
-              placeholder="pegawai@perusahaan.id"
-            />
-          </label>
-
-          <label>
-            Nomor Telepon <span class="optional-label">(opsional)</span>
-            <input
-              v-model="employeeForm.phone"
-              type="text"
-              placeholder="+62"
-            />
-          </label>
-
-          <label>
             Divisi
-            <select
-              v-model="employeeForm.division_id"
-              required
-              @change="changeDivision"
-            >
-              <option value="">Pilih divisi</option>
-              <option
-                v-for="division in divisions"
-                :key="division.id"
-                :value="String(division.id)"
-              >
-                {{ division.name }}
-              </option>
+            <select v-model="employeeForm.division">
+              <option>Technology</option>
+              <option>Design</option>
+              <option>Marketing</option>
+              <option>Operations</option>
+              <option>Finance</option>
             </select>
           </label>
 
           <label>
             Jabatan
-            <select v-model="employeeForm.position_id" required>
-              <option value="">Pilih jabatan</option>
-              <option
-                v-for="position in availablePositions"
-                :key="position.id"
-                :value="String(position.id)"
-              >
-                {{ position.name }}
-              </option>
-            </select>
+            <input
+              v-model="employeeForm.position"
+              type="text"
+              placeholder="Contoh: Frontend Developer"
+              required
+            />
           </label>
 
           <label>
-            Jenis Kerja
-            <select v-model="employeeForm.employment_type">
-              <option value="permanent">Tetap</option>
-              <option value="contract">Kontrak</option>
-              <option value="intern">Magang</option>
-              <option value="freelance">Freelance</option>
-              <option value="daily">Harian</option>
+            Status Kerja
+            <select v-model="employeeForm.employmentStatus">
+              <option>Tetap</option>
+              <option>Kontrak</option>
+              <option>Magang</option>
             </select>
           </label>
 
           <label>
             Tanggal Bergabung
-            <input v-model="employeeForm.join_date" type="date" required />
+            <input v-model="employeeForm.joinDate" type="date" required />
           </label>
 
           <label>
             Gaji Pokok Bulanan
             <input
-              v-model.number="employeeForm.base_salary"
+              v-model.number="employeeForm.baseSalary"
               type="number"
               min="0"
               placeholder="Contoh: 7000000"
@@ -706,12 +490,9 @@ async function saveBpjs() {
           </label>
 
           <label>
-            Status PTKP
-            <select v-model="employeeForm.ptkp_status">
+            Status Pajak
+            <select v-model="employeeForm.taxStatus">
               <option>TK/0</option>
-              <option>TK/1</option>
-              <option>TK/2</option>
-              <option>TK/3</option>
               <option>K/0</option>
               <option>K/1</option>
               <option>K/2</option>
@@ -719,30 +500,22 @@ async function saveBpjs() {
             </select>
           </label>
 
-          <label>
+          <label class="full-width">
             Status Kepesertaan BPJS
-            <select v-model="employeeForm.bpjs_status">
-              <option value="active">Terdaftar</option>
-              <option value="inactive">Belum Terdaftar</option>
-            </select>
-          </label>
-
-          <label v-if="isEditing">
-            Status Pegawai
-            <select v-model="employeeForm.employment_status">
-              <option value="active">Aktif</option>
-              <option value="inactive">Tidak Aktif</option>
+            <select v-model="employeeForm.bpjsStatus">
+              <option>Terdaftar</option>
+              <option>Belum Terdaftar</option>
             </select>
           </label>
         </div>
 
         <div class="modal-actions">
-          <button type="button" class="secondary-button" :disabled="isSaving" @click="closeEmployeeModal">
+          <button type="button" class="secondary-button" @click="closeEmployeeModal">
             Batal
           </button>
 
-          <button type="submit" class="primary-button" :disabled="isSaving">
-            {{ isSaving ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Simpan Pegawai' }}
+          <button type="submit" class="primary-button">
+            Simpan Pegawai
           </button>
         </div>
       </form>
@@ -757,7 +530,7 @@ async function saveBpjs() {
         <div class="modal-header">
           <div>
             <p class="eyebrow">SIMULASI PENGGAJIAN</p>
-            <h3>{{ selectedEmployee.full_name }}</h3>
+            <h3>{{ selectedEmployee.name }}</h3>
           </div>
 
           <button type="button" class="modal-close" @click="closePayrollModal">
@@ -766,10 +539,10 @@ async function saveBpjs() {
         </div>
 
         <div class="payroll-profile">
-          <p><span>Kode Pegawai</span><strong>{{ selectedEmployee.employee_code }}</strong></p>
-          <p><span>Jabatan</span><strong>{{ selectedEmployee.position_name || '-' }}</strong></p>
-          <p><span>Status PTKP</span><strong>{{ selectedEmployee.ptkp_status }}</strong></p>
-          <p><span>Status BPJS</span><strong>{{ bpjsStatusLabel(selectedEmployee.bpjs_status) }}</strong></p>
+          <p><span>ID Pegawai</span><strong>{{ selectedEmployee.employeeId }}</strong></p>
+          <p><span>Jabatan</span><strong>{{ selectedEmployee.position }}</strong></p>
+          <p><span>Status Pajak</span><strong>{{ selectedEmployee.taxStatus }}</strong></p>
+          <p><span>Status BPJS</span><strong>{{ selectedEmployee.bpjsStatus }}</strong></p>
         </div>
 
         <div class="payroll-breakdown">
@@ -804,83 +577,15 @@ async function saveBpjs() {
           </div>
         </div>
 
-        <div class="form-grid payroll-form-grid">
-          <label>
-            Periode Payroll
-            <input v-model="payrollForm.payroll_period" type="month" required />
-          </label>
-
-          <label>
-            Tanggal Pembayaran
-            <input v-model="payrollForm.payment_date" type="date" required />
-          </label>
-
-          <label class="full-width">
-            Akun Pembayaran
-            <select v-model="payrollForm.cash_account_id" required>
-              <option value="">Pilih Kas/Bank</option>
-              <option
-                v-for="account in payrollCashAccounts"
-                :key="account.id"
-                :value="String(account.id)"
-              >
-                {{ account.code }} — {{ account.name }}
-              </option>
-            </select>
-          </label>
-
-          <label class="full-width">
-            Catatan <span class="optional-label">(opsional)</span>
-            <input
-              v-model="payrollForm.notes"
-              type="text"
-              placeholder="Contoh: Payroll bulan berjalan"
-            />
-          </label>
-        </div>
-
         <p class="payroll-note">
-          Catat payroll akan menyimpan payroll ke database dan membuat jurnal otomatis: Debit Beban Gaji, Debit Beban BPJS Perusahaan, Kredit Kas/Bank, serta Kredit Utang BPJS. PPh 21 belum dihitung pada proses ini.
+          PPh 21 otomatis belum dihitung. Tombol catat payroll akan membuat jurnal biaya gaji dan mengurangi saldo Bank BCA.
         </p>
 
         <div class="modal-actions">
-          <button class="secondary-button" :disabled="isProcessingPayroll" @click="closePayrollModal">Tutup</button>
-          <button
-            class="primary-button"
-            :disabled="isProcessingPayroll || selectedEmployee.employment_status !== 'active'"
-            @click="processPayroll"
-          >
-            {{ isProcessingPayroll ? 'Memproses...' : 'Catat Payroll' }}
-          </button>
+          <button class="secondary-button" @click="closePayrollModal">Tutup</button>
+          <button class="primary-button" @click="processPayroll">Catat Payroll</button>
         </div>
       </article>
     </div>
   </section>
 </template>
-
-<style scoped>
-.receivable-message {
-  margin-bottom: 16px;
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 13px;
-}
-.error-message {
-  border: 1px solid #f3c7c7;
-  background: #fff6f6;
-  color: #a84343;
-}
-.success-message {
-  border: 1px solid #bfe8d0;
-  background: #f1fff6;
-  color: #23774b;
-}
-.optional-label {
-  color: #8d9cb3;
-  font-size: 10px;
-  font-weight: 500;
-}
-.payroll-form-grid {
-  margin-top: 16px;
-}
-</style>
