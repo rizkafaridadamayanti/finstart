@@ -2,7 +2,6 @@
 import { Fragment, defineComponent, h, onMounted, ref } from "vue";
 import { motion, AnimatePresence } from "./compat/motion.js";
 import { CheckCircle, X } from "lucide-vue-next";
-import { INITIAL_PEGAWAI } from './data.ts';
 
 import SplashScreen from './components/SplashScreen.vue';
 import LandingPage from './components/LandingPage.vue';
@@ -74,6 +73,26 @@ function toNumber(value: any) {
   return Number.isFinite(result) ? result : 0;
 }
 
+function mapEmployee(row: any) {
+  const employmentLabels: Record<string, string> = {
+    permanent: 'Tetap',
+    contract: 'Kontrak',
+    intern: 'Magang',
+    freelance: 'Freelance',
+    daily: 'Harian',
+  };
+
+  return {
+    id: row.employee_code || `EMP-${row.id}`,
+    nama: row.full_name || row.employee_name || row.name || '-',
+    jabatan: row.position_name || row.position || '-',
+    status: employmentLabels[String(row.employment_type || '').toLowerCase()] || 'Aktif',
+    compliance: String(row.bpjs_status || '').toLowerCase() === 'active' ? 'Patuh' : 'Tinjauan',
+    gajiBersih: toNumber(row.base_salary ?? row.salary),
+    _raw: row,
+  };
+}
+
 export default defineComponent({
   name: "App",
   setup() {
@@ -97,8 +116,8 @@ export default defineComponent({
     const assets = ref<any[]>([]);
     const taxes = ref<any[]>([]);
 
-    // Payroll tetap memakai data sementara hingga Master Data Operasional tersedia.
-    const pegawai = ref<any[]>(INITIAL_PEGAWAI);
+    // Data SDM berasal dari Master Data Operasional.
+    const pegawai = ref<any[]>([]);
 
     const dashboardSummary = ref<any>({
       cash_balance: 0, total_receivable: 0, total_payable: 0,
@@ -159,6 +178,7 @@ export default defineComponent({
         financeApi.get('/projections', { year }),
         financeApi.get('/reports', { period }),
         financeApi.get('/dashboard/summary'),
+        financeApi.get('/employees'),
       ]);
 
       const value = (index: number, fallback: any = []) => jobs[index].status === 'fulfilled' ? (jobs[index] as PromiseFulfilledResult<any>).value : fallback;
@@ -182,6 +202,7 @@ export default defineComponent({
       Object.assign(projectionData.value, value(11, {}));
       Object.assign(reportData.value, value(12, {}));
       Object.assign(dashboardSummary.value, value(13, {}));
+      replaceList(pegawai, (value(14) || []).map(mapEmployee));
       dataVersion.value += 1;
 
       const failed = jobs.filter((job) => job.status === 'rejected');
@@ -607,7 +628,7 @@ export default defineComponent({
 
                     {(activeTab.value === 'langganan' || activeTab.value === 'aset') && <LanggananDanAset key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} langganan={langganan.value} assets={assets.value} onAddLangganan={handleAddLangganan} onDeleteLangganan={handleDeleteLangganan} onAddAsset={handleAddAsset} showToast={showToast} />}
 
-                    {(activeTab.value === 'sdm' || activeTab.value === 'perpajakan') && <SdmDanPajak key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} pegawai={pegawai.value} akun={akun.value} taxes={taxes.value} taxSummary={taxSummary.value} taxCalculationData={taxCalculation.value} onAddJournalFromSubledger={handleAddJournalFromSubledger} onCreateTax={handleCreateTax} onPayTax={handlePayTax} showToast={showToast} />}
+                    {(activeTab.value === 'sdm' || activeTab.value === 'perpajakan') && <SdmDanPajak key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} pegawai={pegawai.value} akun={akun.value} taxes={taxes.value} taxSummary={taxSummary.value} taxCalculationData={taxCalculation.value} onAddJournalFromSubledger={handleAddJournalFromSubledger} onCreateTax={handleCreateTax} onPayTax={handlePayTax} onRefreshData={() => loadFinancialData({ silent: true })} showToast={showToast} />}
 
                     {(activeTab.value === 'proyeksi' || activeTab.value === 'laporan') && <ProyeksiDanLaporan key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} akun={akun.value} transaksi={transaksi.value} proyek={proyek.value} projectionData={projectionData.value} reportData={reportData.value} onSaveProjection={handleSaveProjection} showToast={showToast} />}
 

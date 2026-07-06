@@ -1,6 +1,7 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, ref } from "vue";
+import { Fragment, defineComponent, h, onMounted, ref } from "vue";
 import { ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ChevronRight, CircleAlert, Clock3, KeyRound, LockKeyhole, Monitor, Save, Shield, Smartphone, UserPlus, Users } from "lucide-vue-next";
+import { financeApi, getApiErrorMessage } from '../services/financeApi.js';
 interface PengaturanViewProps {
   userEmail: string;
   showToast: (msg: string) => void;
@@ -67,13 +68,79 @@ export default defineComponent({
     const loginAlertsEnabled = ref(true),
       setLoginAlertsEnabled = next => loginAlertsEnabled.value = typeof next === "function" ? next(loginAlertsEnabled.value) : next;
     const profile = ref({
-        namaEntitas: 'PT FinStart Digital Nusantara',
-        npwp: '01.234.567.8-091.000',
+        namaEntitas: '',
+        npwp: '',
         mataUang: 'IDR - Indonesian Rupiah',
         tahunFiskal: 'Januari',
-        alamat: 'Sudirman Central Business District (SCBD), Jakarta Selatan, DKI Jakarta'
+        alamat: ''
       }),
       setProfile = next => profile.value = typeof next === "function" ? next(profile.value) : next;
+
+    const companySettings = ref<any>({});
+    const isSavingProfile = ref(false);
+
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    function currencyLabel(currency: string) {
+      const labels: Record<string, string> = {
+        IDR: 'IDR - Indonesian Rupiah',
+        USD: 'USD - United States Dollar',
+        EUR: 'EUR - Euro',
+      };
+      return labels[String(currency || 'IDR').toUpperCase()] || 'IDR - Indonesian Rupiah';
+    }
+
+    function currencyCode(label: string) {
+      return String(label || 'IDR').split(' - ')[0].trim().toUpperCase() || 'IDR';
+    }
+
+    async function loadCompanySettings() {
+      try {
+        const data = await financeApi.get('/company-settings');
+        companySettings.value = data || {};
+        const startMonth = Number(data?.fiscal_year_start_month || 1);
+        setProfile({
+          namaEntitas: data?.company_name || '',
+          npwp: data?.npwp || '',
+          mataUang: currencyLabel(data?.currency),
+          tahunFiskal: monthNames[startMonth - 1] || 'Januari',
+          alamat: data?.address || '',
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(getApiErrorMessage(error, 'Gagal memuat pengaturan perusahaan dari database.'));
+      }
+    }
+
+    async function handleSaveProfile(event: Event) {
+      event.preventDefault();
+      isSavingProfile.value = true;
+
+      try {
+        const fiscalStartMonth = Math.max(1, monthNames.indexOf(profile.value.tahunFiskal) + 1);
+        const saved = await financeApi.put('/company-settings', {
+          ...companySettings.value,
+          company_name: profile.value.namaEntitas,
+          npwp: profile.value.npwp,
+          currency: currencyCode(profile.value.mataUang),
+          address: profile.value.alamat,
+          fiscal_year: Number(companySettings.value?.fiscal_year || new Date().getFullYear()),
+          fiscal_year_start_month: fiscalStartMonth,
+        });
+        companySettings.value = saved || companySettings.value;
+        await loadCompanySettings();
+        showToast('Profil perusahaan berhasil disimpan ke database.');
+      } catch (error) {
+        console.error(error);
+        showToast(getApiErrorMessage(error, 'Gagal menyimpan profil perusahaan.'));
+      } finally {
+        isSavingProfile.value = false;
+      }
+    }
+
+    onMounted(() => {
+      loadCompanySettings();
+    });
     const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#70819B]';
     const inputClass = 'h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10';
     return () => <div class="space-y-7 font-sans">
@@ -103,10 +170,7 @@ export default defineComponent({
         </div>
       </div>
 
-      {activeTab.value === 'profile' ? <form onSubmit={event => {
-        event.preventDefault();
-        showToast('Profil perusahaan berhasil disimpan.');
-      }} class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
+      {activeTab.value === 'profile' ? <form onSubmit={handleSaveProfile} class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
           <div class="flex flex-col gap-4 border-b border-[#E8EEF7] px-6 py-6 md:flex-row md:items-center md:justify-between">
             <div class="flex items-center gap-3.5"><span class="flex h-12 w-12 items-center justify-center rounded-xl border border-[#D5E5F6] bg-[#EEF5FC] text-[#1E5AA8]"><Building2 class="h-6 w-6" /></span><div><h2 class="text-lg font-semibold text-[#0B1F4A]">Profil Perusahaan</h2><p class="mt-1 text-sm text-[#6B7A90]">Identitas legal dan preferensi utama Finstart.</p></div></div>
             <span class="w-fit rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#53658A]">Business profile</span>
@@ -133,7 +197,7 @@ export default defineComponent({
               alamat: event.target.value
             })} class="min-h-[128px] w-full resize-y rounded-xl border border-[#D8E5F4] bg-white px-4 py-3 text-sm font-medium leading-6 text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
           </div>
-          <footer class="flex flex-col gap-3 border-t border-[#E8EEF7] bg-[#FBFDFF] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-[#6B7A90]">Perubahan hanya diterapkan pada konfigurasi workspace ini.</p><button id="btn-save-settings" type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]"><Save class="h-4 w-4" /> Simpan Perubahan</button></footer>
+          <footer class="flex flex-col gap-3 border-t border-[#E8EEF7] bg-[#FBFDFF] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-[#6B7A90]">Perubahan hanya diterapkan pada konfigurasi workspace ini.</p><button id="btn-save-settings" type="submit" disabled={isSavingProfile.value} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] disabled:cursor-not-allowed disabled:opacity-60"><Save class="h-4 w-4" /> {isSavingProfile.value ? 'Menyimpan...' : 'Simpan Perubahan'}</button></footer>
         </form> : <div class="space-y-5">
           <div class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
             <div class="flex flex-col gap-4 border-b border-[#E8EEF7] px-6 py-6 md:flex-row md:items-center md:justify-between"><div class="flex items-center gap-3.5"><span class="flex h-12 w-12 items-center justify-center rounded-xl border border-[#D5E5F6] bg-[#EEF5FC] text-[#1E5AA8]"><Shield class="h-6 w-6" /></span><div><h2 class="text-lg font-semibold text-[#0B1F4A]">Keamanan & Akses</h2><p class="mt-1 text-sm text-[#6B7A90]">Kelola role pengguna, sesi aktif, dan kontrol perlindungan workspace.</p></div></div><button type="button" onClick={() => showToast('Panel pengelolaan pengguna siap digunakan.')} class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-medium text-[#0B1F4A] hover:bg-[#F8FBFE]"><UserPlus class="h-4 w-4" /> Tambah Pengguna</button></div>
