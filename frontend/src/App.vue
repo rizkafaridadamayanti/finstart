@@ -489,10 +489,14 @@ export default defineComponent({
       }
     };
 
-    const handleLoginSuccess = async (email: string) => {
+    const handleLoginSuccess = (email: string) => {
       setUserEmail(email);
       setScreen('auth-loading');
-      await loadFinancialData({ silent: true });
+
+      loadFinancialData({ silent: true }).catch(() => {
+        // Data tetap bisa dimuat ulang dari dashboard.
+      });
+
       window.setTimeout(() => {
         setScreen('dashboard');
         showToast(`Otentikasi berhasil. Selamat datang ${email.split('@')[0]}!`);
