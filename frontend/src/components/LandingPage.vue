@@ -1216,9 +1216,22 @@ export default defineComponent({
     };
     return () => <div class="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-500/20 selection:text-[#0B1F4A] scroll-smooth">
       <style>{`
-        .landing-carousel-stage { isolation:isolate; }
-        .landing-carousel-card { will-change:transform,opacity; }
-        @media (prefers-reduced-motion:reduce) { .landing-carousel-card { transition:none!important; } }
+        .landing-carousel-shell { position:relative; isolation:isolate; }
+        .landing-carousel-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; align-items:stretch; }
+        .landing-feature-card { position:relative; min-height:328px; overflow:hidden; border:1px solid rgba(255,255,255,.12); border-radius:24px; padding:22px; text-align:left; color:#dbeafe; background:linear-gradient(145deg,rgba(12,42,94,.7),rgba(6,22,53,.84)); box-shadow:0 16px 38px rgba(1,13,38,.2); transition:transform .42s cubic-bezier(.22,1,.36,1), border-color .42s ease, background .42s ease, box-shadow .42s ease; animation:landingFeatureEnter .52s cubic-bezier(.16,1,.3,1) both; }
+        .landing-feature-card:hover { transform:translateY(-7px); border-color:rgba(125,211,252,.45); }
+        .landing-feature-card--active { color:#102a56; border-color:rgba(255,255,255,.88); background:linear-gradient(155deg,#ffffff 0%,#f6faff 100%); box-shadow:0 28px 62px rgba(0,10,36,.3),0 0 0 1px rgba(255,255,255,.4); transform:translateY(-12px); }
+        .landing-feature-card--active:hover { transform:translateY(-16px); }
+        .landing-carousel-nav { position:absolute; top:50%; z-index:5; display:flex; height:42px; width:42px; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); border-radius:999px; color:#fff; background:rgba(7,29,68,.76); box-shadow:0 14px 28px rgba(1,13,38,.26); transform:translateY(-50%); transition:background .2s ease,transform .2s ease; }
+        .landing-carousel-nav:hover { background:rgba(37,99,235,.88); transform:translateY(-50%) scale(1.06); }
+        .landing-carousel-nav--prev { left:-18px; }
+        .landing-carousel-nav--next { right:-18px; }
+        .landing-progress-dot { height:7px; border-radius:999px; border:0; background:rgba(191,219,254,.32); transition:width .3s ease,background .3s ease; }
+        .landing-progress-dot--active { width:28px; background:#7dd3fc; }
+        @keyframes landingFeatureEnter { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        @media (max-width: 900px) { .landing-carousel-grid { grid-template-columns:1fr; max-width:430px; margin:0 auto; } .landing-feature-card:not(.landing-feature-card--active) { display:none; } .landing-carousel-nav--prev { left:calc(50% - 226px); } .landing-carousel-nav--next { right:calc(50% - 226px); } }
+        @media (max-width: 520px) { .landing-feature-card { min-height:302px; padding:20px; } .landing-carousel-nav { height:38px; width:38px; } .landing-carousel-nav--prev { left:-4px; } .landing-carousel-nav--next { right:-4px; } }
+        @media (prefers-reduced-motion:reduce) { .landing-feature-card,.landing-carousel-nav,.landing-progress-dot { animation:none!important; transition:none!important; } }
       `}</style>
       
       {/* HEADER & NAVBAR */}
@@ -1262,142 +1275,56 @@ export default defineComponent({
             </button>
           </div>
 
-          {/* 3D CURVED ROTATING CAROUSEL filled with Finstart features */}
-          <div class="pt-20 max-w-5xl mx-auto relative min-h-[460px]">
-            
-            <div class="mb-8 flex justify-center px-4">
+          {/* FITUR UTAMA — carousel modern tanpa kartu saling menimpa */}
+          <div class="pt-16 max-w-6xl mx-auto relative">
+            <div class="mb-8 flex flex-col items-center gap-3 px-4">
               <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-200">
                 Semua fitur sistem ({activeClientIndex.value + 1}/{financeCarouselItems.length})
               </span>
+              <p class="max-w-xl text-center text-xs leading-6 text-slate-300/80">Geser otomatis untuk melihat modul utama FinStart. Pilih kartu untuk menjadikannya fokus.</p>
             </div>
 
-            {/* Simulated 3D Curved Slider Stage */}
-            <div
-              class="landing-carousel-stage relative w-full h-[360px] flex justify-center items-center overflow-visible"
-              style={{ perspective: "1200px" }}
-              onMouseEnter={pauseCarousel}
-              onMouseLeave={resumeCarousel}
-              onFocusin={pauseCarousel}
-              onFocusout={resumeCarousel}
-            >
-              <div class="absolute inset-0 flex justify-center items-center pointer-events-none">
-                {/* Horizontal curved background guide line */}
-                <div class="w-[120%] h-[300px] border-b border-white/5 rounded-[50%] absolute -top-12 pointer-events-none" />
-              </div>
-
-              {getVisibleCards().map(({
-                index,
-                offset
-              }) => {
-                const item = financeCarouselItems[index];
-                const isActive = offset === 0;
-                return <motion.div key={item.id} style={{
-                  transformStyle: "preserve-3d",
-                  zIndex: 10 - Math.abs(offset)
-                }} drag="x" dragConstraints={{
-                  left: 0,
-                  right: 0
-                }} dragElastic={0.4} onDragStart={() => {
-                  isDraggingRef.value = true;
-                }} onDragEnd={(_, info) => {
-                  const threshold = 40;
-                  if (info.offset.x < -threshold) {
-                    nextSlide();
-                  } else if (info.offset.x > threshold) {
-                    prevSlide();
-                  }
-                  // Keep as true for a short duration to prevent the immediate click handler from executing
-                  setTimeout(() => {
-                    isDraggingRef.value = false;
-                }, 80);
-              }} animate={{
-                  x: offset * 270,
-                  y: isActive ? -28 : Math.abs(offset) * 14 + 10,
-                  // Horizontal distribution
-                  scale: isActive ? 1.16 : 0.84 - Math.abs(offset) * 0.045,
-                  opacity: Math.abs(offset) > 2 ? 0 : 1 - Math.abs(offset) * 0.33,
-                  rotateY: offset * -20,
-                  rotateX: isActive ? -2 : 0,
-                  // Curved 3D arch effect
-                  z: isActive ? 90 : Math.abs(offset) * -120 // Depth stacking
-                }} transition={{
-                  type: "spring",
-                  stiffness: 780,
-                  damping: 28,
-                  mass: 0.45,
-                  velocity: 2.5
-                }} onClick={() => {
-                  if (isDraggingRef.value) return;
-                  if (!isActive) {
-                    setActiveClientIndex(index);
-                  }
-                }} class={`landing-carousel-card absolute w-[290px] h-[340px] rounded-2xl p-6 text-left border flex flex-col justify-between transition-all duration-700 ease-out cursor-grab active:cursor-grabbing select-none group ${isActive ? 'bg-white border-slate-100/90 text-slate-800 shadow-[0_24px_60px_rgba(15,23,42,0.18)] shadow-blue-900/10 ring-1 ring-white/70' : 'bg-[#0B1F4A]/40 backdrop-blur-md border-white/5 text-slate-300 shadow-xl hover:border-white/15'}`}>
-                    {/* Interior Card Content */}
-                    <div class="space-y-3 flex flex-col h-full justify-between">
-                      {/* Top bar status */}
-                      <div class="flex items-center justify-between">
-                        <span class={`text-[8.5px] font-black uppercase tracking-[0.22em] px-2.5 py-1 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-white/10 text-white'}`}>
-                          {item.status}
-                        </span>
-                        <div class="flex items-center gap-1">
-                          <span class={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
-                          <span class={`text-[8px] font-mono tracking-wider uppercase opacity-60 ${isActive ? 'text-slate-500' : 'text-slate-400'}`}>
-                            Live
-                          </span>
+            <div class="landing-carousel-shell px-4 sm:px-7" onMouseEnter={pauseCarousel} onMouseLeave={resumeCarousel} onFocusin={pauseCarousel} onFocusout={resumeCarousel}>
+              <button type="button" aria-label="Fitur sebelumnya" onClick={prevSlide} class="landing-carousel-nav landing-carousel-nav--prev">
+                <ChevronLeft class="h-5 w-5" />
+              </button>
+              <div class="landing-carousel-grid">
+                {[-1, 0, 1].map((offset) => {
+                  const index = (activeClientIndex.value + offset + financeCarouselItems.length) % financeCarouselItems.length;
+                  const item = financeCarouselItems[index];
+                  const isActive = offset === 0;
+                  return <button type="button" key={`${item.id}-${offset}`} onClick={() => setActiveClientIndex(index)} class={`landing-feature-card group ${isActive ? 'landing-feature-card--active' : ''}`} aria-pressed={isActive}>
+                    <div class="flex h-full flex-col justify-between gap-5">
+                      <div>
+                        <div class="flex items-center justify-between gap-3">
+                          <span class={`rounded-md px-2.5 py-1 text-[8.5px] font-black uppercase tracking-[.22em] ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-white/10 text-blue-100'}`}>{item.status}</span>
+                          <span class={`inline-flex items-center gap-1.5 text-[8px] font-mono uppercase tracking-wider ${isActive ? 'text-slate-400' : 'text-slate-400'}`}><i class={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-sky-300/70'}`} /> LIVE</span>
+                        </div>
+                        <div class={`mt-7 flex h-20 w-20 items-center justify-center rounded-2xl border shadow-sm transition-transform duration-300 group-hover:scale-105 ${isActive ? 'border-blue-100 bg-blue-50 text-[#1E5AA8]' : 'border-white/10 bg-white/10 text-blue-200'}`}>{item.icon}</div>
+                        <div class="mt-6">
+                          <span class={`block text-[9.5px] font-black uppercase tracking-widest ${isActive ? 'text-blue-500' : 'text-blue-300'}`}>{item.clientName}</span>
+                          <h4 class={`mt-2 text-lg font-bold tracking-tight ${isActive ? 'text-slate-900' : 'text-white'}`}>{item.title}</h4>
+                          <p class={`mt-3 text-xs leading-6 ${isActive ? 'text-slate-500' : 'text-slate-300/80'}`}>{item.desc}</p>
                         </div>
                       </div>
-
-                      {/* Main central feature visual */}
-                      <div class="py-2.5 flex justify-center items-center w-full">
-                        <div class={`w-20 h-20 rounded-2xl mx-auto flex items-center justify-center border transition-all duration-300 group-hover:scale-105 ${isActive ? 'bg-blue-50 text-[#1E5AA8] border-blue-100 shadow-sm scale-115' : 'bg-white/10 text-blue-200 border-white/10'}`}>
-                          {item.icon}
-                        </div>
-                      </div>
-
-                      {/* Title and Description */}
-                      <div class="space-y-1">
-                        <span class={`text-[9.5px] font-black uppercase tracking-widest block ${isActive ? 'text-blue-500' : 'text-blue-400'}`}>
-                          {item.clientName}
-                        </span>
-                        <h4 class={`text-sm font-bold tracking-tight leading-tight ${isActive ? 'text-slate-900' : 'text-white'}`}>
-                          {item.title}
-                        </h4>
-                        <p class={`text-[10.5px] leading-relaxed ${isActive ? 'text-slate-500' : 'text-slate-400'} font-light line-clamp-3`}>
-                          {item.desc}
-                        </p>
-                      </div>
-
-                      {/* Bottom stats layout in cards */}
-                      <div class={`border-t pt-3 ${isActive ? 'border-slate-100' : 'border-white/10'} flex items-center justify-between mt-1`}>
-                        <div>
-                          <span class={`text-[8px] font-mono uppercase tracking-[0.16em] block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {item.metricLabel}
-                          </span>
-                          <span class={`text-xs font-bold tracking-tight ${isActive ? 'text-slate-800' : 'text-white'}`}>
-                            {item.metricValue}
-                          </span>
-                        </div>
-                        <div class="text-right">
-                          <span class={`text-[8px] font-mono uppercase tracking-[0.16em] block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
-                            STATUS
-                          </span>
-                          <span class="text-xs font-bold text-blue-500 tracking-tight">
-                            {item.metric}
-                          </span>
-                        </div>
+                      <div class={`flex items-end justify-between border-t pt-4 ${isActive ? 'border-slate-100' : 'border-white/10'}`}>
+                        <div><span class={`block text-[8px] font-mono uppercase tracking-[.16em] ${isActive ? 'text-slate-400' : 'text-slate-400'}`}>{item.metricLabel}</span><span class={`mt-1 block text-sm font-bold ${isActive ? 'text-slate-800' : 'text-white'}`}>{item.metricValue}</span></div>
+                        <div class="text-right"><span class={`block text-[8px] font-mono uppercase tracking-[.16em] ${isActive ? 'text-slate-400' : 'text-slate-400'}`}>STATUS</span><span class="mt-1 block text-sm font-bold text-blue-400">{item.metric}</span></div>
                       </div>
                     </div>
-                  </motion.div>;
-              })}
+                  </button>;
+                })}
+              </div>
+              <button type="button" aria-label="Fitur berikutnya" onClick={nextSlide} class="landing-carousel-nav landing-carousel-nav--next">
+                <ChevronRight class="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Rated indicator text centered below the carousel */}
-            <p class="text-slate-400 text-xs font-medium tracking-wide mt-10">
-              Dirancang untuk <span class="text-white font-bold">kontrol finance harian</span>, laporan manajemen, dan proses audit internal.
-            </p>
-
+            <div class="mt-9 flex items-center justify-center gap-2" role="tablist" aria-label="Navigasi fitur FinStart">
+              {financeCarouselItems.map((item, index) => <button type="button" key={item.id} aria-label={`Tampilkan ${item.title}`} onClick={() => setActiveClientIndex(index)} class={`landing-progress-dot ${activeClientIndex.value === index ? 'landing-progress-dot--active' : 'w-2'}`} />)}
+            </div>
+            <p class="mt-7 text-xs font-medium tracking-wide text-slate-300/80">Dirancang untuk <span class="font-bold text-white">kontrol finance harian</span>, laporan manajemen, dan proses audit internal.</p>
           </div>
-
         </div>
       </section>
 
