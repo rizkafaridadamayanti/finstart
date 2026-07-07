@@ -1,0 +1,24 @@
+@import './reference-react.css';
+
+:root {
+  --finstart-overlay-z: 10000;
+}
+
+#app .fixed.inset-0 {
+  z-index: var(--finstart-overlay-z) !important;
+}
+
+#app .app-main > * {
+  scroll-margin-top: 24px;
+}
+
+body:has(.fixed.inset-0) #btn-sidebar-drawer,
+body:has(.confirm-overlay) #btn-sidebar-drawer,
+body:has(.modal-layer) #btn-sidebar-drawer,
+body:has(.tax-manual-modal-layer) #btn-sidebar-drawer,
+body:has(.fixed.inset-0) #btn-sidebar-mobile-drawer,
+body:has(.confirm-overlay) #btn-sidebar-mobile-drawer,
+body:has(.modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.tax-manual-modal-layer) #btn-sidebar-mobile-drawer {
+  display: none !important;
+}
