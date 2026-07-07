@@ -1,0 +1,114 @@
+<script lang="tsx">
+import { defineComponent, ref } from 'vue'
+import {
+  ChevronDown,
+  LogOut,
+} from 'lucide-vue-next'
+import FinStartLogo from '../assets/finstart-logo.png'
+
+interface TopbarProps {
+  userEmail: string
+  onLogout: () => void
+  notifications: {
+    id: string
+    text: string
+    type: 'warning' | 'info' | 'success'
+    time: string
+    is_read?: boolean
+  }[]
+  userRole?: string
+  onOpenSettings: () => void
+}
+
+export default defineComponent({
+  name: 'Topbar',
+  props: ['userEmail', 'onLogout', 'notifications', 'userRole', 'onOpenSettings'],
+  setup(props) {
+    const isProfileOpen = ref(false)
+
+    const roleLabel = () => {
+      const labels: Record<string, string> = {
+        admin: 'Administrator',
+        finance_manager: 'Finance Manager',
+        finance: 'Finance',
+        hr: 'HR',
+        tax: 'Pajak',
+        project_manager: 'Project Manager',
+        director: 'Direktur',
+        auditor: 'Auditor',
+      }
+      return labels[String(props.userRole || '').toLowerCase()] || 'Pengguna Internal'
+    }
+
+    const formattedDate = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+
+    return () => {
+      const typedProps = props as unknown as TopbarProps
+      const notifications = Array.isArray(typedProps.notifications) ? typedProps.notifications : []
+      const userEmail = String(typedProps.userEmail || 'pengguna@finstart.local')
+      const unreadNotifications = notifications.filter((item) => !item.is_read).length
+
+      return (
+        <header class="sticky top-0 z-30 grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-[84px] pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl md:pl-[88px] md:pr-8">
+          <div class="flex min-w-0 items-center">
+            <div class="flex min-w-0 items-center gap-3">
+              <img src={FinStartLogo} alt="Finstart logo" class="h-11 w-11 shrink-0 object-contain" />
+              <div class="min-w-0">
+              <div class="flex min-w-0 items-center gap-3">
+                <div class="truncate text-[21px] font-extrabold tracking-[-0.02em] text-[#102A56]">Finstart</div>
+                <span class="hidden h-1.5 w-1.5 rounded-full bg-[#2BA7FF] sm:block" />
+                <span class="hidden rounded-full border border-[#DCE7F4] bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#52647E] shadow-[0_8px_18px_rgba(16,42,86,0.05)] md:inline-flex">
+                  {roleLabel()}
+                </span>
+              </div>
+              <div class="hidden truncate text-[10px] font-bold uppercase tracking-[0.24em] text-[#7A8CA8] sm:block">Workspace Operasional Internal</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex min-w-0 items-center gap-3">
+            <span class="hidden whitespace-nowrap text-[12px] font-medium text-[#8492A6] xl:block">{formattedDate}</span>
+
+            <div class="relative">
+              <button id="btn-profile-dropdown" type="button" onClick={() => { isProfileOpen.value = !isProfileOpen.value }} class="grid h-12 min-w-[190px] grid-cols-[34px_minmax(0,1fr)_16px] items-center gap-3 rounded-2xl border border-[#D8E5F4] bg-white/92 px-2.5 shadow-[0_10px_24px_rgba(16,42,86,0.07)] transition-colors hover:bg-white max-sm:min-w-0 max-sm:grid-cols-[34px_16px]" aria-label="Buka menu profil">
+                <div class="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#0B3A78] text-xs font-extrabold text-white shadow-lg shadow-[#1E5AA8]/20">
+                  {userEmail.slice(0, 2).toUpperCase()}
+                </div>
+                <div class="hidden min-w-0 flex-col text-left sm:flex">
+                  <span class="block truncate text-xs font-bold text-slate-700">{userEmail.split('@')[0]}</span>
+                  <span class="block truncate text-[9px] font-semibold uppercase leading-3 text-slate-400">{roleLabel()}</span>
+                </div>
+                <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
+              </button>
+
+              {isProfileOpen.value && <div class="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl">
+                <div class="border-b border-slate-100 bg-slate-50 p-4">
+                  <span class="block text-[10px] font-bold uppercase text-[#2563EB]">Hak Akses</span>
+                  <span class="block truncate text-xs font-bold text-slate-800">{userEmail}</span>
+                  <span class="mt-0.5 block text-[10px] text-slate-500">{roleLabel()} · PT Kedata Indonesia Digital</span>
+                </div>
+                <div class="divide-y divide-slate-100 p-2 text-xs">
+                  <div class="py-1">
+                    <button type="button" onClick={() => { isProfileOpen.value = false; typedProps.onOpenSettings() }} class="w-full rounded-lg px-3 py-2 text-left text-slate-600 transition-colors hover:bg-slate-50">Ubah Password</button>
+                    <button type="button" onClick={() => { isProfileOpen.value = false; typedProps.onOpenSettings() }} class="w-full rounded-lg px-3 py-2 text-left text-slate-600 transition-colors hover:bg-slate-50">Profil & Keamanan</button>
+                  </div>
+                  <div class="py-1">
+                    <button type="button" onClick={() => { isProfileOpen.value = false; typedProps.onLogout() }} class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-rose-600 transition-colors hover:bg-rose-50">
+                      <LogOut class="h-4 w-4" /> Keluar Sesi
+                    </button>
+                  </div>
+                </div>
+              </div>}
+            </div>
+          </div>
+        </header>
+      )
+    }
+  },
+})
+</script>

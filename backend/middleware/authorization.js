@@ -1,0 +1,173 @@
+const ROLE_ALIASES = {
+  administrator: 'admin',
+  system_admin: 'admin',
+  finance_manager: 'finance_manager',
+  finance: 'finance',
+  staff_finance: 'finance',
+  hr: 'hr',
+  human_resources: 'hr',
+  pajak: 'tax',
+  tax: 'tax',
+  project_manager: 'project_manager',
+  direktur: 'director',
+  director: 'director',
+  auditor: 'auditor',
+}
+
+const ROLE_PERMISSIONS = {
+  admin: ['*'],
+  finance_manager: [
+    'dashboard:read', 'projects:*', 'accounts:*', 'journals:*', 'reports:*',
+    'receivable:*', 'payable:*', 'subscriptions:*', 'assets:*', 'taxes:*',
+    'projections:*', 'employees:*', 'payroll:read', 'settings:read',
+    'notifications:*', 'audit:read', 'roles:read', 'users:read',
+  ],
+  finance: [
+    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
+    'journals:write', 'reports:read', 'receivable:*', 'payable:*',
+    'subscriptions:*', 'assets:read', 'taxes:read', 'projections:read',
+    'notifications:*',
+  ],
+  hr: [
+    'dashboard:read', 'employees:*', 'payroll:*', 'taxes:read',
+    'projects:read', 'notifications:*', 'audit:read',
+  ],
+  tax: [
+    'dashboard:read', 'taxes:*', 'reports:read', 'employees:read',
+    'payroll:read', 'accounts:read', 'notifications:*', 'audit:read',
+  ],
+  project_manager: [
+    'dashboard:read', 'projects:*', 'reports:read', 'receivable:read',
+    'payable:read', 'employees:read', 'notifications:*',
+  ],
+  director: [
+    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
+    'journals:approve', 'journals:post', 'reports:read', 'receivable:read',
+    'payable:read', 'subscriptions:read', 'assets:read', 'taxes:read',
+    'projections:read', 'employees:read', 'payroll:read', 'settings:read',
+    'notifications:*', 'audit:read',
+  ],
+  auditor: [
+    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
+    'reports:read', 'receivable:read', 'payable:read', 'assets:read',
+    'taxes:read', 'employees:read', 'payroll:read', 'notifications:read',
+    'audit:read',
+  ],
+}
+
+function normalizeRole(roleName) {
+  const raw = String(roleName || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return ROLE_ALIASES[raw] || raw || 'auditor'
+}
+
+function getRolePermissions(roleName) {
+  const role = normalizeRole(roleName)
+  return [...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.auditor)]
+}
+
+function hasPermission(roleName, moduleName, action = 'read') {
+  const permissions = getRolePermissions(roleName)
+  return permissions.some((permission) => {
+    if (permission === '*') return true
+    const [allowedModule, allowedAction] = permission.split(':')
+    return (allowedModule === moduleName || allowedModule === '*')
+      && (allowedAction === action || allowedAction === '*' || (action === 'read' && allowedAction === 'write'))
+  })
+}
+
+function requirePermission(moduleName, action = 'read') {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu.' })
+    }
+
+    if (!hasPermission(req.user.role_name, moduleName, action)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Hak akses Anda tidak mencukupi untuk melakukan tindakan ini.',
+      })
+    }
+
+    return next()
+  }
+}
+
+function apiModuleFromPath(pathname) {
+  const path = String(pathname || '')
+  const rules = [
+    ['/api/clients', 'projects'],
+    ['/api/projects', 'projects'],
+    ['/api/accounts', 'accounts'],
+    ['/api/journals', 'journals'],
+    ['/api/journal-transactions', 'journals'],
+    ['/api/dashboard', 'dashboard'],
+    ['/api/reports', 'reports'],
+    ['/api/invoices', 'receivable'],
+    ['/api/bills', 'payable'],
+    ['/api/subscriptions', 'subscriptions'],
+    ['/api/taxes', 'taxes'],
+    ['/api/tax-engine', 'taxes'],
+    ['/api/projections', 'projections'],
+    ['/api/assets', 'assets'],
+    ['/api/divisions', 'employees'],
+    ['/api/positions', 'employees'],
+    ['/api/employees', 'employees'],
+    ['/api/bpjs-config', 'payroll'],
+    ['/api/payroll', 'payroll'],
+    ['/api/company-settings', 'settings'],
+    ['/api/users', 'users'],
+    ['/api/roles', 'roles'],
+    ['/api/audit', 'audit'],
+    ['/api/notifications', 'notifications'],
+  ]
+
+  const found = rules.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))
+  return found ? found[1] : null
+}
+
+function actionFromRequest(req, moduleName) {
+  const method = String(req.method || 'GET').toUpperCase()
+  if (moduleName === 'journals' && /\/approve$/.test(req.path)) return 'approve'
+  if (moduleName === 'journals' && /\/post$/.test(req.path)) return 'post'
+  return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? 'read' : 'write'
+}
+
+function enforceApiAuthorization(req, res, next) {
+  const moduleName = apiModuleFromPath(req.path)
+  if (!moduleName) return next()
+  return requirePermission(moduleName, actionFromRequest(req, moduleName))(req, res, next)
+}
+
+const TAB_PERMISSIONS = {
+  dashboard: ['dashboard:read'],
+  crm: ['projects:read'],
+  bukubesar: ['accounts:read'],
+  transaksi: ['journals:read'],
+  langganan: ['subscriptions:read'],
+  piutang: ['receivable:read'],
+  utang: ['payable:read'],
+  proyeksi: ['projections:read'],
+  perpajakan: ['taxes:read'],
+  sdm: ['employees:read'],
+  aset: ['assets:read'],
+  laporan: ['reports:read'],
+  pengaturan: ['settings:read'],
+}
+
+function getAllowedTabs(roleName) {
+  return Object.entries(TAB_PERMISSIONS)
+    .filter(([, [moduleAction]]) => {
+      const [moduleName, action] = moduleAction.split(':')
+      return hasPermission(roleName, moduleName, action)
+    })
+    .map(([tab]) => tab)
+}
+
+module.exports = {
+  normalizeRole,
+  getRolePermissions,
+  hasPermission,
+  requirePermission,
+  enforceApiAuthorization,
+  getAllowedTabs,
+}

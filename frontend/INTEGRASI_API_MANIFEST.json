@@ -1,0 +1,29 @@
+{
+  "package": "FinStart Frontend — API/Database Connected",
+  "created_at_utc": "2026-07-06T02:48:57Z",
+  "scope": {
+    "changed": [
+      "frontend/src/App.vue",
+      "frontend/src/components/DashboardView.vue",
+      "frontend/src/components/PiutangDanUtang.vue",
+      "frontend/src/components/LanggananDanAset.vue",
+      "frontend/src/components/SdmDanPajak.vue",
+      "frontend/src/components/ProyeksiDanLaporan.vue",
+      "frontend/src/services/financeApi.js",
+      "frontend/src/services/financeMappers.js",
+      "frontend/vite.config.js",
+      "frontend/README_INTEGRASI_API_KEUANGAN.md"
+    ],
+    "untouched": [
+      "backend/",
+      "database schema",
+      "backend .env",
+      "API routes",
+      "UI assets and layout"
+    ],
+    "payroll": "Not connected intentionally; waits for Master Data Operasional."
+  },
+  "api_base_default": "http://localhost:4000/api",
+  "required_frontend_origin": "http://localhost:5173",
+  "build_verified": "npm run build succeeded"
+}
