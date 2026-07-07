@@ -1,7 +1,7 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h } from "vue";
 import { motion } from "../compat/motion.js";
-import { CheckCircle2, ShieldCheck, Sparkles, Workflow } from "lucide-vue-next";
+import { CheckCircle2, ShieldCheck, Workflow } from "lucide-vue-next";
 import KedataLogo from './KedataLogo.vue';
 interface LoadingScreenProps {
   email: string;
@@ -19,7 +19,7 @@ const loadingSteps = [{
 }, {
   title: 'Menyelaraskan preferensi pengguna',
   subtitle: 'Notifikasi, sesi aktif, dan preferensi tampilan diterapkan',
-  icon: Sparkles,
+  icon: CheckCircle2,
   delay: 0.36
 }];
 export default defineComponent({
@@ -54,7 +54,7 @@ export default defineComponent({
             <div class="space-y-8">
               <div class="inline-flex items-center gap-4 rounded-[28px] border border-white/10 bg-white/[0.06] px-5 py-4 shadow-[0_24px_60px_rgba(0,0,0,0.18)] backdrop-blur-sm">
                 <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_30px_rgba(255,255,255,0.12)]">
-                  <KedataLogo class="h-10 w-10" />
+                  <KedataLogo size={40} />
                 </div>
                 <div>
                   <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-[#8AB8F1]">PT. Kedata Indonesia Digital</p>
@@ -93,7 +93,7 @@ export default defineComponent({
 
                 <div class="mt-5 flex items-center gap-4 rounded-[24px] border border-white/8 bg-white/[0.04] px-4 py-4">
                   <div class="relative flex h-16 w-16 items-center justify-center rounded-[22px] bg-white shadow-[0_16px_32px_rgba(255,255,255,0.12)]">
-                    <KedataLogo class="h-10 w-10" />
+                    <KedataLogo size={40} />
                     <motion.span class="absolute inset-0 rounded-[22px] border border-[#53A0F5]/50" animate={{
                       scale: [1, 1.12, 1],
                       opacity: [0.7, 0.2, 0.7]

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import {
   ArrowRight, BarChart3, BellRing, BookOpenCheck, BrainCircuit, Check, ChevronRight,
   CircleDollarSign, CloudCog, Database, FileText, Landmark, Layers3, Menu,
-  Network, ShieldCheck, Sparkles, Target, TrendingUp, UsersRound, WalletCards, X
+  Network, ShieldCheck, Target, TrendingUp, UsersRound, WalletCards, X
 } from 'lucide-vue-next'
 import finstartLogo from '../assets/finstart-logo.png'
 import kedataLogo from '../assets/kedata-logo-transparent.png'
@@ -86,7 +86,7 @@ function scrollTo(id) {
 
     <section id="top" class="landing-hero">
       <div class="landing-hero__copy">
-        <p class="landing-eyebrow"><Sparkles :size="15" /> FINANCIAL OPERATING SYSTEM</p>
+        <p class="landing-eyebrow"><Target :size="15" /> FINANCIAL OPERATING SYSTEM</p>
         <h1>Keuangan yang <span>lebih jelas</span> untuk keputusan yang lebih pasti.</h1>
         <p class="landing-lead">
           Finstart menyatukan operasional finansial, kontrol bisnis, dan insight eksekutif

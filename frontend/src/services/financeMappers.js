@@ -35,6 +35,13 @@ export function mapProject(row = {}) {
     picKontak: row.client_pic_name || row.pic_kontak || row.picKontak || '-',
     catatan: row.description || row.notes || row.catatan || '',
     tim: Array.isArray(row.team) ? row.team : [],
+    anggaran: numberValue(row.budget_amount ?? row.anggaran),
+    milestones: Array.isArray(row.milestones) ? row.milestones : [],
+    realisasiPendapatan: numberValue(row.actual_revenue ?? row.realisasiPendapatan),
+    realisasiBiaya: numberValue(row.actual_cost ?? row.realisasiBiaya),
+    selisihAnggaran: numberValue(row.budget_variance ?? row.selisihAnggaran),
+    labaAktual: numberValue(row.actual_profit ?? row.labaAktual),
+    proyeksiLaba: numberValue(row.forecast_profit ?? row.proyeksiLaba),
     clientName: row.client_name || '',
     _raw: row,
   }
@@ -154,7 +161,8 @@ const invoiceStatus = {
   overdue: 'Overdue',
   unpaid: 'Unpaid',
   partial: 'Unpaid',
-  draft: 'Unpaid',
+  draft: 'Draft',
+  cancelled: 'Cancelled',
 }
 
 export function mapInvoice(row = {}) {
@@ -180,7 +188,8 @@ const billStatus = {
   overdue: 'Overdue',
   unpaid: 'Belum Bayar',
   partial: 'Belum Bayar',
-  draft: 'Belum Bayar',
+  draft: 'Draft',
+  cancelled: 'Cancelled',
 }
 
 export function mapBill(row = {}) {

@@ -475,6 +475,89 @@ router.post('/', async (req, res) => {
   }
 })
 
+
+router.put('/:id', async (req, res) => {
+  const assetId = Number(req.params.id)
+  if (!Number.isInteger(assetId) || assetId <= 0) return res.status(400).json({ success: false, message: 'ID aset tidak valid.' })
+  const assetName = String(req.body?.asset_name || '').trim()
+  const category = String(req.body?.category || '').trim() || 'Peralatan'
+  const usefulLifeMonths = Number(req.body?.useful_life_months || 0)
+  const residualValue = money(req.body?.residual_value)
+  const notes = String(req.body?.notes || '').trim() || null
+  if (!assetName) return res.status(400).json({ success: false, message: 'Nama aset wajib diisi.' })
+  if (!Number.isInteger(usefulLifeMonths) || usefulLifeMonths <= 0) return res.status(400).json({ success: false, message: 'Masa manfaat aset harus lebih dari 0 bulan.' })
+  try {
+    const [rows] = await db.query('SELECT acquisition_cost, accumulated_depreciation, status FROM assets WHERE id = ? LIMIT 1', [assetId])
+    const asset = rows[0]
+    if (!asset) return res.status(404).json({ success: false, message: 'Aset tidak ditemukan.' })
+    if (asset.status === 'disposed') return res.status(422).json({ success: false, message: 'Aset yang sudah dilepas tidak dapat diubah.' })
+    if (residualValue < 0 || residualValue >= Number(asset.acquisition_cost || 0)) return res.status(400).json({ success: false, message: 'Nilai residu harus minimal 0 dan lebih kecil dari harga perolehan.' })
+    await db.query(
+      `UPDATE assets SET asset_name = ?, category = ?, useful_life_months = ?, residual_value = ?, notes = ? WHERE id = ?`,
+      [assetName, category, usefulLifeMonths, residualValue, notes, assetId],
+    )
+    res.json({ success: true, message: 'Data aset berhasil diperbarui.' })
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Gagal memperbarui aset.', error: error.message })
+  }
+})
+
+async function ensureDisposalLossAccount(connection) {
+  const existing = await getAccountByCode(connection, '5295')
+  if (existing) return existing
+  const [parents] = await connection.query("SELECT id FROM accounts WHERE code = '5000' LIMIT 1")
+  await connection.query(
+    `INSERT INTO accounts (code, name, type, normal_balance, opening_balance, current_balance, status, parent_id)
+     VALUES ('5295', 'Rugi Pelepasan Aset', 'expense', 'debit', 0, 0, 'active', ?)`,
+    [parents[0]?.id || null],
+  )
+  return getAccountByCode(connection, '5295')
+}
+
+router.post('/:id/dispose', async (req, res) => {
+  const assetId = Number(req.params.id)
+  const disposalDate = String(req.body?.disposal_date || '').trim()
+  const reason = String(req.body?.reason || '').trim()
+  if (!Number.isInteger(assetId) || assetId <= 0) return res.status(400).json({ success: false, message: 'ID aset tidak valid.' })
+  if (!isValidDate(disposalDate)) return res.status(400).json({ success: false, message: 'Tanggal pelepasan aset tidak valid.' })
+  let connection
+  try {
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+    const [rows] = await connection.query('SELECT * FROM assets WHERE id = ? FOR UPDATE', [assetId])
+    const asset = rows[0]
+    if (!asset) throw new Error('Aset tidak ditemukan.')
+    if (asset.status === 'disposed') throw new Error('Aset sudah dilepas sebelumnya.')
+    const cost = money(asset.acquisition_cost)
+    const accumulated = money(asset.accumulated_depreciation)
+    const bookValue = money(Math.max(cost - accumulated, Number(asset.residual_value || 0)))
+    const assetAccount = await getAccountByCode(connection, ASSET_ACCOUNT_CODE)
+    const accumulatedAccount = await getAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE)
+    const lossAccount = await ensureDisposalLossAccount(connection)
+    const lines = []
+    if (accumulated > 0) lines.push({ account_id: accumulatedAccount.id, description: `Akumulasi penyusutan ${asset.asset_name}`, debit: accumulated, credit: 0 })
+    if (bookValue > 0) lines.push({ account_id: lossAccount.id, description: `Rugi pelepasan ${asset.asset_name}`, debit: bookValue, credit: 0 })
+    lines.push({ account_id: assetAccount.id, description: `Penghapusan aset ${asset.asset_name}`, debit: 0, credit: cost })
+    const journal = await postAutomaticJournal(connection, {
+      voucher_number: `DISP-${asset.id}-${disposalDate.replaceAll('-', '')}`,
+      transaction_date: disposalDate,
+      description: `Pelepasan/penghapusan aset ${asset.asset_name}${reason ? `: ${reason}` : ''}`,
+      source_type: 'asset_disposal',
+      source_id: asset.id,
+      lines,
+    })
+    await connection.query(
+      "UPDATE assets SET status = 'disposed', notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?",
+      [`\n[Dilepas ${disposalDate}] ${reason || '-'}`, asset.id],
+    )
+    await connection.commit()
+    res.json({ success: true, message: 'Aset berhasil dilepas dan jurnal pelepasan diposting.', data: { asset_id: asset.id, journal_voucher_number: journal.voucher_number, book_value: bookValue } })
+  } catch (error) {
+    if (connection) await connection.rollback()
+    res.status(400).json({ success: false, message: error.message || 'Gagal melepas aset.' })
+  } finally { if (connection) connection.release() }
+})
+
 router.post('/depreciate-batch', async (req, res) => {
   const period = String(req.body.depreciation_period || '').trim()
   const notes = String(req.body.notes || '').trim() || null

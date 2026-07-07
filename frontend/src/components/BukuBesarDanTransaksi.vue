@@ -1,26 +1,39 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h, ref } from "vue";
-import { Search, Plus, BookOpen, ArrowLeftRight, Check, Trash2, Filter, Calculator, AlertCircle, RefreshCw, FileCheck, Download, Calendar } from "lucide-vue-next";
+import { Search, Plus, BookOpen, ArrowLeftRight, Check, Trash2, Pencil, Filter, Calculator, AlertCircle, RefreshCw, FileCheck, Download, Calendar, Send, ShieldCheck, CircleCheck } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { AkunBukuBesar, Transaksi, TipeAkun } from '../types.ts';
+import ConfirmDialog from './common/ConfirmDialog.vue';
 interface BukuBesarDanTransaksiProps {
   activeSection: 'bukubesar' | 'transaksi';
   akun: AkunBukuBesar[];
   transaksi: Transaksi[];
-  onAddAkun: (newA: AkunBukuBesar) => void;
-  onAddTransaksi: (newT: Transaksi) => void;
+  divisions?: any[];
+  onAddAkun: (newA: AkunBukuBesar) => Promise<void> | void;
+  onUpdateAkun?: (account: any, data: any) => Promise<void> | void;
+  onDeleteAkun?: (account: any) => Promise<void> | void;
+  onAddTransaksi: (newT: any) => void;
+  onApproveJournal?: (journal: any) => void;
+  onPostJournal?: (journal: any) => void;
+  userRole?: string;
   showToast: (msg: string) => void;
 }
 export default defineComponent({
   name: "BukuBesarDanTransaksi",
-  props: ["activeSection", "akun", "transaksi", "onAddAkun", "onAddTransaksi", "showToast"],
+  props: ["activeSection", "akun", "transaksi", "divisions", "onAddAkun", "onUpdateAkun", "onDeleteAkun", "onAddTransaksi", "onApproveJournal", "onPostJournal", "userRole", "showToast"],
   setup(props) {
     const {
       activeSection,
       akun,
       transaksi,
+      divisions = [],
       onAddAkun,
+      onUpdateAkun,
+      onDeleteAkun,
       onAddTransaksi,
+      onApproveJournal,
+      onPostJournal,
+      userRole,
       showToast
     }: BukuBesarDanTransaksiProps = props;
     const activeTab = ref(activeSection === 'bukubesar' ? 'ledger' : 'journal'),
@@ -33,19 +46,25 @@ export default defineComponent({
       setJournalDate = next => journalDate.value = typeof next === "function" ? next(journalDate.value) : next; // Add Account Form State
     const isAccountModalOpen = ref(false),
       setIsAccountModalOpen = next => isAccountModalOpen.value = typeof next === "function" ? next(isAccountModalOpen.value) : next;
+    const deleteConfirm = ref<any>(null);
     const newAccount = ref({
         kode: '',
         nama: '',
         tipe: 'Aset' as TipeAkun,
-        saldo: 0
+        saldo: 0,
+        status: 'active',
+        parentId: ''
       }),
-      setNewAccount = next => newAccount.value = typeof next === "function" ? next(newAccount.value) : next; // Add Journal Entry Form State
+      setNewAccount = next => newAccount.value = typeof next === "function" ? next(newAccount.value) : next;
+    const editingAccount = ref<any>(null); // Add Journal Entry Form State
     const isJournalModalOpen = ref(false),
       setIsJournalModalOpen = next => isJournalModalOpen.value = typeof next === "function" ? next(isJournalModalOpen.value) : next;
     const voucherNo = ref(`RV-${new Date().getFullYear()}${transaksi.length + 101}`),
       setVoucherNo = next => voucherNo.value = typeof next === "function" ? next(voucherNo.value) : next;
     const journalDateInput = ref(new Date().toISOString().split('T')[0]),
       setJournalDateInput = next => journalDateInput.value = typeof next === "function" ? next(journalDateInput.value) : next;
+    const journalDivisionId = ref(''),
+      setJournalDivisionId = next => journalDivisionId.value = typeof next === "function" ? next(journalDivisionId.value) : next;
     const memo = ref(''),
       setMemo = next => memo.value = typeof next === "function" ? next(memo.value) : next;
     const selectedTemplate = ref('Umum'),
@@ -146,30 +165,54 @@ export default defineComponent({
     const totalCredit = creditLines.value.reduce((acc, l) => acc + Number(l.nominal), 0);
     const isBalanced = totalDebit === totalCredit && totalDebit > 0;
 
-    // Add Account Submission
-    const handleSaveAccount = (e: Event) => {
+    const resetAccountForm = () => {
+      editingAccount.value = null;
+      setNewAccount({ kode: '', nama: '', tipe: 'Aset', saldo: 0, status: 'active', parentId: '' });
+    };
+
+    const openAccountForm = (account: any = null) => {
+      if (account) {
+        const raw = account._raw || account;
+        editingAccount.value = account;
+        setNewAccount({
+          kode: account.kode,
+          nama: account.nama,
+          tipe: account.tipe,
+          saldo: Number(raw.opening_balance ?? account.saldo ?? 0),
+          status: raw.status || account.status || 'active',
+          parentId: raw.parent_id ? String(raw.parent_id) : '',
+        });
+      } else resetAccountForm();
+      setIsAccountModalOpen(true);
+    };
+
+    // Add or edit account submission
+    const handleSaveAccount = async (e: Event) => {
       e.preventDefault();
       if (!newAccount.value.kode || !newAccount.value.nama) {
         showToast('Harap lengkapi kode akun dan nama akun.');
         return;
       }
-      if (akun.some(a => a.kode === newAccount.value.kode)) {
+      if (!editingAccount.value && akun.some(a => a.kode === newAccount.value.kode)) {
         showToast('Kode akun sudah terdaftar di database.');
         return;
       }
-      const item: AkunBukuBesar = {
-        id: `A-${(akun.length + 101).toString()}`,
-        ...newAccount.value
-      };
-      onAddAkun(item);
+      const item: any = { ...newAccount.value };
+      if (editingAccount.value && onUpdateAkun) await onUpdateAkun(editingAccount.value, item);
+      else await onAddAkun(item);
       setIsAccountModalOpen(false);
-      setNewAccount({
-        kode: '',
-        nama: '',
-        tipe: 'Aset',
-        saldo: 0
-      });
-      showToast(`Akun [${item.kode}] - ${item.nama} berhasil didaftarkan.`);
+      resetAccountForm();
+    };
+
+    const deleteAccount = async (account: any) => {
+      if (!onDeleteAkun) return;
+      deleteConfirm.value = account;
+    };
+    const confirmDeleteAccount = async () => {
+      if (!onDeleteAkun || !deleteConfirm.value) return;
+      const account = deleteConfirm.value;
+      deleteConfirm.value = null;
+      await onDeleteAkun(account);
     };
 
     // Add Transaction Submission
@@ -183,22 +226,27 @@ export default defineComponent({
         return;
       }
 
-      // Capture first debit and credit accounts for simplicity in the general log table
       const firstDebit = debitLines.value[0];
       const firstCredit = creditLines.value[0];
-      const transactionItem: Transaksi = {
+      const transactionItem: any = {
         id: `TX-${(transaksi.length + 101).toString()}`,
         tanggal: journalDateInput.value,
         refVoucher: voucherNo.value,
         keterangan: memo.value,
         nominal: totalDebit,
         debitAkun: firstDebit.kode,
-        kreditAkun: firstCredit.kode
+        kreditAkun: firstCredit.kode,
+        divisionId: journalDivisionId.value || null,
+        lines: [
+          ...debitLines.value.filter(line => Number(line.nominal) > 0).map(line => ({ kode: line.kode, debit: Number(line.nominal), credit: 0 })),
+          ...creditLines.value.filter(line => Number(line.nominal) > 0).map(line => ({ kode: line.kode, debit: 0, credit: Number(line.nominal) })),
+        ],
       };
       onAddTransaksi(transactionItem);
       setIsJournalModalOpen(false);
       // Reset state
       setMemo('');
+      setJournalDivisionId('');
       setDebitLines([{
         kode: '1001',
         nominal: 0
@@ -208,7 +256,7 @@ export default defineComponent({
         nominal: 0
       }]);
       setVoucherNo(`RV-${new Date().getFullYear()}${transaksi.length + 102}`);
-      showToast('Entri Jurnal Umum berhasil diposting ke Buku Besar.');
+      showToast('Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.');
     };
 
     // Filters
@@ -220,12 +268,74 @@ export default defineComponent({
       const matchesDate = !journalDate.value || t.tanggal === journalDate.value;
       return matchesSearch && matchesDate;
     });
+    const escapeHtml = (value: any) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    const downloadTextFile = (filename: string, content: string, type = 'text/html;charset=utf-8;') => {
+      const blob = new Blob([content], { type });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    };
+    const downloadJournalVoucher = (transaction: Transaksi) => {
+      const debitAccount = akun.find(item => item.kode === transaction.debitAkun);
+      const creditAccount = akun.find(item => item.kode === transaction.kreditAkun);
+      const html = `<!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Bukti Jurnal ${escapeHtml(transaction.refVoucher)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 32px; color: #102A56; }
+              .voucher { border: 1px solid #DCE7F4; padding: 28px; max-width: 760px; }
+              .header { border-bottom: 2px solid #0B1F4A; padding-bottom: 14px; text-align: center; }
+              h1, h2, p { margin: 0; }
+              .meta { color: #64748B; font-size: 12px; margin-top: 6px; }
+              table { border-collapse: collapse; margin-top: 22px; width: 100%; font-size: 13px; }
+              th, td { border-bottom: 1px solid #E2E8F0; padding: 11px; text-align: left; }
+              th { background: #F8FBFE; color: #53658A; font-size: 10px; text-transform: uppercase; }
+              td:last-child, th:last-child { text-align: right; }
+              .memo { margin-top: 18px; border: 1px solid #E2E8F0; padding: 12px; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <section class="voucher">
+              <div class="header">
+                <h1>PT KEDATA INDONESIA DIGITAL</h1>
+                <p class="meta">Bukti Jurnal Umum</p>
+              </div>
+              <div class="memo">
+                <p><strong>No. Voucher:</strong> ${escapeHtml(transaction.refVoucher)}</p>
+                <p><strong>Tanggal:</strong> ${escapeHtml(transaction.tanggal)}</p>
+                <p><strong>Keterangan:</strong> ${escapeHtml(transaction.keterangan)}</p>
+              </div>
+              <table>
+                <thead><tr><th>Posisi</th><th>Akun</th><th>Nilai</th></tr></thead>
+                <tbody>
+                  <tr><td>Debit</td><td>${escapeHtml(transaction.debitAkun)} - ${escapeHtml(debitAccount?.nama || '-')}</td><td>${escapeHtml(formatRupiah(transaction.nominal))}</td></tr>
+                  <tr><td>Kredit</td><td>${escapeHtml(transaction.kreditAkun)} - ${escapeHtml(creditAccount?.nama || '-')}</td><td>${escapeHtml(formatRupiah(transaction.nominal))}</td></tr>
+                </tbody>
+              </table>
+            </section>
+          </body>
+        </html>`;
+
+      downloadTextFile(`bukti-jurnal-${transaction.refVoucher || transaction.id}.html`, html);
+      showToast(`Bukti jurnal ${transaction.refVoucher} berhasil diunduh.`);
+    };
     return () => <div class="space-y-6">
       {/* Upper action header */}
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">Buku Besar & Entri Jurnal</h1>
-          <p class="text-xs text-slate-400 font-light mt-1">Kelola Chart of Accounts (COA) perusahaan serta posting entri jurnal harian ke sistem akuntansi.</p>
+          <p class="text-xs text-slate-400 font-light mt-1">Kelola Chart of Accounts (COA), buat draft jurnal, lalu lakukan approval dan posting sesuai role.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="bg-slate-100 border border-slate-200 rounded-xl p-1 flex shrink-0">
@@ -237,7 +347,7 @@ export default defineComponent({
             </button>
           </div>
 
-          <button id="btn-open-modal-primary" onClick={() => activeTab.value === 'ledger' ? setIsAccountModalOpen(true) : setIsJournalModalOpen(true)} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0">
+          <button id="btn-open-modal-primary" onClick={() => activeTab.value === 'ledger' ? openAccountForm() : setIsJournalModalOpen(true)} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0">
             <Plus class="w-4 h-4" /> 
             {activeTab.value === 'ledger' ? 'Tambah Akun COA' : 'Entri Jurnal Baru'}
           </button>
@@ -264,6 +374,7 @@ export default defineComponent({
                     <th class="p-4">Tipe Klasifikasi</th>
                     <th class="p-4 text-right">Saldo Berjalan</th>
                     <th class="p-4 text-center">Status</th>
+                    <th class="p-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
@@ -283,8 +394,9 @@ export default defineComponent({
                         {formatRupiah(item.saldo)}
                       </td>
                       <td class="p-4 text-center">
-                        <span class="bg-emerald-100 text-emerald-800 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">Aktif</span>
+                        <span class={`${String(item.status || item._raw?.status || 'active') === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'} text-[9px] px-1.5 py-0.5 rounded font-mono font-bold`}>{String(item.status || item._raw?.status || 'active') === 'active' ? 'Aktif' : 'Nonaktif'}</span>
                       </td>
+                      <td class="p-4"><div class="flex justify-center gap-1"><button type="button" aria-label={`Ubah akun ${item.nama}`} title="Ubah" onClick={() => openAccountForm(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus akun ${item.nama}`} title="Hapus" onClick={() => deleteAccount(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td>
                     </tr>)}
                 </tbody>
               </table>
@@ -316,12 +428,13 @@ export default defineComponent({
                     <th class="p-4">Keterangan Memo Transaksi</th>
                     <th class="p-4">Alokasi Debit/Kredit</th>
                     <th class="p-4 text-right">Nominal</th>
+                    <th class="p-4 text-center">Status</th>
                     <th class="p-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
                   {filteredJournals.length === 0 ? <tr>
-                      <td colSpan={6} class="p-12 text-center text-slate-400 font-light">
+                      <td colSpan={7} class="p-12 text-center text-slate-400 font-light">
                         Tidak ada transaksi keuangan yang sesuai dengan pencarian.
                       </td>
                     </tr> : filteredJournals.map(t => {
@@ -345,9 +458,15 @@ export default defineComponent({
                           <td class="p-4 text-right font-mono font-bold text-[#0B1F4A] text-sm">
                             {formatRupiah(t.nominal)}
                           </td>
+                          <td class="p-4 text-center">
+                            <span class={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${t.status === 'posted' ? 'bg-emerald-50 text-emerald-700' : t.status === 'approved' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'}`}>{t.status === 'posted' ? 'Posted' : t.status === 'approved' ? 'Approved' : 'Draft'}</span>
+                            {t._raw?.created_by_name && <p class="mt-1 text-[9px] text-[#8A98AB]">Pembuat: {t._raw.created_by_name}</p>}
+                          </td>
                           <td class="p-4">
-                            <div class="flex items-center justify-center">
-                              <button class="p-2 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 rounded-xl" title="Unduh Slip Bukti">
+                            <div class="flex items-center justify-center gap-1">
+                              {t.status === 'draft' && onApproveJournal && ['admin', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase()) && <button type="button" onClick={() => onApproveJournal(t)} class="inline-flex h-8 items-center gap-1 rounded-lg bg-sky-50 px-2 text-[10px] font-bold text-sky-700 hover:bg-sky-100" title="Setujui jurnal draft"><ShieldCheck class="h-3.5 w-3.5" />Setujui</button>}
+                              {t.status === 'approved' && onPostJournal && ['admin', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase()) && <button type="button" onClick={() => onPostJournal(t)} class="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-50 px-2 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100" title="Posting jurnal"><Send class="h-3.5 w-3.5" />Posting</button>}
+                              <button type="button" onClick={() => downloadJournalVoucher(t)} class="p-2 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 rounded-xl" title="Unduh Slip Bukti">
                                 <Download class="w-4 h-4" />
                               </button>
                             </div>
@@ -365,8 +484,8 @@ export default defineComponent({
           <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 class="font-extrabold text-sm text-[#0B1F4A]">Tambah Akun COA Baru</h3>
-                <span class="text-[10px] text-slate-400">Daftarkan akun ledger keuangan baru</span>
+                <h3 class="font-extrabold text-sm text-[#0B1F4A]">{editingAccount.value ? 'Ubah Akun COA' : 'Tambah Akun COA Baru'}</h3>
+                <span class="text-[10px] text-slate-400">{editingAccount.value ? 'Perbarui status dan struktur akun dengan aman' : 'Daftarkan akun ledger keuangan baru'}</span>
               </div>
               <button id="btn-close-account-modal" onClick={() => setIsAccountModalOpen(false)} class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
                 Batal
@@ -402,6 +521,11 @@ export default defineComponent({
                   <option value="Pendapatan">Pendapatan</option>
                   <option value="Beban">Beban Operasional</option>
                 </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1.5"><label class="font-bold text-slate-700">Akun Induk</label><select value={newAccount.value.parentId} onChange={e => setNewAccount({ ...newAccount.value, parentId: e.target.value })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"><option value="">Tidak ada</option>{akun.filter(a => String(a.id) !== String(editingAccount.value?.id)).map(a => <option key={a.id} value={String(a.id)}>{a.kode} - {a.nama}</option>)}</select></div>
+                <div class="space-y-1.5"><label class="font-bold text-slate-700">Status</label><select value={newAccount.value.status} onChange={e => setNewAccount({ ...newAccount.value, status: e.target.value })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></div>
               </div>
 
               <div class="space-y-1.5">
@@ -450,6 +574,13 @@ export default defineComponent({
                 <div class="space-y-2">
                   <label class="text-sm font-bold text-slate-700">Tanggal Transaksi</label>
                   <input id="journ-form-date" type="date" required value={journalDateInput.value} onChange={e => setJournalDateInput(e.target.value)} class="h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 font-mono text-sm text-slate-700 focus:outline-none" />
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-bold text-slate-700">Divisi (opsional)</label>
+                  <select id="journ-form-division" value={journalDivisionId.value} onChange={e => setJournalDivisionId(e.target.value)} class="h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 focus:outline-none">
+                    <option value="">Operasional umum / tanpa divisi</option>
+                    {divisions.filter((division: any) => String(division.status || 'active') === 'active').map((division: any) => <option key={division.id} value={String(division.id)}>{division.code ? `${division.code} · ` : ''}{division.name}</option>)}
+                  </select>
                 </div>
               </div>
 
@@ -519,15 +650,34 @@ export default defineComponent({
             {/* Balance check validation footer */}
             <div class="p-4 bg-slate-50 flex items-center justify-between shrink-0">
               <div class="flex items-center gap-2 text-sm font-semibold">
-                {isBalanced ? <span class="text-emerald-600 flex items-center gap-1"><Check class="w-4 h-4" /> Balanced & Posting Ready</span> : <span class="text-rose-500 flex items-center gap-1"><AlertCircle class="w-4 h-4 animate-bounce" /> Unbalanced &bull; Selisih: {formatRupiah(Math.abs(totalDebit - totalCredit))}</span>}
+                {isBalanced ? <span class="text-emerald-600 flex items-center gap-1"><Check class="w-4 h-4" /> Balanced & siap dibuat sebagai draft</span> : <span class="text-rose-500 flex items-center gap-1"><AlertCircle class="w-4 h-4 animate-bounce" /> Unbalanced &bull; Selisih: {formatRupiah(Math.abs(totalDebit - totalCredit))}</span>}
               </div>
 
               <button id="btn-journal-submit" type="button" disabled={!isBalanced} onClick={handleSaveJournal} class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50">
-                Posting Jurnal
+                Simpan Draft Jurnal
               </button>
             </div>
           </div>
         </div>}
+
+      <ConfirmDialog
+        open={!!deleteConfirm.value}
+        eyebrow="Konfirmasi Penghapusan"
+        title="Hapus akun buku besar?"
+        message="Akun yang sudah dipakai pada jurnal atau transaksi tidak akan bisa dihapus dari backend."
+        details={[
+          { label: 'Kode', value: deleteConfirm.value?.kode || '-' },
+          { label: 'Nama Akun', value: deleteConfirm.value?.nama || '-' },
+          { label: 'Tipe', value: deleteConfirm.value?.tipe || '-' },
+        ]}
+        impactItems={[
+          'Akun hilang dari daftar Chart of Accounts jika belum dipakai transaksi.',
+          'Jika backend menolak penghapusan, nonaktifkan akun tersebut sebagai gantinya.',
+        ]}
+        confirmLabel="Hapus Akun"
+        onCancel={() => deleteConfirm.value = null}
+        onConfirm={confirmDeleteAccount}
+      />
     </div>;
   }
 });

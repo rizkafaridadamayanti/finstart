@@ -1455,3 +1455,4 @@ router.post('/:id/pay', async (req, res) => {
 })
 
 module.exports = router
+module.exports.buildEmployeePph21Calculation = buildEmployeePph21Calculation

@@ -87,6 +87,11 @@ router.get('/', async (req, res) => {
           je.status,
           je.posted_at,
           je.created_at,
+          je.created_by,
+          je.approved_by,
+          je.approved_at,
+          creator.name AS created_by_name,
+          approver.name AS approved_by_name,
           COALESCE(SUM(jl.debit), 0) AS total_debit,
           COALESCE(SUM(jl.credit), 0) AS total_credit,
 
@@ -111,12 +116,14 @@ router.get('/', async (req, res) => {
           ) AS credit_allocations
 
         FROM journal_entries je
+        LEFT JOIN users creator ON creator.id = je.created_by
+        LEFT JOIN users approver ON approver.id = je.approved_by
         LEFT JOIN journal_lines jl
           ON jl.journal_entry_id = je.id
         LEFT JOIN accounts
           ON accounts.id = jl.account_id
         WHERE ${conditions.join(' AND ')}
-        GROUP BY je.id
+        GROUP BY je.id, creator.name, approver.name
         ORDER BY je.transaction_date DESC, je.id DESC
       `,
       params,

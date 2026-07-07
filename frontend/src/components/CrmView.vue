@@ -1,15 +1,17 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, ref } from "vue";
+import { Fragment, Teleport, computed, defineComponent, h, ref } from "vue";
 import { Search, Plus, Filter, Users, MapPin, Mail, Phone, ArrowLeft, ArrowRight, Check, Trash2, Edit3, Eye, CheckCircle2, X, Building, Briefcase, ChevronDown } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, Pegawai, AnggotaTim } from '../types.ts';
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+
 interface CrmViewProps {
   proyek: Proyek[];
   klien: Klien[];
   pegawai: Pegawai[];
-  onAddProyek: (newP: Proyek) => void;
-  onUpdateProyek: (updatedP: Proyek) => void;
-  onAddKlien: (newK: Klien) => void;
+  onAddProyek: (newP: Proyek) => Promise<any> | any;
+  onUpdateProyek: (updatedP: Proyek) => Promise<any> | any;
+  onAddKlien: (newK: Klien) => Promise<any> | any;
   onUpdateKlien: (updatedK: Klien) => void;
   onDeleteProyek: (id: string) => void;
   onDeleteKlien: (id: string) => void;
@@ -52,9 +54,11 @@ export default defineComponent({
     const newProj = ref({
         nama: '',
         nilaiKontrak: 0,
+        anggaran: 0,
+        milestones: [] as any[],
         tipeTender: 'Tender Umum' as 'Tender Umum' | 'Tender Terbatas' | 'Penunjukan Langsung' | 'Pengadaan Langsung',
         status: 'Ongoing' as 'Planning' | 'Ongoing' | 'Completed',
-        tanggalMulai: '2026-07-01',
+        tanggalMulai: todayIso(),
         tanggalSelesai: '',
         klienId: '',
         // Default to empty string for "-- Pilih Perusahaan Klien --"
@@ -85,7 +89,13 @@ export default defineComponent({
     const manualStaffName = ref(''),
       setManualStaffName = next => manualStaffName.value = typeof next === "function" ? next(manualStaffName.value) : next;
     const manualStaffPosition = ref(''),
-      setManualStaffPosition = next => manualStaffPosition.value = typeof next === "function" ? next(manualStaffPosition.value) : next; // New Client Form Modal
+      setManualStaffPosition = next => manualStaffPosition.value = typeof next === "function" ? next(manualStaffPosition.value) : next;
+    const milestoneTitle = ref(''),
+      setMilestoneTitle = next => milestoneTitle.value = typeof next === "function" ? next(milestoneTitle.value) : next;
+    const milestoneDate = ref(''),
+      setMilestoneDate = next => milestoneDate.value = typeof next === "function" ? next(milestoneDate.value) : next;
+    const milestoneStatus = ref('planned'),
+      setMilestoneStatus = next => milestoneStatus.value = typeof next === "function" ? next(milestoneStatus.value) : next; // New Client Form Modal
     const isClientFormOpen = ref(false),
       setIsClientFormOpen = next => isClientFormOpen.value = typeof next === "function" ? next(isClientFormOpen.value) : next;
     const newClient = ref({
@@ -100,9 +110,11 @@ export default defineComponent({
     const emptyProjectForm = {
       nama: '',
       nilaiKontrak: 0,
+      anggaran: 0,
+      milestones: [] as any[],
       tipeTender: 'Tender Umum' as const,
       status: 'Ongoing' as const,
-      tanggalMulai: '2026-07-01',
+      tanggalMulai: todayIso(),
       tanggalSelesai: '',
       klienId: '',
       picKontak: '',
@@ -115,6 +127,9 @@ export default defineComponent({
       setIsRegisteringNewClient(false);
       setManualStaffName('');
       setManualStaffPosition('');
+      setMilestoneTitle('');
+      setMilestoneDate('');
+      setMilestoneStatus('planned');
       setRegClient({
         namaPerusahaan: '',
         bidang: '',
@@ -148,6 +163,7 @@ export default defineComponent({
         return;
       }
       const item: AnggotaTim = {
+        employeeId: String(staffObj?._raw?.id || ''),
         nama: staffObj.nama,
         jabatan: staffRole.value || staffObj.jabatan,
         alokasiPersen: allocationPercent.value,
@@ -188,9 +204,39 @@ export default defineComponent({
       setManualStaffName('');
       setManualStaffPosition('');
     };
+    const handleAddMilestone = () => {
+      const title = milestoneTitle.value.trim();
+      if (!title) {
+        showToast('Harap isi nama milestone.');
+        return;
+      }
+      setNewProj(prev => ({
+        ...prev,
+        milestones: [...(prev.milestones || []), {
+          title,
+          due_date: milestoneDate.value || null,
+          status: milestoneStatus.value || 'planned'
+        }]
+      }));
+      setMilestoneTitle('');
+      setMilestoneDate('');
+      setMilestoneStatus('planned');
+    };
+    const handleUpdateMilestone = (index: number, patch: any) => {
+      setNewProj(prev => ({
+        ...prev,
+        milestones: (prev.milestones || []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
+      }));
+    };
+    const handleRemoveMilestone = (index: number) => {
+      setNewProj(prev => ({
+        ...prev,
+        milestones: (prev.milestones || []).filter((_, itemIndex) => itemIndex !== index)
+      }));
+    };
 
     // Submit complete single-page project form
-    const handleSaveProject = () => {
+    const handleSaveProject = async () => {
       if (!newProj.value.nama || !newProj.value.tanggalMulai || !newProj.value.tanggalSelesai) {
         showToast('Harap lengkapi nama proyek dan tanggal pelaksanaan.');
         return;
@@ -203,10 +249,8 @@ export default defineComponent({
           return;
         }
 
-        // Generate a new client ID
-        const newClientId = `K-${(klien.length + 101).toString()}`;
         const clientItem: Klien = {
-          id: newClientId,
+          id: '',
           namaPerusahaan: regClient.value.namaPerusahaan,
           bidang: regClient.value.bidang || 'Teknologi',
           lokasi: regClient.value.lokasi || 'Yogyakarta',
@@ -214,8 +258,13 @@ export default defineComponent({
           email: regClient.value.email || 'pic@domain.co.id',
           telepon: regClient.value.telepon || '08123456789'
         };
-        onAddKlien(clientItem);
-        finalKlienId = newClientId;
+        const createdClient = await onAddKlien(clientItem);
+        const savedClientId = createdClient?.id || createdClient?._raw?.id;
+        if (!savedClientId) {
+          showToast('Klien baru belum berhasil disimpan. Proyek belum dibuat.');
+          return;
+        }
+        finalKlienId = String(savedClientId);
         finalPicKontak = regClient.value.pic;
       } else {
         if (!newProj.value.klienId) {
@@ -226,16 +275,18 @@ export default defineComponent({
         finalPicKontak = selectedClient ? selectedClient.pic : '';
       }
       const projectItem: Proyek = {
-        id: editingProjectId.value ? editingProjectId.value : `P-${(proyek.length + 101).toString()}`,
+        id: editingProjectId.value ? editingProjectId.value : '',
         ...newProj.value,
         klienId: finalKlienId,
         picKontak: finalPicKontak
       };
       if (editingProjectId.value) {
-        onUpdateProyek(projectItem);
+        const updatedProject = await onUpdateProyek(projectItem);
+        if (!updatedProject) return;
         showToast('Proyek berhasil diperbarui.');
       } else {
-        onAddProyek(projectItem);
+        const createdProject = await onAddProyek(projectItem);
+        if (!createdProject) return;
         showToast(isRegisteringNewClient.value ? 'Proyek baru & klien mitra berhasil disimpan dan diinisiasi.' : 'Proyek baru berhasil diinisiasi & disimpan.');
       }
       setIsFormOpen(false);
@@ -243,43 +294,89 @@ export default defineComponent({
     };
 
     // Submit client form
-    const handleSaveClient = (e: Event) => {
+    const handleSaveClient = async (e: Event) => {
       e.preventDefault();
       if (!newClient.value.namaPerusahaan || !newClient.value.pic) {
         showToast('Harap lengkapi nama perusahaan dan kontak PIC.');
         return;
       }
       const clientItem: Klien = {
-        id: `K-${(klien.length + 101).toString()}`,
+        id: '',
         ...newClient.value
       };
       if (editingClientId.value) {
         clientItem.id = editingClientId.value;
-        onUpdateKlien(clientItem);
+        const updatedClient = await onUpdateKlien(clientItem);
+        if (!updatedClient) return;
         showToast('Data klien berhasil diperbarui.');
         resetClientForm();
       } else {
-        onAddKlien(clientItem);
+        const createdClient = await onAddKlien(clientItem);
+        if (!createdClient) return;
         showToast('Klien korporasi baru berhasil didaftarkan.');
         resetClientForm();
       }
       setIsClientFormOpen(false);
     };
 
+    const openCreateProjectModal = () => {
+      setSelectedProjectDetailId(null);
+      setSelectedClientDetailId(null);
+      resetProjectForm();
+      setIsFormOpen(true);
+    };
+    const openCreateClientModal = () => {
+      setSelectedProjectDetailId(null);
+      setSelectedClientDetailId(null);
+      resetClientForm();
+      setIsClientFormOpen(true);
+    };
+    const openEditProjectModal = (project: Proyek) => {
+      setSelectedProjectDetailId(null);
+      setSelectedClientDetailId(null);
+      setEditingProjectId(project.id);
+      setIsRegisteringNewClient(false);
+      setNewProj({
+        ...project,
+        tim: [...(project.tim || [])]
+      });
+      setIsFormOpen(true);
+    };
+    const openEditClientModal = (client: Klien) => {
+      setSelectedProjectDetailId(null);
+      setSelectedClientDetailId(null);
+      setEditingClientId(client.id);
+      setNewClient({ ...client });
+      setIsClientFormOpen(true);
+    };
+    const closeProjectModal = () => {
+      setIsFormOpen(false);
+      setIsRegisteringNewClient(false);
+      resetProjectForm();
+    };
+    const closeClientModal = () => {
+      setIsClientFormOpen(false);
+      resetClientForm();
+    };
+
     // Filtering lists
-    const filteredProjects = proyek.filter(p => {
+    const filteredProjectsList = computed(() => proyek.filter(p => {
       const targetClient = klien.find(k => k.id === p.klienId);
       const matchesSearch = p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || (targetClient?.namaPerusahaan || '').toLowerCase().includes(searchQuery.value.toLowerCase());
       const matchesStatus = statusFilter.value === 'All' || p.status === statusFilter.value;
       return matchesSearch && matchesStatus;
-    });
-    const filteredClients = klien.filter(k => {
+    }));
+    const filteredClientsList = computed(() => klien.filter(k => {
       return k.namaPerusahaan.toLowerCase().includes(searchQuery.value.toLowerCase()) || k.pic.toLowerCase().includes(searchQuery.value.toLowerCase());
-    });
-    const selectedProject = selectedProjectDetailId.value ? proyek.find(p => p.id === selectedProjectDetailId.value) ?? null : null;
-    const selectedClient = selectedClientDetailId.value ? klien.find(k => k.id === selectedClientDetailId.value) ?? null : null;
-    const selectedProjectClient = selectedProject ? klien.find(k => k.id === selectedProject.klienId) : undefined;
-    return () => <div class="space-y-6">
+    }));
+    return () => {
+      const filteredProjects = filteredProjectsList.value;
+      const filteredClients = filteredClientsList.value;
+      const selectedProject = selectedProjectDetailId.value ? proyek.find(p => p.id === selectedProjectDetailId.value) ?? null : null;
+      const selectedClient = selectedClientDetailId.value ? klien.find(k => k.id === selectedClientDetailId.value) ?? null : null;
+      const selectedProjectClient = selectedProject ? klien.find(k => k.id === selectedProject.klienId) : undefined;
+
+      return <div class="crm-workspace space-y-6">
       {/* Upper header action controls */}
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
         <div>
@@ -302,17 +399,7 @@ export default defineComponent({
             </button>
           </div>
 
-          <button id="btn-tambah-crm" onClick={() => {
-            setSelectedProjectDetailId(null);
-            setSelectedClientDetailId(null);
-            if (activeSubTab.value === 'proyek') {
-              resetProjectForm();
-              setIsFormOpen(true);
-            } else {
-              resetClientForm();
-              setIsClientFormOpen(true);
-            }
-          }} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all">
+          <button id="btn-tambah-crm" onClick={() => activeSubTab.value === 'proyek' ? openCreateProjectModal() : openCreateClientModal()} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all">
             <Plus class="w-4 h-4" /> 
             {activeSubTab.value === 'proyek' ? 'Inisiasi Proyek Baru' : 'Registrasi Klien Baru'}
           </button>
@@ -370,27 +457,22 @@ export default defineComponent({
                         </td>
                         <td class="p-4">
                           <div class="flex items-center justify-center gap-1.5">
-                            <button onClick={() => {
+                            <button type="button" aria-label={`Lihat detail ${proj.nama}`} onClick={() => {
                         setSelectedProjectDetailId(proj.id);
                         setSelectedClientDetailId(null);
-                      }} class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl" title="Detail">
+                      }} class="crm-action-button detail" title="Detail">
                           <Eye class="w-4 h-4" />
                         </button>
-                        <button onClick={() => {
-                        setEditingProjectId(proj.id);
-                        setIsRegisteringNewClient(false);
-                        setNewProj(proj);
-                        setIsFormOpen(true);
-                      }} class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl" title="Edit">
+                        <button type="button" aria-label={`Edit ${proj.nama}`} onClick={() => openEditProjectModal(proj)} class="crm-action-button edit" title="Edit">
                           <Edit3 class="w-4 h-4" />
                         </button>
-                            <button onClick={() => {
+                            <button type="button" aria-label={`Hapus ${proj.nama}`} onClick={() => {
                         setDeleteConfirm({
                           type: 'proyek',
                           id: proj.id,
                           name: proj.nama
                         });
-                      }} class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl" title="Hapus">
+                      }} class="crm-action-button danger" title="Hapus">
                               <Trash2 class="w-4 h-4" />
                             </button>
                           </div>
@@ -442,26 +524,22 @@ export default defineComponent({
                       </td>
                       <td class="p-4">
                         <div class="flex items-center justify-center gap-1.5">
-                          <button onClick={() => {
+                          <button type="button" aria-label={`Lihat detail ${c.namaPerusahaan}`} onClick={() => {
                       setSelectedClientDetailId(c.id);
                       setSelectedProjectDetailId(null);
-                    }} class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl" title="Detail">
+                    }} class="crm-action-button detail" title="Detail">
                             <Eye class="w-4 h-4" />
                           </button>
-                          <button onClick={() => {
-                      setEditingClientId(c.id);
-                      setNewClient(c);
-                      setIsClientFormOpen(true);
-                    }} class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl" title="Edit">
+                          <button type="button" aria-label={`Edit ${c.namaPerusahaan}`} onClick={() => openEditClientModal(c)} class="crm-action-button edit" title="Edit">
                             <Edit3 class="w-4 h-4" />
                           </button>
-                          <button onClick={() => {
+                          <button type="button" aria-label={`Hapus ${c.namaPerusahaan}`} onClick={() => {
                       setDeleteConfirm({
                         type: 'klien',
                         id: c.id,
                         name: c.namaPerusahaan
                       });
-                    }} class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl" title="Hapus">
+                    }} class="crm-action-button danger" title="Hapus">
                             <Trash2 class="w-4 h-4" />
                           </button>
                         </div>
@@ -472,7 +550,8 @@ export default defineComponent({
           </div>
         </div>}
 
-      {(selectedProject || selectedClient) && <div class="fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <Teleport to="body">
+      {(selectedProject || selectedClient) && <div class="crm-modal-layer fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div class="crm-detail-modal bg-white border border-slate-100 rounded-3xl w-full overflow-hidden shadow-2xl">
             <div class="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100">
               <div>
@@ -521,6 +600,30 @@ export default defineComponent({
                       </div>
                     </div>
 
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <div class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                        <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Kontrol Biaya</p>
+                        <div class="mt-3 grid grid-cols-2 gap-3">
+                          <div><p class="text-[10px] text-slate-500">Anggaran</p><p class="mt-1 text-sm font-extrabold text-slate-900">{formatRupiah(selectedProject.anggaran || 0)}</p></div>
+                          <div><p class="text-[10px] text-slate-500">Realisasi bill</p><p class="mt-1 text-sm font-extrabold text-slate-900">{formatRupiah(selectedProject.realisasiBiaya || 0)}</p></div>
+                          <div class="col-span-2 border-t border-blue-100 pt-2"><p class="text-[10px] text-slate-500">Sisa anggaran</p><p class={`mt-1 text-sm font-extrabold ${(selectedProject.selisihAnggaran || 0) < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(selectedProject.selisihAnggaran || 0)}</p></div>
+                        </div>
+                      </div>
+                      <div class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                        <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Profitabilitas Proyek</p>
+                        <div class="mt-3 grid grid-cols-2 gap-3">
+                          <div><p class="text-[10px] text-slate-500">Invoice terbit</p><p class="mt-1 text-sm font-extrabold text-slate-900">{formatRupiah(selectedProject.realisasiPendapatan || 0)}</p></div>
+                          <div><p class="text-[10px] text-slate-500">Laba aktual</p><p class={`mt-1 text-sm font-extrabold ${(selectedProject.labaAktual || 0) < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(selectedProject.labaAktual || 0)}</p></div>
+                          <div class="col-span-2 border-t border-emerald-100 pt-2"><p class="text-[10px] text-slate-500">Proyeksi laba kontrak</p><p class={`mt-1 text-sm font-extrabold ${(selectedProject.proyeksiLaba || 0) < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(selectedProject.proyeksiLaba || 0)}</p></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4">
+                      <div class="flex items-center justify-between gap-3"><p class="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-700">Milestone & Deadline</p><span class="text-[10px] font-semibold text-slate-500">{(selectedProject.milestones || []).length} tahapan</span></div>
+                      {(selectedProject.milestones || []).length === 0 ? <p class="mt-3 text-[12px] italic text-slate-500">Belum ada milestone yang dicatat untuk proyek ini.</p> : <div class="mt-3 space-y-2">{(selectedProject.milestones || []).map((milestone, index) => <div key={`${milestone.title}-${index}`} class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2"><div><p class="text-xs font-bold text-slate-800">{milestone.title}</p><p class="mt-0.5 text-[10px] text-slate-500">Target: {milestone.due_date || '-'}</p></div><span class={`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${milestone.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : milestone.status === 'in_progress' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>{milestone.status === 'completed' ? 'Selesai' : milestone.status === 'in_progress' ? 'Berjalan' : 'Direncanakan'}</span></div>)}</div>}
+                    </div>
+
                     <div class="grid gap-3">
                       <div class="grid rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[170px_minmax(0,1fr)] md:items-center md:gap-5">
                         <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Klien Partner</p>
@@ -567,6 +670,21 @@ export default defineComponent({
                         </div>
                       </div>
                     </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Aksi Cepat</p>
+                      <div class="mt-3 grid gap-2">
+                        <button type="button" onClick={() => openEditProjectModal(selectedProject)} class="crm-modal-button primary">
+                          <Edit3 class="h-4 w-4" /> Edit Proyek
+                        </button>
+                        <button type="button" onClick={() => setDeleteConfirm({
+                          type: 'proyek',
+                          id: selectedProject.id,
+                          name: selectedProject.nama
+                        })} class="crm-modal-button danger">
+                          <Trash2 class="h-4 w-4" /> Hapus Proyek
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div> : <div class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
                   <div class="space-y-5">
@@ -594,14 +712,18 @@ export default defineComponent({
                     </div>
                     <div class="rounded-3xl border border-slate-200 p-5 bg-slate-50">
                       <button type="button" onClick={() => {
-                      setEditingClientId(selectedClient?.id ?? null);
                       if (selectedClient) {
-                        setNewClient(selectedClient);
-                        setSelectedClientDetailId(null);
-                        setIsClientFormOpen(true);
+                        openEditClientModal(selectedClient);
                       }
-                    }} class="mt-3 w-full rounded-2xl bg-[#0B1F4A] hover:bg-[#102A56] text-white py-3 text-sm font-bold">
-                        Edit Klien
+                    }} class="crm-modal-button primary">
+                        <Edit3 class="h-4 w-4" /> Edit Klien
+                      </button>
+                      <button type="button" onClick={() => selectedClient && setDeleteConfirm({
+                        type: 'klien',
+                        id: selectedClient.id,
+                        name: selectedClient.namaPerusahaan
+                      })} class="crm-modal-button danger mt-3">
+                        <Trash2 class="h-4 w-4" /> Hapus Klien
                       </button>
                     </div>
                   </div>
@@ -612,7 +734,9 @@ export default defineComponent({
       </div>}
 
       {/* 3. CRM PROJECT INITIATION MODAL */}
-      {isFormOpen.value && <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-3 backdrop-blur-sm sm:p-6">
+      {isFormOpen.value && <div class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-3 backdrop-blur-sm sm:p-6" onClick={event => {
+        if (event.target === event.currentTarget) closeProjectModal();
+      }}>
           <div class="crm-project-modal flex w-full flex-col overflow-hidden rounded-[30px] border border-[#DCE7F4] bg-white shadow-2xl">
             {/* Modal Header */}
             <div class="flex shrink-0 items-start justify-between border-b border-[#E8EEF7] px-6 py-5 sm:px-8 sm:py-6">
@@ -621,15 +745,14 @@ export default defineComponent({
                 <span class="mt-1 block text-[10px] font-bold tracking-[0.16em] text-[#637083]">CRM & LIFECYCLE MANAGEMENT SYSTEM</span>
               </div>
               <button id="btn-close-project-modal" onClick={() => {
-              setIsFormOpen(false);
-              setIsRegisteringNewClient(false);
+              closeProjectModal();
             }} class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#94A3B8] transition-colors hover:bg-[#F8FBFE] hover:text-slate-600">
                 <X class="w-6 h-6" />
               </button>
             </div>
 
             {/* Form body */}
-            <div class="crm-project-body grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] lg:p-8">
+            <div class="crm-project-body grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8 lg:grid-cols-2 lg:p-8 2xl:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)_minmax(360px,0.9fr)]">
               
               {/* SECTION 1: DETAIL IDENTITAS PROJEK */}
               <div class="min-w-0 space-y-5 rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm">
@@ -650,7 +773,7 @@ export default defineComponent({
                   </div>
 
                   <div class="space-y-2">
-                    <label class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase">TARGET NILAI KONTRAK (BUDGET)</label>
+                    <label class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase">NILAI KONTRAK</label>
                     <div class="relative flex items-center">
                       <span class="absolute left-4 text-[#637083] font-bold text-xs select-none">Rp</span>
                       <input id="proj-form-val" type="number" placeholder="0" value={newProj.value.nilaiKontrak || ''} onChange={e => setNewProj({
@@ -659,6 +782,18 @@ export default defineComponent({
                     })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
                     </div>
                   </div>
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase">ANGGARAN BIAYA PROYEK</label>
+                  <div class="relative flex items-center">
+                    <span class="absolute left-4 text-[#637083] font-bold text-xs select-none">Rp</span>
+                    <input id="proj-form-budget" type="number" min="0" placeholder="0" value={newProj.value.anggaran || ''} onChange={e => setNewProj({
+                    ...newProj.value,
+                    anggaran: Number(e.target.value)
+                  })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
+                  </div>
+                  <p class="text-[10px] leading-4 text-slate-500">Realisasi biaya otomatis dihitung dari bill yang dipilihkan ke proyek ini.</p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-y-4 gap-x-6 sm:grid-cols-2 2xl:grid-cols-4 2xl:gap-x-6">
@@ -715,6 +850,32 @@ export default defineComponent({
                 </div>
               </div>
 
+              {/* SECTION: MILESTONE & DEADLINE */}
+              <div class="min-w-0 space-y-4 rounded-[24px] border border-indigo-200 bg-indigo-50/30 p-5 shadow-sm">
+                <div class="flex items-center gap-3 border-b border-indigo-200/70 pb-3">
+                  <div class="p-2 bg-indigo-100 rounded-xl text-indigo-700 ring-1 ring-indigo-200">
+                    <CheckCircle2 class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-[13px] font-extrabold tracking-[0.08em] text-[#102A56] uppercase">MILESTONE & DEADLINE</h4>
+                    <p class="mt-0.5 text-[10px] text-slate-500">Pantau tahapan kerja proyek dan tanggal targetnya.</p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_150px_130px]">
+                  <input id="proj-milestone-title" type="text" value={milestoneTitle.value} onChange={e => setMilestoneTitle(e.target.value)} placeholder="Contoh: UAT dan serah terima" class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
+                  <input id="proj-milestone-date" type="date" value={milestoneDate.value} onChange={e => setMilestoneDate(e.target.value)} class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
+                  <button type="button" onClick={handleAddMilestone} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"><Plus class="h-4 w-4" /> Tambah</button>
+                </div>
+                <div class="space-y-2 rounded-2xl border border-dashed border-indigo-200 bg-white/60 p-3">
+                  {(newProj.value.milestones || []).length === 0 ? <p class="text-[11px] font-semibold text-slate-400">Belum ada milestone. Tambahkan tahapan utama proyek agar deadline dapat dipantau.</p> : (newProj.value.milestones || []).map((milestone, index) => <div key={`${milestone.title}-${index}`} class="grid gap-2 rounded-xl border border-indigo-100 bg-white p-2.5 sm:grid-cols-[minmax(0,1fr)_132px_118px_32px] sm:items-center">
+                    <p class="truncate text-xs font-bold text-slate-800" title={milestone.title}>{milestone.title}</p>
+                    <input type="date" value={milestone.due_date || ''} onChange={e => handleUpdateMilestone(index, { due_date: e.target.value || null })} class="h-9 rounded-lg border border-slate-200 px-2 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+                    <select value={milestone.status || 'planned'} onChange={e => handleUpdateMilestone(index, { status: e.target.value })} class="h-9 rounded-lg border border-slate-200 px-2 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100"><option value="planned">Direncanakan</option><option value="in_progress">Berjalan</option><option value="completed">Selesai</option></select>
+                    <button type="button" onClick={() => handleRemoveMilestone(index)} class="flex h-9 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Hapus milestone"><Trash2 class="h-3.5 w-3.5" /></button>
+                  </div>)}
+                </div>
+              </div>
+
               {/* SECTION: ALOKASI TIM SDM TERLIBAT */}
               <div class="min-w-0 space-y-5 rounded-[24px] border border-amber-200 bg-amber-50/35 p-5 shadow-sm">
                 <div class="flex items-center gap-3 border-b border-amber-200/70 pb-3">
@@ -756,14 +917,22 @@ export default defineComponent({
               </div>
 
               {/* SECTION 2: INFORMASI KLIEN PARTNER */}
-              <div class="space-y-6 rounded-[22px] border border-[#D8E5F4] bg-[#FBFDFF] p-5 shadow-sm sm:p-6 lg:col-span-2">
+              <div class="min-w-0 space-y-6 rounded-[22px] border border-[#D8E5F4] bg-[#FBFDFF] p-5 shadow-sm sm:p-6 lg:col-span-2 2xl:col-span-1">
                 {/* Section header inside the box */}
-                <div class="flex justify-between items-center pb-3 border-b border-[#D8E5F4]">
+                <div class="flex flex-col gap-3 border-b border-[#D8E5F4] pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div class="flex items-center gap-2.5">
                     <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
                       <Building class="w-4 h-4" />
                     </div>
                     <h4 class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase">INFORMASI KLIEN PARTNER</h4>
+                  </div>
+                  <div class="grid grid-cols-2 rounded-xl border border-[#D8E5F4] bg-white p-1 text-[11px] font-bold">
+                    <button type="button" onClick={() => setIsRegisteringNewClient(false)} class={`rounded-lg px-3 py-2 transition ${!isRegisteringNewClient.value ? 'bg-[#102A56] text-white shadow-sm' : 'text-[#637083] hover:bg-[#F8FBFE]'}`}>
+                      Database
+                    </button>
+                    <button type="button" onClick={() => setIsRegisteringNewClient(true)} class={`rounded-lg px-3 py-2 transition ${isRegisteringNewClient.value ? 'bg-[#102A56] text-white shadow-sm' : 'text-[#637083] hover:bg-[#F8FBFE]'}`}>
+                      Klien Baru
+                    </button>
                   </div>
                 </div>
 
@@ -841,8 +1010,7 @@ export default defineComponent({
             {/* Modal footer controls */}
             <div class="flex shrink-0 flex-col-reverse gap-3 border-t border-[#E8EEF7] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5">
               <button id="btn-project-cancel" type="button" onClick={() => {
-              setIsFormOpen(false);
-              setIsRegisteringNewClient(false);
+              closeProjectModal();
             }} class="h-12 w-full rounded-xl border border-[#D8E5F4] px-8 text-sm font-bold tracking-wide text-[#637083] transition-all hover:bg-slate-50 sm:w-auto">
                 BATAL
               </button>
@@ -855,14 +1023,16 @@ export default defineComponent({
         </div>}
 
       {/* 4. REGISTRASI KLIEN BARU STANDALONE MODAL */}
-      {isClientFormOpen.value && <div class="fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div class="bg-white border border-slate-100 rounded-[36px] w-full max-w-2xl overflow-hidden shadow-2xl">
+      {isClientFormOpen.value && <div class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm" onClick={event => {
+        if (event.target === event.currentTarget) closeClientModal();
+      }}>
+          <div class="crm-client-modal bg-white border border-slate-100 rounded-[36px] w-full max-w-2xl overflow-hidden shadow-2xl">
             <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-start">
               <div>
-                <h3 class="font-extrabold text-xl text-[#102A56] tracking-tight uppercase">Registrasi Mitra Klien Baru</h3>
+                <h3 class="font-extrabold text-xl text-[#102A56] tracking-tight uppercase">{editingClientId.value ? 'Edit Mitra Klien' : 'Registrasi Mitra Klien Baru'}</h3>
                 <span class="text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest block mt-1">CRM & Lifecycle Management System</span>
               </div>
-              <button id="btn-close-client-modal" onClick={() => setIsClientFormOpen(false)} class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#94A3B8] transition-colors hover:bg-[#F8FBFE] hover:text-slate-600">
+              <button id="btn-close-client-modal" onClick={closeClientModal} class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#94A3B8] transition-colors hover:bg-[#F8FBFE] hover:text-slate-600">
                 <X class="w-6 h-6" />
               </button>
             </div>
@@ -921,18 +1091,20 @@ export default defineComponent({
               </div>
 
               <button id="btn-client-submit" type="submit" class="w-full bg-[#102A56] hover:bg-[#0B1F42] text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider">
-                <CheckCircle2 class="w-4 h-4" /> Daftarkan Klien Baru
+                <CheckCircle2 class="w-4 h-4" /> {editingClientId.value ? 'Simpan Perubahan Klien' : 'Daftarkan Klien Baru'}
               </button>
             </form>
           </div>
         </div>}
 
-      {deleteConfirm.value && <div class="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/55 backdrop-blur-sm p-4">
-          <div class="w-full max-w-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+      {deleteConfirm.value && <div class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm" onClick={event => {
+        if (event.target === event.currentTarget) setDeleteConfirm(null);
+      }}>
+          <div class="crm-delete-modal w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
             <div class="border-b border-slate-200 px-6 py-5">
               <div>
                 <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-rose-500">Konfirmasi Penghapusan</p>
-                <h3 class="mt-1 text-xl font-extrabold leading-tight text-[#102A56]">Hapus {deleteConfirm.value.type === 'proyek' ? 'Proyek' : 'Klien'}?</h3>
+                <h3 class="mt-1 text-lg font-extrabold leading-tight text-[#102A56]">Hapus {deleteConfirm.value.type === 'proyek' ? 'Proyek' : 'Klien'}?</h3>
               </div>
             </div>
             <div class="space-y-4 p-6">
@@ -940,13 +1112,19 @@ export default defineComponent({
                 Periksa kembali data di bawah ini sebelum melanjutkan. Penghapusan bersifat permanen dan tidak dapat dibatalkan dari aplikasi.
               </p>
 
-              <div class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[120px_minmax(0,1fr)]">
-                <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Jenis Data</p>
-                <p class="text-sm font-bold text-slate-900">{deleteConfirm.value.type === 'proyek' ? 'Proyek CRM' : 'Klien Partner'}</p>
-                <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Nama</p>
-                <p class="text-sm font-bold leading-6 text-slate-900">{deleteConfirm.value.name}</p>
-                <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">ID</p>
-                <p class="font-mono text-sm font-semibold text-slate-700">{deleteConfirm.value.id}</p>
+              <div class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 grid-cols-1">
+                <div>
+                  <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Jenis Data</p>
+                  <p class="mt-1 text-sm font-bold text-slate-900">{deleteConfirm.value.type === 'proyek' ? 'Proyek CRM' : 'Klien Partner'}</p>
+                </div>
+                <div>
+                  <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Nama</p>
+                  <p class="mt-1 text-sm font-bold leading-6 text-slate-900">{deleteConfirm.value.name}</p>
+                </div>
+                <div>
+                  <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">ID</p>
+                  <p class="mt-1 font-mono text-sm font-semibold text-slate-700">{deleteConfirm.value.id}</p>
+                </div>
               </div>
 
               <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950">
@@ -962,7 +1140,7 @@ export default defineComponent({
                   </ul>}
               </div>
 
-              <div class="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
+              <div class="grid grid-cols-1 gap-3 pt-2">
                 <button type="button" onClick={() => setDeleteConfirm(null)} class="w-full rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
                   Batalkan
                 </button>
@@ -974,6 +1152,8 @@ export default defineComponent({
                   onDeleteKlien(deleteConfirm.value.id);
                   showToast('Klien berhasil dihapus.');
                 }
+                setSelectedProjectDetailId(null);
+                setSelectedClientDetailId(null);
                 setDeleteConfirm(null);
               }} class="w-full rounded-2xl bg-rose-600 py-3 text-sm font-bold text-white transition-colors hover:bg-rose-700">
                   Hapus {deleteConfirm.value.type === 'proyek' ? 'Proyek' : 'Klien'}
@@ -982,7 +1162,190 @@ export default defineComponent({
             </div>
           </div>
         </div>}
+      </Teleport>
     </div>;
+    };
   }
 });
 </script>
+
+<style scoped>
+.crm-workspace {
+  min-width: 0;
+  width: 100%;
+}
+
+.crm-workspace table {
+  table-layout: fixed;
+  min-width: 1180px;
+}
+
+.crm-workspace th,
+.crm-workspace td {
+  vertical-align: middle;
+}
+
+.crm-workspace th:first-child,
+.crm-workspace td:first-child {
+  width: 34%;
+}
+
+.crm-workspace th:nth-child(2),
+.crm-workspace td:nth-child(2) {
+  width: 30%;
+}
+
+.crm-workspace th:nth-child(3),
+.crm-workspace td:nth-child(3) {
+  width: 16%;
+}
+
+.crm-workspace th:nth-child(4),
+.crm-workspace td:nth-child(4) {
+  width: 12%;
+}
+
+.crm-workspace th:last-child,
+.crm-workspace td:last-child {
+  width: 176px;
+}
+
+.crm-workspace td span,
+.crm-workspace td p {
+  overflow-wrap: anywhere;
+}
+
+.crm-action-button {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dce7f4;
+  border-radius: 14px;
+  background: #f8fbfe;
+  color: #637083;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.crm-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(16, 42, 86, 0.12);
+}
+
+.crm-action-button.detail {
+  background: #eef6ff;
+  color: #1e5aa8;
+}
+
+.crm-action-button.edit {
+  background: #fff7e8;
+  color: #b86b00;
+}
+
+.crm-action-button.danger {
+  background: #fff1f3;
+  color: #d93858;
+}
+
+.crm-modal-layer {
+  overscroll-behavior: contain;
+  z-index: 9999 !important;
+}
+
+.crm-detail-modal,
+.crm-project-modal,
+.crm-client-modal,
+.crm-delete-modal {
+  max-width: calc(100vw - 32px);
+  max-height: min(84dvh, calc(100dvh - 72px));
+}
+
+.crm-detail-modal {
+  width: min(1120px, calc(100vw - 48px));
+}
+
+.crm-project-modal {
+  width: min(1080px, calc(100vw - 48px));
+  max-height: min(84dvh, calc(100dvh - 72px));
+}
+
+.crm-client-modal {
+  width: min(860px, calc(100vw - 48px));
+  overflow-y: auto;
+}
+
+.crm-delete-modal {
+  overflow-y: auto;
+  max-width: min(520px, calc(100vw - 32px)) !important;
+  width: 100%;
+}
+
+.crm-detail-body,
+.crm-project-body {
+  min-height: 0;
+}
+
+.crm-detail-body {
+  max-height: calc(84dvh - 122px);
+}
+
+.crm-project-body {
+  max-height: calc(84dvh - 158px);
+}
+
+.crm-modal-button {
+  display: inline-flex;
+  min-height: 46px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.crm-modal-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(16, 42, 86, 0.12);
+}
+
+.crm-modal-button.primary {
+  background: #0b1f4a;
+  color: #ffffff;
+}
+
+.crm-modal-button.danger {
+  border: 1px solid #fecdd3;
+  background: #fff1f3;
+  color: #be123c;
+}
+
+@media (max-width: 767px) {
+  .crm-workspace table {
+    min-width: 980px;
+  }
+
+  .crm-detail-modal,
+  .crm-project-modal,
+  .crm-client-modal,
+  .crm-delete-modal {
+    max-width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 22px;
+  }
+
+  .crm-detail-body {
+    max-height: calc(100dvh - 142px);
+  }
+
+  .crm-project-body {
+    max-height: calc(100dvh - 174px);
+    padding: 16px;
+  }
+}
+</style>

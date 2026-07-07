@@ -19,6 +19,7 @@ const props = defineProps({
 const question = ref('')
 const isAnalyzing = ref(false)
 const chatEnd = ref(null)
+const showActivityPanel = ref(false)
 const STORAGE_KEY = 'finstartAssistantLiveV1'
 
 function numberValue(value) {
@@ -73,11 +74,17 @@ const quickQuestions = [
   'Bagaimana status proyek yang berjalan?',
 ]
 
+const activityItems = [
+  { label: 'Kas', detail: 'Saldo & arus kas' },
+  { label: 'Laba', detail: 'Pendapatan & beban' },
+  { label: 'Proyek', detail: 'Klien & milestone' },
+]
+
 function defaultMessage() {
   return {
     id: Date.now(),
     role: 'assistant',
-    text: 'Halo, saya AI FinStart Assistant. Saya membaca ringkasan keuangan terbaru dari jurnal yang sudah diposting. Tanyakan kas, laba, jurnal, proyek, piutang, atau utang.',
+    text: 'Halo, saya AI FinStart Assistant.',
   }
 }
 
@@ -229,6 +236,10 @@ function resetChat() {
   messages.value = [defaultMessage()]
 }
 
+function toggleActivityPanel() {
+  showActivityPanel.value = !showActivityPanel.value
+}
+
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
   if (Array.isArray(saved) && saved.length > 0) {
@@ -253,9 +264,15 @@ watch(messages, saveChat, { deep: true })
         </div>
       </div>
 
-      <button type="button" class="reset-chat-button" @click="resetChat">
-        Reset
-      </button>
+      <div class="ai-header-actions">
+        <button type="button" class="activity-toggle-button" @click="toggleActivityPanel">
+          {{ showActivityPanel ? 'Sembunyikan' : 'Aktivitas' }}
+        </button>
+
+        <button type="button" class="reset-chat-button" @click="resetChat">
+          Reset
+        </button>
+      </div>
     </div>
 
     <div class="financial-health-card">
@@ -273,6 +290,13 @@ watch(messages, saveChat, { deep: true })
         <span>Financial Health</span>
         <h3>{{ healthLabel }}</h3>
         <p>Dinilai dari kas, laba, piutang, utang, dan jurnal posted.</p>
+      </div>
+    </div>
+
+    <div v-if="showActivityPanel" class="activity-panel">
+      <div v-for="item in activityItems" :key="item.label" class="activity-chip">
+        <strong>{{ item.label }}</strong>
+        <span>{{ item.detail }}</span>
       </div>
     </div>
 
@@ -314,9 +338,7 @@ watch(messages, saveChat, { deep: true })
       </button>
     </form>
 
-    <p class="ai-footer-note">
-      Insight ini memakai data live dari API FinStart dan aturan analisis sederhana.
-    </p>
+    <!-- footer note removed per user request to remove unused AI remnants -->
   </aside>
 </template>
 
@@ -336,7 +358,8 @@ watch(messages, saveChat, { deep: true })
 .finstart-ai-header,
 .finstart-ai-title,
 .financial-health-card,
-.ai-input-row {
+.ai-input-row,
+.ai-header-actions {
   display: flex;
   align-items: center;
 }
@@ -375,6 +398,11 @@ watch(messages, saveChat, { deep: true })
   font-size: 10px;
 }
 
+.ai-header-actions {
+  gap: 8px;
+}
+
+.activity-toggle-button,
 .reset-chat-button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 7px;
@@ -383,6 +411,11 @@ watch(messages, saveChat, { deep: true })
   color: #bdc9db;
   cursor: pointer;
   font-size: 10px;
+}
+
+.activity-toggle-button {
+  background: rgba(109, 102, 244, 0.16);
+  color: #d9d7ff;
 }
 
 .financial-health-card {
@@ -437,6 +470,31 @@ watch(messages, saveChat, { deep: true })
   line-height: 1.45;
 }
 
+.activity-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-chip {
+  flex: 1 1 100px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 9px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.activity-chip strong {
+  display: block;
+  color: white;
+  font-size: 10px;
+}
+
+.activity-chip span {
+  color: #9db0ce;
+  font-size: 9px;
+}
+
 .quick-question-list {
   display: flex;
   flex-wrap: wrap;
@@ -458,9 +516,24 @@ watch(messages, saveChat, { deep: true })
 .ai-chat-window {
   display: grid;
   gap: 8px;
-  max-height: 240px;
+  max-height: 220px;
   overflow-y: auto;
-  padding-right: 3px;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.ai-chat-window::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-chat-window::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+
+.ai-chat-window::-webkit-scrollbar-thumb {
+  background: rgba(157, 176, 206, 0.5);
+  border-radius: 999px;
 }
 
 .ai-message {

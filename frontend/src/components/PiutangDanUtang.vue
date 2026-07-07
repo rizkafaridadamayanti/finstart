@@ -1,8 +1,9 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h, ref } from "vue";
-import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Receipt, Trash2, Calendar, FilePlus, X, Save, CreditCard } from "lucide-vue-next";
+import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Receipt, Trash2, Pencil, Send, Calendar, FilePlus, X, Save, CreditCard } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, AkunBukuBesar } from '../types.ts';
+import ConfirmDialog from './common/ConfirmDialog.vue';
 interface Invoice {
   id: string;
   nomor: string;
@@ -31,14 +32,20 @@ interface PiutangDanUtangProps {
   invoices: Invoice[];
   bills: TagihanVendor[];
   onCreateInvoice: (data: any) => Promise<void> | void;
+  onUpdateInvoice?: (invoice: any, data: any) => Promise<void> | void;
+  onIssueInvoice?: (invoice: any) => Promise<void> | void;
+  onCancelInvoice?: (invoice: any, reason?: string) => Promise<void> | void;
   onRecordInvoicePayment: (invoice: Invoice, payment: any) => Promise<void> | void;
   onCreateBill: (data: any) => Promise<void> | void;
+  onUpdateBill?: (bill: any, data: any) => Promise<void> | void;
+  onIssueBill?: (bill: any) => Promise<void> | void;
+  onCancelBill?: (bill: any, reason?: string) => Promise<void> | void;
   onPayBill: (bill: TagihanVendor, payment: any) => Promise<void> | void;
   showToast: (msg: string) => void;
 }
 export default defineComponent({
   name: "PiutangDanUtang",
-  props: ["activeSection", "proyek", "klien", "akun", "invoices", "bills", "onCreateInvoice", "onRecordInvoicePayment", "onCreateBill", "onPayBill", "showToast"],
+  props: ["activeSection", "proyek", "klien", "akun", "invoices", "bills", "onCreateInvoice", "onUpdateInvoice", "onIssueInvoice", "onCancelInvoice", "onRecordInvoicePayment", "onCreateBill", "onUpdateBill", "onIssueBill", "onCancelBill", "onPayBill", "showToast"],
   setup(props) {
     const {
       activeSection,
@@ -46,12 +53,25 @@ export default defineComponent({
       klien,
       akun,
       onCreateInvoice,
+      onUpdateInvoice,
+      onIssueInvoice,
+      onCancelInvoice,
       onRecordInvoicePayment,
       onCreateBill,
+      onUpdateBill,
+      onIssueBill,
+      onCancelBill,
       onPayBill,
       showToast
     }: PiutangDanUtangProps = props;
     const activeTab = activeSection === 'piutang' ? 'receivables' : 'payables';
+    const todayIso = () => new Date().toISOString().slice(0, 10);
+    const datePlusDays = (days: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return date.toISOString().slice(0, 10);
+    };
+    const newReferenceNumber = (prefix: string, sequence = 1) => `${prefix}/${new Date().getFullYear()}/${String(sequence).padStart(3, '0')}`;
 
     // Data piutang dan utang disuplai dari backend melalui App.vue.
     // Komponen ini hanya mempertahankan modal dan tata letak UI desain asli.
@@ -64,9 +84,14 @@ export default defineComponent({
     const isBillModalOpen = ref(false),
       setIsBillModalOpen = next => isBillModalOpen.value = typeof next === "function" ? next(isBillModalOpen.value) : next;
     const isPayBillModalOpen = ref(false),
-      setIsPayBillModalOpen = next => isPayBillModalOpen.value = typeof next === "function" ? next(isPayBillModalOpen.value) : next; // New Invoice form input
+      setIsPayBillModalOpen = next => isPayBillModalOpen.value = typeof next === "function" ? next(isPayBillModalOpen.value) : next;
+    const editingInvoice = ref<any>(null);
+    const editingBill = ref<any>(null);
+    const cancelConfirm = ref<any>(null); // New Invoice form input
     const newInvoice = ref({
         proyekId: proyek[0]?.id || '',
+        nomor: newReferenceNumber('INV'),
+        keterangan: '',
         nominal: 120000000,
         tanggalKirim: new Date().toISOString().split('T')[0],
         jatuhTempo: ''
@@ -80,46 +105,127 @@ export default defineComponent({
       setReceiptAmount = next => receiptAmount.value = typeof next === "function" ? next(receiptAmount.value) : next; // New Vendor Bill form input
     const newBill = ref({
         vendor: '',
-        nomorTagihan: 'BILL/2026/001',
+        nomorTagihan: newReferenceNumber('BILL'),
         alokasiProyek: '',
         keterangan: '',
         nominal: 0,
-        tanggalMasuk: '2026-07-01',
-        jatuhTempo: '2026-07-08'
+        tanggalMasuk: todayIso(),
+        jatuhTempo: datePlusDays(7)
       }),
       setNewBill = next => newBill.value = typeof next === "function" ? next(newBill.value) : next; // Pay Vendor Bill form input
+    const requestCancelInvoice = (invoice: any) => {
+      cancelConfirm.value = {
+        type: 'invoice',
+        item: invoice,
+        title: 'Batalkan invoice?',
+        message: 'Invoice akan ditandai cancelled dan tidak lagi masuk daftar outstanding.',
+        details: [
+          { label: 'Nomor', value: invoice.nomor || '-' },
+          { label: 'Klien', value: invoice.klienNama || '-' },
+          { label: 'Nominal', value: formatRupiah(invoice.nominal || 0) },
+        ],
+        confirmLabel: 'Batalkan Invoice',
+        reasonLabel: 'Alasan Pembatalan',
+        reasonPlaceholder: 'Contoh: Invoice diganti dengan revisi terbaru',
+      };
+    };
+    const requestCancelBill = (bill: any) => {
+      cancelConfirm.value = {
+        type: 'bill',
+        item: bill,
+        title: 'Batalkan tagihan vendor?',
+        message: 'Tagihan akan ditandai cancelled dan tidak lagi masuk daftar utang outstanding.',
+        details: [
+          { label: 'Nomor', value: bill.nomorTagihan || '-' },
+          { label: 'Vendor', value: bill.vendor || '-' },
+          { label: 'Nominal', value: formatRupiah(bill.nominal || 0) },
+        ],
+        confirmLabel: 'Batalkan Tagihan',
+        reasonLabel: 'Alasan Pembatalan',
+        reasonPlaceholder: 'Contoh: Tagihan dibatalkan vendor',
+      };
+    };
+    const confirmCancelDocument = async (reason = '') => {
+      const action = cancelConfirm.value;
+      if (!action) return;
+      cancelConfirm.value = null;
+      if (action.type === 'invoice' && onCancelInvoice) {
+        await onCancelInvoice(action.item, reason);
+        return;
+      }
+      if (action.type === 'bill' && onCancelBill) {
+        await onCancelBill(action.item, reason);
+      }
+    };
     const selectedBillId = ref(''),
       setSelectedBillId = next => selectedBillId.value = typeof next === "function" ? next(selectedBillId.value) : next;
     const paymentAccount = ref('1001'),
       setPaymentAccount = next => paymentAccount.value = typeof next === "function" ? next(paymentAccount.value) : next;
     const paymentForm = ref({
         vendor: '',
-        buktiBayar: 'PAY/2026/001',
-        tanggalBayar: '2026-07-01',
+        buktiBayar: newReferenceNumber('PAY'),
+        tanggalBayar: todayIso(),
         jumlah: 0,
         catatan: ''
       }),
       setPaymentForm = next => paymentForm.value = typeof next === "function" ? next(paymentForm.value) : next; // Handle invoice submission
+    const openInvoiceForm = (invoice: any = null) => {
+      editingInvoice.value = invoice;
+      if (invoice) {
+        newInvoice.value = {
+          proyekId: invoice?._raw?.project_id ? String(invoice._raw.project_id) : '',
+          nomor: invoice.nomor || '',
+          keterangan: invoice?._raw?.notes || '',
+          nominal: Number(invoice?._raw?.dpp_amount ?? invoice.nominal ?? 0),
+          tanggalKirim: invoice.tanggalKirim || todayIso(),
+          jatuhTempo: invoice.jatuhTempo || todayIso(),
+        };
+      } else {
+        newInvoice.value = { proyekId: proyek[0]?.id || '', nomor: newReferenceNumber('INV', invoices.value.length + 1), keterangan: '', nominal: 0, tanggalKirim: todayIso(), jatuhTempo: datePlusDays(14) };
+      }
+      setIsInvoiceModalOpen(true);
+    };
     const handleSaveInvoice = async (e: Event) => {
       e.preventDefault();
-      const projObj = proyek.find(p => p.id === newInvoice.value.proyekId);
-      if (!projObj) {
-        showToast('Harap pilih proyek terlebih dahulu.');
-        return;
-      }
-      await onCreateInvoice({ ...newInvoice.value });
+      const projObj = proyek.find(p => String(p.id) === String(newInvoice.value.proyekId));
+      if (!projObj) { showToast('Harap pilih proyek terlebih dahulu.'); return; }
+      if (editingInvoice.value && onUpdateInvoice) await onUpdateInvoice(editingInvoice.value, { ...newInvoice.value });
+      else await onCreateInvoice({ ...newInvoice.value });
+      editingInvoice.value = null;
       setIsInvoiceModalOpen(false);
+    };
+
+    const getInvoiceOutstanding = (invoice: any) => Number(invoice?.outstandingAmount ?? invoice?.nominal ?? 0);
+    const getBillOutstanding = (bill: any) => Number(bill?.outstandingAmount ?? bill?.nominal ?? 0);
+    const isInvoiceOpen = (invoice: any) => !['paid', 'cancelled', 'draft'].includes(String(invoice?.rawStatus || invoice?.status || '').toLowerCase()) && getInvoiceOutstanding(invoice) > 0;
+    const isBillOpen = (bill: any) => !['paid', 'cancelled', 'draft'].includes(String(bill?.rawStatus || bill?.status || '').toLowerCase()) && getBillOutstanding(bill) > 0;
+
+    const selectInvoiceForReceipt = (invoiceId: string) => {
+      const invoice = invoices.value.find(item => String(item.id) === String(invoiceId));
+      setSelectedInvoiceId(invoice?.id || '');
+      setReceiptAmount(invoice ? getInvoiceOutstanding(invoice) : 0);
+    };
+
+    const selectBillForPayment = (billId: string) => {
+      const bill = bills.value.find(item => String(item.id) === String(billId));
+      setSelectedBillId(bill?.id || '');
+      setPaymentForm({
+        ...paymentForm.value,
+        vendor: bill?.vendor || '',
+        jumlah: bill ? getBillOutstanding(bill) : 0,
+      });
     };
 
     const handleRecordReceipt = async (e: Event) => {
       e.preventDefault();
-      const fallbackInvoiceId = invoices.value.find(i => i.status !== 'Paid')?.id || '';
-      const invoiceId = selectedInvoiceId.value || fallbackInvoiceId;
-      const targetInv = invoices.value.find(i => i.id === invoiceId);
-      if (!targetInv) return;
+      const targetInv = invoices.value.find(i => String(i.id) === String(selectedInvoiceId.value));
+      if (!targetInv) {
+        showToast('Pilih invoice yang akan dilunasi terlebih dahulu.');
+        return;
+      }
       await onRecordInvoicePayment(targetInv, {
         accountCode: receiptAccount.value,
-        amount: receiptAmount.value || targetInv.outstandingAmount || targetInv.nominal,
+        amount: receiptAmount.value || getInvoiceOutstanding(targetInv),
         paymentDate: new Date().toISOString().split('T')[0],
         referenceNumber: '',
         notes: '',
@@ -127,32 +233,38 @@ export default defineComponent({
       setIsReceiptModalOpen(false);
     };
 
+    const openBillForm = (bill: any = null) => {
+      editingBill.value = bill;
+      if (bill) {
+        newBill.value = {
+          vendor: bill.vendor || '', nomorTagihan: bill.nomorTagihan || '', alokasiProyek: String(bill.projectId || ''),
+          keterangan: bill.keterangan === '-' ? '' : bill.keterangan, nominal: Number(bill?._raw?.dpp_amount ?? bill.nominal ?? 0),
+          tanggalMasuk: bill.tanggalMasuk || todayIso(), jatuhTempo: bill.jatuhTempo || datePlusDays(7),
+        };
+      } else {
+        newBill.value = { vendor: '', nomorTagihan: newReferenceNumber('BILL', bills.value.length + 1), alokasiProyek: '', keterangan: '', nominal: 0, tanggalMasuk: todayIso(), jatuhTempo: datePlusDays(7) };
+      }
+      setIsBillModalOpen(true);
+    };
     const handleSaveBill = async (e: Event) => {
       e.preventDefault();
-      if (!newBill.value.vendor || !newBill.value.keterangan) {
-        showToast('Harap isi nama vendor dan rincian tagihan.');
-        return;
-      }
-      await onCreateBill({ ...newBill.value });
+      if (!newBill.value.vendor || !newBill.value.keterangan) { showToast('Harap isi nama vendor dan rincian tagihan.'); return; }
+      if (editingBill.value && onUpdateBill) await onUpdateBill(editingBill.value, { ...newBill.value });
+      else await onCreateBill({ ...newBill.value });
+      editingBill.value = null;
       setIsBillModalOpen(false);
-      setNewBill({
-        vendor: '',
-        nomorTagihan: `BILL/2026/00${bills.value.length + 1}`,
-        alokasiProyek: '',
-        keterangan: '',
-        nominal: 0,
-        tanggalMasuk: '2026-07-01',
-        jatuhTempo: '2026-07-08'
-      });
     };
 
     const handlePayBill = async (e: Event) => {
       e.preventDefault();
-      const targetBill = bills.value.find(b => b.id === selectedBillId.value);
-      if (!targetBill) return;
+      const targetBill = bills.value.find(b => String(b.id) === String(selectedBillId.value));
+      if (!targetBill) {
+        showToast('Pilih tagihan vendor yang akan dibayar terlebih dahulu.');
+        return;
+      }
       await onPayBill(targetBill, {
         accountCode: paymentAccount.value,
-        amount: paymentForm.value.jumlah || targetBill.outstandingAmount || targetBill.nominal,
+        amount: paymentForm.value.jumlah || getBillOutstanding(targetBill),
         paymentDate: paymentForm.value.tanggalBayar,
         referenceNumber: paymentForm.value.buktiBayar,
         notes: paymentForm.value.catatan,
@@ -162,11 +274,11 @@ export default defineComponent({
 
     // Calculations for KPI Cards
     // Gunakan saldo tersisa dari API agar invoice/tagihan yang dibayar sebagian tetap akurat.
-    const receivableBalance = (invoice: any) => Number(invoice.outstandingAmount ?? invoice.nominal ?? 0);
-    const payableBalance = (bill: any) => Number(bill.outstandingAmount ?? bill.nominal ?? 0);
-    const totalOutstandingPiutang = invoices.value.filter(i => i.status !== 'Paid').reduce((acc, i) => acc + receivableBalance(i), 0);
+    const receivableBalance = getInvoiceOutstanding;
+    const payableBalance = getBillOutstanding;
+    const totalOutstandingPiutang = invoices.value.filter(isInvoiceOpen).reduce((acc, i) => acc + receivableBalance(i), 0);
     const totalOverduePiutang = invoices.value.filter(i => i.status === 'Overdue').reduce((acc, i) => acc + receivableBalance(i), 0);
-    const totalOutstandingUtang = bills.value.filter(b => b.status !== 'Lunas').reduce((acc, b) => acc + payableBalance(b), 0);
+    const totalOutstandingUtang = bills.value.filter(isBillOpen).reduce((acc, b) => acc + payableBalance(b), 0);
     return () => <div class="space-y-6 font-sans">
       {/* Upper header switch */}
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
@@ -178,25 +290,23 @@ export default defineComponent({
         <div class="flex flex-wrap items-center gap-3">
 
           <div class="flex flex-wrap items-center gap-2">
-            <button id="btn-subledger-create" onClick={() => activeTab === 'receivables' ? setIsInvoiceModalOpen(true) : setIsBillModalOpen(true)} class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#102A56] px-4 text-[13px] font-medium text-white shadow-[0_8px_18px_rgba(16,42,86,0.16)] transition hover:bg-[#0B1F42]">
+            <button id="btn-subledger-create" onClick={() => activeTab === 'receivables' ? openInvoiceForm() : openBillForm()} class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#102A56] px-4 text-[13px] font-medium text-white shadow-[0_8px_18px_rgba(16,42,86,0.16)] transition hover:bg-[#0B1F42]">
               <Plus class="h-4 w-4" />
               {activeTab === 'receivables' ? 'Buat Invoice Baru' : 'Input Tagihan Baru'}
             </button>
 
             <button id="btn-subledger-settlement" onClick={() => {
               if (activeTab === 'receivables') {
-                const firstOutstanding = invoices.value.find(i => i.status !== 'Paid');
-                setSelectedInvoiceId(firstOutstanding?.id || '');
-                setReceiptAmount(firstOutstanding?.nominal || 0);
+                setSelectedInvoiceId('');
+                setReceiptAmount(0);
                 setIsReceiptModalOpen(true);
               } else {
-                const firstOpenBill = bills.value.find(b => b.status !== 'Lunas');
-                setSelectedBillId(firstOpenBill?.id || '');
+                setSelectedBillId('');
                 setPaymentForm({
-                  vendor: firstOpenBill?.vendor || '',
-                  buktiBayar: 'PAY/2026/001',
-                  tanggalBayar: '2026-07-01',
-                  jumlah: firstOpenBill?.nominal || 0,
+                  vendor: '',
+                  buktiBayar: `PAY/${new Date().getFullYear()}/001`,
+                  tanggalBayar: new Date().toISOString().slice(0, 10),
+                  jumlah: 0,
                   catatan: ''
                 });
                 setIsPayBillModalOpen(true);
@@ -251,6 +361,7 @@ export default defineComponent({
                     <th class="p-4">Jatuh Tempo</th>
                     <th class="p-4 text-right">Nominal Tagihan</th>
                     <th class="p-4 text-center">Status</th>
+                    <th class="p-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
@@ -264,10 +375,11 @@ export default defineComponent({
                       <td class="p-4 font-mono">{inv.jatuhTempo}</td>
                       <td class="p-4 text-right font-mono font-bold text-[#0B1F4A] text-sm">{formatRupiah(inv.nominal)}</td>
                       <td class="p-4 text-center">
-                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : inv.status === 'Overdue' ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : inv.status === 'Cancelled' ? 'bg-slate-100 text-slate-600 border border-slate-200' : inv.status === 'Overdue' ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : inv.status === 'Draft' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                           {inv.status}
                         </span>
                       </td>
+                      <td class="p-4"><div class="flex justify-center gap-1">{inv.rawStatus === 'draft' && <><button type="button" aria-label={`Ubah invoice ${inv.nomor}`} title="Ubah" onClick={() => openInvoiceForm(inv)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-slate-700 transition hover:bg-slate-100"><Pencil class="h-3.5 w-3.5" /></button>{onIssueInvoice && <button type="button" aria-label={`Terbitkan invoice ${inv.nomor}`} title="Terbitkan" onClick={() => onIssueInvoice(inv)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"><Send class="h-3.5 w-3.5" /></button>}</>}{!['paid','cancelled'].includes(String(inv.rawStatus || '')) && onCancelInvoice && <button type="button" aria-label={`Batalkan invoice ${inv.nomor}`} title="Batalkan" onClick={() => requestCancelInvoice(inv)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button>}</div></td>
                     </tr>)}
                 </tbody>
               </table>
@@ -318,6 +430,7 @@ export default defineComponent({
                     <th class="p-4 font-mono">Jatuh Tempo</th>
                     <th class="p-4 text-right">Nominal Utang</th>
                     <th class="p-4 text-center">Status</th>
+                    <th class="p-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
@@ -332,10 +445,11 @@ export default defineComponent({
                       <td class="p-4 font-mono">{bill.jatuhTempo}</td>
                       <td class="p-4 text-right font-mono font-bold text-slate-800 text-sm">{formatRupiah(bill.nominal)}</td>
                       <td class="p-4 text-center">
-                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${bill.status === 'Lunas' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : (bill.status === 'Terlambat' || bill.status === 'Overdue') ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                        <span class={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${bill.status === 'Lunas' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : bill.status === 'Cancelled' ? 'bg-slate-100 text-slate-600 border border-slate-200' : bill.status === 'Draft' ? 'bg-sky-50 text-sky-700 border border-sky-200' : (bill.status === 'Terlambat' || bill.status === 'Overdue') ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                           {bill.status}
                         </span>
                       </td>
+                      <td class="p-4"><div class="flex justify-center gap-1">{bill.rawStatus === 'draft' && <><button type="button" aria-label={`Ubah tagihan ${bill.nomorTagihan}`} title="Ubah" onClick={() => openBillForm(bill)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-slate-700 transition hover:bg-slate-100"><Pencil class="h-3.5 w-3.5" /></button>{onIssueBill && <button type="button" aria-label={`Terbitkan tagihan ${bill.nomorTagihan}`} title="Terbitkan" onClick={() => onIssueBill(bill)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"><Send class="h-3.5 w-3.5" /></button>}</>}{!['paid','cancelled'].includes(String(bill.rawStatus || '')) && onCancelBill && <button type="button" aria-label={`Batalkan tagihan ${bill.nomorTagihan}`} title="Batalkan" onClick={() => requestCancelBill(bill)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button>}</div></td>
                     </tr>)}
                 </tbody>
               </table>
@@ -348,7 +462,7 @@ export default defineComponent({
           <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 class="font-extrabold text-sm text-[#0B1F4A]">Penerbitan Invoice Piutang</h3>
+                <h3 class="font-extrabold text-sm text-[#0B1F4A]">{editingInvoice.value ? 'Ubah Invoice Draft' : 'Buat Invoice Piutang'}</h3>
                 <span class="text-[10px] text-slate-400">Penerbitan tagihan termin kepada mitra klien</span>
               </div>
               <button id="btn-close-inv-modal" onClick={() => setIsInvoiceModalOpen(false)} class="text-slate-400 hover:text-slate-600 text-xs font-semibold">
@@ -357,6 +471,7 @@ export default defineComponent({
             </div>
 
             <form onSubmit={handleSaveInvoice} class="p-6 space-y-4 text-xs">
+              <div class="space-y-1.5"><label class="font-bold text-slate-700">Nomor Invoice</label><input required value={newInvoice.value.nomor} onChange={e => setNewInvoice({ ...newInvoice.value, nomor: e.target.value })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono" /></div>
               <div class="space-y-1.5">
                 <label class="font-bold text-slate-700">Hubungkan dengan Proyek Aktif</label>
                 <select id="inv-form-project" value={newInvoice.value.proyekId} onChange={e => setNewInvoice({
@@ -374,6 +489,8 @@ export default defineComponent({
                 nominal: Number(e.target.value)
               })} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono" />
               </div>
+
+              <div class="space-y-1.5"><label class="font-bold text-slate-700">Keterangan Termin</label><input value={newInvoice.value.keterangan} onChange={e => setNewInvoice({ ...newInvoice.value, keterangan: e.target.value })} placeholder="Contoh: Termin 1 implementasi" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none" /></div>
 
               <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1.5">
@@ -415,6 +532,14 @@ export default defineComponent({
             </div>
 
             <form onSubmit={handleRecordReceipt} class="px-9 py-11 space-y-9 text-sm">
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Invoice yang Dilunasi</label>
+                <select id="receipt-form-invoice" required value={selectedInvoiceId.value} onChange={event => selectInvoiceForReceipt(event.target.value)} class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20">
+                  <option value="">Pilih invoice outstanding</option>
+                  {invoices.value.filter(isInvoiceOpen).map(invoice => <option key={invoice.id} value={invoice.id}>{invoice.nomor} — {invoice.klienNama || invoice.proyekNama} ({formatRupiah(getInvoiceOutstanding(invoice))})</option>)}
+                </select>
+              </div>
+
               <div class="space-y-3">
                 <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Jumlah Diterima</label>
                 <div class="relative">
@@ -551,6 +676,14 @@ export default defineComponent({
             </div>
 
             <form onSubmit={handlePayBill} class="px-9 py-10 space-y-7 text-sm">
+              <div class="space-y-3">
+                <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Tagihan yang Dibayar</label>
+                <select id="pay-form-bill" required value={selectedBillId.value} onChange={event => selectBillForPayment(event.target.value)} class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20">
+                  <option value="">Pilih tagihan vendor outstanding</option>
+                  {bills.value.filter(isBillOpen).map(bill => <option key={bill.id} value={bill.id}>{bill.nomorTagihan} — {bill.vendor} ({formatRupiah(getBillOutstanding(bill))})</option>)}
+                </select>
+              </div>
+
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-3">
                   <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Vendor Penerima</label>
@@ -620,6 +753,24 @@ export default defineComponent({
             </form>
           </div>
         </div>}
+
+      <ConfirmDialog
+        open={!!cancelConfirm.value}
+        eyebrow="Konfirmasi Pembatalan"
+        title={cancelConfirm.value?.title || 'Batalkan dokumen?'}
+        message={cancelConfirm.value?.message || ''}
+        details={cancelConfirm.value?.details || []}
+        impactItems={[
+          'Status dokumen akan berubah menjadi cancelled.',
+          'Dokumen tidak lagi dihitung sebagai outstanding.',
+        ]}
+        confirmLabel={cancelConfirm.value?.confirmLabel || 'Batalkan Dokumen'}
+        requireReason
+        reasonLabel={cancelConfirm.value?.reasonLabel || 'Alasan Pembatalan'}
+        reasonPlaceholder={cancelConfirm.value?.reasonPlaceholder || 'Tulis alasan singkat...'}
+        onCancel={() => cancelConfirm.value = null}
+        onConfirm={confirmCancelDocument}
+      />
     </div>;
   }
 });

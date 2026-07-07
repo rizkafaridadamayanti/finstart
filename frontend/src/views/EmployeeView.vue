@@ -11,7 +11,7 @@ const selectedDivision = ref('Semua')
 const selectedEmploymentStatus = ref('Semua')
 
 const showEmployeeModal = ref(false)
-const showPayrollModal = ref(false)
+const showEmployeeDetailModal = ref(false)
 const selectedEmployee = ref(null)
 
 const employeeForm = ref({
@@ -176,14 +176,14 @@ function addEmployee() {
   alert('Data pegawai berhasil ditambahkan.')
 }
 
-function openPayrollModal(employee) {
+function openEmployeeDetail(employee) {
   selectedEmployee.value = employee
-  showPayrollModal.value = true
+  showEmployeeDetailModal.value = true
 }
 
-function closePayrollModal() {
+function closeEmployeeDetail() {
   selectedEmployee.value = null
-  showPayrollModal.value = false
+  showEmployeeDetailModal.value = false
 }
 
 function toggleEmployeeStatus(employee) {
@@ -389,11 +389,11 @@ function processPayroll() {
 
               <td>
                 <div class="inline-actions">
-                  <button class="table-action" @click="openPayrollModal(employee)">
+                  <button class="table-action" type="button" @click="openEmployeeDetail(employee)">
                     Detail
                   </button>
 
-                  <button class="table-action" @click="toggleEmployeeStatus(employee)">
+                  <button class="table-action" type="button" @click="toggleEmployeeStatus(employee)">
                     {{ employee.active ? 'Nonaktifkan' : 'Aktifkan' }}
                   </button>
                 </div>
@@ -522,70 +522,211 @@ function processPayroll() {
     </div>
 
     <div
-      v-if="showPayrollModal && selectedEmployee && selectedPayroll"
+      v-if="showEmployeeDetailModal && selectedEmployee && selectedPayroll"
       class="modal-backdrop"
-      @click.self="closePayrollModal"
+      @click.self="closeEmployeeDetail"
     >
-      <article class="modal-card payroll-modal">
+      <form class="modal-card payroll-modal" @submit.prevent>
         <div class="modal-header">
           <div>
-            <p class="eyebrow">SIMULASI PENGGAJIAN</p>
+            <p class="eyebrow">DETAIL PEGAWAI</p>
             <h3>{{ selectedEmployee.name }}</h3>
+            <p class="modal-subtitle">Detail lengkap pegawai dan ringkasan gaji dalam tampilan formulir.</p>
           </div>
 
-          <button type="button" class="modal-close" @click="closePayrollModal">
+          <button type="button" class="modal-close" @click="closeEmployeeDetail">
             ×
           </button>
         </div>
 
-        <div class="payroll-profile">
-          <p><span>ID Pegawai</span><strong>{{ selectedEmployee.employeeId }}</strong></p>
-          <p><span>Jabatan</span><strong>{{ selectedEmployee.position }}</strong></p>
-          <p><span>Status Pajak</span><strong>{{ selectedEmployee.taxStatus }}</strong></p>
-          <p><span>Status BPJS</span><strong>{{ selectedEmployee.bpjsStatus }}</strong></p>
+        <div class="detail-form-grid">
+          <label>
+            ID Pegawai
+            <input type="text" :value="selectedEmployee.employeeId" readonly />
+          </label>
+
+          <label>
+            Jabatan
+            <input type="text" :value="selectedEmployee.position" readonly />
+          </label>
+
+          <label>
+            Divisi
+            <input type="text" :value="selectedEmployee.division" readonly />
+          </label>
+
+          <label>
+            Status Kerja
+            <input type="text" :value="selectedEmployee.employmentStatus" readonly />
+          </label>
+
+          <label>
+            Tanggal Bergabung
+            <input type="text" :value="formatDate(selectedEmployee.joinDate)" readonly />
+          </label>
+
+          <label>
+            Status Pajak
+            <input type="text" :value="selectedEmployee.taxStatus" readonly />
+          </label>
+
+          <label>
+            Status BPJS
+            <input type="text" :value="selectedEmployee.bpjsStatus" readonly />
+          </label>
+
+          <label>
+            Gaji Pokok
+            <input type="text" :value="formatCurrency(selectedEmployee.baseSalary)" readonly />
+          </label>
         </div>
 
-        <div class="payroll-breakdown">
-          <div>
-            <span>Gaji Pokok</span>
-            <strong>{{ formatCurrency(selectedPayroll.baseSalary) }}</strong>
-          </div>
+        <div class="detail-form-grid section-separator">
+          <label class="full-width">
+            Estimasi Gaji Bersih
+            <input type="text" :value="formatCurrency(selectedPayroll.netSalary)" readonly />
+          </label>
 
-          <div>
-            <span>Potongan BPJS Kesehatan Pegawai</span>
-            <strong>- {{ formatCurrency(selectedPayroll.healthEmployee) }}</strong>
-          </div>
+          <label>
+            Potongan BPJS Kesehatan
+            <input type="text" :value="formatCurrency(selectedPayroll.healthEmployee)" readonly />
+          </label>
 
-          <div>
-            <span>Potongan JHT Pegawai</span>
-            <strong>- {{ formatCurrency(selectedPayroll.jhtEmployee) }}</strong>
-          </div>
+          <label>
+            Potongan JHT
+            <input type="text" :value="formatCurrency(selectedPayroll.jhtEmployee)" readonly />
+          </label>
 
-          <div>
-            <span>Potongan JP Pegawai</span>
-            <strong>- {{ formatCurrency(selectedPayroll.jpEmployee) }}</strong>
-          </div>
+          <label>
+            Potongan JP
+            <input type="text" :value="formatCurrency(selectedPayroll.jpEmployee)" readonly />
+          </label>
 
-          <div class="payroll-net">
-            <span>Estimasi Gaji Bersih</span>
-            <strong>{{ formatCurrency(selectedPayroll.netSalary) }}</strong>
-          </div>
-
-          <div class="payroll-company">
-            <span>Kontribusi Perusahaan BPJS/JHT/JP</span>
-            <strong>{{ formatCurrency(selectedPayroll.employerContribution) }}</strong>
-          </div>
+          <label class="full-width">
+            Kontribusi Perusahaan BPJS/JHT/JP
+            <input type="text" :value="formatCurrency(selectedPayroll.employerContribution)" readonly />
+          </label>
         </div>
 
         <p class="payroll-note">
-          PPh 21 otomatis belum dihitung. Tombol catat payroll akan membuat jurnal biaya gaji dan mengurangi saldo Bank BCA.
+          Informasi ini hanya ringkasan detail pegawai dan estimasi gaji. PPh 21 belum termasuk dalam perhitungan.
         </p>
 
         <div class="modal-actions">
-          <button class="secondary-button" @click="closePayrollModal">Tutup</button>
-          <button class="primary-button" @click="processPayroll">Catat Payroll</button>
+          <button type="button" class="primary-button" @click="closeEmployeeDetail">Tutup</button>
         </div>
-      </article>
+      </form>
     </div>
   </section>
 </template>
+
+<style scoped>
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 17, 41, 0.78);
+  padding: 1.5rem;
+}
+
+.modal-card {
+  width: min(100%, 920px);
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  border-radius: 32px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 36, 75, 0.08);
+  box-shadow: 0 30px 75px rgba(15, 36, 75, 0.18);
+  padding: 2rem;
+}
+
+.modal-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.modal-header h3 {
+  margin: 0.5rem 0 0;
+  font-size: 1.75rem;
+  color: #102A56;
+}
+
+.modal-subtitle {
+  margin-top: 0.35rem;
+  color: #5F6F8C;
+  font-size: 0.95rem;
+  max-width: 44rem;
+}
+
+.modal-close {
+  border: none;
+  background: rgba(15, 36, 75, 0.04);
+  color: #102A56;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.detail-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.detail-form-grid label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #4B5B7A;
+}
+
+.detail-form-grid input {
+  width: 100%;
+  border: 1px solid #DCE7F4;
+  border-radius: 16px;
+  background: #F8FBFE;
+  color: #102A56;
+  padding: 0.95rem 1rem;
+  font-size: 0.96rem;
+}
+
+.full-width {
+  grid-column: span 2;
+}
+
+.section-separator {
+  padding-top: 0.8rem;
+  border-top: 1px solid #E8EEF7;
+}
+
+.payroll-note {
+  color: #5F6F8C;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  gap: 0.75rem;
+}
+
+.primary-button,
+.secondary-button,
+.table-action {
+  cursor: pointer;
+}
+</style>

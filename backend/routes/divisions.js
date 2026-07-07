@@ -208,6 +208,13 @@ router.put('/:id', async (req, res) => {
       })
     }
 
+    if (status === 'inactive' && Number(existing.employee_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Divisi masih dipakai oleh pegawai. Pindahkan atau nonaktifkan pegawai terkait terlebih dahulu.',
+      })
+    }
+
     await db.query(
       `
         UPDATE divisions
@@ -272,6 +279,48 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengubah status divisi.',
+      error: error.message,
+    })
+  }
+})
+
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await getDivisionById(req.params.id)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Divisi tidak ditemukan.',
+      })
+    }
+
+    if (Number(existing.employee_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Divisi masih digunakan oleh pegawai. Pindahkan atau nonaktifkan pegawai terkait terlebih dahulu.',
+      })
+    }
+
+    if (Number(existing.position_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Divisi masih memiliki jabatan. Hapus atau pindahkan jabatan terkait terlebih dahulu.',
+      })
+    }
+
+    await db.query('DELETE FROM divisions WHERE id = ?', [req.params.id])
+
+    res.json({
+      success: true,
+      message: 'Divisi berhasil dihapus dari master data.',
+      data: { id: Number(req.params.id) },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus divisi.',
       error: error.message,
     })
   }

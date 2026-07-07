@@ -279,7 +279,7 @@ onMounted(loadDashboard)
 
       <div class="dashboard-heading-actions">
         <span class="dashboard-live-indicator">
-          ● {{ lastUpdatedAt ? 'Data diperbarui' : 'Memuat data' }}
+          {{ lastUpdatedAt ? 'Data diperbarui' : 'Memuat data' }}
         </span>
 
         <button
@@ -319,7 +319,7 @@ onMounted(loadDashboard)
 
       <article class="dashboard-kpi">
         <div class="dashboard-kpi-top">
-          <span class="kpi-icon project">□</span>
+          <span class="kpi-icon project">PR</span>
           <span class="kpi-trend">Live</span>
         </div>
         <p>Proyek Berjalan</p>
@@ -329,7 +329,7 @@ onMounted(loadDashboard)
 
       <article class="dashboard-kpi">
         <div class="dashboard-kpi-top">
-          <span class="kpi-icon client">◌</span>
+          <span class="kpi-icon client">CL</span>
           <span class="kpi-trend">Live</span>
         </div>
         <p>Klien Aktif</p>
@@ -339,7 +339,7 @@ onMounted(loadDashboard)
 
       <article class="dashboard-kpi">
         <div class="dashboard-kpi-top">
-          <span class="kpi-icon profit">↗</span>
+          <span class="kpi-icon profit">NP</span>
           <span class="kpi-trend">{{ financialHealthLabel }}</span>
         </div>
         <p>Net Profit</p>
