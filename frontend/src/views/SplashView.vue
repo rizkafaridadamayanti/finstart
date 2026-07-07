@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Database, Sparkles, Workflow } from 'lucide-vue-next'
+import { Database, Workflow } from 'lucide-vue-next'
 import finstartLogo from '../assets/finstart-logo.png'
 
 const router = useRouter()
@@ -28,7 +28,7 @@ onUnmounted(() => window.clearTimeout(timer))
       </div>
 
       <div class="splash-copy">
-        <p class="splash-copy__eyebrow"><Sparkles :size="14" /> FINANCIAL OPERATING SYSTEM</p>
+        <p class="splash-copy__eyebrow"><Workflow :size="14" /> FINANCIAL OPERATING SYSTEM</p>
         <h1>finstart</h1>
         <p>Menyelaraskan data, transaksi, dan keputusan finansial dalam satu workspace.</p>
       </div>

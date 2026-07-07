@@ -3,8 +3,12 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
+const { authenticate } = require('./middleware/auth')
+const { enforceApiAuthorization } = require('./middleware/authorization')
+const { activityLogger, captureResponsePayload } = require('./middleware/activityLogger')
 
 // Route keuangan
+const authRouter = require('./routes/auth')
 const clientsRouter = require('./routes/clients')
 const projectsRouter = require('./routes/projects')
 const accountsRouter = require('./routes/accounts')
@@ -19,6 +23,10 @@ const taxesRouter = require('./routes/taxes')
 const taxEngineRouter = require('./routes/tax-engine')
 const projectionsRouter = require('./routes/projections')
 const assetsRouter = require('./routes/assets')
+const rolesRouter = require('./routes/roles')
+const usersRouter = require('./routes/users')
+const notificationsRouter = require('./routes/notifications')
+const auditRouter = require('./routes/audit')
 
 // Route Master Data Operasional dan Payroll
 const divisionsRouter = require('./routes/divisions')
@@ -36,6 +44,12 @@ app.use(cors({
 }))
 
 app.use(express.json())
+
+// Payload direkam untuk audit setelah respons berhasil dikirim.
+app.use(captureResponsePayload)
+app.use(authenticate)
+app.use(enforceApiAuthorization)
+app.use(activityLogger)
 
 app.get('/api/health', async (req, res) => {
   try {
@@ -58,6 +72,13 @@ app.get('/api/health', async (req, res) => {
     })
   }
 })
+
+// API Auth
+app.use('/api/auth', authRouter)
+app.use('/api/roles', rolesRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/notifications', notificationsRouter)
+app.use('/api/audit', auditRouter)
 
 // API Keuangan
 app.use('/api/clients', clientsRouter)

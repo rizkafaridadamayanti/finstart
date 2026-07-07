@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { CheckCircle2, Database, ShieldCheck, Sparkles } from 'lucide-vue-next'
+import { CheckCircle2, Database, ShieldCheck } from 'lucide-vue-next'
 import finstartLogo from '../assets/finstart-logo.png'
 
 const router = useRouter()
@@ -20,7 +20,7 @@ onUnmounted(() => window.clearTimeout(timer))
     <div class="auth-loading__orb auth-loading__orb--two"></div>
     <section class="auth-loading__card">
       <div class="auth-loading__logo"><img :src="finstartLogo" alt="FinStart" /></div>
-      <p class="landing-eyebrow"><Sparkles :size="14" /> AUTHENTICATED WORKSPACE</p>
+      <p class="landing-eyebrow"><ShieldCheck :size="14" /> AUTHENTICATED WORKSPACE</p>
       <h1>Menyiapkan command center Anda.</h1>
       <p>Halo {{ email.split('@')[0] }}, kami sedang menyelaraskan informasi finansial terbaru.</p>
 

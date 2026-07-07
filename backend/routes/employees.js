@@ -163,6 +163,13 @@ function extractEmployeePayload(body, existing = null) {
   const nik = cleanText(body?.nik, 32)
   const email = cleanText(body?.email, 150)
   const phone = cleanText(body?.phone, 40)
+  const npwp = cleanText(body?.npwp ?? existing?.npwp, 50)
+  const bpjsHealthNumber = cleanText(body?.bpjs_health_number ?? body?.bpjs_kesehatan_no ?? existing?.bpjs_health_number, 50)
+  const bpjsEmploymentNumber = cleanText(body?.bpjs_employment_number ?? body?.bpjs_ketenagakerjaan_no ?? existing?.bpjs_employment_number, 50)
+  const bankName = cleanText(body?.bank_name ?? body?.bank_nama ?? existing?.bank_name, 100)
+  const bankAccountNumber = cleanText(body?.bank_account_number ?? body?.no_rekening ?? existing?.bank_account_number, 80)
+  const bankAccountHolder = cleanText(body?.bank_account_holder ?? existing?.bank_account_holder, 150)
+  const address = cleanText(body?.address ?? existing?.address, 1000)
 
   const divisionId = Number(body?.division_id)
   const positionId = Number(body?.position_id)
@@ -242,6 +249,13 @@ function extractEmployeePayload(body, existing = null) {
     nik,
     email,
     phone,
+    npwp,
+    bpjs_health_number: bpjsHealthNumber,
+    bpjs_employment_number: bpjsEmploymentNumber,
+    bank_name: bankName,
+    bank_account_number: bankAccountNumber,
+    bank_account_holder: bankAccountHolder,
+    address,
     division_id: divisionId,
     position_id: positionId,
     employment_type: employmentType,
@@ -405,6 +419,13 @@ router.post('/', async (req, res) => {
           nik,
           email,
           phone,
+          npwp,
+          bpjs_health_number,
+          bpjs_employment_number,
+          bank_name,
+          bank_account_number,
+          bank_account_holder,
+          address,
           division_id,
           position_id,
           employment_type,
@@ -413,7 +434,7 @@ router.post('/', async (req, res) => {
           employment_status,
           join_date,
           base_salary
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         employeeCode,
@@ -422,6 +443,13 @@ router.post('/', async (req, res) => {
         payload.nik,
         payload.email,
         payload.phone,
+        payload.npwp,
+        payload.bpjs_health_number,
+        payload.bpjs_employment_number,
+        payload.bank_name,
+        payload.bank_account_number,
+        payload.bank_account_holder,
+        payload.address,
         payload.division_id,
         payload.position_id,
         payload.employment_type,
@@ -498,6 +526,13 @@ router.put('/:id', async (req, res) => {
           nik = ?,
           email = ?,
           phone = ?,
+          npwp = ?,
+          bpjs_health_number = ?,
+          bpjs_employment_number = ?,
+          bank_name = ?,
+          bank_account_number = ?,
+          bank_account_holder = ?,
+          address = ?,
           division_id = ?,
           position_id = ?,
           employment_type = ?,
@@ -515,6 +550,13 @@ router.put('/:id', async (req, res) => {
         payload.nik,
         payload.email,
         payload.phone,
+        payload.npwp,
+        payload.bpjs_health_number,
+        payload.bpjs_employment_number,
+        payload.bank_name,
+        payload.bank_account_number,
+        payload.bank_account_holder,
+        payload.address,
         payload.division_id,
         payload.position_id,
         payload.employment_type,
@@ -587,6 +629,86 @@ router.patch('/:id/status', async (req, res) => {
       message: 'Gagal mengubah status pegawai.',
       error: error.message,
     })
+  }
+})
+
+
+
+/*
+  DELETE /api/employees/:id
+  Penghapusan hanya diizinkan untuk pegawai yang belum memiliki riwayat payroll.
+  Jika sudah ada payroll, gunakan status inactive agar jejak akuntansi tetap terjaga.
+*/
+router.delete('/:id', async (req, res) => {
+  const employeeId = Number(req.params.id)
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  let connection
+
+  try {
+    const existing = await getEmployeeById(employeeId)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pegawai tidak ditemukan.',
+      })
+    }
+
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+
+    const [payrollRows] = await connection.query(
+      'SELECT COUNT(*) AS total FROM payroll_records WHERE employee_id = ?',
+      [employeeId],
+    )
+
+    if (Number(payrollRows?.[0]?.total || 0) > 0) {
+      await connection.rollback()
+      return res.status(409).json({
+        success: false,
+        message:
+          'Pegawai tidak dapat dihapus karena sudah memiliki riwayat payroll. Ubah statusnya menjadi Nonaktif agar riwayat tetap aman.',
+      })
+    }
+
+    await connection.query('DELETE FROM employees WHERE id = ?', [employeeId])
+    await connection.commit()
+
+    res.json({
+      success: true,
+      message: `Pegawai ${existing.employee_name} berhasil dihapus.`,
+    })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (_) {
+        // Abaikan rollback tambahan bila transaksi sudah selesai.
+      }
+    }
+
+    if (error?.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(409).json({
+        success: false,
+        message:
+          'Pegawai tidak dapat dihapus karena sudah dipakai data operasional. Ubah statusnya menjadi Nonaktif.',
+      })
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus pegawai.',
+      error: error?.message,
+    })
+  } finally {
+    if (connection) connection.release()
   }
 })
 

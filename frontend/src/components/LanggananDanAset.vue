@@ -1,8 +1,10 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h, ref } from "vue";
-import { Cloud, Box, Plus, Search, Filter, Trash2, Cpu, CreditCard, BarChart2, X, Save, Calendar, ChevronDown, Info, DollarSign } from "lucide-vue-next";
+import { Cloud, Box, Plus, Search, Filter, Trash2, Cpu, CreditCard, BarChart2, X, Save, Calendar, ChevronDown, Info, Pencil, History } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Langganan } from '../types.ts';
+import { financeApi, getApiErrorMessage } from '../services/financeApi.js';
+import ConfirmDialog from './common/ConfirmDialog.vue';
 export interface AsetTeknologi {
   id: string;
   nama: string;
@@ -20,11 +22,14 @@ interface LanggananDanAsetProps {
   onAddLangganan: (newL: Langganan) => Promise<void> | void;
   onDeleteLangganan: (id: string) => Promise<void> | void;
   onAddAsset: (asset: any) => Promise<void> | void;
+  onUpdateAsset?: (asset: any, data: any) => Promise<void> | void;
+  onDisposeAsset?: (asset: any, reason?: string) => Promise<void> | void;
+  onRefreshData?: () => Promise<any> | void;
   showToast: (msg: string) => void;
 }
 export default defineComponent({
   name: "LanggananDanAset",
-  props: ["activeSection", "langganan", "assets", "onAddLangganan", "onDeleteLangganan", "onAddAsset", "showToast"],
+  props: ["activeSection", "langganan", "assets", "onAddLangganan", "onDeleteLangganan", "onAddAsset", "onUpdateAsset", "onDisposeAsset", "onRefreshData", "showToast"],
   setup(props) {
     const {
       activeSection,
@@ -32,6 +37,9 @@ export default defineComponent({
       onAddLangganan,
       onDeleteLangganan,
       onAddAsset,
+      onUpdateAsset,
+      onDisposeAsset,
+      onRefreshData,
       showToast
     }: LanggananDanAsetProps = props;
     const activeTab = ref(activeSection === 'langganan' ? 'subs' : 'assets'),
@@ -43,24 +51,28 @@ export default defineComponent({
     const isSubModalOpen = ref(false),
       setIsSubModalOpen = next => isSubModalOpen.value = typeof next === "function" ? next(isSubModalOpen.value) : next;
     const isAssetModalOpen = ref(false),
-      setIsAssetModalOpen = next => isAssetModalOpen.value = typeof next === "function" ? next(isAssetModalOpen.value) : next; // Aset state log (Simulating physical tech assets)
+      setIsAssetModalOpen = next => isAssetModalOpen.value = typeof next === "function" ? next(isAssetModalOpen.value) : next;
+    const depreciationPeriod = ref(new Date().toISOString().slice(0, 7));
+    const assetHistory = ref<any>(null);
+    const editingAsset = ref<any>(null);
+    const confirmDialog = ref<any>(null);
     // Daftar aset berasal dari API backend; modal/UI tetap sama.
     const assets = ref<any[]>(props.assets || []);
     const newSub = ref({
         nama: '',
         provider: '',
-        mataUang: 'IDR' as 'USD' | 'IDR' | 'EUR',
+        mataUang: 'IDR' as 'IDR',
         siklus: 'Bulanan' as 'Bulanan' | 'Tahunan',
         kategori: 'Software' as 'Infrastruktur' | 'Software' | 'Marketing',
         biaya: 0,
         biayaIDR: 0,
-        tanggalTagihan: '2026-07-01'
+        tanggalTagihan: new Date().toISOString().slice(0, 10)
       }),
       setNewSub = next => newSub.value = typeof next === "function" ? next(newSub.value) : next;
     const newAsset = ref({
         nama: '',
         kategori: 'Elektronik / IT' as 'Elektronik / IT' | 'Furniture' | 'Kendaraan' | 'Gedung & Kantor',
-        tanggalBeli: '2026-07-01',
+        tanggalBeli: new Date().toISOString().slice(0, 10),
         hargaBeli: 0,
         masaManfaat: 4,
         nilaiSisa: 0,
@@ -78,8 +90,35 @@ export default defineComponent({
       setIsSubModalOpen(false);
       setNewSub({
         nama: '', provider: '', mataUang: 'IDR', siklus: 'Bulanan',
-        kategori: 'Software', biaya: 0, biayaIDR: 0, tanggalTagihan: '2026-07-01'
+        kategori: 'Software', biaya: 0, biayaIDR: 0, tanggalTagihan: new Date().toISOString().slice(0, 10)
       });
+    };
+
+    const resetAssetForm = () => {
+      editingAsset.value = null;
+      setNewAsset({
+        nama: '', kategori: 'Elektronik / IT', tanggalBeli: new Date().toISOString().slice(0, 10),
+        hargaBeli: 0, masaManfaat: 4, nilaiSisa: 0, penanggungJawab: ''
+      });
+    };
+
+    const openAssetForm = (asset: any = null) => {
+      if (asset) {
+        editingAsset.value = asset;
+        const raw = asset._raw || asset;
+        setNewAsset({
+          nama: asset.nama || raw.asset_name || '',
+          kategori: asset.kategori || raw.category || 'Elektronik / IT',
+          tanggalBeli: asset.tanggalBeli || raw.acquisition_date || new Date().toISOString().slice(0, 10),
+          hargaBeli: Number(asset.hargaBeli ?? raw.acquisition_cost ?? 0),
+          masaManfaat: raw.useful_life_months ? Math.max(1, Math.round(Number(raw.useful_life_months) / 12)) : Math.max(1, Number(asset.masaManfaat || 4)),
+          nilaiSisa: Number(asset.nilaiSisa ?? raw.residual_value ?? 0),
+          penanggungJawab: asset.penanggungJawab || raw.responsible_person || ''
+        });
+      } else {
+        resetAssetForm();
+      }
+      setIsAssetModalOpen(true);
     };
 
     const handleSaveAsset = async (e: Event) => {
@@ -88,13 +127,96 @@ export default defineComponent({
         showToast('Harap lengkapi nama aset, tanggal beli, dan penanggung jawab.');
         return;
       }
-      await onAddAsset({ ...newAsset.value });
+      if (editingAsset.value && onUpdateAsset) {
+        await onUpdateAsset(editingAsset.value, { ...newAsset.value });
+      } else {
+        await onAddAsset({ ...newAsset.value });
+      }
       setIsAssetModalOpen(false);
-      setNewAsset({
-        nama: '', kategori: 'Elektronik / IT', tanggalBeli: '2026-07-01',
-        hargaBeli: 0, masaManfaat: 4, nilaiSisa: 0, penanggungJawab: ''
-      });
+      resetAssetForm();
     };
+
+    const requestStopSubscription = (item: any) => {
+      confirmDialog.value = {
+        type: 'subscription',
+        item,
+        eyebrow: 'Konfirmasi Auto-Renew',
+        title: 'Hentikan auto-renew?',
+        message: `Layanan ${item.nama} akan dinonaktifkan dari daftar langganan aktif.`,
+        details: [
+          { label: 'Layanan', value: item.nama },
+          { label: 'Provider', value: item.provider || '-' },
+          { label: 'Nominal', value: formatRupiah(item.biayaIDR || item.biaya || 0) },
+        ],
+        impactItems: [
+          'Status layanan akan berubah menjadi cancelled di database.',
+          'Layanan tidak lagi dihitung dalam burn rate langganan aktif.',
+        ],
+        confirmLabel: 'Hentikan Layanan',
+      };
+    };
+
+    const requestDisposeAsset = (asset: any) => {
+      if (!onDisposeAsset) return;
+      confirmDialog.value = {
+        type: 'dispose-asset',
+        item: asset,
+        eyebrow: 'Konfirmasi Pelepasan Aset',
+        title: 'Lepaskan aset ini?',
+        message: 'Sistem akan membuat jurnal penghapusan berdasarkan nilai buku aset saat ini.',
+        details: [
+          { label: 'Aset', value: asset.nama },
+          { label: 'Kategori', value: asset.kategori || '-' },
+          { label: 'Nilai Buku', value: formatRupiah(asset.nilaiBuku || 0) },
+        ],
+        impactItems: [
+          'Status aset akan berubah menjadi dilepas.',
+          'Jurnal pelepasan aset akan dibuat otomatis.',
+        ],
+        confirmLabel: 'Lepaskan Aset',
+        requireReason: true,
+        reasonLabel: 'Alasan Pelepasan',
+        reasonPlaceholder: 'Contoh: Aset tidak lagi digunakan',
+        defaultReason: 'Aset tidak lagi digunakan',
+      };
+    };
+
+    const handleConfirmDialog = async (reason = '') => {
+      const action = confirmDialog.value;
+      if (!action) return;
+      confirmDialog.value = null;
+      if (action.type === 'subscription') {
+        await onDeleteLangganan(action.item.id);
+        showToast(`Auto-renewal ${action.item.nama} dihentikan.`);
+        return;
+      }
+      if (action.type === 'dispose-asset' && onDisposeAsset) {
+        await onDisposeAsset(action.item, reason || 'Aset tidak lagi digunakan');
+      }
+    };
+
+    async function processMonthlyDepreciation() {
+      try {
+        const result = await financeApi.post('/assets/depreciate-batch', {
+          depreciation_period: depreciationPeriod.value,
+          notes: 'Penyusutan bulanan diproses dari workspace FinStart.',
+        });
+        if (onRefreshData) await onRefreshData();
+        showToast(result?.message || 'Penyusutan bulanan berhasil diproses.');
+      } catch (error) {
+        showToast(getApiErrorMessage(error, 'Gagal memproses penyusutan bulanan.'));
+      }
+    }
+
+    async function showDepreciationHistory(asset: any) {
+      try {
+        const assetId = Number(asset?._raw?.id || asset?.id);
+        if (!assetId) return showToast('ID aset tidak valid.');
+        assetHistory.value = await financeApi.get(`/assets/${assetId}/depreciations`);
+      } catch (error) {
+        showToast(getApiErrorMessage(error, 'Gagal memuat riwayat penyusutan aset.'));
+      }
+    }
 
     // Filter Subscriptions
     const filteredSubs = langganan.filter(l => {
@@ -110,29 +232,30 @@ export default defineComponent({
     const totalNetBookValue = assets.value.reduce((acc, a) => acc + a.nilaiBuku, 0);
     return () => <div class="space-y-6 font-sans">
       {/* Action Header bar */}
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
-        <div>
+      <div class="grid gap-5 border-b border-slate-200/80 pb-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+        <div class="min-w-0">
           <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">Langganan Digital & Aset Teknologi</h1>
           <p class="text-xs text-slate-400 font-light mt-1">Lacak pengeluaran operational burn rate SaaS serta database penyusutan depresiasi hardware infrastruktur korporat.</p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="ml-auto flex w-full min-w-0 flex-nowrap items-center justify-end gap-3 overflow-x-auto pb-1">
           <div class="bg-slate-100 border border-slate-200 rounded-xl p-1 flex shrink-0">
             <button id="tab-subs" onClick={() => {
               setActiveTab('subs');
               setSearchQuery('');
-            }} class={`text-xs px-4 py-2 font-semibold rounded-lg transition-all flex items-center gap-1.5 ${activeTab.value === 'subs' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+            }} class={`text-xs px-3 py-2 font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab.value === 'subs' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
               <Cloud class="w-4 h-4 text-sky-500" /> SaaS & Langganan
             </button>
             <button id="tab-assets" onClick={() => {
               setActiveTab('assets');
               setSearchQuery('');
-            }} class={`text-xs px-4 py-2 font-semibold rounded-lg transition-all flex items-center gap-1.5 ${activeTab.value === 'assets' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+            }} class={`text-xs px-3 py-2 font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab.value === 'assets' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
               <Box class="w-4 h-4 text-[#0B1F4A]" /> Aset Teknologi
             </button>
           </div>
 
-          <button id="btn-add-subs-asset" onClick={() => activeTab.value === 'subs' ? setIsSubModalOpen(true) : setIsAssetModalOpen(true)} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow transition-all shrink-0">
+          {activeTab.value === 'assets' && <div class="flex shrink-0 items-center justify-end gap-2 rounded-xl border border-[#D8E5F4] bg-white px-2 py-1.5"><input type="month" value={depreciationPeriod.value} onChange={event => depreciationPeriod.value = event.target.value} class="h-8 border-0 bg-transparent px-2 text-xs text-[#0B1F4A] outline-none" style={{ width: '136px' }} /><button type="button" onClick={processMonthlyDepreciation} class="h-8 rounded-lg bg-[#EEF5FC] px-3 text-[10px] font-semibold text-[#0B1F4A] whitespace-nowrap">Proses Penyusutan</button></div>}
+          <button id="btn-add-subs-asset" onClick={() => activeTab.value === 'subs' ? setIsSubModalOpen(true) : openAssetForm()} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex h-[46px] items-center justify-center gap-2 shadow transition-all shrink-0 whitespace-nowrap" style={{ minWidth: activeTab.value === 'subs' ? '190px' : '178px' }}>
             <Plus class="w-4 h-4" /> 
             {activeTab.value === 'subs' ? 'Tambah Layanan Baru' : 'Catat Aset Fisik'}
           </button>
@@ -178,40 +301,35 @@ export default defineComponent({
               <table class="w-full text-left text-xs text-slate-500">
                 <thead class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200">
                   <tr>
-                    <th class="p-4">Nama Layanan</th>
-                    <th class="p-4">Klasifikasi Kategori</th>
-                    <th class="p-4">Biaya Rutin (Siklus)</th>
-                    <th class="p-4">Est. Nominal Rupiah</th>
-                    <th class="p-4">Tanggal Perpanjangan</th>
-                    <th class="p-4 text-center">Aksi</th>
+                    <th class="p-5">Nama Layanan</th>
+                    <th class="p-5">Klasifikasi Kategori</th>
+                    <th class="p-5">Biaya Rutin (Siklus)</th>
+                    <th class="p-5">Est. Nominal Rupiah</th>
+                    <th class="p-5">Tanggal Perpanjangan</th>
+                    <th class="p-5 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
                   {filteredSubs.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
-                      <td class="p-4">
+                      <td class="p-5">
                         <span class="font-bold text-[#0B1F4A] block text-sm flex items-center gap-1.5"><CreditCard class="w-4 h-4 text-slate-400" /> {item.nama}</span>
                         <span class="text-[10px] text-slate-400 font-mono block">{item.id} (by {item.provider})</span>
                       </td>
-                      <td class="p-4">
+                      <td class="p-5">
                         <span class={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md ${item.kategori === 'Infrastruktur' ? 'bg-sky-50 text-sky-700' : item.kategori === 'Software' ? 'bg-blue-50 text-[#0B1F4A]' : 'bg-amber-50 text-amber-700'}`}>
                           {item.kategori}
                         </span>
                       </td>
-                      <td class="p-4 font-mono font-medium">
-                        {item.mataUang === 'USD' ? `$${item.biaya}` : `${item.biaya} ${item.mataUang}`} ({item.siklus})
+                      <td class="p-5 font-mono font-medium">
+                        {formatRupiah(item.biayaIDR || item.biaya)} ({item.siklus})
                       </td>
-                      <td class="p-4 font-mono font-bold text-slate-800 text-sm">
+                      <td class="p-5 font-mono font-bold text-slate-800 text-sm">
                         {formatRupiah(item.biayaIDR)}
                       </td>
-                      <td class="p-4 font-mono">{item.tanggalTagihan}</td>
-                      <td class="p-4">
+                      <td class="p-5 font-mono">{item.tanggalTagihan}</td>
+                      <td class="p-5">
                         <div class="flex justify-center">
-                          <button onClick={() => {
-                        if (confirm(`Apakah Anda yakin ingin mematikan auto-renew ${item.nama}?`)) {
-                          onDeleteLangganan(item.id);
-                          showToast(`Auto-renewal ${item.nama} dihentikan.`);
-                        }
-                      }} aria-label={`Hapus ${item.nama}`} class="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700" title="Hentikan Layanan">
+                          <button onClick={() => requestStopSubscription(item)} aria-label={`Hapus ${item.nama}`} class="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700" title="Hentikan Layanan">
                             <Trash2 class="w-4 h-4 text-current" />
                           </button>
                         </div>
@@ -255,39 +373,59 @@ export default defineComponent({
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span>
                 <input id="assets-search-box" type="text" value={searchQuery.value} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari aset atau penanggung jawab..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" />
               </div>
-              <span class="text-xs text-[#6B7A90]">Penyusutan aset menggunakan metode garis lurus · 5 tahun</span>
+              <span class="text-xs text-[#6B7A90]">Penyusutan aset menggunakan metode garis lurus sesuai masa manfaat aset</span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-500">
                 <thead class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200">
                   <tr>
-                    <th class="p-4">Aset Hardware & Cloud</th>
-                    <th class="p-4">Kategori Aset</th>
-                    <th class="p-4 font-mono">Tgl Perolehan</th>
-                    <th class="p-4 text-right">Harga Perolehan</th>
-                    <th class="p-4 text-right">Depresiasi / Thn</th>
-                    <th class="p-4 text-right">Nilai Buku Neto</th>
-                    <th class="p-4">Penanggung Jawab</th>
+                    <th class="p-5">Aset Hardware & Cloud</th>
+                    <th class="p-5">Kategori Aset</th>
+                    <th class="p-5 font-mono">Tgl Perolehan</th>
+                    <th class="p-5 text-right">Harga Perolehan</th>
+                    <th class="p-5 text-right">Depresiasi / Thn</th>
+                    <th class="p-5 text-right">Nilai Buku Neto</th>
+                    <th class="p-5">Penanggung Jawab</th>
+                    <th class="p-5 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
                   {filteredAssets.map(asset => <tr key={asset.id} class="hover:bg-slate-50 transition-colors">
-                      <td class="p-4">
+                      <td class="p-5">
                         <span class="font-bold text-[#0B1F4A] block text-sm">{asset.nama}</span>
                         <span class="text-[10px] text-slate-400 font-mono">{asset.id}</span>
                       </td>
-                      <td class="p-4 text-slate-700 font-semibold">{asset.kategori}</td>
-                      <td class="p-4 font-mono">{asset.tanggalBeli}</td>
-                      <td class="p-4 text-right font-mono font-medium text-slate-600">{formatRupiah(asset.hargaBeli)}</td>
-                      <td class="p-4 text-right font-mono text-rose-600">-{formatRupiah(asset.penyusutanTahunan)}</td>
-                      <td class="p-4 text-right font-mono font-bold text-emerald-600 text-sm">{formatRupiah(asset.nilaiBuku)}</td>
-                      <td class="p-4 font-medium text-slate-700">{asset.penanggungJawab}</td>
+                      <td class="p-5 text-slate-700 font-semibold">{asset.kategori}</td>
+                      <td class="p-5 font-mono">{asset.tanggalBeli}</td>
+                      <td class="p-5 text-right font-mono font-medium text-slate-600">{formatRupiah(asset.hargaBeli)}</td>
+                      <td class="p-5 text-right font-mono text-rose-600">-{formatRupiah(asset.penyusutanTahunan)}</td>
+                      <td class="p-5 text-right font-mono font-bold text-emerald-600 text-sm">{formatRupiah(asset.nilaiBuku)}</td>
+                      <td class="p-5 font-medium text-slate-700">{asset.penanggungJawab}</td>
+                      <td class="p-5"><div class="flex justify-center gap-2"><button type="button" aria-label={`Riwayat penyusutan ${asset.nama}`} title="Riwayat penyusutan" onClick={() => showDepreciationHistory(asset)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><History class="h-3.5 w-3.5" /></button>{asset._raw?.status !== 'disposed' && <><button type="button" aria-label={`Ubah aset ${asset.nama}`} title="Ubah" onClick={() => openAssetForm(asset)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Lepas aset ${asset.nama}`} title="Lepas aset" onClick={() => requestDisposeAsset(asset)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></>}</div></td>
                     </tr>)}
                 </tbody>
               </table>
             </div>
           </div>
         </div>}
+
+      {assetHistory.value && <div class="fixed inset-0 z-[9998] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"><div class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Riwayat Penyusutan</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">{assetHistory.value.asset?.asset_name || 'Aset'}</h3></div><button type="button" onClick={() => assetHistory.value = null} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><div class="max-h-[55vh] overflow-y-auto p-6">{(assetHistory.value.depreciations || []).length ? <table class="w-full text-left text-xs"><thead class="border-b border-[#E8EEF7] text-[#70819B]"><tr><th class="pb-3">Periode</th><th class="pb-3 text-right">Nilai</th><th class="pb-3">Voucher</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{assetHistory.value.depreciations.map((item: any) => <tr key={item.id}><td class="py-3">{item.depreciation_period}</td><td class="py-3 text-right font-semibold">{formatRupiah(Number(item.depreciation_amount || 0))}</td><td class="py-3">{item.journal_voucher_number || '-'}</td></tr>)}</tbody></table> : <p class="text-sm text-[#8A98AB]">Belum ada riwayat penyusutan untuk aset ini.</p>}</div><div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4"><button type="button" onClick={() => assetHistory.value = null} class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Tutup</button></div></div></div>}
+
+      <ConfirmDialog
+        open={!!confirmDialog.value}
+        eyebrow={confirmDialog.value?.eyebrow || 'Konfirmasi'}
+        title={confirmDialog.value?.title || 'Lanjutkan tindakan?'}
+        message={confirmDialog.value?.message || ''}
+        details={confirmDialog.value?.details || []}
+        impactItems={confirmDialog.value?.impactItems || []}
+        confirmLabel={confirmDialog.value?.confirmLabel || 'Lanjutkan'}
+        requireReason={!!confirmDialog.value?.requireReason}
+        reasonLabel={confirmDialog.value?.reasonLabel || 'Alasan'}
+        reasonPlaceholder={confirmDialog.value?.reasonPlaceholder || 'Tulis alasan singkat...'}
+        defaultReason={confirmDialog.value?.defaultReason || ''}
+        onCancel={() => confirmDialog.value = null}
+        onConfirm={handleConfirmDialog}
+      />
 
       {/* 3. ADD SUBSCRIPTION MODAL */}
       {isSubModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -332,8 +470,6 @@ export default defineComponent({
                     mataUang: e.target.value as any
                   })} class="w-full h-11 px-5 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-sm appearance-none transition-all">
                       <option value="IDR">IDR (Rupiah)</option>
-                      <option value="USD">USD (Dollar)</option>
-                      <option value="EUR">EUR (Euro)</option>
                     </select>
                     <ChevronDown class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0F172A]" />
                   </div>
@@ -411,8 +547,8 @@ export default defineComponent({
           <div class="bg-white border border-slate-100 rounded-[24px] w-full max-w-[560px] overflow-hidden shadow-2xl">
             <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-start">
               <div>
-                <h3 class="font-extrabold text-lg text-[#111827] tracking-tight">Registrasi Aset Baru</h3>
-                <span class="text-[11px] text-[#53658A] block mt-0.5">Inventarisasi & Kalkulasi Penyusutan.</span>
+                <h3 class="font-extrabold text-lg text-[#111827] tracking-tight">{editingAsset.value ? 'Ubah Data Aset' : 'Registrasi Aset Baru'}</h3>
+                <span class="text-[11px] text-[#53658A] block mt-0.5">{editingAsset.value ? 'Data perolehan dan jurnal historis tetap dipertahankan.' : 'Inventarisasi & Kalkulasi Penyusutan.'}</span>
               </div>
               <button id="btn-close-asset-modal" onClick={() => setIsAssetModalOpen(false)} class="w-10 h-10 flex items-center justify-center rounded-2xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors">
                 <X class="w-5 h-5" />
@@ -453,14 +589,14 @@ export default defineComponent({
 
               <section class="space-y-3">
                 <div class="flex items-center gap-2 text-emerald-600">
-                  <DollarSign class="w-3.5 h-3.5" />
+                  <span class="text-[12px] font-black leading-none">Rp</span>
                   <h4 class="text-[10px] font-extrabold uppercase tracking-widest">Nilai & Perolehan</h4>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div class="space-y-2">
                     <label class="text-[9px] font-extrabold text-[#94A3B8] uppercase">Tanggal Pembelian</label>
                     <div class="relative">
-                      <input id="asset-form-date" type="date" required value={newAsset.value.tanggalBeli} onChange={e => setNewAsset({
+                      <input id="asset-form-date" type="date" required disabled={!!editingAsset.value} value={newAsset.value.tanggalBeli} onChange={e => setNewAsset({
                       ...newAsset.value,
                       tanggalBeli: e.target.value
                     })} class="w-full h-10 px-4 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all" />
@@ -469,7 +605,7 @@ export default defineComponent({
                   </div>
                   <div class="space-y-2">
                     <label class="text-[9px] font-extrabold text-[#94A3B8] uppercase">Harga Perolehan (Rp)</label>
-                    <input id="asset-form-cost" type="number" required min={0} value={newAsset.value.hargaBeli || ''} placeholder="0" onChange={e => setNewAsset({
+                    <input id="asset-form-cost" type="number" required min={0} disabled={!!editingAsset.value} value={newAsset.value.hargaBeli || ''} placeholder="0" onChange={e => setNewAsset({
                     ...newAsset.value,
                     hargaBeli: Number(e.target.value)
                   })} class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all" />
@@ -503,7 +639,7 @@ export default defineComponent({
                   Batal
                 </button>
                 <button id="btn-asset-submit" type="submit" class="h-[38px] bg-[#0B1F4A] hover:bg-[#071735] text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm">
-                  <Save class="w-4 h-4" /> Daftarkan Aset
+                  <Save class="w-4 h-4" /> {editingAsset.value ? 'Simpan Perubahan' : 'Daftarkan Aset'}
                 </button>
               </div>
             </form>

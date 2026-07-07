@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { requirePermission, hasPermission } = require('../middleware/authorization')
 
 const router = express.Router()
 
@@ -45,6 +46,33 @@ function optionalPositiveInteger(value) {
   }
 
   return number
+}
+
+
+async function addColumnIfMissing(executor, tableName, columnName, definition) {
+  const [columns] = await executor.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [tableName, columnName],
+  )
+  if (columns.length === 0) {
+    await executor.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+  }
+}
+
+async function ensureJournalDimensionSchema(executor = db) {
+  await addColumnIfMissing(executor, 'journal_entries', 'division_id', 'BIGINT UNSIGNED NULL')
+}
+
+async function validateDivision(executor, divisionId) {
+  if (!divisionId) return null
+  const [rows] = await executor.query(
+    `SELECT id, name, status FROM divisions WHERE id = ?`,
+    [divisionId],
+  )
+  if (!rows[0] || rows[0].status !== 'active') {
+    throw createAppError(422, 'Divisi jurnal tidak ditemukan atau tidak aktif.')
+  }
+  return rows[0]
 }
 
 function validateLines(rawLines) {
@@ -113,7 +141,7 @@ function validateJournalPayload(body) {
   const description = cleanText(body.description)
   const sourceType = cleanText(body.source_type)
   const sourceId = optionalPositiveInteger(body.source_id)
-  const createdBy = optionalPositiveInteger(body.created_by)
+  const divisionId = optionalPositiveInteger(body.division_id)
 
   if (!voucherNumber) {
     throw createAppError(422, 'Nomor voucher wajib diisi.')
@@ -135,6 +163,15 @@ function validateJournalPayload(body) {
     throw createAppError(422, 'Source ID tidak valid.')
   }
 
+  if (
+    body.division_id !== null &&
+    body.division_id !== undefined &&
+    String(body.division_id).trim() !== '' &&
+    divisionId === null
+  ) {
+    throw createAppError(422, 'Divisi jurnal tidak valid.')
+  }
+
   const lines = validateLines(body.lines)
 
   return {
@@ -143,7 +180,7 @@ function validateJournalPayload(body) {
     description,
     sourceType,
     sourceId,
-    createdBy,
+    divisionId,
     lines,
   }
 }
@@ -154,10 +191,12 @@ async function getJournalDetail(executor, journalId) {
       SELECT
         journal_entries.*,
         creator.name AS created_by_name,
-        approver.name AS approved_by_name
+        approver.name AS approved_by_name,
+        divisions.name AS division_name
       FROM journal_entries
       LEFT JOIN users AS creator ON creator.id = journal_entries.created_by
       LEFT JOIN users AS approver ON approver.id = journal_entries.approved_by
+      LEFT JOIN divisions ON divisions.id = journal_entries.division_id
       WHERE journal_entries.id = ?
     `,
     [journalId],
@@ -274,6 +313,7 @@ async function insertJournalLines(executor, journalId, lines) {
 */
 router.get('/', async (req, res) => {
   try {
+    await ensureJournalDimensionSchema()
     const [journals] = await db.query(`
       SELECT
         journal_entries.id,
@@ -289,12 +329,21 @@ router.get('/', async (req, res) => {
         journal_entries.posted_at,
         journal_entries.created_at,
         journal_entries.updated_at,
+        journal_entries.division_id,
+        divisions.name AS division_name,
+        creator.name AS created_by_name,
+        creator.email AS created_by_email,
+        approver.name AS approved_by_name,
+        approver.email AS approved_by_email,
         COALESCE(SUM(journal_lines.debit), 0) AS total_debit,
         COALESCE(SUM(journal_lines.credit), 0) AS total_credit
       FROM journal_entries
+      LEFT JOIN users creator ON creator.id = journal_entries.created_by
+      LEFT JOIN users approver ON approver.id = journal_entries.approved_by
+      LEFT JOIN divisions ON divisions.id = journal_entries.division_id
       LEFT JOIN journal_lines
         ON journal_lines.journal_entry_id = journal_entries.id
-      GROUP BY journal_entries.id
+      GROUP BY journal_entries.id, divisions.name, creator.name, creator.email, approver.name, approver.email
       ORDER BY journal_entries.transaction_date DESC, journal_entries.id DESC
     `)
 
@@ -317,6 +366,7 @@ router.get('/', async (req, res) => {
 */
 router.get('/:id', async (req, res) => {
   try {
+    await ensureJournalDimensionSchema()
     const journal = await getJournalDetail(db, req.params.id)
 
     if (!journal) {
@@ -353,7 +403,9 @@ router.post('/', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
+    await ensureJournalDimensionSchema(connection)
     await validateAccounts(connection, payload.lines)
+    await validateDivision(connection, payload.divisionId)
 
     const [result] = await connection.query(
       `
@@ -363,10 +415,11 @@ router.post('/', async (req, res) => {
           description,
           source_type,
           source_id,
+          division_id,
           status,
           created_by
         )
-        VALUES (?, ?, ?, ?, ?, 'draft', ?)
+        VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)
       `,
       [
         payload.voucherNumber,
@@ -374,7 +427,8 @@ router.post('/', async (req, res) => {
         payload.description,
         payload.sourceType,
         payload.sourceId,
-        payload.createdBy,
+        payload.divisionId,
+        req.user.id,
       ],
     )
 
@@ -427,8 +481,9 @@ router.put('/:id', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
+    await ensureJournalDimensionSchema(connection)
     const [existingJournals] = await connection.query(
-      'SELECT id, status FROM journal_entries WHERE id = ? FOR UPDATE',
+      'SELECT id, status, created_by FROM journal_entries WHERE id = ? FOR UPDATE',
       [journalId],
     )
 
@@ -444,6 +499,7 @@ router.put('/:id', async (req, res) => {
     }
 
     await validateAccounts(connection, payload.lines)
+    await validateDivision(connection, payload.divisionId)
 
     await connection.query(
       `
@@ -454,7 +510,7 @@ router.put('/:id', async (req, res) => {
           description = ?,
           source_type = ?,
           source_id = ?,
-          created_by = ?
+          division_id = ?
         WHERE id = ?
       `,
       [
@@ -463,7 +519,7 @@ router.put('/:id', async (req, res) => {
         payload.description,
         payload.sourceType,
         payload.sourceId,
-        payload.createdBy,
+        payload.divisionId,
         journalId,
       ],
     )
@@ -508,22 +564,26 @@ router.put('/:id', async (req, res) => {
   POST /api/journals/:id/approve
   Mengubah draft menjadi approved.
 */
-router.post('/:id/approve', async (req, res) => {
+router.post('/:id/approve', requirePermission('journals', 'approve'), async (req, res) => {
   let connection
 
   try {
     const journalId = Number.parseInt(req.params.id, 10)
-    const approvedBy = optionalPositiveInteger(req.body.approved_by)
+    const approvedBy = req.user?.id
 
     if (!Number.isInteger(journalId) || journalId <= 0) {
       throw createAppError(422, 'ID jurnal tidak valid.')
+    }
+
+    if (!Number.isInteger(approvedBy) || approvedBy <= 0) {
+      throw createAppError(401, 'User approval tidak valid. Silakan login ulang.')
     }
 
     connection = await db.getConnection()
     await connection.beginTransaction()
 
     const [journals] = await connection.query(
-      'SELECT id, status FROM journal_entries WHERE id = ? FOR UPDATE',
+      'SELECT id, status, created_by FROM journal_entries WHERE id = ? FOR UPDATE',
       [journalId],
     )
 
@@ -531,10 +591,24 @@ router.post('/:id/approve', async (req, res) => {
       throw createAppError(404, 'Jurnal tidak ditemukan.')
     }
 
+    if (
+      Number(journals[0].created_by) !== Number(req.user?.id) &&
+      !hasPermission(req.user?.role_name, 'journals', 'approve')
+    ) {
+      throw createAppError(403, 'Hanya pembuat jurnal atau penyetuju berwenang yang dapat mengubah draft ini.')
+    }
+
     if (journals[0].status !== 'draft') {
       throw createAppError(
         422,
         'Hanya jurnal draft yang dapat disetujui.',
+      )
+    }
+
+    if (Number(journals[0].created_by) === Number(approvedBy)) {
+      throw createAppError(
+        403,
+        'Pembuat jurnal tidak boleh menyetujui jurnalnya sendiri.',
       )
     }
 
@@ -592,7 +666,7 @@ router.post('/:id/approve', async (req, res) => {
   POST /api/journals/:id/post
   Mengubah approved menjadi posted dan memperbarui saldo akun.
 */
-router.post('/:id/post', async (req, res) => {
+router.post('/:id/post', requirePermission('journals', 'post'), async (req, res) => {
   let connection
 
   try {
@@ -755,5 +829,8 @@ router.delete('/:id', async (req, res) => {
     }
   }
 })
+
+// Diekspos terbatas untuk pengujian otomatis tanpa koneksi database.
+router.validateLinesForTest = validateLines
 
 module.exports = router

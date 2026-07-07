@@ -1,10 +1,11 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h, ref } from "vue";
 import { motion } from "../compat/motion.js";
-import { ArrowLeft, BadgeCheck, Building2, Eye, EyeOff, Info, Lock, Mail, ShieldCheck, Sparkles } from "lucide-vue-next";
+import { ArrowLeft, BadgeCheck, Building2, Eye, EyeOff, Info, Lock, Mail, ShieldCheck, KeyRound } from "lucide-vue-next";
 import KedataLogo from './KedataLogo.vue';
+import { financeApi, getApiErrorMessage, saveAuthSession } from '../services/financeApi.js';
 interface LoginProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (session: any) => void;
   onBackToLanding: () => void;
 }
 const trustPoints = [{
@@ -20,6 +21,7 @@ const trustPoints = [{
   title: 'Standar Kerja Konsisten',
   text: 'Tampilan dan proses kerja disusun untuk kebutuhan tim internal perusahaan.'
 }];
+
 export default defineComponent({
   name: "Login",
   props: ["onLoginSuccess", "onBackToLanding"],
@@ -28,17 +30,39 @@ export default defineComponent({
       onLoginSuccess,
       onBackToLanding
     }: LoginProps = props;
-    const email = ref('finance@kedata.id'),
+    const email = ref(''),
       setEmail = next => email.value = typeof next === "function" ? next(email.value) : next;
-    const password = ref('kedata123'),
+    const password = ref(''),
       setPassword = next => password.value = typeof next === "function" ? next(password.value) : next;
     const showPassword = ref(false),
       setShowPassword = next => showPassword.value = typeof next === "function" ? next(showPassword.value) : next;
+    const mfaCode = ref(''),
+      setMfaCode = next => mfaCode.value = typeof next === "function" ? next(mfaCode.value) : next;
     const isLoading = ref(false),
       setIsLoading = next => isLoading.value = typeof next === "function" ? next(isLoading.value) : next;
     const error = ref(''),
       setError = next => error.value = typeof next === "function" ? next(error.value) : next;
-    const handleSubmit = (event: Event) => {
+    const resetNotice = ref(''),
+      setResetNotice = next => resetNotice.value = typeof next === "function" ? next(resetNotice.value) : next;
+    const handleRequestReset = async () => {
+      setError('');
+      setResetNotice('');
+      const normalizedEmail = email.value.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError('Masukkan email akun terlebih dahulu untuk meminta reset kata sandi.');
+        return;
+      }
+      try {
+        const result = await financeApi.requestPasswordReset(normalizedEmail);
+        const token = result?.reset_token;
+        setResetNotice(token
+          ? `Token reset pengembangan: ${token}. Gunakan endpoint reset password sesuai prosedur administrator.`
+          : 'Permintaan reset diterima. Hubungi administrator bila kanal reset belum dikonfigurasi.');
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, 'Gagal mengajukan reset kata sandi.'));
+      }
+    };
+    const handleSubmit = async (event: Event) => {
       event.preventDefault();
       setError('');
       if (!email.value || !password.value) {
@@ -46,10 +70,16 @@ export default defineComponent({
         return;
       }
       setIsLoading(true);
-      window.setTimeout(() => {
+      try {
+        const session = await financeApi.login(email.value.trim().toLowerCase(), password.value, mfaCode.value.trim());
+        saveAuthSession(session);
         setIsLoading(false);
-        onLoginSuccess(email.value);
-      }, 750);
+        onLoginSuccess(session);
+      } catch (error) {
+        console.error(error);
+        setError(getApiErrorMessage(error, 'Email atau kata sandi tidak sesuai.'));
+        setIsLoading(false);
+      }
     };
     return () => <div class="min-h-screen bg-[#F3F7FC] font-sans text-[#182338]">
       <div class="mx-auto grid min-h-screen max-w-[1760px] grid-cols-1 lg:grid-cols-[1.02fr_0.98fr]">
@@ -75,7 +105,7 @@ export default defineComponent({
           <div class="relative z-10 my-auto max-w-2xl py-12">
             <div class="inline-flex items-center gap-4 rounded-[26px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.20)] backdrop-blur-sm">
               <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_34px_rgba(255,255,255,0.12)]">
-                <KedataLogo class="h-10 w-10" />
+                <KedataLogo size={40} />
               </div>
               <div>
                 <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9BC6F7]">PT Kedata Indonesia Digital</p>
@@ -139,7 +169,7 @@ export default defineComponent({
             <div class="flex items-start justify-between gap-3 border-b border-[#E8EEF7] pb-6">
               <div class="flex items-center gap-4">
                 <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_26px_rgba(16,42,86,0.08)]">
-                  <KedataLogo class="h-10 w-10" />
+                  <KedataLogo size={40} />
                 </div>
                 <div>
                   <p class="text-[10px] font-bold uppercase tracking-[0.20em] text-[#1E5AA8]">PT Kedata Indonesia Digital</p>
@@ -161,13 +191,16 @@ export default defineComponent({
             <div class="mt-6 flex gap-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4 text-sm text-[#53658A]">
               <Info class="mt-0.5 h-5 w-5 shrink-0 text-[#1E5AA8]" />
               <div>
-                <p class="font-bold text-[#102A56]">Akun Demo Internal</p>
-                <p class="mt-1 text-xs leading-5">Gunakan <span class="font-semibold text-[#1E5AA8]">finance@kedata.id</span> dengan kata sandi <span class="font-semibold text-[#1E5AA8]">kedata123</span>.</p>
+                <p class="font-bold text-[#102A56]">Akses akun internal</p>
+                <p class="mt-1 text-xs leading-5">Gunakan akun yang dibuat administrator. Kredensial awal hanya tercantum di panduan instalasi dan wajib diganti setelah login pertama.</p>
               </div>
             </div>
 
             {error.value && <div class="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700" role="alert">
                 {error.value}
+              </div>}
+            {resetNotice.value && <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-5 text-sky-800" role="status">
+                {resetNotice.value}
               </div>}
 
             <form onSubmit={handleSubmit} class="mt-6 space-y-5" noValidate>
@@ -182,7 +215,7 @@ export default defineComponent({
               <div class="space-y-2">
                 <div class="flex items-center justify-between gap-3">
                   <label for="login-password" class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#53658A]">Kata Sandi</label>
-                  <a href="#forgot" class="text-xs font-semibold text-[#1E5AA8] hover:text-[#0B1F4A]">Lupa sandi?</a>
+                  <button id="btn-request-password-reset" type="button" onClick={handleRequestReset} class="text-xs font-semibold text-[#1E5AA8] hover:text-[#0B1F4A]">Lupa sandi?</button>
                 </div>
                 <div class="relative">
                   <Lock class="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#8A9AB0]" />
@@ -193,13 +226,19 @@ export default defineComponent({
                 </div>
               </div>
 
-              <label class="flex items-center gap-2.5 text-xs font-medium text-[#637083]">
-                <input id="remember-me" type="checkbox" defaultChecked class="h-4 w-4 rounded border-[#B9CBE1] text-[#1E5AA8] focus:ring-[#1E5AA8]" />
-                Ingat saya di perangkat ini
-              </label>
+              <div class="space-y-2">
+                <label for="login-mfa-code" class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#53658A]">Kode MFA <span class="normal-case font-medium text-[#8A9AB0]">(hanya bila aktif)</span></label>
+                <div class="relative">
+                  <KeyRound class="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#8A9AB0]" />
+                  <input id="login-mfa-code" name="mfaCode" inputmode="numeric" maxlength="6" value={mfaCode.value} onChange={event => setMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6 digit dari authenticator" class="h-12 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium tracking-[0.22em] text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                </div>
+                <p class="text-[11px] leading-5 text-[#8A9AB0]">Abaikan bila autentikasi dua langkah belum diaktifkan untuk akun Anda.</p>
+              </div>
+
+              <p class="text-xs leading-5 text-[#637083]">Sesi disimpan sementara pada browser dan dapat dicabut dari halaman Pengaturan.</p>
 
               <button id="btn-submit-login" type="submit" disabled={isLoading.value} class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-sm font-bold text-white shadow-[0_12px_22px_rgba(11,31,74,0.18)] transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-75">
-                {isLoading.value ? <><Sparkles class="h-4 w-4 animate-pulse text-blue-200" /> Memverifikasi Akses...</> : 'Masuk ke Dashboard'}
+                {isLoading.value ? <><ShieldCheck class="h-4 w-4 animate-pulse text-blue-200" /> Memverifikasi Akses...</> : 'Masuk ke Dashboard'}
               </button>
             </form>
 

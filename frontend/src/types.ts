@@ -16,10 +16,16 @@ export interface Klien {
   telepon: string;
 }
 export interface AnggotaTim {
+  employeeId?: string;
   nama: string;
   jabatan: string;
   alokasiPersen: number;
   estimasiBiaya: number;
+}
+export interface MilestoneProyek {
+  title: string;
+  due_date?: string | null;
+  status?: 'planned' | 'in_progress' | 'completed';
 }
 export interface Proyek {
   id: string;
@@ -33,6 +39,13 @@ export interface Proyek {
   picKontak: string;
   catatan: string;
   tim: AnggotaTim[];
+  anggaran?: number;
+  milestones?: MilestoneProyek[];
+  realisasiPendapatan?: number;
+  realisasiBiaya?: number;
+  selisihAnggaran?: number;
+  labaAktual?: number;
+  proyeksiLaba?: number;
 }
 export interface Transaksi {
   id: string;
@@ -48,7 +61,7 @@ export interface Langganan {
   id: string;
   nama: string;
   provider: string;
-  mataUang: 'IDR' | 'USD' | 'EUR';
+  mataUang: 'IDR';
   siklus: 'Bulanan' | 'Tahunan';
   kategori: 'Infrastruktur' | 'Software' | 'Marketing';
   biaya: number; // in original currency or IDR

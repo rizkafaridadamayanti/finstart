@@ -836,6 +836,105 @@ router.post('/', async (req, res) => {
   }
 })
 
+
+router.put('/:id', async (req, res) => {
+  let connection
+  try {
+    const { vendor_name, project_id, bill_number, bill_date, due_date, notes, items, tax } = req.body || {}
+    const vendorName = String(vendor_name || '').trim()
+    const projectId = project_id ? Number(project_id) : null
+    const billDate = bill_date || getToday()
+    const dueDate = due_date || null
+    if (!vendorName) throw new Error('Nama vendor wajib diisi.')
+    if (!isValidDate(billDate)) throw new Error('Tanggal tagihan tidak valid.')
+    if (dueDate && (!isValidDate(dueDate) || dueDate < billDate)) throw new Error('Tanggal jatuh tempo tidak valid.')
+    const normalizedItems = normalizeItems(items)
+    const dppAmount = money(normalizedItems.reduce((total, item) => total + item.line_total, 0))
+    const taxes = normalizeBillTaxes(tax, dppAmount)
+    const totalAmount = money(dppAmount + taxes.ppn.amount)
+    const taxPeriod = String(billDate).slice(0, 7)
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+    const [existingRows] = await connection.query('SELECT id, status FROM bills WHERE id = ? FOR UPDATE', [req.params.id])
+    const existing = existingRows[0]
+    if (!existing) throw new Error('Tagihan tidak ditemukan.')
+    if (existing.status !== 'draft') throw new Error('Hanya tagihan draft yang dapat diubah.')
+    await ensureVatPeriodOpen(connection, taxPeriod, taxes.ppn.enabled)
+    if (projectId) {
+      const [projects] = await connection.query('SELECT id FROM projects WHERE id = ? LIMIT 1', [projectId])
+      if (!projects[0]) throw new Error('Proyek tidak ditemukan.')
+    }
+    const number = String(bill_number || '').trim()
+    if (!number) throw new Error('Nomor tagihan wajib diisi.')
+    await connection.query(
+      `UPDATE bills SET vendor_name = ?, project_id = ?, bill_number = ?, bill_date = ?, due_date = ?, total_amount = ?, paid_amount = 0, notes = ? WHERE id = ?`,
+      [vendorName, projectId, number, billDate, dueDate, totalAmount, String(notes || '').trim() || null, existing.id],
+    )
+    await connection.query('DELETE FROM bill_items WHERE bill_id = ?', [existing.id])
+    await connection.query("DELETE FROM transaction_taxes WHERE source_type = 'bill' AND source_id = ?", [existing.id])
+    const itemPlaceholders = normalizedItems.map(() => '(?, ?, ?, ?, ?)').join(', ')
+    await connection.query(
+      `INSERT INTO bill_items (bill_id, description, quantity, unit_price, line_total) VALUES ${itemPlaceholders}`,
+      normalizedItems.flatMap((item) => [existing.id, item.description, item.quantity, item.unit_price, item.line_total]),
+    )
+    if (taxes.ppn.enabled) {
+      await connection.query(`INSERT INTO transaction_taxes (source_type, source_id, tax_type, tax_period, dpp_amount, tax_rate, tax_amount, is_creditable, status) VALUES ('bill', ?, 'PPN_INPUT', ?, ?, ?, ?, 1, 'draft')`, [existing.id, taxPeriod, dppAmount, taxes.ppn.rate, taxes.ppn.amount])
+    }
+    if (taxes.pph23.enabled) {
+      await connection.query(`INSERT INTO transaction_taxes (source_type, source_id, tax_type, tax_period, dpp_amount, tax_rate, tax_amount, is_creditable, pph23_object, vendor_has_npwp, status) VALUES ('bill', ?, 'PPH23', ?, ?, ?, ?, 0, ?, ?, 'draft')`, [existing.id, taxPeriod, dppAmount, taxes.pph23.effective_rate, taxes.pph23.amount, taxes.pph23.object, taxes.pph23.vendor_has_npwp ? 1 : 0])
+    }
+    await connection.commit()
+    const bill = await getBillDetail(db, existing.id)
+    res.json({ success: true, message: 'Tagihan draft berhasil diperbarui.', data: bill })
+  } catch (error) {
+    if (connection) await connection.rollback()
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 400).json({ success: false, message: error.message || 'Gagal memperbarui tagihan.' })
+  } finally { if (connection) connection.release() }
+})
+
+async function reverseBillJournal(connection, billId, cancellationDate, reason) {
+  const [voidRows] = await connection.query("SELECT id FROM journal_entries WHERE source_type = 'bill_void' AND source_id = ? LIMIT 1", [billId])
+  if (voidRows[0]) return
+  const [journalRows] = await connection.query("SELECT id, voucher_number FROM journal_entries WHERE source_type = 'bill' AND source_id = ? AND status = 'posted' LIMIT 1", [billId])
+  const journal = journalRows[0]
+  if (!journal) return
+  const [lines] = await connection.query('SELECT account_id, description, debit, credit FROM journal_lines WHERE journal_entry_id = ? ORDER BY id', [journal.id])
+  if (!lines.length) throw new Error('Baris jurnal tagihan tidak ditemukan.')
+  await postAutomaticJournal(connection, {
+    voucher_number: `VOID-${journal.voucher_number}`.slice(0, 100),
+    transaction_date: cancellationDate,
+    description: `Pembatalan tagihan ${billId}: ${reason || 'dibatalkan'}`,
+    source_type: 'bill_void',
+    source_id: billId,
+    lines: lines.map((line) => ({ account_id: line.account_id, description: `Balik jurnal ${line.description || ''}`.slice(0, 255), debit: numberValue(line.credit), credit: numberValue(line.debit) })),
+  })
+}
+
+router.post('/:id/cancel', async (req, res) => {
+  let connection
+  try {
+    const cancellationDate = req.body?.cancellation_date || getToday()
+    const reason = String(req.body?.reason || '').trim()
+    if (!isValidDate(cancellationDate)) throw new Error('Tanggal pembatalan tidak valid.')
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+    const [rows] = await connection.query('SELECT * FROM bills WHERE id = ? FOR UPDATE', [req.params.id])
+    const bill = rows[0]
+    if (!bill) throw new Error('Tagihan tidak ditemukan.')
+    if (bill.status === 'cancelled') throw new Error('Tagihan sudah dibatalkan.')
+    if (numberValue(bill.paid_amount) > 0) throw new Error('Tagihan yang sudah memiliki pembayaran tidak dapat dibatalkan. Gunakan koreksi/nota debit agar jejak pembayaran tetap akurat.')
+    if (bill.status !== 'draft') await reverseBillJournal(connection, bill.id, cancellationDate, reason)
+    await connection.query("UPDATE bills SET status = 'cancelled', notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?", [`\n[Dibatalkan ${cancellationDate}] ${reason || '-'}`, bill.id])
+    await connection.query("UPDATE transaction_taxes SET status = 'closed' WHERE source_type = 'bill' AND source_id = ?", [bill.id])
+    await connection.commit()
+    const updated = await getBillDetail(db, bill.id)
+    res.json({ success: true, message: 'Tagihan dibatalkan dan jurnal sumber dibalik.', data: updated })
+  } catch (error) {
+    if (connection) await connection.rollback()
+    res.status(400).json({ success: false, message: error.message || 'Gagal membatalkan tagihan.' })
+  } finally { if (connection) connection.release() }
+})
+
 router.delete('/:id', async (req, res) => {
   let connection
 
@@ -1357,5 +1456,9 @@ router.post('/:id/payments', async (req, res) => {
     if (connection) connection.release()
   }
 })
+
+// Diekspos terbatas untuk pengujian otomatis tanpa koneksi database.
+router.getOutstandingForTest = getOutstanding
+router.normalizeBillTaxesForTest = normalizeBillTaxes
 
 module.exports = router

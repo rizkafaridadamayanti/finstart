@@ -137,6 +137,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nama dan status jabatan wajib valid.' })
     }
 
+    if (status === 'inactive' && Number(existing.employee_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Jabatan masih dipakai pegawai. Ubah jabatan atau nonaktifkan pegawai terkait terlebih dahulu.',
+      })
+    }
+
     if (divisionId) {
       const division = await getDivision(divisionId)
       if (!division) return res.status(400).json({ success: false, message: 'Divisi jabatan tidak ditemukan.' })
@@ -174,6 +181,13 @@ router.put('/:id', async (req, res) => {
 
     if (!name || !status) {
       return res.status(400).json({ success: false, message: 'Nama dan status jabatan wajib valid.' })
+    }
+
+    if (status === 'inactive' && Number(existing.employee_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Jabatan masih dipakai pegawai. Ubah jabatan atau nonaktifkan pegawai terkait terlebih dahulu.',
+      })
     }
 
     if (divisionId) {
@@ -215,6 +229,41 @@ router.patch('/:id/status', async (req, res) => {
     res.json({ success: true, message: `Status jabatan berhasil diubah menjadi ${status}.`, data: await getPositionById(req.params.id) })
   } catch (error) {
     res.status(500).json({ success: false, message: 'Gagal mengubah status jabatan.', error: error.message })
+  }
+})
+
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await getPositionById(req.params.id)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Jabatan tidak ditemukan.',
+      })
+    }
+
+    if (Number(existing.employee_count || 0) > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Jabatan masih digunakan oleh pegawai. Ubah jabatan atau nonaktifkan pegawai terkait terlebih dahulu.',
+      })
+    }
+
+    await db.query('DELETE FROM positions WHERE id = ?', [req.params.id])
+
+    res.json({
+      success: true,
+      message: 'Jabatan berhasil dihapus dari master data.',
+      data: { id: Number(req.params.id) },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus jabatan.',
+      error: error.message,
+    })
   }
 })
 

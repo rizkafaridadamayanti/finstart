@@ -1,7 +1,7 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, onMounted, ref } from "vue";
+import { Fragment, defineComponent, h, onMounted, onUnmounted, ref } from "vue";
 import { motion, AnimatePresence } from "./compat/motion.js";
-import { CheckCircle, X } from "lucide-vue-next";
+import { CheckCircle, ChevronLeft, ChevronRight, X } from "lucide-vue-next";
 
 import SplashScreen from './components/SplashScreen.vue';
 import LandingPage from './components/LandingPage.vue';
@@ -17,7 +17,13 @@ import LanggananDanAset from './components/LanggananDanAset.vue';
 import SdmDanPajak from './components/SdmDanPajak.vue';
 import ProyeksiDanLaporan from './components/ProyeksiDanLaporan.vue';
 import PengaturanView from './components/PengaturanView.vue';
-import { financeApi, getApiErrorMessage } from './services/financeApi.js';
+import {
+  clearAuthSession,
+  financeApi,
+  getApiErrorMessage,
+  getStoredAuthUser,
+  hasAuthSession,
+} from './services/financeApi.js';
 import {
   mapAccount,
   mapAsset,
@@ -54,6 +60,12 @@ const MONTHS_ID = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
+const ACTIVE_TAB_KEY = 'finstart-ui-active-tab';
+const VALID_TABS = [
+  'dashboard', 'crm', 'bukubesar', 'transaksi', 'piutang', 'utang',
+  'langganan', 'aset', 'sdm', 'perpajakan', 'proyeksi', 'laporan', 'pengaturan',
+];
+
 function currentPeriod() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -73,6 +85,16 @@ function toNumber(value: any) {
   return Number.isFinite(result) ? result : 0;
 }
 
+function formatNotificationTime(value: any) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return 'Baru saja';
+  const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (diffMinutes < 1) return 'Baru saja';
+  if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+  if (diffMinutes < 1440) return `${Math.round(diffMinutes / 60)} jam lalu`;
+  return date.toLocaleDateString('id-ID');
+}
+
 function mapEmployee(row: any) {
   const employmentLabels: Record<string, string> = {
     permanent: 'Tetap',
@@ -84,6 +106,7 @@ function mapEmployee(row: any) {
 
   return {
     id: row.employee_code || `EMP-${row.id}`,
+    dbId: Number(row.id || 0),
     nama: row.full_name || row.employee_name || row.name || '-',
     jabatan: row.position_name || row.position || '-',
     status: employmentLabels[String(row.employment_type || '').toLowerCase()] || 'Aktif',
@@ -93,17 +116,59 @@ function mapEmployee(row: any) {
   };
 }
 
+function getSavedSessionEmail() {
+  return getStoredAuthUser()?.email || '';
+}
+
+function getSavedUserEmail() {
+  return getStoredAuthUser()?.email || '';
+}
+
+function getSavedActiveTab() {
+  if (typeof window === 'undefined') return 'dashboard';
+  const saved = localStorage.getItem(ACTIVE_TAB_KEY) || 'dashboard';
+  return VALID_TABS.includes(saved) ? saved : 'dashboard';
+}
+
+function clearSavedSession() {
+  if (typeof window === 'undefined') return;
+  clearAuthSession();
+}
+
 export default defineComponent({
   name: "App",
   setup() {
+    const hasSavedSession = hasAuthSession();
+    const splashDestination = hasSavedSession ? 'dashboard' : 'landing';
     const screen = ref('splash');
     const setScreen = (next: any) => { screen.value = typeof next === 'function' ? next(screen.value) : next; };
-    const activeTab = ref('dashboard');
-    const setActiveTab = (next: any) => { activeTab.value = typeof next === 'function' ? next(activeTab.value) : next; };
-    const userEmail = ref('finance@kedata.id');
+    const activeTab = ref(hasSavedSession ? getSavedActiveTab() : 'dashboard');
+    const setActiveTab = (next: any) => {
+      const resolved = typeof next === 'function' ? next(activeTab.value) : next;
+      activeTab.value = VALID_TABS.includes(resolved) ? resolved : 'dashboard';
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ACTIVE_TAB_KEY, activeTab.value);
+      }
+    };
+    const userEmail = ref(getSavedUserEmail());
     const setUserEmail = (next: any) => { userEmail.value = typeof next === 'function' ? next(userEmail.value) : next; };
-    const isSidebarCollapsed = ref(false);
-    const setIsSidebarCollapsed = (next: any) => { isSidebarCollapsed.value = typeof next === 'function' ? next(isSidebarCollapsed.value) : next; };
+    const userRole = ref(String(getStoredAuthUser()?.role_name || 'auditor'));
+    const allowedTabs = ref<string[]>(Array.isArray(getStoredAuthUser()?.allowed_tabs) && getStoredAuthUser()?.allowed_tabs?.length
+      ? getStoredAuthUser()?.allowed_tabs
+      : VALID_TABS);
+    const applyAuthenticatedUser = (user: any = {}) => {
+      setUserEmail(user?.email || getSavedUserEmail());
+      userRole.value = String(user?.role_name || userRole.value || 'auditor');
+      const nextAllowedTabs = Array.isArray(user?.allowed_tabs) && user.allowed_tabs.length
+        ? user.allowed_tabs.filter((tab: string) => VALID_TABS.includes(tab))
+        : VALID_TABS;
+      allowedTabs.value = nextAllowedTabs.length ? nextAllowedTabs : ['dashboard'];
+      if (!allowedTabs.value.includes(activeTab.value)) {
+        setActiveTab(allowedTabs.value.includes('dashboard') ? 'dashboard' : allowedTabs.value[0]);
+      }
+    };
+    const isSidebarCollapsed = ref(true);
+    const toggleSidebar = () => { isSidebarCollapsed.value = !isSidebarCollapsed.value; };
 
     // Semua daftar keuangan di bawah ini berasal dari API backend yang sudah ada.
     const proyek = ref<any[]>([]);
@@ -118,6 +183,7 @@ export default defineComponent({
 
     // Data SDM berasal dari Master Data Operasional.
     const pegawai = ref<any[]>([]);
+    const divisions = ref<any[]>([]);
 
     const dashboardSummary = ref<any>({
       cash_balance: 0, total_receivable: 0, total_payable: 0,
@@ -127,12 +193,17 @@ export default defineComponent({
     const taxSummary = ref<any>({ total_unpaid: 0, total_paid: 0, total_overdue: 0 });
     const taxCalculation = ref<any>({ revenue: 0, expense: 0, net_profit: 0 });
     const projectionData = ref<any>({ year: new Date().getFullYear(), months: [], summary: {} });
+    const projectionScenario = ref('normal');
+
+    // Laporan selalu membaca API. Periode dipilih dari jurnal posted agar data
+    // tidak menjadi Rp0 hanya karena tanggal browser tidak cocok dengan data.
+    const selectedReportPeriod = ref('');
+    const availableReportPeriods = ref<any[]>([]);
+    const reportError = ref('');
     const reportData = ref<any>({ income_statement: {}, balance_sheet: {}, cash_flow: {} });
     const dataVersion = ref(0);
 
-    const notifications = ref<any[]>([
-      { id: 'n-1', text: 'Data keuangan disinkronkan langsung dari backend FinStart.', type: 'info', time: 'Baru Saja' },
-    ]);
+    const notifications = ref<any[]>([]);
     const setNotifications = (next: any) => { notifications.value = typeof next === 'function' ? next(notifications.value) : next; };
 
     const toast = ref({ message: '', visible: false });
@@ -160,9 +231,53 @@ export default defineComponent({
       return Number(pickAccount(code, preferredType)?.id || 0);
     }
 
+    async function loadReportData(period: string, options: { silent?: boolean } = {}) {
+      const resolvedPeriod = /^\d{4}-\d{2}$/.test(String(period || ''))
+        ? String(period)
+        : currentPeriod();
+
+      reportError.value = '';
+      try {
+        const data = await financeApi.get('/reports', { period: resolvedPeriod });
+        reportData.value = data || { income_statement: {}, balance_sheet: {}, cash_flow: {} };
+        selectedReportPeriod.value = data?.period || resolvedPeriod;
+        return true;
+      } catch (error) {
+        console.error('Gagal memuat laporan', error);
+        reportData.value = { income_statement: {}, balance_sheet: {}, cash_flow: {} };
+        reportError.value = getApiErrorMessage(error, 'Laporan tidak dapat dimuat dari API.');
+        if (!options.silent) showToast(reportError.value);
+        return false;
+      }
+    }
+
+    const handleSelectReportPeriod = async (period: string) => {
+      const ok = await loadReportData(period);
+      if (ok) {
+        dataVersion.value += 1;
+        showToast(`Laporan periode ${reportData.value?.period_label || period} berhasil dimuat dari API.`);
+      }
+    };
+
     async function loadFinancialData(options: { silent?: boolean } = {}) {
       const period = currentPeriod();
       const year = new Date().getFullYear();
+
+      // Tentukan periode laporan dari jurnal posted, bukan semata tanggal perangkat.
+      try {
+        const periods = await financeApi.get('/reports/periods');
+        availableReportPeriods.value = Array.isArray(periods) ? periods : [];
+        const available = availableReportPeriods.value.map((item: any) => String(item.period));
+        const preferred = selectedReportPeriod.value && available.includes(selectedReportPeriod.value)
+          ? selectedReportPeriod.value
+          : (available.includes(period) ? period : (available[0] || period));
+        selectedReportPeriod.value = preferred;
+      } catch (error) {
+        availableReportPeriods.value = [];
+        selectedReportPeriod.value = selectedReportPeriod.value || period;
+        reportError.value = getApiErrorMessage(error, 'Daftar periode laporan tidak dapat dimuat.');
+      }
+
       const jobs = await Promise.allSettled([
         financeApi.get('/clients'),
         financeApi.get('/projects'),
@@ -175,10 +290,12 @@ export default defineComponent({
         financeApi.get('/taxes'),
         financeApi.get('/taxes/summary'),
         financeApi.get('/taxes/calculation', { period }),
-        financeApi.get('/projections', { year }),
-        financeApi.get('/reports', { period }),
+        financeApi.get('/projections', { year, scenario: projectionScenario.value }),
+        financeApi.get('/reports', { period: selectedReportPeriod.value || period }),
         financeApi.get('/dashboard/summary'),
         financeApi.get('/employees'),
+        financeApi.get('/divisions'),
+        financeApi.get('/notifications', { limit: 8 }),
       ]);
 
       const value = (index: number, fallback: any = []) => jobs[index].status === 'fulfilled' ? (jobs[index] as PromiseFulfilledResult<any>).value : fallback;
@@ -200,9 +317,24 @@ export default defineComponent({
       Object.assign(taxSummary.value, value(9, {}));
       Object.assign(taxCalculation.value, value(10, {}));
       Object.assign(projectionData.value, value(11, {}));
-      Object.assign(reportData.value, value(12, {}));
+      if (jobs[12].status === 'fulfilled') {
+        reportData.value = value(12, {}) || { income_statement: {}, balance_sheet: {}, cash_flow: {} };
+        reportError.value = '';
+        selectedReportPeriod.value = reportData.value?.period || selectedReportPeriod.value || period;
+      } else {
+        reportData.value = { income_statement: {}, balance_sheet: {}, cash_flow: {} };
+        reportError.value = getApiErrorMessage((jobs[12] as PromiseRejectedResult).reason, 'Laporan tidak dapat dimuat dari API.');
+      }
       Object.assign(dashboardSummary.value, value(13, {}));
       replaceList(pegawai, (value(14) || []).map(mapEmployee));
+      replaceList(divisions, value(15) || []);
+      setNotifications((value(16) || []).map((item: any) => ({
+        id: String(item.id),
+        text: item.message || item.title || 'Aktivitas sistem baru.',
+        type: ['warning', 'success', 'info'].includes(String(item.type || '').toLowerCase()) ? String(item.type).toLowerCase() : 'info',
+        time: formatNotificationTime(item.created_at),
+        is_read: Boolean(item.is_read),
+      })));
       dataVersion.value += 1;
 
       const failed = jobs.filter((job) => job.status === 'rejected');
@@ -236,28 +368,42 @@ export default defineComponent({
         start_date: item.tanggalMulai || null,
         end_date: item.tanggalSelesai || null,
         description: item.catatan || '',
+        budget_amount: toNumber(item.anggaran ?? item.budgetAmount),
+        milestones: Array.isArray(item.milestones) ? item.milestones : [],
+        members: Array.isArray(item.tim)
+          ? item.tim.map((member: any) => ({
+            employee_id: Number(member.employeeId || member.employee_id || 0) || null,
+            name: member.nama || member.name || '',
+            role_name: member.jabatan || member.role_name || '',
+            allocation_percent: toNumber(member.alokasiPersen ?? member.allocation_percent ?? 100),
+            estimated_cost: toNumber(member.estimasiBiaya ?? member.estimated_cost),
+          }))
+          : [],
       };
     }
 
-    async function withApiFeedback(task: () => Promise<void>, fallback: string) {
+    async function withApiFeedback<T>(task: () => Promise<T>, fallback: string): Promise<T | undefined> {
       try {
-        await task();
+        return await task();
       } catch (error) {
         console.error(error);
         showToast(getApiErrorMessage(error, fallback));
+        return undefined;
       }
     }
 
     const handleAddKlien = async (item: any) => withApiFeedback(async () => {
-      await financeApi.post('/clients', clientPayload(item));
+      const created = await financeApi.post('/clients', clientPayload(item));
       await loadFinancialData({ silent: true });
       showToast('Klien berhasil disimpan ke database.');
+      return mapClient(created);
     }, 'Gagal menyimpan klien.');
 
     const handleUpdateKlien = async (item: any) => withApiFeedback(async () => {
-      await financeApi.put(`/clients/${item.id}`, clientPayload(item));
+      const updated = await financeApi.put(`/clients/${item.id}`, clientPayload(item));
       await loadFinancialData({ silent: true });
       showToast('Data klien berhasil diperbarui.');
+      return mapClient(updated);
     }, 'Gagal memperbarui klien.');
 
     const handleDeleteKlien = async (id: string) => withApiFeedback(async () => {
@@ -267,15 +413,17 @@ export default defineComponent({
     }, 'Gagal menghapus klien.');
 
     const handleAddProyek = async (item: any) => withApiFeedback(async () => {
-      await financeApi.post('/projects', projectPayload(item));
+      const created = await financeApi.post('/projects', projectPayload(item));
       await loadFinancialData({ silent: true });
       showToast('Proyek berhasil disimpan ke database.');
+      return mapProject(created);
     }, 'Gagal menyimpan proyek.');
 
     const handleUpdateProyek = async (item: any) => withApiFeedback(async () => {
-      await financeApi.put(`/projects/${item.id}`, projectPayload(item));
+      const updated = await financeApi.put(`/projects/${item.id}`, projectPayload(item));
       await loadFinancialData({ silent: true });
       showToast('Data proyek berhasil diperbarui.');
+      return mapProject(updated);
     }, 'Gagal memperbarui proyek.');
 
     const handleDeleteProyek = async (id: string) => withApiFeedback(async () => {
@@ -284,44 +432,87 @@ export default defineComponent({
       showToast('Proyek berhasil dihapus dari database.');
     }, 'Gagal menghapus proyek.');
 
-    const handleAddAkun = async (item: any) => withApiFeedback(async () => {
+    const accountPayload = (item: any) => {
       const typeMap: Record<string, string> = { Aset: 'asset', Kewajiban: 'liability', Modal: 'equity', Pendapatan: 'revenue', Beban: 'expense' };
-      await financeApi.post('/accounts', {
+      return {
         code: item.kode,
         name: item.nama,
-        type: typeMap[item.tipe] || 'asset',
-        normal_balance: ['Aset', 'Beban'].includes(item.tipe) ? 'debit' : 'credit',
-        opening_balance: toNumber(item.saldo),
-        status: 'active',
-      });
+        type: typeMap[item.tipe] || item.type || 'asset',
+        normal_balance: item.normalBalance || (['Aset', 'Beban'].includes(item.tipe) ? 'debit' : 'credit'),
+        opening_balance: toNumber(item.saldo ?? item.openingBalance),
+        status: item.status || 'active',
+        parent_id: item.parentId || item.parent_id || null,
+      };
+    };
+
+    const handleAddAkun = async (item: any) => withApiFeedback(async () => {
+      await financeApi.post('/accounts', accountPayload(item));
       await loadFinancialData({ silent: true });
       showToast('Akun buku besar berhasil disimpan ke database.');
     }, 'Gagal menyimpan akun buku besar.');
 
+    const handleUpdateAkun = async (account: any, item: any) => withApiFeedback(async () => {
+      await financeApi.put(`/accounts/${account.id}`, accountPayload(item));
+      await loadFinancialData({ silent: true });
+      showToast('Akun buku besar berhasil diperbarui.');
+    }, 'Gagal memperbarui akun buku besar.');
+
+    const handleDeleteAkun = async (account: any) => withApiFeedback(async () => {
+      await financeApi.delete(`/accounts/${account.id}`);
+      await loadFinancialData({ silent: true });
+      showToast('Akun buku besar berhasil dihapus.');
+    }, 'Akun tidak dapat dihapus karena sudah dipakai jurnal/transaksi. Nonaktifkan akun tersebut sebagai gantinya.');
+
     async function postJournal(newT: any) {
-      const debit = pickAccount(newT.debitAkun, 'Aset');
-      const credit = pickAccount(newT.kreditAkun, 'Pendapatan');
-      if (!debit || !credit) throw new Error('Akun debit atau kredit belum tersedia di database.');
-      const draft = await financeApi.post('/journals', {
+      const incomingLines = Array.isArray(newT.lines) ? newT.lines : [];
+      const lines = incomingLines.length
+        ? incomingLines.map((line: any) => {
+          const account = pickAccount(line.kode || line.accountCode || line.account_id, line.debit > 0 ? 'Aset' : undefined);
+          if (!account) throw new Error(`Akun ${line.kode || line.accountCode || ''} belum tersedia di database.`);
+          return {
+            account_id: Number(account.id),
+            description: newT.keterangan || '',
+            debit: toNumber(line.debit),
+            credit: toNumber(line.credit),
+          };
+        })
+        : (() => {
+          const debit = pickAccount(newT.debitAkun, 'Aset');
+          const credit = pickAccount(newT.kreditAkun, 'Pendapatan');
+          if (!debit || !credit) throw new Error('Akun debit atau kredit belum tersedia di database.');
+          return [
+            { account_id: Number(debit.id), description: newT.keterangan || '', debit: toNumber(newT.nominal), credit: 0 },
+            { account_id: Number(credit.id), description: newT.keterangan || '', debit: 0, credit: toNumber(newT.nominal) },
+          ];
+        })();
+      return financeApi.post('/journals', {
         voucher_number: newT.refVoucher || `JV-${Date.now()}`,
         transaction_date: newT.tanggal || new Date().toISOString().slice(0, 10),
         description: newT.keterangan || 'Jurnal manual FinStart',
         source_type: 'manual',
         source_id: null,
-        lines: [
-          { account_id: Number(debit.id), description: newT.keterangan || '', debit: toNumber(newT.nominal), credit: 0 },
-          { account_id: Number(credit.id), description: newT.keterangan || '', debit: 0, credit: toNumber(newT.nominal) },
-        ],
+        division_id: Number(newT.divisionId || newT.division_id || 0) || null,
+        lines,
       });
-      await financeApi.post(`/journals/${draft.id}/approve`, {});
-      await financeApi.post(`/journals/${draft.id}/post`, {});
     }
 
     const handleAddTransaksi = async (item: any) => withApiFeedback(async () => {
       await postJournal(item);
       await loadFinancialData({ silent: true });
-      showToast('Jurnal berhasil diposting ke database.');
-    }, 'Gagal memposting jurnal.');
+      showToast('Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.');
+    }, 'Gagal membuat jurnal draft.');
+
+    const handleApproveJournal = async (item: any) => withApiFeedback(async () => {
+      await financeApi.post(`/journals/${item.id}/approve`, {});
+      await loadFinancialData({ silent: true });
+      showToast('Jurnal disetujui dan siap diposting.');
+    }, 'Gagal menyetujui jurnal. Pembuat jurnal tidak boleh menyetujui jurnalnya sendiri.');
+
+    const handlePostJournal = async (item: any) => withApiFeedback(async () => {
+      await financeApi.post(`/journals/${item.id}/post`, {});
+      await loadFinancialData({ silent: true });
+      showToast('Jurnal berhasil diposting ke Buku Besar.');
+    }, 'Gagal memposting jurnal. Pastikan jurnal sudah disetujui.');
 
     const handleAddJournalFromSubledger = async (memo: string, amount: number, drCode: string, crCode: string) => {
       await handleAddTransaksi({
@@ -334,24 +525,45 @@ export default defineComponent({
       });
     };
 
-    const handleCreateInvoice = async (form: any) => withApiFeedback(async () => {
-      const project = proyek.value.find((item) => String(item.id) === String(form.proyekId));
+    const invoicePayload = (form: any) => {
+      const project = proyek.value.find((item) => String(item.id) === String(form.proyekId || form.projectId));
       if (!project) throw new Error('Pilih proyek terlebih dahulu.');
-      const draft = await financeApi.post('/invoices', {
+      return {
         client_id: Number(project.klienId),
         project_id: Number(project.id),
-        invoice_number: `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
-        issue_date: form.tanggalKirim || new Date().toISOString().slice(0, 10),
-        due_date: form.jatuhTempo || form.tanggalKirim || new Date().toISOString().slice(0, 10),
-        notes: '',
-        items: [{ description: `Termin proyek ${project.nama}`, quantity: 1, unit_price: toNumber(form.nominal) }],
-        tax: { ppn_enabled: false, ppn_rate: 0 },
-      });
-      const revenue = pickAccount('4001', 'Pendapatan');
-      await financeApi.post(`/invoices/${draft.id}/issue`, revenue ? { revenue_account_id: Number(revenue.id) } : {});
+        invoice_number: form.nomor || form.invoiceNumber || `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+        issue_date: form.tanggalKirim || form.issueDate || new Date().toISOString().slice(0, 10),
+        due_date: form.jatuhTempo || form.dueDate || form.tanggalKirim || new Date().toISOString().slice(0, 10),
+        notes: form.keterangan || form.notes || `Termin proyek ${project.nama}`,
+        items: [{ description: form.keterangan || `Termin proyek ${project.nama}`, quantity: 1, unit_price: toNumber(form.nominal) }],
+        tax: { ppn_enabled: Boolean(form.ppnEnabled), ppn_rate: toNumber(form.ppnRate) || 0 },
+      };
+    };
+
+    const handleCreateInvoice = async (form: any) => withApiFeedback(async () => {
+      await financeApi.post('/invoices', invoicePayload(form));
       await loadFinancialData({ silent: true });
-      showToast('Invoice berhasil disimpan dan diposting ke jurnal.');
+      showToast('Invoice draft berhasil disimpan. Terbitkan dari daftar setelah diperiksa.');
     }, 'Gagal membuat invoice.');
+
+    const handleUpdateInvoice = async (invoice: any, form: any) => withApiFeedback(async () => {
+      await financeApi.put(`/invoices/${invoice.id}`, invoicePayload({ ...form, nomor: form.nomor || invoice.nomor }));
+      await loadFinancialData({ silent: true });
+      showToast('Invoice draft berhasil diperbarui.');
+    }, 'Gagal memperbarui invoice draft.');
+
+    const handleIssueInvoice = async (invoice: any) => withApiFeedback(async () => {
+      const revenue = pickAccount('4001', 'Pendapatan');
+      await financeApi.post(`/invoices/${invoice.id}/issue`, revenue ? { revenue_account_id: Number(revenue.id) } : {});
+      await loadFinancialData({ silent: true });
+      showToast(`Invoice ${invoice.nomor} diterbitkan dan jurnal otomatis dibuat.`);
+    }, 'Gagal menerbitkan invoice.');
+
+    const handleCancelInvoice = async (invoice: any, reason = '') => withApiFeedback(async () => {
+      await financeApi.post(`/invoices/${invoice.id}/cancel`, { cancellation_date: new Date().toISOString().slice(0, 10), reason });
+      await loadFinancialData({ silent: true });
+      showToast(`Invoice ${invoice.nomor} berhasil dibatalkan.`);
+    }, 'Gagal membatalkan invoice. Invoice yang sudah dibayar sebagian harus dikoreksi melalui nota kredit.');
 
     const handleRecordInvoicePayment = async (invoice: any, payment: any) => withApiFeedback(async () => {
       const cash = pickAccount(payment.accountCode || '1001', 'Aset');
@@ -368,22 +580,41 @@ export default defineComponent({
       showToast(`Pelunasan invoice ${invoice.nomor} berhasil dibukukan.`);
     }, 'Gagal mencatat pelunasan invoice.');
 
+    const billPayload = (form: any) => ({
+      vendor_name: form.vendor,
+      project_id: form.alokasiProyek || form.projectId ? Number(form.alokasiProyek || form.projectId) : null,
+      bill_number: form.nomorTagihan || form.billNumber || `BILL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+      bill_date: form.tanggalMasuk || form.billDate || new Date().toISOString().slice(0, 10),
+      due_date: form.jatuhTempo || form.dueDate || form.tanggalMasuk || new Date().toISOString().slice(0, 10),
+      notes: form.keterangan || form.notes || '',
+      items: [{ description: form.keterangan || 'Tagihan vendor', quantity: 1, unit_price: toNumber(form.nominal) }],
+      tax: { ppn_enabled: Boolean(form.ppnEnabled), ppn_rate: toNumber(form.ppnRate) || 0, pph23_enabled: Boolean(form.pph23Enabled), pph23_rate: toNumber(form.pph23Rate) || 0 },
+    });
+
     const handleCreateBill = async (form: any) => withApiFeedback(async () => {
-      const draft = await financeApi.post('/bills', {
-        vendor_name: form.vendor,
-        project_id: form.alokasiProyek ? Number(form.alokasiProyek) : null,
-        bill_number: form.nomorTagihan || `BILL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
-        bill_date: form.tanggalMasuk || new Date().toISOString().slice(0, 10),
-        due_date: form.jatuhTempo || form.tanggalMasuk || new Date().toISOString().slice(0, 10),
-        notes: form.keterangan || '',
-        items: [{ description: form.keterangan || 'Tagihan vendor', quantity: 1, unit_price: toNumber(form.nominal) }],
-        tax: { ppn_enabled: false, ppn_rate: 0 },
-      });
-      const expense = pickAccount('5002', 'Beban');
-      await financeApi.post(`/bills/${draft.id}/issue`, expense ? { expense_account_id: Number(expense.id) } : {});
+      await financeApi.post('/bills', billPayload(form));
       await loadFinancialData({ silent: true });
-      showToast('Tagihan vendor berhasil disimpan dan diposting ke jurnal.');
+      showToast('Tagihan vendor draft berhasil disimpan. Terbitkan dari daftar setelah diperiksa.');
     }, 'Gagal menyimpan tagihan vendor.');
+
+    const handleUpdateBill = async (bill: any, form: any) => withApiFeedback(async () => {
+      await financeApi.put(`/bills/${bill.id}`, billPayload({ ...form, nomorTagihan: form.nomorTagihan || bill.nomorTagihan }));
+      await loadFinancialData({ silent: true });
+      showToast('Tagihan draft berhasil diperbarui.');
+    }, 'Gagal memperbarui tagihan draft.');
+
+    const handleIssueBill = async (bill: any) => withApiFeedback(async () => {
+      const expense = pickAccount('5002', 'Beban');
+      await financeApi.post(`/bills/${bill.id}/issue`, expense ? { expense_account_id: Number(expense.id) } : {});
+      await loadFinancialData({ silent: true });
+      showToast(`Tagihan ${bill.nomorTagihan} diterbitkan dan jurnal otomatis dibuat.`);
+    }, 'Gagal menerbitkan tagihan.');
+
+    const handleCancelBill = async (bill: any, reason = '') => withApiFeedback(async () => {
+      await financeApi.post(`/bills/${bill.id}/cancel`, { cancellation_date: new Date().toISOString().slice(0, 10), reason });
+      await loadFinancialData({ silent: true });
+      showToast(`Tagihan ${bill.nomorTagihan} berhasil dibatalkan.`);
+    }, 'Gagal membatalkan tagihan. Tagihan yang sudah dibayar sebagian harus dikoreksi melalui nota debit.');
 
     const handlePayBill = async (bill: any, payment: any) => withApiFeedback(async () => {
       const cash = pickAccount(payment.accountCode || '1001', 'Aset');
@@ -455,6 +686,25 @@ export default defineComponent({
       showToast('Aset berhasil diregistrasi dan dijurnal ke database.');
     }, 'Gagal meregistrasi aset.');
 
+    const handleUpdateAsset = async (asset: any, item: any) => withApiFeedback(async () => {
+      const raw = asset?._raw || {};
+      await financeApi.put(`/assets/${asset.id}`, {
+        asset_name: item.nama,
+        category: item.kategori,
+        useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
+        residual_value: toNumber(item.nilaiSisa),
+        notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : (raw.notes || ''),
+      });
+      await loadFinancialData({ silent: true });
+      showToast('Data aset berhasil diperbarui. Harga perolehan tidak diubah agar jurnal akuisisi tetap konsisten.');
+    }, 'Gagal memperbarui aset.');
+
+    const handleDisposeAsset = async (asset: any, reason = '') => withApiFeedback(async () => {
+      await financeApi.post(`/assets/${asset.id}/dispose`, { disposal_date: new Date().toISOString().slice(0, 10), reason });
+      await loadFinancialData({ silent: true });
+      showToast(`Aset ${asset.nama} telah dilepas dan jurnal pelepasan dibuat.`);
+    }, 'Gagal melepas aset.');
+
     const handleCreateTax = async (item: any) => withApiFeedback(async () => {
       const created = await financeApi.post('/taxes', {
         tax_type: item.jenis,
@@ -497,6 +747,44 @@ export default defineComponent({
       showToast('Target proyeksi berhasil disimpan ke database.');
     }, 'Gagal menyimpan proyeksi.');
 
+    const handleSelectProjectionScenario = async (scenarioKey: string) => {
+      projectionScenario.value = ['optimistic', 'normal', 'pessimistic'].includes(String(scenarioKey)) ? String(scenarioKey) : 'normal';
+      await loadFinancialData({ silent: true });
+    };
+
+    const handleUpdateProjectionScenario = async (scenario: any) => withApiFeedback(async () => {
+      await financeApi.put(`/projections/scenarios/${scenario.scenario_key}`, {
+        projection_year: Number(projectionData.value.year || new Date().getFullYear()),
+        revenue_factor: toNumber(scenario.revenue_factor),
+        expense_factor: toNumber(scenario.expense_factor),
+        notes: scenario.notes || '',
+      });
+      await loadFinancialData({ silent: true });
+      showToast('Parameter skenario proyeksi berhasil diperbarui.');
+    }, 'Gagal memperbarui skenario proyeksi.');
+
+    const handleSaveBudgetAllocation = async (budget: any) => withApiFeedback(async () => {
+      const payload = {
+        budget_year: Number(budget.budget_year || projectionData.value.year || new Date().getFullYear()),
+        budget_month: budget.budget_month === '' || budget.budget_month === null || budget.budget_month === undefined ? null : Number(budget.budget_month),
+        scenario_key: budget.scenario_key || projectionScenario.value || 'normal',
+        account_id: Number(budget.account_id),
+        division_id: budget.division_id ? Number(budget.division_id) : null,
+        budget_amount: toNumber(budget.budget_amount),
+        notes: budget.notes || '',
+      };
+      if (budget.id) await financeApi.put(`/projections/budgets/${budget.id}`, payload);
+      else await financeApi.post('/projections/budgets', payload);
+      await loadFinancialData({ silent: true });
+      showToast(budget.id ? 'Budget akun/divisi berhasil diperbarui.' : 'Budget akun/divisi berhasil disimpan.');
+    }, 'Gagal menyimpan budget akun/divisi.');
+
+    const handleDeleteBudgetAllocation = async (budget: any) => withApiFeedback(async () => {
+      await financeApi.delete(`/projections/budgets/${budget.id}`);
+      await loadFinancialData({ silent: true });
+      showToast('Budget akun/divisi berhasil dihapus.');
+    }, 'Gagal menghapus budget akun/divisi.');
+
     const handleQuickAction = (action: string) => {
       if (action === 'entri_jurnal') {
         setActiveTab('transaksi');
@@ -510,8 +798,9 @@ export default defineComponent({
       }
     };
 
-    const handleLoginSuccess = (email: string) => {
-      setUserEmail(email);
+    const handleLoginSuccess = (session: any) => {
+      const email = session?.user?.email || getSavedUserEmail();
+      applyAuthenticatedUser(session?.user || {});
       setScreen('auth-loading');
 
       loadFinancialData({ silent: true }).catch(() => {
@@ -523,12 +812,47 @@ export default defineComponent({
         showToast(`Otentikasi berhasil. Selamat datang ${email.split('@')[0]}!`);
       }, 3000);
     };
-    const handleLogout = () => {
+    const handleLogout = async () => {
+      try {
+        await financeApi.logout();
+      } catch (error) {
+        console.warn(error);
+      }
+      clearSavedSession();
+      setActiveTab('dashboard');
+      localStorage.removeItem(ACTIVE_TAB_KEY);
       setScreen('landing');
       showToast('Sesi ditutup. Anda berhasil keluar sistem.');
     };
 
-    onMounted(() => { loadFinancialData({ silent: true }); });
+    let authExpiredHandler: (() => void) | undefined;
+
+    onMounted(() => {
+      authExpiredHandler = () => {
+        clearSavedSession();
+        setActiveTab('dashboard');
+        setScreen('login');
+        showToast('Sesi server berakhir. Silakan login ulang.');
+      };
+      window.addEventListener('finstart-auth-expired', authExpiredHandler);
+
+      if (hasSavedSession) {
+        financeApi.me()
+          .then((session: any) => {
+            applyAuthenticatedUser(session?.user || {});
+            return loadFinancialData({ silent: true });
+          })
+          .catch(() => {
+            if (authExpiredHandler) authExpiredHandler();
+          });
+      }
+    });
+
+    onUnmounted(() => {
+      if (authExpiredHandler) {
+        window.removeEventListener('finstart-auth-expired', authExpiredHandler);
+      }
+    });
     return () => <div class="min-h-screen bg-[#F7F9FC] text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-x-hidden relative">
       
       {/* Dynamic Animated Screen Transitions */}
@@ -543,7 +867,7 @@ export default defineComponent({
         }} transition={{
           duration: 0.5
         }}>
-            <SplashScreen onComplete={() => setScreen('landing')} />
+            <SplashScreen onComplete={() => setScreen(splashDestination)} />
           </motion.div>}
 
         {/* SCREEN 2: Premium Corporate Landing Page */}
@@ -597,42 +921,78 @@ export default defineComponent({
           opacity: 0
         }} class="app-shell flex flex-col lg:flex-row h-screen overflow-hidden">
             {/* Navigation Drawer Sidebar */}
-            <Sidebar activeTab={activeTab.value} setActiveTab={setActiveTab} isCollapsed={isSidebarCollapsed.value} setIsCollapsed={setIsSidebarCollapsed} onLogout={handleLogout} />
+            <Sidebar activeTab={activeTab.value} setActiveTab={setActiveTab} isCollapsed={isSidebarCollapsed.value} onToggleSidebar={toggleSidebar} onLogout={handleLogout} allowedTabs={allowedTabs.value} />
+
+            <button
+              id="btn-sidebar-drawer"
+              type="button"
+              onClick={toggleSidebar}
+              style={{
+                position: 'fixed',
+                left: isSidebarCollapsed.value ? '0px' : '286px',
+                top: '58%',
+                transform: 'translateY(-50%)',
+                zIndex: 99999,
+                display: 'flex',
+                width: '42px',
+                height: '72px',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderTop: '1px solid #D8E5F4',
+                borderRight: '1px solid #D8E5F4',
+                borderBottom: '1px solid #D8E5F4',
+                borderLeft: 0,
+                borderRadius: '0 18px 18px 0',
+                background: '#FFFFFF',
+                color: '#102A56',
+                boxShadow: '0 16px 34px rgba(16,42,86,0.20)',
+                transition: 'left 240ms ease, background 180ms ease, color 180ms ease',
+              }}
+              class="hover:!bg-[#0B3A78] hover:!text-white"
+              title={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
+              aria-label={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
+            >
+              {isSidebarCollapsed.value ? <ChevronRight class="h-5 w-5" /> : <ChevronLeft class="h-5 w-5" />}
+            </button>
 
             {/* Right Workspaces Shell */}
             <div class="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
-              <Topbar userEmail={userEmail.value} onLogout={handleLogout} notifications={notifications.value} isSidebarCollapsed={isSidebarCollapsed.value} setIsSidebarCollapsed={setIsSidebarCollapsed} />
+              <Topbar userEmail={userEmail.value} userRole={userRole.value} onLogout={handleLogout} onOpenSettings={() => setActiveTab('pengaturan')} notifications={notifications.value} />
 
               {/* Main Contents Panel */}
-              <main class="app-main flex-1 overflow-y-auto p-4 md:p-8">
+              <main
+                style={{
+                  marginLeft: isSidebarCollapsed.value ? '0px' : '286px',
+                  width: isSidebarCollapsed.value ? '100%' : 'calc(100% - 286px)',
+                  transition: 'margin-left 260ms ease, width 260ms ease',
+                }}
+                class="app-main flex-1 overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
+              >
                 <AnimatePresence mode="wait">
                   <motion.div key={activeTab.value} initial={{
-                  opacity: 0,
-                  y: 15
+                  opacity: 0
                 }} animate={{
-                  opacity: 1,
-                  y: 0
+                  opacity: 1
                 }} exit={{
-                  opacity: 0,
-                  y: -15
+                  opacity: 0
                 }} transition={{
                   duration: 0.25
-                }} class="mx-auto h-full max-w-7xl">
-                    {activeTab.value === 'dashboard' && <DashboardView key={`dashboard-${dataVersion.value}`} proyek={proyek.value} klien={klien.value} akun={akun.value} transaksi={transaksi.value} langganan={langganan.value} dashboard={dashboardSummary.value} invoices={invoices.value} setActiveTab={setActiveTab} onQuickAction={handleQuickAction} />}
+                }} class={`mx-auto min-h-full w-full ${activeTab.value === 'crm' ? 'max-w-[1760px]' : 'max-w-7xl'}`}>
+                    {activeTab.value === 'dashboard' && <DashboardView key={`dashboard-${dataVersion.value}`} proyek={proyek.value} klien={klien.value} akun={akun.value} transaksi={transaksi.value} langganan={langganan.value} dashboard={dashboardSummary.value} invoices={invoices.value} bills={bills.value} assets={assets.value} taxes={taxes.value} pegawai={pegawai.value} projectionData={projectionData.value} reportData={reportData.value} setActiveTab={setActiveTab} onQuickAction={handleQuickAction} />}
 
                     {activeTab.value === 'crm' && <CrmView key={`crm-${dataVersion.value}`} proyek={proyek.value} klien={klien.value} pegawai={pegawai.value} onAddProyek={handleAddProyek} onUpdateProyek={handleUpdateProyek} onAddKlien={handleAddKlien} onUpdateKlien={handleUpdateKlien} onDeleteProyek={handleDeleteProyek} onDeleteKlien={handleDeleteKlien} showToast={showToast} />}
 
-                    {(activeTab.value === 'bukubesar' || activeTab.value === 'transaksi') && <BukuBesarDanTransaksi key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} akun={akun.value} transaksi={transaksi.value} onAddAkun={handleAddAkun} onAddTransaksi={handleAddTransaksi} showToast={showToast} />}
+                    {(activeTab.value === 'bukubesar' || activeTab.value === 'transaksi') && <BukuBesarDanTransaksi key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} akun={akun.value} transaksi={transaksi.value} divisions={divisions.value} userRole={userRole.value} onAddAkun={handleAddAkun} onUpdateAkun={handleUpdateAkun} onDeleteAkun={handleDeleteAkun} onAddTransaksi={handleAddTransaksi} onApproveJournal={handleApproveJournal} onPostJournal={handlePostJournal} showToast={showToast} />}
 
-                    {(activeTab.value === 'piutang' || activeTab.value === 'utang') && <PiutangDanUtang key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} proyek={proyek.value} klien={klien.value} akun={akun.value} invoices={invoices.value} bills={bills.value} onCreateInvoice={handleCreateInvoice} onRecordInvoicePayment={handleRecordInvoicePayment} onCreateBill={handleCreateBill} onPayBill={handlePayBill} showToast={showToast} />}
+                    {(activeTab.value === 'piutang' || activeTab.value === 'utang') && <PiutangDanUtang key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} proyek={proyek.value} klien={klien.value} akun={akun.value} invoices={invoices.value} bills={bills.value} onCreateInvoice={handleCreateInvoice} onUpdateInvoice={handleUpdateInvoice} onIssueInvoice={handleIssueInvoice} onCancelInvoice={handleCancelInvoice} onRecordInvoicePayment={handleRecordInvoicePayment} onCreateBill={handleCreateBill} onUpdateBill={handleUpdateBill} onIssueBill={handleIssueBill} onCancelBill={handleCancelBill} onPayBill={handlePayBill} showToast={showToast} />}
 
-                    {(activeTab.value === 'langganan' || activeTab.value === 'aset') && <LanggananDanAset key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} langganan={langganan.value} assets={assets.value} onAddLangganan={handleAddLangganan} onDeleteLangganan={handleDeleteLangganan} onAddAsset={handleAddAsset} showToast={showToast} />}
+                    {(activeTab.value === 'langganan' || activeTab.value === 'aset') && <LanggananDanAset key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} langganan={langganan.value} assets={assets.value} onAddLangganan={handleAddLangganan} onDeleteLangganan={handleDeleteLangganan} onAddAsset={handleAddAsset} onUpdateAsset={handleUpdateAsset} onDisposeAsset={handleDisposeAsset} onRefreshData={() => loadFinancialData({ silent: true })} showToast={showToast} />}
 
                     {(activeTab.value === 'sdm' || activeTab.value === 'perpajakan') && <SdmDanPajak key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} pegawai={pegawai.value} akun={akun.value} taxes={taxes.value} taxSummary={taxSummary.value} taxCalculationData={taxCalculation.value} onAddJournalFromSubledger={handleAddJournalFromSubledger} onCreateTax={handleCreateTax} onPayTax={handlePayTax} onRefreshData={() => loadFinancialData({ silent: true })} showToast={showToast} />}
 
-                    {(activeTab.value === 'proyeksi' || activeTab.value === 'laporan') && <ProyeksiDanLaporan key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} akun={akun.value} transaksi={transaksi.value} proyek={proyek.value} projectionData={projectionData.value} reportData={reportData.value} onSaveProjection={handleSaveProjection} showToast={showToast} />}
+                    {(activeTab.value === 'proyeksi' || activeTab.value === 'laporan') && <ProyeksiDanLaporan key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} akun={akun.value} transaksi={transaksi.value} proyek={proyek.value} divisions={divisions.value} projectionData={projectionData.value} reportData={reportData.value} reportPeriod={selectedReportPeriod.value} reportPeriods={availableReportPeriods.value} reportError={reportError.value} onSelectReportPeriod={handleSelectReportPeriod} onSaveProjection={handleSaveProjection} onSelectProjectionScenario={handleSelectProjectionScenario} onUpdateProjectionScenario={handleUpdateProjectionScenario} onSaveBudgetAllocation={handleSaveBudgetAllocation} onDeleteBudgetAllocation={handleDeleteBudgetAllocation} showToast={showToast} />}
 
-                    {activeTab.value === 'pengaturan' && <PengaturanView userEmail={userEmail.value} showToast={showToast} />}
+                    {activeTab.value === 'pengaturan' && <PengaturanView userEmail={userEmail.value} userRole={userRole.value} showToast={showToast} />}
                   </motion.div>
                 </AnimatePresence>
               </main>

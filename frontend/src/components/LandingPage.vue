@@ -1,7 +1,7 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, onMounted, ref } from "vue";
+import { Fragment, defineComponent, h, onMounted, onUnmounted, ref } from "vue";
 import { motion, AnimatePresence } from "../compat/motion.js";
-import { ArrowRight, Sparkles, Cpu, Database, Activity, FileText, MessageSquare, Shield, Target, ExternalLink, Mail, Phone, MapPin, Linkedin, Award, Lock, Server, TrendingUp, Layers, Compass, HeartPulse, DollarSign, Factory, Landmark, ShoppingBag, GraduationCap, Radio, Truck, Home, Film, Zap, Leaf, ShieldCheck, Check, Menu, X, Info, Lightbulb, Workflow, Briefcase, CheckCircle2, ChevronLeft, ChevronRight, BarChart3, HelpCircle, Eye, Settings, Users, Calendar, Building, BookOpen } from "lucide-vue-next";
+import { ArrowRight, Cpu, Database, Activity, FileText, MessageSquare, Shield, Target, ExternalLink, Mail, Phone, MapPin, Linkedin, Award, Lock, Server, TrendingUp, Layers, Compass, HeartPulse, DollarSign, Factory, Landmark, ShoppingBag, GraduationCap, Radio, Truck, Home, Film, Zap, Leaf, ShieldCheck, Check, Menu, X, Info, Lightbulb, Workflow, Briefcase, CheckCircle2, ChevronLeft, ChevronRight, BarChart3, HelpCircle, Eye, Settings, Users, Calendar, Building, BookOpen } from "lucide-vue-next";
 import KedataLogo from './KedataLogo.vue';
 interface LandingPageProps {
   onLoginClick: () => void;
@@ -937,12 +937,19 @@ export default defineComponent({
       setActiveClientIndex(prev => (prev - 1 + financeCarouselItems.length) % financeCarouselItems.length);
     };
 
-    // Autoplay slow rotation for client cards - resets interval on active index change
+    // Carousel bergerak langsung setiap beberapa detik tanpa indikator loading/progress.
+    const isCarouselPaused = ref(false);
+    const carouselCycleMs = 4600;
+    let carouselTimer: number | undefined;
+    const pauseCarousel = () => { isCarouselPaused.value = true; };
+    const resumeCarousel = () => { isCarouselPaused.value = false; };
     onMounted(() => {
-      const timer = setInterval(() => {
-        nextSlide();
-      }, 6000);
-      return () => clearInterval(timer);
+      carouselTimer = window.setInterval(() => {
+        if (!isCarouselPaused.value) nextSlide();
+      }, carouselCycleMs);
+    });
+    onUnmounted(() => {
+      if (carouselTimer) window.clearInterval(carouselTimer);
     });
 
     // Modul utama Finstart
@@ -1208,12 +1215,17 @@ export default defineComponent({
       return visible;
     };
     return () => <div class="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-500/20 selection:text-[#0B1F4A] scroll-smooth">
+      <style>{`
+        .landing-carousel-stage { isolation:isolate; }
+        .landing-carousel-card { will-change:transform,opacity; }
+        @media (prefers-reduced-motion:reduce) { .landing-carousel-card { transition:none!important; } }
+      `}</style>
       
       {/* HEADER & NAVBAR */}
       <nav id="navbar" class="sticky top-0 bg-[#0B1F4A]/95 backdrop-blur-md border-b border-white/10 py-4 px-6 md:px-12 flex items-center justify-between z-40 transition-all duration-300">
         {/* Kedata Logo - Clean blue & white */}
         <div class="flex items-center gap-2.5 cursor-pointer" onClick={() => scrollToSection('beranda')}>
-          <KedataLogo class="h-9 w-9 shrink-0" />
+          <KedataLogo size={30} class="shrink-0" />
           <div class="flex flex-col text-left">
             <span class="font-black text-lg text-white tracking-wider leading-none">KEDATA</span>
             <span class="text-[7.5px] text-blue-400 font-extrabold uppercase tracking-widest leading-none mt-1">Indonesia Digital</span>
@@ -1222,7 +1234,7 @@ export default defineComponent({
       </nav>
 
       {/* HERO SECTION - Matching clean alignment & exact visual hierarchy of reference image 2 */}
-      <section id="beranda" class="relative pt-16 pb-32 md:py-32 lg:py-40 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center">
+      <section id="beranda" class="relative pt-28 pb-28 md:pt-32 md:pb-32 lg:pt-36 lg:pb-36 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center">
         {/* Soft elegant blue radial grid and glow backdrops */}
         <div class="absolute top-0 inset-x-0 h-full bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.1),transparent_60%)] pointer-events-none" />
         <div class="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -1253,26 +1265,21 @@ export default defineComponent({
           {/* 3D CURVED ROTATING CAROUSEL filled with Finstart features */}
           <div class="pt-20 max-w-5xl mx-auto relative min-h-[460px]">
             
-            <div class="flex items-center justify-between mb-8 max-w-4xl mx-auto px-4">
-              <span class="text-[10px] text-blue-300 font-extrabold uppercase tracking-widest font-mono">
-                SEMUA FITUR SISTEM ({activeClientIndex.value + 1}/{financeCarouselItems.length})
+            <div class="mb-8 flex justify-center px-4">
+              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-200">
+                Semua fitur sistem ({activeClientIndex.value + 1}/{financeCarouselItems.length})
               </span>
-              
-              {/* Carousel Navigation */}
-              <div class="flex items-center gap-2 relative z-20">
-                <button onClick={prevSlide} class="p-2.5 bg-white/10 hover:bg-white/25 border border-white/15 rounded-full transition-all text-white" aria-label="Fitur sebelumnya">
-                  <ChevronLeft class="w-4 h-4" />
-                </button>
-                <button onClick={nextSlide} class="p-2.5 bg-white/10 hover:bg-white/25 border border-white/15 rounded-full transition-all text-white" aria-label="Fitur berikutnya">
-                  <ChevronRight class="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
             {/* Simulated 3D Curved Slider Stage */}
-            <div class="relative w-full h-[360px] flex justify-center items-center overflow-visible" style={{
-              perspective: "1200px"
-            }}>
+            <div
+              class="landing-carousel-stage relative w-full h-[360px] flex justify-center items-center overflow-visible"
+              style={{ perspective: "1200px" }}
+              onMouseEnter={pauseCarousel}
+              onMouseLeave={resumeCarousel}
+              onFocusin={pauseCarousel}
+              onFocusout={resumeCarousel}
+            >
               <div class="absolute inset-0 flex justify-center items-center pointer-events-none">
                 {/* Horizontal curved background guide line */}
                 <div class="w-[120%] h-[300px] border-b border-white/5 rounded-[50%] absolute -top-12 pointer-events-none" />
@@ -1302,32 +1309,34 @@ export default defineComponent({
                   // Keep as true for a short duration to prevent the immediate click handler from executing
                   setTimeout(() => {
                     isDraggingRef.value = false;
-                  }, 80);
-                }} animate={{
-                  x: offset * 280,
+                }, 80);
+              }} animate={{
+                  x: offset * 270,
+                  y: isActive ? -28 : Math.abs(offset) * 14 + 10,
                   // Horizontal distribution
-                  scale: isActive ? 1.08 : 0.88 - Math.abs(offset) * 0.04,
-                  opacity: Math.abs(offset) > 2 ? 0 : 1 - Math.abs(offset) * 0.35,
-                  rotateY: offset * -22,
+                  scale: isActive ? 1.16 : 0.84 - Math.abs(offset) * 0.045,
+                  opacity: Math.abs(offset) > 2 ? 0 : 1 - Math.abs(offset) * 0.33,
+                  rotateY: offset * -20,
+                  rotateX: isActive ? -2 : 0,
                   // Curved 3D arch effect
-                  z: Math.abs(offset) * -120 // Depth stacking
+                  z: isActive ? 90 : Math.abs(offset) * -120 // Depth stacking
                 }} transition={{
                   type: "spring",
-                  stiffness: 950,
-                  damping: 30,
-                  mass: 0.35,
-                  velocity: 3
+                  stiffness: 780,
+                  damping: 28,
+                  mass: 0.45,
+                  velocity: 2.5
                 }} onClick={() => {
                   if (isDraggingRef.value) return;
                   if (!isActive) {
                     setActiveClientIndex(index);
                   }
-                }} class={`absolute w-[290px] h-[340px] rounded-2xl p-6 text-left border flex flex-col justify-between transition-all duration-300 cursor-grab active:cursor-grabbing select-none group ${isActive ? 'bg-white border-slate-100/90 text-slate-800 shadow-[0_24px_60px_rgba(15,23,42,0.18)] shadow-blue-900/10' : 'bg-[#0B1F4A]/40 backdrop-blur-md border-white/5 text-slate-300 shadow-xl hover:border-white/15'}`}>
+                }} class={`landing-carousel-card absolute w-[290px] h-[340px] rounded-2xl p-6 text-left border flex flex-col justify-between transition-all duration-700 ease-out cursor-grab active:cursor-grabbing select-none group ${isActive ? 'bg-white border-slate-100/90 text-slate-800 shadow-[0_24px_60px_rgba(15,23,42,0.18)] shadow-blue-900/10 ring-1 ring-white/70' : 'bg-[#0B1F4A]/40 backdrop-blur-md border-white/5 text-slate-300 shadow-xl hover:border-white/15'}`}>
                     {/* Interior Card Content */}
                     <div class="space-y-3 flex flex-col h-full justify-between">
                       {/* Top bar status */}
                       <div class="flex items-center justify-between">
-                        <span class={`text-[8.5px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-white/10 text-white'}`}>
+                        <span class={`text-[8.5px] font-black uppercase tracking-[0.22em] px-2.5 py-1 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-white/10 text-white'}`}>
                           {item.status}
                         </span>
                         <div class="flex items-center gap-1">
@@ -1340,17 +1349,17 @@ export default defineComponent({
 
                       {/* Main central feature visual */}
                       <div class="py-2.5 flex justify-center items-center w-full">
-                        <div class={`w-20 h-20 rounded-2xl mx-auto flex items-center justify-center border transition-all duration-300 group-hover:scale-105 ${isActive ? 'bg-blue-50 text-[#1E5AA8] border-blue-100 shadow-sm' : 'bg-white/10 text-blue-200 border-white/10'}`}>
+                        <div class={`w-20 h-20 rounded-2xl mx-auto flex items-center justify-center border transition-all duration-300 group-hover:scale-105 ${isActive ? 'bg-blue-50 text-[#1E5AA8] border-blue-100 shadow-sm scale-115' : 'bg-white/10 text-blue-200 border-white/10'}`}>
                           {item.icon}
                         </div>
                       </div>
 
                       {/* Title and Description */}
                       <div class="space-y-1">
-                        <span class={`text-[9.5px] font-bold uppercase tracking-wider block ${isActive ? 'text-blue-500' : 'text-blue-400'}`}>
+                        <span class={`text-[9.5px] font-black uppercase tracking-widest block ${isActive ? 'text-blue-500' : 'text-blue-400'}`}>
                           {item.clientName}
                         </span>
-                        <h4 class={`text-sm font-black tracking-tight leading-tight ${isActive ? 'text-slate-900' : 'text-white'}`}>
+                        <h4 class={`text-sm font-bold tracking-tight leading-tight ${isActive ? 'text-slate-900' : 'text-white'}`}>
                           {item.title}
                         </h4>
                         <p class={`text-[10.5px] leading-relaxed ${isActive ? 'text-slate-500' : 'text-slate-400'} font-light line-clamp-3`}>
@@ -1361,18 +1370,18 @@ export default defineComponent({
                       {/* Bottom stats layout in cards */}
                       <div class={`border-t pt-3 ${isActive ? 'border-slate-100' : 'border-white/10'} flex items-center justify-between mt-1`}>
                         <div>
-                          <span class={`text-[8px] font-mono block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <span class={`text-[8px] font-mono uppercase tracking-[0.16em] block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
                             {item.metricLabel}
                           </span>
-                          <span class={`text-xs font-black tracking-tight ${isActive ? 'text-slate-800' : 'text-white'}`}>
+                          <span class={`text-xs font-bold tracking-tight ${isActive ? 'text-slate-800' : 'text-white'}`}>
                             {item.metricValue}
                           </span>
                         </div>
                         <div class="text-right">
-                          <span class={`text-[8px] font-mono block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <span class={`text-[8px] font-mono uppercase tracking-[0.16em] block ${isActive ? 'text-slate-400' : 'text-slate-500'}`}>
                             STATUS
                           </span>
-                          <span class="text-xs font-black text-blue-500 tracking-tight">
+                          <span class="text-xs font-bold text-blue-500 tracking-tight">
                             {item.metric}
                           </span>
                         </div>
@@ -1972,7 +1981,7 @@ export default defineComponent({
                   <div class="bg-[#102A56]/40 border border-white/5 p-3 rounded-lg text-left space-y-1">
                     <span class="text-slate-400 text-[8px] block uppercase font-bold">Proyek Berjalan</span>
                     <span class="text-white font-bold text-xs block leading-none">12 Aktif</span>
-                    <span class="text-[7.5px] text-emerald-400">● 100% On Schedule</span>
+                    <span class="text-[7.5px] text-emerald-400">ON SCHEDULE</span>
                   </div>
 
                   {/* Klien Block */}
@@ -1993,7 +2002,7 @@ export default defineComponent({
 
                 <div class="flex items-center justify-between text-[8px] text-slate-500 pt-1 border-t border-white/10 mt-1">
                   <span>SYSTEM RUNNING STABLE</span>
-                  <span class="text-emerald-500">● SECURED BY TLS 1.3</span>
+                  <span class="text-emerald-500">SECURED BY TLS 1.3</span>
                 </div>
 
               </div>
@@ -2010,7 +2019,7 @@ export default defineComponent({
           {/* Brand Info */}
           <div class="lg:col-span-4 space-y-4 text-left">
             <div class="flex items-center gap-2.5">
-              <KedataLogo class="h-9 w-9 shrink-0" />
+              <KedataLogo size={30} class="shrink-0" />
               <div>
                 <span class="font-bold text-lg tracking-wider block">KEDATA</span>
                 <span class="text-[8px] text-blue-400 block font-bold uppercase leading-3">Indonesia Digital</span>
