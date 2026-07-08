@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 /*
   Halaman Transaksi FinStart
@@ -27,6 +27,8 @@ const showDetailModal = ref(false)
 
 const isLoading = ref(false)
 const isSaving = ref(false)
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 const pendingAction = ref('')
 const errorMessage = ref('')
 
@@ -61,16 +63,30 @@ const activeAccounts = computed(() => {
 const filteredJournals = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  if (!search) return journals.value
+  let filtered
+  if (!search) {
+    filtered = journals.value
+  } else {
+    filtered = journals.value.filter((journal) => {
+      return [
+        journal.voucher_number,
+        journal.description,
+        journal.status,
+        journal.transaction_date,
+      ].some((value) => String(value || '').toLowerCase().includes(search))
+    })
+  }
 
-  return journals.value.filter((journal) => {
-    return [
-      journal.voucher_number,
-      journal.description,
-      journal.status,
-      journal.transaction_date,
-    ].some((value) => String(value || '').toLowerCase().includes(search))
+  return filtered.sort((a, b) => {
+    const dateA = a.transaction_date ? new Date(a.transaction_date) : (a.created_at ? new Date(a.created_at) : new Date(0))
+    const dateB = b.transaction_date ? new Date(b.transaction_date) : (b.created_at ? new Date(b.created_at) : new Date(0))
+    return dateB - dateA
   })
+})
+
+const paginatedJournals = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredJournals.value.slice(start, start + PAGE_SIZE)
 })
 
 const debitTotal = computed(() => {
@@ -385,6 +401,10 @@ async function deleteJournal(journal) {
   }
 }
 
+watch(keyword, () => {
+  currentPage.value = 1
+})
+
 onMounted(loadData)
 </script>
 
@@ -454,7 +474,7 @@ onMounted(loadData)
               </td>
             </tr>
 
-            <tr v-else v-for="journal in filteredJournals" :key="journal.id">
+            <tr v-else v-for="journal in paginatedJournals" :key="journal.id">
               <td>{{ formatDate(journal.transaction_date) }}</td>
 
               <td>
@@ -523,6 +543,31 @@ onMounted(loadData)
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredJournals.length) }} - {{ Math.min(currentPage * PAGE_SIZE, filteredJournals.length) }} dari {{ filteredJournals.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(filteredJournals.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

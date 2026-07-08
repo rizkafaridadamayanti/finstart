@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 /*
   FRONTEND CRM & PROJECT FINSTART
@@ -22,6 +22,10 @@ const activeTab = ref('projects')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const errorMessage = ref('')
+
+const currentPageProjects = ref(1)
+const currentPageClients = ref(1)
+const PAGE_SIZE = 10
 
 const showProjectModal = ref(false)
 const showClientModal = ref(false)
@@ -66,9 +70,7 @@ const clientForm = ref(emptyClientForm())
 const filteredProjects = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  if (!search) return projectList.value
-
-  return projectList.value.filter((project) => {
+  const filtered = projectList.value.filter((project) => {
     return [
       project.project_name,
       project.project_code,
@@ -77,14 +79,24 @@ const filteredProjects = computed(() => {
       project.status,
     ].some((value) => String(value || '').toLowerCase().includes(search))
   })
+
+  // Sort by newest first using created_at or id
+  return [...filtered].sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at) : (a.id ? -a.id : 0)
+    const dateB = b.created_at ? new Date(b.created_at) : (b.id ? -b.id : 0)
+    return dateB - dateA
+  })
+})
+
+const paginatedProjects = computed(() => {
+  const start = (currentPageProjects.value - 1) * PAGE_SIZE
+  return filteredProjects.value.slice(start, start + PAGE_SIZE)
 })
 
 const filteredClients = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  if (!search) return clients.value
-
-  return clients.value.filter((client) => {
+  const filtered = clients.value.filter((client) => {
     return [
       client.company_name,
       client.pic_name,
@@ -94,6 +106,24 @@ const filteredClients = computed(() => {
       client.status,
     ].some((value) => String(value || '').toLowerCase().includes(search))
   })
+
+  // Sort by newest first using created_at or id
+  return [...filtered].sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at) : (a.id ? -a.id : 0)
+    const dateB = b.created_at ? new Date(b.created_at) : (b.id ? -b.id : 0)
+    return dateB - dateA
+  })
+})
+
+const paginatedClients = computed(() => {
+  const start = (currentPageClients.value - 1) * PAGE_SIZE
+  return filteredClients.value.slice(start, start + PAGE_SIZE)
+})
+
+// Reset page when keyword or active tab changes
+watch([keyword, activeTab], () => {
+  currentPageProjects.value = 1
+  currentPageClients.value = 1
 })
 
 function formatCurrency(value) {
@@ -466,7 +496,7 @@ onMounted(loadData)
               <td colspan="5" class="empty-table">Memuat data proyek...</td>
             </tr>
 
-            <tr v-else v-for="project in filteredProjects" :key="project.id">
+            <tr v-else v-for="project in paginatedProjects" :key="project.id">
               <td>
                 <strong>{{ project.project_name }}</strong>
                 <small class="table-subtext">
@@ -514,6 +544,37 @@ onMounted(loadData)
               </td>
             </tr>
           </tbody>
+
+          <!-- Pagination Controls for Projects -->
+          <tfoot>
+            <tr>
+              <td colspan="5">
+                <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+                  <div class="text-xs text-[#6B7A90]">
+                    Menampilkan {{ Math.min((currentPageProjects - 1) * PAGE_SIZE + 1, filteredProjects.length) }} - {{ Math.min(currentPageProjects * PAGE_SIZE, filteredProjects.length) }} dari {{ filteredProjects.length }} data
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :disabled="currentPageProjects <= 1"
+                      @click="currentPageProjects = Math.max(1, currentPageProjects - 1)"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      Prev
+                    </button>
+                    <button
+                      :disabled="currentPageProjects >= Math.ceil(filteredProjects.length / PAGE_SIZE)"
+                      @click="currentPageProjects = currentPageProjects + 1"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Next
+                      <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </article>
@@ -545,7 +606,7 @@ onMounted(loadData)
               <td colspan="5" class="empty-table">Memuat data klien...</td>
             </tr>
 
-            <tr v-else v-for="client in filteredClients" :key="client.id">
+            <tr v-else v-for="client in paginatedClients" :key="client.id">
               <td>
                 <strong>{{ client.company_name }}</strong>
                 <small class="table-subtext">
@@ -586,6 +647,37 @@ onMounted(loadData)
               </td>
             </tr>
           </tbody>
+
+          <!-- Pagination Controls for Clients -->
+          <tfoot>
+            <tr>
+              <td colspan="5">
+                <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+                  <div class="text-xs text-[#6B7A90]">
+                    Menampilkan {{ Math.min((currentPageClients - 1) * PAGE_SIZE + 1, filteredClients.length) }} - {{ Math.min(currentPageClients * PAGE_SIZE, filteredClients.length) }} dari {{ filteredClients.length }} data
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :disabled="currentPageClients <= 1"
+                      @click="currentPageClients = Math.max(1, currentPageClients - 1)"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      Prev
+                    </button>
+                    <button
+                      :disabled="currentPageClients >= Math.ceil(filteredClients.length / PAGE_SIZE)"
+                      @click="currentPageClients = currentPageClients + 1"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Next
+                      <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </article>

@@ -35,6 +35,8 @@ const selectedStatus = ref('all')
 const activeTab = ref('unpaid')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -150,7 +152,7 @@ const cashAccounts = computed(() => {
 const filteredTaxes = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  return taxes.value.filter((record) => {
+  const data = taxes.value.filter((record) => {
     const status = String(
       record.display_status || record.status || '',
     ).toLowerCase()
@@ -176,6 +178,18 @@ const filteredTaxes = computed(() => {
 
     return matchesStatus && matchesTab && matchesSearch
   })
+
+  // Sort by newest first using due_date or created_at if available
+  return [...data].sort((a, b) => {
+    const dateA = a.due_date ? new Date(a.due_date) : (a.created_at ? new Date(a.created_at) : new Date(0))
+    const dateB = b.due_date ? new Date(b.due_date) : (b.created_at ? new Date(b.created_at) : new Date(0))
+    return dateB - dateA
+  })
+})
+
+const paginatedTaxes = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredTaxes.value.slice(start, start + PAGE_SIZE)
 })
 
 const selectedIssueTax = computed(() => {
@@ -1031,6 +1045,9 @@ function printTaxes() {
   window.print()
 }
 
+watch([keyword, selectedStatus, activeTab], () => {
+  currentPage.value = 1
+})
 watch(calculationPeriod, loadCalculation)
 watch(vatPeriod, loadVatSummary)
 
@@ -1506,7 +1523,7 @@ onMounted(async () => {
           </thead>
 
           <tbody>
-            <tr v-for="record in filteredTaxes" :key="record.id">
+            <tr v-for="record in paginatedTaxes" :key="record.id">
               <td>
                 <span class="tax-type-badge">{{ record.tax_type }}</span>
                 <small v-if="record.payroll_employee_name" class="table-subtext">
@@ -1597,6 +1614,31 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredTaxes.length) }} - {{ Math.min(currentPage * PAGE_SIZE, filteredTaxes.length) }} dari {{ filteredTaxes.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(filteredTaxes.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

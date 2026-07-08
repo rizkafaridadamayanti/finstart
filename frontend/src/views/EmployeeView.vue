@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useFinanceStore } from '../stores/financeStore'
 
 const financeStore = useFinanceStore()
@@ -9,6 +9,8 @@ const bpjsConfig = computed(() => financeStore.bpjsSettings)
 const keyword = ref('')
 const selectedDivision = ref('Semua')
 const selectedEmploymentStatus = ref('Semua')
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 
 const showEmployeeModal = ref(false)
 const showEmployeeDetailModal = ref(false)
@@ -33,7 +35,7 @@ const activeEmployees = computed(() => {
 const filteredEmployees = computed(() => {
   const search = keyword.value.toLowerCase()
 
-  return employeeList.value.filter((employee) => {
+  const filtered = employeeList.value.filter((employee) => {
     const matchesKeyword =
       employee.name.toLowerCase().includes(search) ||
       employee.employeeId.toLowerCase().includes(search) ||
@@ -50,6 +52,23 @@ const filteredEmployees = computed(() => {
 
     return matchesKeyword && matchesDivision && matchesEmploymentStatus
   })
+
+  // Sort by newest first using joinDate or created_at if available
+  return [...filtered].sort((a, b) => {
+    const dateA = a.joinDate ? new Date(a.joinDate) : (a.created_at ? new Date(a.created_at) : new Date(0))
+    const dateB = b.joinDate ? new Date(b.joinDate) : (b.created_at ? new Date(b.created_at) : new Date(0))
+    return dateB - dateA
+  })
+})
+
+const paginatedEmployees = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredEmployees.value.slice(start, start + PAGE_SIZE)
+})
+
+// Reset to page 1 when filters change
+watch([keyword, selectedDivision, selectedEmploymentStatus], () => {
+  currentPage.value = 1
 })
 
 const registeredBpjsCount = computed(() => {
@@ -344,7 +363,7 @@ function processPayroll() {
           </thead>
 
           <tbody>
-            <tr v-for="employee in filteredEmployees" :key="employee.id">
+            <tr v-for="employee in paginatedEmployees" :key="employee.id">
               <td>
                 <strong>{{ employee.name }}</strong>
                 <small class="table-subtext">
@@ -407,6 +426,31 @@ function processPayroll() {
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredEmployees.length) }} - {{ Math.min(currentPage * PAGE_SIZE, filteredEmployees.length) }} dari {{ filteredEmployees.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(filteredEmployees.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

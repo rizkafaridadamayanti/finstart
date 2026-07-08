@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -18,6 +18,9 @@ const selectedType = ref('all')
 
 const transactionSearch = ref('')
 const transactionDate = ref('')
+const currentPageAccounts = ref(1)
+const currentPageJournals = ref(1)
+const PAGE_SIZE = 10
 
 const showAccountModal = ref(false)
 const showJournalModal = ref(false)
@@ -83,7 +86,7 @@ const journalForm = ref(emptyJournalForm())
 const filteredAccounts = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  return accounts.value.filter((account) => {
+  const data = accounts.value.filter((account) => {
     const matchKeyword =
       !search ||
       String(account.code || '').toLowerCase().includes(search) ||
@@ -95,10 +98,51 @@ const filteredAccounts = computed(() => {
 
     return matchKeyword && matchType
   })
+
+  // Sort by newest first using created_at or id if available
+  return [...data].sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at) : (a.id ? -a.id : 0)
+    const dateB = b.created_at ? new Date(b.created_at) : (b.id ? -b.id : 0)
+    return dateB - dateA
+  })
+})
+
+const paginatedAccounts = computed(() => {
+  const start = (currentPageAccounts.value - 1) * PAGE_SIZE
+  return filteredAccounts.value.slice(start, start + PAGE_SIZE)
 })
 
 const activeAccounts = computed(() => {
   return accounts.value.filter((account) => account.status === 'active')
+})
+
+const filteredJournalTransactions = computed(() => {
+  const search = transactionSearch.value.toLowerCase().trim()
+
+  const filtered = journalTransactions.value.filter((transaction) => {
+    const matchSearch =
+      !search ||
+      String(transaction.voucher_number || '').toLowerCase().includes(search) ||
+      String(transaction.description || '').toLowerCase().includes(search)
+
+    const matchDate =
+      !transactionDate.value ||
+      transaction.transaction_date === transactionDate.value
+
+    return matchSearch && matchDate
+  })
+
+  // Sort by newest first using transaction_date or created_at or id
+  return [...filtered].sort((a, b) => {
+    const dateA = a.transaction_date ? new Date(a.transaction_date) : (a.created_at ? new Date(a.created_at) : (a.id ? -a.id : 0))
+    const dateB = b.transaction_date ? new Date(b.transaction_date) : (b.created_at ? new Date(b.created_at) : (b.id ? -b.id : 0))
+    return dateB - dateA
+  })
+})
+
+const paginatedJournals = computed(() => {
+  const start = (currentPageJournals.value - 1) * PAGE_SIZE
+  return filteredJournalTransactions.value.slice(start, start + PAGE_SIZE)
 })
 
 const availableParents = computed(() => {
@@ -523,6 +567,15 @@ function resetTransactionFilter() {
   loadJournalTransactions()
 }
 
+// Reset to page 1 when filters change
+watch([keyword, selectedType], () => {
+  currentPageAccounts.value = 1
+})
+
+watch([transactionSearch, transactionDate], () => {
+  currentPageJournals.value = 1
+})
+
 onMounted(async () => {
   await loadAccounts()
 })
@@ -639,7 +692,7 @@ onMounted(async () => {
 
               <tr
                 v-else
-                v-for="account in filteredAccounts"
+                v-for="account in paginatedAccounts"
                 :key="account.id"
               >
                 <td>
@@ -703,6 +756,31 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
+
+          <!-- Pagination Controls for COA -->
+          <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+            <div class="text-xs text-[#6B7A90]">
+              Menampilkan {{ Math.min((currentPageAccounts - 1) * PAGE_SIZE + 1, filteredAccounts.length) }} - {{ Math.min(currentPageAccounts * PAGE_SIZE, filteredAccounts.length) }} dari {{ filteredAccounts.length }} data
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                :disabled="currentPageAccounts <= 1"
+                @click="currentPageAccounts = Math.max(1, currentPageAccounts - 1)"
+                class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                Prev
+              </button>
+              <button
+                :disabled="currentPageAccounts >= Math.ceil(filteredAccounts.length / PAGE_SIZE)"
+                @click="currentPageAccounts = currentPageAccounts + 1"
+                class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+                <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </article>
     </template>
@@ -739,7 +817,7 @@ onMounted(async () => {
             </button>
 
             <span class="table-count">
-              {{ journalTransactions.length }} transaksi
+              {{ filteredJournalTransactions.length }} transaksi
             </span>
           </div>
         </div>
@@ -766,7 +844,7 @@ onMounted(async () => {
 
               <tr
                 v-else
-                v-for="transaction in journalTransactions"
+                v-for="transaction in paginatedJournals"
                 :key="transaction.id"
               >
                 <td class="date-column">
@@ -830,7 +908,7 @@ onMounted(async () => {
               </tr>
 
               <tr
-                v-if="!isLoadingTransactions && journalTransactions.length === 0"
+                v-if="!isLoadingTransactions && filteredJournalTransactions.length === 0"
               >
                 <td colspan="6" class="empty-table">
                   Belum ada transaksi yang sesuai dengan filter.
@@ -838,6 +916,31 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
+
+          <!-- Pagination Controls for Journals -->
+          <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+            <div class="text-xs text-[#6B7A90]">
+              Menampilkan {{ Math.min((currentPageJournals - 1) * PAGE_SIZE + 1, filteredJournalTransactions.length) }} - {{ Math.min(currentPageJournals * PAGE_SIZE, filteredJournalTransactions.length) }} dari {{ filteredJournalTransactions.length }} data
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                :disabled="currentPageJournals <= 1"
+                @click="currentPageJournals = Math.max(1, currentPageJournals - 1)"
+                class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                Prev
+              </button>
+              <button
+                :disabled="currentPageJournals >= Math.ceil(filteredJournalTransactions.length / PAGE_SIZE)"
+                @click="currentPageJournals = currentPageJournals + 1"
+                class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+                <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+            </div>
+          </div>
         </div>
       </article>
     </template>

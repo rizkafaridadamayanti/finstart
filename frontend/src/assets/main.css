@@ -33,9 +33,45 @@ body:has(.fixed.inset-0) #btn-sidebar-drawer,
 body:has(.confirm-overlay) #btn-sidebar-drawer,
 body:has(.modal-layer) #btn-sidebar-drawer,
 body:has(.tax-manual-modal-layer) #btn-sidebar-drawer,
+body:has(.master-data-modal-layer) #btn-sidebar-drawer,
 body:has(.fixed.inset-0) #btn-sidebar-mobile-drawer,
 body:has(.confirm-overlay) #btn-sidebar-mobile-drawer,
 body:has(.modal-layer) #btn-sidebar-mobile-drawer,
-body:has(.tax-manual-modal-layer) #btn-sidebar-mobile-drawer {
+body:has(.tax-manual-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.master-data-modal-layer) #btn-sidebar-mobile-drawer {
   display: none !important;
+}
+
+.master-data-table {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.master-data-table th,
+.master-data-table td {
+  padding: 12px 20px !important;
+  vertical-align: middle !important;
+}
+
+.master-data-table td:first-child p,
+.master-data-table td:nth-child(2) p {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.master-data-table th:nth-last-child(2),
+.master-data-table td:nth-last-child(2) {
+  text-align: center !important;
+}
+
+.master-data-table th:last-child,
+.master-data-table td:last-child {
+  text-align: right !important;
+}
+
+.master-data-table td:last-child > div {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
 }

@@ -5,6 +5,7 @@ import { formatRupiah } from '../data.ts';
 import { Langganan } from '../types.ts';
 import { financeApi, getApiErrorMessage } from '../services/financeApi.js';
 import ConfirmDialog from './common/ConfirmDialog.vue';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 export interface AsetTeknologi {
   id: string;
   nama: string;
@@ -50,6 +51,11 @@ export default defineComponent({
       setSubCategoryFilter = next => subCategoryFilter.value = typeof next === "function" ? next(subCategoryFilter.value) : next;
     const searchQuery = ref(''),
       setSearchQuery = next => searchQuery.value = typeof next === "function" ? next(searchQuery.value) : next; // Modals toggle
+    const subsPage = ref(1);
+    const assetsPage = ref(1);
+    const expiredPage = ref(1);
+    const subHistoryPage = ref(1);
+    const assetHistoryPage = ref(1);
     const isSubModalOpen = ref(false),
       setIsSubModalOpen = next => isSubModalOpen.value = typeof next === "function" ? next(isSubModalOpen.value) : next;
     const isAssetModalOpen = ref(false),
@@ -312,20 +318,25 @@ export default defineComponent({
     }
 
     // Filter Subscriptions & Assets dibuat reactive agar pencarian/kategori langsung berjalan.
-    const expiredSubs = computed(() => (props.langganan || []).filter((item: any) => isExpiredSubscription(item)));
-    const activeSubs = computed(() => (props.langganan || []).filter((item: any) => !isExpiredSubscription(item)));
-    const filteredSubs = computed(() => activeSubs.value.filter((l: any) => {
+    const expiredSubs = computed(() => latestFirst((props.langganan || []).filter((item: any) => isExpiredSubscription(item))));
+    const activeSubs = computed(() => latestFirst((props.langganan || []).filter((item: any) => !isExpiredSubscription(item))));
+    const filteredSubs = computed(() => latestFirst(activeSubs.value.filter((l: any) => {
       const query = searchQuery.value.toLowerCase();
       const matchesSearch = String(l.nama || '').toLowerCase().includes(query) || String(l.provider || '').toLowerCase().includes(query);
       const matchesCategory = subCategoryFilter.value === 'All' || l.kategori === subCategoryFilter.value;
       return matchesSearch && matchesCategory;
-    }));
-    const archivedAssets = computed(() => (props.assets || []).filter((a: any) => String(a?._raw?.status || a?.status || '').toLowerCase() === 'disposed'));
-    const activeAssets = computed(() => (props.assets || []).filter((a: any) => String(a?._raw?.status || a?.status || '').toLowerCase() !== 'disposed'));
-    const filteredAssets = computed(() => (showAssetArchive.value ? archivedAssets.value : activeAssets.value).filter((a: any) => {
+    })));
+    const archivedAssets = computed(() => latestFirst((props.assets || []).filter((a: any) => String(a?._raw?.status || a?.status || '').toLowerCase() === 'disposed')));
+    const activeAssets = computed(() => latestFirst((props.assets || []).filter((a: any) => String(a?._raw?.status || a?.status || '').toLowerCase() !== 'disposed')));
+    const filteredAssets = computed(() => latestFirst((showAssetArchive.value ? archivedAssets.value : activeAssets.value).filter((a: any) => {
       const query = searchQuery.value.toLowerCase();
       return String(a.nama || '').toLowerCase().includes(query) || String(a.penanggungJawab || '').toLowerCase().includes(query) || String(a.kategori || '').toLowerCase().includes(query);
-    }));
+    })));
+    const pagedSubs = computed(() => pageRows(filteredSubs.value, subsPage.value));
+    const pagedAssets = computed(() => pageRows(filteredAssets.value, assetsPage.value));
+    const pagedExpiredSubs = computed(() => pageRows(expiredSubs.value, expiredPage.value));
+    const pagedSubHistory = computed(() => pageRows(latestFirst(props.langganan || []), subHistoryPage.value));
+    const pagedAssetHistoryRows = computed(() => pageRows(latestFirst(assetHistory.value?.depreciations || []), assetHistoryPage.value));
     const totalSubBurnRate = computed(() => activeSubs.value.reduce((acc: number, l: any) => acc + Number(l.biayaIDR || l.biaya || 0), 0));
     const totalAssetCosts = computed(() => (props.assets || []).reduce((acc: number, a: any) => acc + Number(a.hargaBeli || 0), 0));
     const totalNetBookValue = computed(() => (props.assets || []).reduce((acc: number, a: any) => acc + Number(a.nilaiBuku || 0), 0));
@@ -480,7 +491,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredSubs.value.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
+                  {pagedSubs.value.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-5">
                         <span class="font-bold text-[#0B1F4A] block text-sm flex items-center gap-1.5"><CreditCard class="w-4 h-4 text-slate-400" /> {item.nama}</span>
                         <span class="text-[10px] text-slate-400 font-mono block">{item.id} (by {item.provider})</span>
@@ -509,6 +520,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={subsPage.value} total={filteredSubs.value.length} onPageChange={(page: number) => subsPage.value = safePage(page, filteredSubs.value.length)} />
           </div>
         </div>}
 
@@ -561,7 +573,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredAssets.value.map(asset => <tr key={asset.id} class="hover:bg-slate-50 transition-colors">
+                  {pagedAssets.value.map(asset => <tr key={asset.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-5">
                         <span class="font-bold text-[#0B1F4A] block text-sm">{asset.nama}</span>
                         <span class="text-[10px] text-slate-400 font-mono">{asset.id}</span>
@@ -577,10 +589,11 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={assetsPage.value} total={filteredAssets.value.length} onPageChange={(page: number) => assetsPage.value = safePage(page, filteredAssets.value.length)} />
           </div>
         </div>}
 
-      {assetHistory.value && <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"><div class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Riwayat Penyusutan</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">{assetHistory.value.asset?.asset_name || 'Aset'}</h3></div><button type="button" onClick={() => assetHistory.value = null} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><div class="max-h-[55vh] overflow-y-auto p-6">{(assetHistory.value.depreciations || []).length ? <table class="w-full text-left text-xs"><thead class="border-b border-[#E8EEF7] text-[#70819B]"><tr><th class="pb-3">Periode</th><th class="pb-3 text-right">Nilai</th><th class="pb-3">Voucher</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{assetHistory.value.depreciations.map((item: any) => <tr key={item.id}><td class="py-3">{item.depreciation_period}</td><td class="py-3 text-right font-semibold">{formatRupiah(Number(item.depreciation_amount || 0))}</td><td class="py-3">{item.journal_voucher_number || '-'}</td></tr>)}</tbody></table> : <p class="text-sm text-[#8A98AB]">Belum ada riwayat penyusutan untuk aset ini.</p>}</div><div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4"><button type="button" onClick={() => assetHistory.value = null} class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Tutup</button></div></div></div>}
+      {assetHistory.value && <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"><div class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Riwayat Penyusutan</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">{assetHistory.value.asset?.asset_name || 'Aset'}</h3></div><button type="button" onClick={() => assetHistory.value = null} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><div class="max-h-[55vh] overflow-y-auto p-6">{(assetHistory.value.depreciations || []).length ? <table class="w-full text-left text-xs"><thead class="border-b border-[#E8EEF7] text-[#70819B]"><tr><th class="pb-3">Periode</th><th class="pb-3 text-right">Nilai</th><th class="pb-3">Voucher</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{pagedAssetHistoryRows.value.map((item: any) => <tr key={item.id}><td class="py-3">{item.depreciation_period}</td><td class="py-3 text-right font-semibold">{formatRupiah(Number(item.depreciation_amount || 0))}</td><td class="py-3">{item.journal_voucher_number || '-'}</td></tr>)}</tbody></table> : <p class="text-sm text-[#8A98AB]">Belum ada riwayat penyusutan untuk aset ini.</p>}</div>{(assetHistory.value.depreciations || []).length > 0 && <TablePagination page={assetHistoryPage.value} total={(assetHistory.value.depreciations || []).length} onPageChange={(page: number) => assetHistoryPage.value = safePage(page, (assetHistory.value.depreciations || []).length)} />}<div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4"><button type="button" onClick={() => assetHistory.value = null} class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Tutup</button></div></div></div>}
 
       <ConfirmDialog
         open={!!confirmDialog.value}
@@ -729,8 +742,9 @@ export default defineComponent({
             <button type="button" onClick={() => showExpiredSubscriptions.value = false} class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-slate-600"><X class="h-5 w-5" /></button>
           </div>
           <div class="max-h-[60vh] overflow-y-auto p-6">
-            {expiredSubs.value.length ? <table class="w-full text-left text-xs"><thead class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"><tr><th class="pb-3">Layanan</th><th class="pb-3">Kategori</th><th class="pb-3 text-right">Nominal</th><th class="pb-3">Tanggal</th><th class="pb-3">Status</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{expiredSubs.value.map((item: any) => <tr key={`expired-${item.id}`}><td class="py-3"><p class="font-bold text-[#0B1F4A]">{item.nama}</p><p class="mt-0.5 text-[10px] text-[#8A98AB]">{item.provider || '-'}</p></td><td class="py-3">{item.kategori || '-'}</td><td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">{formatRupiah(item.biayaIDR || item.biaya || 0)}</td><td class="py-3 font-mono">{item.tanggalTagihan || '-'}</td><td class="py-3"><span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">{subscriptionStatusLabel(item)}</span></td></tr>)}</tbody></table> : <p class="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FBFE] p-6 text-center text-sm text-[#6B7A90]">Belum ada langganan yang kadaluarsa atau dihentikan.</p>}
+            {expiredSubs.value.length ? <table class="w-full text-left text-xs"><thead class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"><tr><th class="pb-3">Layanan</th><th class="pb-3">Kategori</th><th class="pb-3 text-right">Nominal</th><th class="pb-3">Tanggal</th><th class="pb-3">Status</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{pagedExpiredSubs.value.map((item: any) => <tr key={`expired-${item.id}`}><td class="py-3"><p class="font-bold text-[#0B1F4A]">{item.nama}</p><p class="mt-0.5 text-[10px] text-[#8A98AB]">{item.provider || '-'}</p></td><td class="py-3">{item.kategori || '-'}</td><td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">{formatRupiah(item.biayaIDR || item.biaya || 0)}</td><td class="py-3 font-mono">{item.tanggalTagihan || '-'}</td><td class="py-3"><span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">{subscriptionStatusLabel(item)}</span></td></tr>)}</tbody></table> : <p class="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FBFE] p-6 text-center text-sm text-[#6B7A90]">Belum ada langganan yang kadaluarsa atau dihentikan.</p>}
           </div>
+          {expiredSubs.value.length > 0 && <TablePagination page={expiredPage.value} total={expiredSubs.value.length} onPageChange={(page: number) => expiredPage.value = safePage(page, expiredSubs.value.length)} />}
           <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4"><button type="button" onClick={() => showExpiredSubscriptions.value = false} class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Tutup</button></div>
         </div>
       </div>}
@@ -748,9 +762,10 @@ export default defineComponent({
           <div class="max-h-[60vh] overflow-y-auto p-6">
             <table class="w-full text-left text-xs">
               <thead class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"><tr><th class="pb-3">Layanan</th><th class="pb-3">Mata Uang</th><th class="pb-3 text-right">Nominal</th><th class="pb-3">Tagihan Berikutnya</th><th class="pb-3">Status Terakhir</th></tr></thead>
-              <tbody class="divide-y divide-[#EDF2F7]">{(props.langganan || []).map((item: any) => <tr key={`sub-history-${item.id}`}><td class="py-3"><p class="font-bold text-[#0B1F4A]">{item.nama}</p><p class="mt-0.5 text-[10px] text-[#8A98AB]">{item.provider || '-'}</p></td><td class="py-3 font-mono">{item.mataUang || item._raw?.currency || 'IDR'}</td><td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">{formatRupiah(item.biayaIDR || item.biaya || 0)}</td><td class="py-3 font-mono">{item.tanggalTagihan || '-'}</td><td class="py-3">{item._raw?.latest_bill_status || subscriptionStatusLabel(item)}</td></tr>)}</tbody>
+              <tbody class="divide-y divide-[#EDF2F7]">{pagedSubHistory.value.map((item: any) => <tr key={`sub-history-${item.id}`}><td class="py-3"><p class="font-bold text-[#0B1F4A]">{item.nama}</p><p class="mt-0.5 text-[10px] text-[#8A98AB]">{item.provider || '-'}</p></td><td class="py-3 font-mono">{item.mataUang || item._raw?.currency || 'IDR'}</td><td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">{formatRupiah(item.biayaIDR || item.biaya || 0)}</td><td class="py-3 font-mono">{item.tanggalTagihan || '-'}</td><td class="py-3">{item._raw?.latest_bill_status || subscriptionStatusLabel(item)}</td></tr>)}</tbody>
             </table>
           </div>
+          <TablePagination page={subHistoryPage.value} total={(props.langganan || []).length} onPageChange={(page: number) => subHistoryPage.value = safePage(page, (props.langganan || []).length)} />
           <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4"><button type="button" onClick={() => showSubscriptionTransactions.value = false} class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Tutup</button></div>
         </div>
       </div>}

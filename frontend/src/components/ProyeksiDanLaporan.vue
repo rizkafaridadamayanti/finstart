@@ -4,6 +4,7 @@ import { AlertCircle, BarChart3, CalendarDays, CheckCircle2, Download, FileSprea
 import { formatRupiah } from '../data.ts';
 import { AkunBukuBesar, Proyek, Transaksi } from '../types.ts';
 import ConfirmDialog from './common/ConfirmDialog.vue';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 interface ProyeksiDanLaporanProps {
   activeSection: 'proyeksi' | 'laporan';
   akun: AkunBukuBesar[];
@@ -106,6 +107,10 @@ export default defineComponent({
     }),
       setBudgetForm = next => budgetForm.value = typeof next === "function" ? next(budgetForm.value) : next;
     const deleteBudgetConfirm = ref<any>(null);
+    const targetPage = ref(1);
+    const budgetPage = ref(1);
+    const targetDetailPage = ref(1);
+    const reportPage = ref(1);
     const projectionSummary = projectionData?.summary || {};
     const targets = ref<AnnualTarget[]>([
       {
@@ -146,6 +151,11 @@ export default defineComponent({
     const projectionMonths = Array.isArray(projectionData?.months) ? projectionData.months : [];
     const projectionScenarios = Array.isArray(projectionData?.scenarios) ? projectionData.scenarios : [];
     const budgetAllocations = Array.isArray(projectionData?.budget_allocations) ? projectionData.budget_allocations : [];
+    const orderedTargets = computed(() => latestFirst(targets.value));
+    const orderedBudgetAllocations = computed(() => latestFirst(budgetAllocations));
+    const pagedTargets = computed(() => pageRows(orderedTargets.value, targetPage.value));
+    const pagedBudgetAllocations = computed(() => pageRows(orderedBudgetAllocations.value, budgetPage.value));
+    const pagedTargetDetails = computed(() => pageRows(orderedTargets.value, targetDetailPage.value));
     const budgetSummary = projectionData?.budget_summary || {};
     const currentScenario = projectionData?.scenario || { scenario_key: 'normal', label: 'Normal', revenue_factor: 1, expense_factor: 1 };
     const selectScenario = async (scenario: any) => {
@@ -364,6 +374,7 @@ export default defineComponent({
       return { title: 'Laporan Profitabilitas Proyek', subtitle: `${reportPeriodLabel}. ${projectProfitability.note || 'Biaya aktual mengikuti alokasi tagihan vendor.'}`, columns: ['Proyek', 'Pendapatan / Biaya', 'Laba'], rows: (projectProfitability.items || []).map((item: any) => [item.project_name || item.name || '-', `Pendapatan ${money(item.billed_amount)} · Biaya ${money(item.actual_cost)}`, money(item.profit)]), totals: [['Total Laba Proyek', money(projectProfitability.total_profit)]] };
     };
     const currentReport = computed(() => reportRows());
+    const pagedReportRows = computed(() => pageRows(currentReport.value.rows, reportPage.value));
     const downloadTextFile = (filename: string, content: string, type = 'text/plain;charset=utf-8;') => {
       const blob = new Blob([content], { type });
       const link = document.createElement('a');
@@ -541,7 +552,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-[#EDF2F7]">
-                  {targets.value.map(target => {
+                  {pagedTargets.value.map(target => {
                   const percent = Math.min(100, Math.round(target.nilaiRealisasi / Math.max(target.nilaiTarget, 1) * 100));
                   return <tr key={target.id} class="hover:bg-[#FBFDFF]">
                         <td class="px-6 py-5">
@@ -571,6 +582,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={targetPage.value} total={orderedTargets.value.length} onPageChange={(page: number) => targetPage.value = safePage(page, orderedTargets.value.length)} />
           </div>
 
           <div class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
@@ -686,7 +698,8 @@ export default defineComponent({
               <label class="space-y-1"><span class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]">Catatan budget</span><input value={budgetForm.value.notes} onChange={event => setBudgetForm({ ...budgetForm.value, notes: event.target.value })} placeholder="Contoh: Anggaran biaya cloud divisi engineering" class="h-11 w-full rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs text-[#182338]" /></label>
               <div class="flex items-end gap-2"><button type="submit" class="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0B1F4A] px-3 text-sm font-semibold text-white hover:bg-[#102A56]">{budgetForm.value.id ? 'Perbarui' : 'Simpan'}</button>{budgetForm.value.id && <button type="button" onClick={resetBudgetForm} class="inline-flex h-11 items-center justify-center rounded-xl border border-[#D8E5F4] px-5 text-sm font-semibold text-[#53658A]">Batal</button>}</div>
             </form>
-            <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm"><thead class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"><tr><th class="px-5 py-3">Akun / Divisi</th><th class="px-5 py-3">Periode</th><th class="px-5 py-3 text-right">Budget</th><th class="px-5 py-3 text-right">Realisasi</th><th class="px-5 py-3 text-right">Selisih</th><th class="px-5 py-3">Catatan</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{budgetAllocations.length === 0 ? <tr><td colSpan={7} class="px-5 py-7 text-center text-sm text-[#8A98AB]">Belum ada budget untuk skenario {currentScenario.label || 'Normal'}.</td></tr> : budgetAllocations.map((budget: any) => <tr key={budget.id} class="hover:bg-[#FBFDFF]"><td class="px-5 py-3"><p class="font-semibold text-[#182338]">{budget.account_code} · {budget.account_name}</p><p class="mt-1 text-[10px] text-[#6B7A90]">{budget.division_name || 'Operasional umum'}</p></td><td class="px-5 py-3 text-xs text-[#53658A]">{budget.budget_month ? `Bulan ${String(budget.budget_month).padStart(2, '0')}` : 'Tahunan'}</td><td class="px-5 py-3 text-right font-semibold text-[#0B1F4A]">{formatRupiah(Number(budget.budget_amount || 0))}</td><td class="px-5 py-3 text-right font-semibold text-[#1E5AA8]">{formatRupiah(Number(budget.actual_amount || 0))}</td><td class={`px-5 py-3 text-right font-semibold ${Number(budget.variance_amount || 0) < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(Number(budget.variance_amount || 0))}</td><td class="px-5 py-3 text-xs text-[#6B7A90]">{budget.notes || '-'}</td><td class="px-5 py-3 text-right"><div class="flex justify-end gap-1"><button type="button" aria-label={`Ubah budget ${budget.account_name || ''}`} title="Ubah" onClick={() => editBudget(budget)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus budget ${budget.account_name || ''}`} title="Hapus" onClick={() => deleteBudget(budget)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td></tr>)}</tbody></table></div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm"><thead class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"><tr><th class="px-5 py-3">Akun / Divisi</th><th class="px-5 py-3">Periode</th><th class="px-5 py-3 text-right">Budget</th><th class="px-5 py-3 text-right">Realisasi</th><th class="px-5 py-3 text-right">Selisih</th><th class="px-5 py-3">Catatan</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-[#EDF2F7]">{orderedBudgetAllocations.value.length === 0 ? <tr><td colSpan={7} class="px-5 py-7 text-center text-sm text-[#8A98AB]">Belum ada budget untuk skenario {currentScenario.label || 'Normal'}.</td></tr> : pagedBudgetAllocations.value.map((budget: any) => <tr key={budget.id} class="hover:bg-[#FBFDFF]"><td class="px-5 py-3"><p class="font-semibold text-[#182338]">{budget.account_code} · {budget.account_name}</p><p class="mt-1 text-[10px] text-[#6B7A90]">{budget.division_name || 'Operasional umum'}</p></td><td class="px-5 py-3 text-xs text-[#53658A]">{budget.budget_month ? `Bulan ${String(budget.budget_month).padStart(2, '0')}` : 'Tahunan'}</td><td class="px-5 py-3 text-right font-semibold text-[#0B1F4A]">{formatRupiah(Number(budget.budget_amount || 0))}</td><td class="px-5 py-3 text-right font-semibold text-[#1E5AA8]">{formatRupiah(Number(budget.actual_amount || 0))}</td><td class={`px-5 py-3 text-right font-semibold ${Number(budget.variance_amount || 0) < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{formatRupiah(Number(budget.variance_amount || 0))}</td><td class="px-5 py-3 text-xs text-[#6B7A90]">{budget.notes || '-'}</td><td class="px-5 py-3 text-right"><div class="flex justify-end gap-1"><button type="button" aria-label={`Ubah budget ${budget.account_name || ''}`} title="Ubah" onClick={() => editBudget(budget)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus budget ${budget.account_name || ''}`} title="Hapus" onClick={() => deleteBudget(budget)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td></tr>)}</tbody></table></div>
+            <TablePagination page={budgetPage.value} total={orderedBudgetAllocations.value.length} onPageChange={(page: number) => budgetPage.value = safePage(page, orderedBudgetAllocations.value.length)} />
           </div>
 
           <div class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
@@ -703,7 +716,7 @@ export default defineComponent({
                   <tr><th class="px-6 py-4">Akun / Target</th><th class="px-6 py-4">Bulan Proyeksi</th><th class="px-6 py-4 text-right">Nilai Target</th><th class="px-6 py-4">Catatan Finansial</th><th class="px-6 py-4 text-center">Aksi</th></tr>
                 </thead>
                 <tbody class="divide-y divide-[#EDF2F7]">
-                  {targets.value.map((target, index) => <tr key={`${target.id}-detail`} class="hover:bg-[#FBFDFF]">
+                  {pagedTargetDetails.value.map((target, index) => <tr key={`${target.id}-detail`} class="hover:bg-[#FBFDFF]">
                       <td class="px-6 py-4"><p class="font-medium text-[#182338]">{target.nama}</p><p class="mt-1 text-xs text-[#8A98AB]">{target.id}</p></td>
                       <td class="px-6 py-4 text-[#53658A]">{currentMonthIso()}</td>
                       <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">{currencyOrUnit(target.nilaiTarget, target.satuan)}</td>
@@ -713,6 +726,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={targetDetailPage.value} total={orderedTargets.value.length} onPageChange={(page: number) => targetDetailPage.value = safePage(page, orderedTargets.value.length)} />
           </div>
         </section> : <section class="space-y-5">
           <div class="rounded-2xl border border-[#DCE7F4] bg-white p-2 shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
@@ -737,7 +751,7 @@ export default defineComponent({
                 </thead>
                 <tbody class="divide-y divide-[#EDF2F7]">
                   {!reportError && currentReport.value.rows.length === 0 && <tr><td colSpan={3} class="px-6 py-9 text-center text-sm text-[#7A8CA8]">{hasReportData() ? `Belum ada data untuk ${reportPeriodLabel}.` : 'Menunggu data laporan dari API.'}</td></tr>}
-                  {currentReport.value.rows.map(row => <tr key={row.join('-')} class="hover:bg-[#FBFDFF]">
+                  {pagedReportRows.value.map(row => <tr key={row.join('-')} class="hover:bg-[#FBFDFF]">
                       <td class="px-6 py-4 font-medium text-[#182338]">{row[0]}</td>
                       <td class="px-6 py-4 text-[#6B7A90]">{row[1]}</td>
                       <td class={`px-6 py-4 text-right font-semibold ${row[2].startsWith('(') ? 'text-[#B74B62]' : 'text-[#0B1F4A]'}`}>{row[2]}</td>
@@ -751,6 +765,7 @@ export default defineComponent({
                 </tfoot>
               </table>
             </div>
+            <TablePagination page={reportPage.value} total={currentReport.value.rows.length} onPageChange={(page: number) => reportPage.value = safePage(page, currentReport.value.rows.length)} />
           </div>
         </section>}
 
