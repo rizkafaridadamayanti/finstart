@@ -30,6 +30,8 @@ const isSaving = ref(false)
 const isProcessing = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 
 const showAssetModal = ref(false)
 const showHistoryModal = ref(false)
@@ -300,7 +302,24 @@ function statusClass(status) {
   }
 }
 
-watch(selectedStatus, loadAssets)
+const filteredAssets = computed(() => {
+  return [...assets.value].sort((a, b) => {
+    const dateA = a.acquisition_date ? new Date(a.acquisition_date) : (a.created_at ? new Date(a.created_at) : new Date(0))
+    const dateB = b.acquisition_date ? new Date(b.acquisition_date) : (b.created_at ? new Date(b.created_at) : new Date(0))
+    return dateB - dateA
+  })
+})
+
+const paginatedAssets = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredAssets.value.slice(start, start + PAGE_SIZE)
+})
+
+watch(selectedStatus, () => {
+  currentPage.value = 1
+  loadAssets()
+})
+
 onMounted(loadAssets)
 </script>
 
@@ -440,7 +459,7 @@ onMounted(loadAssets)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="asset in assets" :key="asset.id">
+            <tr v-for="asset in paginatedAssets" :key="asset.id">
               <td>
                 <strong>{{ asset.asset_name }}</strong>
                 <small class="table-subtext">
@@ -493,6 +512,31 @@ onMounted(loadAssets)
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, assets.length) }} - {{ Math.min(currentPage * PAGE_SIZE, assets.length) }} dari {{ assets.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(assets.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

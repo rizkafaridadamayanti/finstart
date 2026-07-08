@@ -4,6 +4,7 @@ import { Search, Plus, BookOpen, ArrowLeftRight, Check, Trash2, Pencil, Filter, 
 import { formatRupiah } from '../data.ts';
 import { AkunBukuBesar, Transaksi, TipeAkun } from '../types.ts';
 import ConfirmDialog from './common/ConfirmDialog.vue';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 interface BukuBesarDanTransaksiProps {
   activeSection: 'bukubesar' | 'transaksi';
   akun: AkunBukuBesar[];
@@ -44,6 +45,8 @@ export default defineComponent({
       setJournalSearch = next => journalSearch.value = typeof next === "function" ? next(journalSearch.value) : next;
     const journalDate = ref(''),
       setJournalDate = next => journalDate.value = typeof next === "function" ? next(journalDate.value) : next; // Add Account Form State
+    const ledgerPage = ref(1);
+    const journalPage = ref(1);
     const isAccountModalOpen = ref(false),
       setIsAccountModalOpen = next => isAccountModalOpen.value = typeof next === "function" ? next(isAccountModalOpen.value) : next;
     const deleteConfirm = ref<any>(null);
@@ -261,16 +264,18 @@ export default defineComponent({
     };
 
     // Filters
-    const filteredLedgers = computed(() => (props.akun || []).filter((a: any) => {
+    const filteredLedgers = computed(() => latestFirst((props.akun || []).filter((a: any) => {
       const query = ledgerSearch.value.toLowerCase();
       return String(a.kode || '').toLowerCase().includes(query) || String(a.nama || '').toLowerCase().includes(query) || String(a.tipe || '').toLowerCase().includes(query);
-    }));
-    const filteredJournals = computed(() => (props.transaksi || []).filter((t: any) => {
+    })));
+    const filteredJournals = computed(() => latestFirst((props.transaksi || []).filter((t: any) => {
       const query = journalSearch.value.toLowerCase();
       const matchesSearch = String(t.keterangan || '').toLowerCase().includes(query) || String(t.refVoucher || '').toLowerCase().includes(query);
       const matchesDate = !journalDate.value || t.tanggal === journalDate.value;
       return matchesSearch && matchesDate;
-    }));
+    })));
+    const pagedLedgers = computed(() => pageRows(filteredLedgers.value, ledgerPage.value));
+    const pagedJournals = computed(() => pageRows(filteredJournals.value, journalPage.value));
     const escapeHtml = (value: any) => String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -377,7 +382,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredLedgers.value.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
+                  {pagedLedgers.value.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-slate-700 text-sm">
                         {item.kode}
                       </td>
@@ -400,6 +405,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={ledgerPage.value} total={filteredLedgers.value.length} onPageChange={(page: number) => ledgerPage.value = safePage(page, filteredLedgers.value.length)} />
           </div>
         </div>}
 
@@ -436,7 +442,7 @@ export default defineComponent({
                       <td colSpan={7} class="p-12 text-center text-slate-400 font-light">
                         Tidak ada transaksi keuangan yang sesuai dengan pencarian.
                       </td>
-                    </tr> : filteredJournals.value.map(t => {
+                    </tr> : pagedJournals.value.map(t => {
                   const dbAcc = akun.find(a => a.kode === t.debitAkun);
                   const crAcc = akun.find(a => a.kode === t.kreditAkun);
                   return <tr key={t.id} class="hover:bg-slate-50 transition-colors">
@@ -475,6 +481,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={journalPage.value} total={filteredJournals.value.length} onPageChange={(page: number) => journalPage.value = safePage(page, filteredJournals.value.length)} />
           </div>
         </div>}
 

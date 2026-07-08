@@ -8,6 +8,7 @@ import api from '../../services/api'
 import MetricCard from './MetricCard.vue'
 import StatusBadge from './StatusBadge.vue'
 import { useToast } from '../../composables/useToast'
+import { latestFirst, pageRows, safePage, totalPages } from '../../utils/tablePagination.tsx'
 
 const props = defineProps({
   eyebrow: { type: String, required: true },
@@ -30,6 +31,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 const keyword = ref('')
 const statusFilter = ref('all')
+const currentPage = ref(1)
 const showForm = ref(false)
 const saving = ref(false)
 const form = reactive({})
@@ -63,12 +65,16 @@ function statusFrom(row) {
 
 const filteredRows = computed(() => {
   const term = keyword.value.trim().toLowerCase()
-  return rows.value.filter((row) => {
+  return latestFirst(rows.value.filter((row) => {
     const matchesText = !term || Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(term))
     const matchesStatus = statusFilter.value === 'all' || String(statusFrom(row)).toLowerCase() === statusFilter.value
     return matchesText && matchesStatus
-  })
+  }))
 })
+
+const pagedRows = computed(() => pageRows(filteredRows.value, currentPage.value))
+const pageCount = computed(() => totalPages(filteredRows.value.length))
+const visiblePage = computed(() => safePage(currentPage.value, filteredRows.value.length))
 
 const totalAmount = computed(() => rows.value.reduce((sum, row) => {
   const value = firstValue(row, props.amountKeys, 0)
@@ -189,7 +195,7 @@ onMounted(() => {
           <tbody>
             <tr v-if="loading"><td :colspan="columns.length + 1" class="data-table__empty">Memuat data dari API...</td></tr>
             <tr v-else-if="filteredRows.length === 0"><td :colspan="columns.length + 1" class="data-table__empty">Belum ada data yang dapat ditampilkan.</td></tr>
-            <tr v-for="(row, index) in filteredRows" :key="row.id || row.code || row.voucher_number || index">
+            <tr v-for="(row, index) in pagedRows" :key="row.id || row.code || row.voucher_number || index">
               <td v-for="column in columns" :key="column.label">
                 <template v-if="column.key === 'status'"><StatusBadge :value="statusFrom(row)" /></template>
                 <template v-else>{{ formatValue(firstValue(row, column.keys || [column.key]), column) }}</template>
@@ -198,6 +204,14 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="flex flex-col gap-2 border-t border-[#E8EEF7] bg-white px-4 py-3 text-xs text-[#6B7A90] sm:flex-row sm:items-center sm:justify-between">
+        <span>Menampilkan {{ filteredRows.length ? ((visiblePage - 1) * 10) + 1 : 0 }}-{{ Math.min(filteredRows.length, visiblePage * 10) }} dari {{ filteredRows.length }} data terbaru</span>
+        <div class="flex items-center gap-2">
+          <button type="button" class="inline-flex h-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white px-3 text-[11px] font-bold text-[#0B1F4A] disabled:cursor-not-allowed disabled:opacity-45" :disabled="visiblePage <= 1" @click="currentPage = safePage(visiblePage - 1, filteredRows.length)">Sebelumnya</button>
+          <strong>Hal {{ visiblePage }}/{{ pageCount }}</strong>
+          <button type="button" class="inline-flex h-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white px-3 text-[11px] font-bold text-[#0B1F4A] disabled:cursor-not-allowed disabled:opacity-45" :disabled="visiblePage >= pageCount" @click="currentPage = safePage(visiblePage + 1, filteredRows.length)">Berikutnya</button>
+        </div>
       </div>
     </section>
 

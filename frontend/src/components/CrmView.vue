@@ -3,6 +3,7 @@ import { Fragment, Teleport, computed, defineComponent, h, ref } from "vue";
 import { Search, Plus, Filter, Users, MapPin, Mail, Phone, ArrowLeft, ArrowRight, Check, Trash2, Edit3, Eye, CheckCircle2, X, Building, Briefcase, ChevronDown } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, Pegawai, AnggotaTim } from '../types.ts';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 function todayIso() { return new Date().toISOString().slice(0, 10); }
 const CRM_SUBTAB_KEY = 'finstart-crm-active-subtab';
 function getSavedCrmSubTab() {
@@ -53,6 +54,8 @@ export default defineComponent({
       setSelectedProjectDetailId = next => selectedProjectDetailId.value = typeof next === "function" ? next(selectedProjectDetailId.value) : next;
     const selectedClientDetailId = ref(null),
       setSelectedClientDetailId = next => selectedClientDetailId.value = typeof next === "function" ? next(selectedClientDetailId.value) : next;
+    const projectPage = ref(1);
+    const clientPage = ref(1);
     const editingProjectId = ref(null),
       setEditingProjectId = next => editingProjectId.value = typeof next === "function" ? next(editingProjectId.value) : next;
     const editingClientId = ref(null),
@@ -351,18 +354,20 @@ export default defineComponent({
     };
 
     // Filtering lists
-    const filteredProjectsList = computed(() => proyek.filter(p => {
+    const filteredProjectsList = computed(() => latestFirst(proyek.filter(p => {
       const targetClient = klien.find(k => k.id === p.klienId);
       const matchesSearch = p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || (targetClient?.namaPerusahaan || '').toLowerCase().includes(searchQuery.value.toLowerCase());
       const matchesStatus = statusFilter.value === 'All' || p.status === statusFilter.value;
       return matchesSearch && matchesStatus;
-    }));
-    const filteredClientsList = computed(() => klien.filter(k => {
+    })));
+    const filteredClientsList = computed(() => latestFirst(klien.filter(k => {
       return k.namaPerusahaan.toLowerCase().includes(searchQuery.value.toLowerCase()) || k.pic.toLowerCase().includes(searchQuery.value.toLowerCase());
-    }));
+    })));
+    const pagedProjectsList = computed(() => pageRows(filteredProjectsList.value, projectPage.value));
+    const pagedClientsList = computed(() => pageRows(filteredClientsList.value, clientPage.value));
     return () => {
-      const filteredProjects = filteredProjectsList.value;
-      const filteredClients = filteredClientsList.value;
+      const filteredProjects = pagedProjectsList.value;
+      const filteredClients = pagedClientsList.value;
       const selectedProject = selectedProjectDetailId.value ? proyek.find(p => p.id === selectedProjectDetailId.value) ?? null : null;
       const selectedClient = selectedClientDetailId.value ? klien.find(k => k.id === selectedClientDetailId.value) ?? null : null;
       const selectedProjectClient = selectedProject ? klien.find(k => k.id === selectedProject.klienId) : undefined;
@@ -416,7 +421,7 @@ export default defineComponent({
               </thead>
               <tbody class="divide-y divide-slate-150">
                 {filteredProjects.length === 0 ? <tr>
-                    <td colSpan={4} class="p-12 text-center text-slate-400 font-light">
+                    <td colSpan={5} class="p-12 text-center text-slate-400 font-light">
                       Tidak ada proyek yang sesuai dengan kriteria pencarian.
                     </td>
                   </tr> : filteredProjects.map(proj => {
@@ -473,6 +478,7 @@ export default defineComponent({
               </tbody>
             </table>
           </div>
+          <TablePagination page={projectPage.value} total={filteredProjectsList.value.length} onPageChange={(page: number) => projectPage.value = safePage(page, filteredProjectsList.value.length)} />
         </div>}
 
       {/* 2. Klien Sub-Tab layout */}
@@ -493,7 +499,7 @@ export default defineComponent({
               </thead>
               <tbody class="divide-y divide-slate-150">
                 {filteredClients.length === 0 ? <tr>
-                    <td colSpan={5} class="p-12 text-center text-slate-400 font-light">
+                    <td colSpan={4} class="p-12 text-center text-slate-400 font-light">
                       Belum ada klien yang terdaftar.
                     </td>
                   </tr> : filteredClients.map(c => <tr key={c.id} class="hover:bg-slate-50 transition-colors">
@@ -531,6 +537,7 @@ export default defineComponent({
               </tbody>
             </table>
           </div>
+          <TablePagination page={clientPage.value} total={filteredClientsList.value.length} onPageChange={(page: number) => clientPage.value = safePage(page, filteredClientsList.value.length)} />
         </div>}
 
       <Teleport to="body">

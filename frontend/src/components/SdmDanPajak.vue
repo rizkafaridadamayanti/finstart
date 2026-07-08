@@ -4,6 +4,7 @@ import { Users, Percent, ShieldCheck, HeartPulse, Plus, Search, CheckCircle2, Do
 import { formatRupiah } from '../data.ts';
 import { Pegawai, AkunBukuBesar } from '../types.ts';
 import { financeApi, getApiErrorMessage } from '../services/financeApi.js';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 interface SdmDanPajakProps {
   activeSection: 'sdm' | 'perpajakan';
   pegawai: Pegawai[];
@@ -97,6 +98,9 @@ export default defineComponent({
       setTaxTypeFilter = next => taxTypeFilter.value = typeof next === "function" ? next(taxTypeFilter.value) : next;
     const taxSearchQuery = ref(''),
       setTaxSearchQuery = next => taxSearchQuery.value = typeof next === "function" ? next(taxSearchQuery.value) : next; // Modals toggle
+    const employeePage = ref(1);
+    const masterPage = ref(1);
+    const taxPage = ref(1);
     const isBpjsModalOpen = ref(false),
       setIsBpjsModalOpen = next => isBpjsModalOpen.value = typeof next === "function" ? next(isBpjsModalOpen.value) : next;
     const isEmployeeModalOpen = ref(false),
@@ -510,9 +514,13 @@ export default defineComponent({
     function masterRows() {
       const source = masterDataTab.value === 'division' ? divisions.value : positions.value;
       const keyword = String(masterSearch.value || '').trim().toLowerCase();
-      if (!keyword) return source;
-      return source.filter((item: any) => [item.code, item.name, item.description, item.division_name, item.status]
-        .some((value) => String(value || '').toLowerCase().includes(keyword)));
+      if (!keyword) return latestFirst(source);
+      return latestFirst(source.filter((item: any) => [item.code, item.name, item.description, item.division_name, item.status]
+        .some((value) => String(value || '').toLowerCase().includes(keyword))));
+    }
+
+    function pagedMasterRows() {
+      return pageRows(masterRows(), masterPage.value);
     }
 
     function editMasterData(item: any, type: 'division' | 'position' = masterDataTab.value) {
@@ -811,11 +819,12 @@ export default defineComponent({
         showToast(getApiErrorMessage(error, 'Gagal membuat file transfer bank.'));
       }
     }
-    const filteredEmployees = computed(() => (pegawai || []).filter((p: any) => {
+    const filteredEmployees = computed(() => latestFirst((pegawai || []).filter((p: any) => {
       const raw = p?._raw || {};
       const haystack = `${p.nama || raw.full_name || ''} ${p.id || raw.employee_code || ''} ${p.jabatan || raw.position_name || ''} ${raw.division_name || ''} ${raw.employment_status || ''}`.toLowerCase();
       return haystack.includes(searchQuery.value.toLowerCase());
-    }));
+    })));
+    const pagedEmployees = computed(() => pageRows(filteredEmployees.value, employeePage.value));
     const totalTaxesOwed = taxes.value.filter(t => t.status === 'Belum Setor').reduce((acc, t) => acc + t.nominal, 0);
     const overdueTaxCount = taxes.value.filter(t => t.status === 'Belum Setor' && new Date(t.jatuhTempo) < new Date()).length;
     const getOutstandingTax = (jenis: PajakKewajiban['jenis']) => taxes.value.find(t => t.jenis === jenis && t.status === 'Belum Setor');
@@ -834,13 +843,14 @@ export default defineComponent({
       if (jenis === 'PPh Badan') return `Kewajiban PPh Badan periode ${masaPajak}.`;
       return `Kewajiban pajak lainnya periode ${masaPajak}.`;
     };
-    const filteredTaxRows = computed(() => taxes.value.filter(tax => {
+    const filteredTaxRows = computed(() => latestFirst(taxes.value.filter(tax => {
       const matchesTab = taxTableTab.value === 'unpaid' ? tax.status === 'Belum Setor' : tax.status === 'Sudah Setor';
       const matchesType = taxTypeFilter.value === 'Semua' || tax.jenis === taxTypeFilter.value;
       const haystack = `${tax.jenis} ${tax.masaPajak} ${tax.status} ${tax.ntpn || ''}`.toLowerCase();
       const matchesSearch = haystack.includes(taxSearchQuery.value.toLowerCase());
       return matchesTab && matchesType && matchesSearch;
-    }));
+    })));
+    const pagedTaxRows = computed(() => pageRows(filteredTaxRows.value, taxPage.value));
     const csvEscape = (value: any) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const downloadTextFile = (filename: string, content: string, type = 'text/csv;charset=utf-8;') => {
       const blob = new Blob([content], { type });
@@ -1014,14 +1024,8 @@ export default defineComponent({
     const employeeCount = () => pegawai.length;
     const activeBpjsCount = () => pegawai.filter((item: any) => String(item?._raw?.bpjs_status || '').toLowerCase() === 'active').length;
     const bpjsCompliancePercent = () => employeeCount() ? Math.round(activeBpjsCount() / employeeCount() * 100) : 0;
-    const activeDivisions = () => divisions.value.filter((division: any) => {
-      return String(division.status || 'active').toLowerCase() === 'active'
-        || String(division.id) === String(employeeForm.value.divisionId || '');
-    });
+    const activeDivisions = () => divisions.value;
     const filteredPositions = () => positions.value.filter((position: any) => {
-      const matchesStatus = String(position.status || 'active').toLowerCase() === 'active'
-        || String(position.id) === String(employeeForm.value.positionId || '');
-      if (!matchesStatus) return false;
       if (!employeeForm.value.divisionId) return true;
       return !position.division_id || String(position.division_id) === String(employeeForm.value.divisionId);
     });
@@ -1135,7 +1139,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                  {filteredEmployees.value.map(staff => {
+                  {pagedEmployees.value.map(staff => {
                   return <tr key={staff.id} class="hover:bg-slate-50 transition-colors">
                         <td class="px-7 py-4">
                           <span class="font-bold text-[#020B2D] block text-sm">{staff.nama}</span>
@@ -1159,16 +1163,31 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={employeePage.value} total={filteredEmployees.value.length} onPageChange={(page: number) => employeePage.value = safePage(page, filteredEmployees.value.length)} />
           </div>
 
           {isMasterDataModalOpen.value && <Teleport to="body">
-            <div class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#07162E]/70 p-3 backdrop-blur-sm sm:p-6">
-              <div class="my-3 flex max-h-[calc(100dvh-2rem)] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)] sm:my-5">
+            <div
+              class="master-data-modal-layer bg-[#0B1220]/60 backdrop-blur-sm"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2147483000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100vw',
+                height: '100dvh',
+                padding: '24px',
+                overflowY: 'auto',
+              }}
+            >
+              <div class="flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]" style={{ width: 'min(92vw, 1180px)', maxHeight: 'calc(100dvh - 48px)' }}>
                 <div class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4 sm:px-7 sm:py-5">
                   <div>
                     <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Master Data SDM</p>
                     <h3 class="mt-1 text-xl font-extrabold tracking-tight text-[#102A56]">Kelola Divisi & Jabatan</h3>
-                    <p class="mt-1 max-w-2xl text-xs leading-5 text-[#6B7A90]">Tambahkan, ubah, aktifkan/nonaktifkan, atau hapus master data. Data yang masih digunakan pegawai tidak dapat dihapus secara langsung.</p>
+                    <p class="mt-1 max-w-2xl text-xs leading-5 text-[#6B7A90]">Tambahkan, ubah, atau hapus master data. Data yang masih digunakan pegawai tidak dapat dihapus secara langsung.</p>
                   </div>
                   <button id="btn-close-master-data" type="button" onClick={() => { isMasterDataModalOpen.value = false; resetMasterDataForm(masterDataTab.value, false); }} class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]" aria-label="Tutup kelola divisi dan jabatan"><X class="h-5 w-5" /></button>
                 </div>
@@ -1178,12 +1197,12 @@ export default defineComponent({
                   <button type="button" onClick={() => changeMasterTab('position')} class={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition ${masterDataTab.value === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`}><BriefcaseBusiness class="h-4 w-4" /> Jabatan <span class={`rounded-full px-1.5 py-0.5 text-[10px] ${masterDataTab.value === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`}>{positions.value.length}</span></button>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-y-auto">
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   <section class="min-w-0 p-5 lg:p-6">
                     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p class="text-sm font-extrabold text-[#102A56]">Daftar {masterLabel()}</p>
-                        <p class="mt-1 text-[11px] text-[#7A8CA8]">Gunakan ikon untuk ubah, aktif/nonaktif, atau hapus data.</p>
+                        <p class="mt-1 text-[11px] text-[#7A8CA8]">Gunakan ikon untuk ubah atau hapus data.</p>
                       </div>
                       <button id="btn-add-master-data" type="button" onClick={() => resetMasterDataForm(masterDataTab.value, true)} class="inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"><Plus class="h-4 w-4" /> Tambah {masterLabel()}</button>
                     </div>
@@ -1192,29 +1211,48 @@ export default defineComponent({
                       <input id="master-data-search" value={masterSearch.value} onInput={event => masterSearch.value = (event.target as HTMLInputElement).value} placeholder={`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`} class="h-11 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-xs font-medium text-[#243650] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
                     </div>
                     <div class="overflow-hidden rounded-2xl border border-[#E1EAF5]">
-                      <div class="max-h-[min(52vh,460px)] overflow-auto">
-                        <table class="min-w-full text-left text-xs">
-                          <thead class="sticky top-0 z-10 bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"><tr><th class="px-4 py-3">Kode / Nama</th>{masterDataTab.value === 'position' && <th class="px-4 py-3">Divisi</th>}<th class="px-4 py-3">Status</th><th class="px-4 py-3 text-center">Dipakai</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead>
+                      <div class="max-h-[min(48dvh,420px)] overflow-y-auto overflow-x-auto">
+                        <table class="master-data-table w-full min-w-[720px] table-fixed text-left text-xs" style={{ width: '100%' }}>
+                          {masterDataTab.value === 'position'
+                            ? <colgroup><col style={{ width: '42%' }} /><col style={{ width: '24%' }} /><col style={{ width: '13%' }} /><col style={{ width: '9%' }} /><col style={{ width: '12%' }} /></colgroup>
+                            : <colgroup><col style={{ width: '62%' }} /><col style={{ width: '16%' }} /><col style={{ width: '22%' }} /></colgroup>}
+                          <thead class="sticky top-0 z-10 bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"><tr><th class="px-5 py-3 text-left">Kode / Nama</th>{masterDataTab.value === 'position' && <th class="px-5 py-3 text-left">Divisi</th>}{masterDataTab.value === 'position' && <th class="px-5 py-3 text-left">Status</th>}<th class="px-5 py-3 text-center">Dipakai</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
                           <tbody class="divide-y divide-[#EDF2F7] bg-white">
-                            {masterRows().length ? masterRows().map((item: any) => <tr key={`${masterDataTab.value}-${item.id}`} class="hover:bg-[#FAFCFF]">
+                            {masterRows().length ? pagedMasterRows().map((item: any) => <tr key={`${masterDataTab.value}-${item.id}`} class="hover:bg-[#FAFCFF]">
                               <td class="px-4 py-3"><p class="font-extrabold text-[#102A56]">{item.name}</p><p class="mt-1 text-[10px] text-[#7A8CA8]">{item.code || 'Kode otomatis'}{item.description ? ` · ${item.description}` : ''}</p></td>
                               {masterDataTab.value === 'position' && <td class="px-4 py-3 text-[#53658A]">{item.division_name || 'Semua divisi'}</td>}
-                              <td class="px-4 py-3"><span class={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${String(item.status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{String(item.status || 'active').toLowerCase() === 'active' ? 'Aktif' : 'Nonaktif'}</span></td>
+                              {masterDataTab.value === 'position' && <td class="px-4 py-3"><span class={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${String(item.status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{String(item.status || 'active').toLowerCase() === 'active' ? 'Aktif' : 'Nonaktif'}</span></td>}
                               <td class="px-4 py-3 text-center font-bold text-[#53658A]">{Number(item.employee_count || 0)}</td>
-                              <td class="px-4 py-3"><div class="flex justify-end gap-1.5"><button type="button" title={`Ubah ${masterLabel().toLowerCase()}`} aria-label={`Ubah ${masterLabel().toLowerCase()}`} onClick={() => editMasterData(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F2D49B] bg-[#FFF9EE] text-[#B86A00] hover:bg-[#FFF1D7]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" title={String(item.status || 'active').toLowerCase() === 'active' ? 'Nonaktifkan' : 'Aktifkan'} aria-label={String(item.status || 'active').toLowerCase() === 'active' ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleMasterStatus(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C9DBF4] bg-[#F4F9FF] text-[#1E5AA8] hover:bg-[#EAF4FF]"><Power class="h-3.5 w-3.5" /></button><button type="button" title={`Hapus ${masterLabel().toLowerCase()}`} aria-label={`Hapus ${masterLabel().toLowerCase()}`} onClick={() => deleteMasterData(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td>
-                            </tr>) : <tr><td colSpan={masterDataTab.value === 'position' ? 5 : 4} class="px-4 py-12 text-center text-xs text-[#8190A5]">Belum ada data {masterLabel().toLowerCase()} yang sesuai.</td></tr>}
+                              <td class="px-4 py-3"><div class="flex justify-end gap-1.5"><button type="button" title={`Ubah ${masterLabel().toLowerCase()}`} aria-label={`Ubah ${masterLabel().toLowerCase()}`} onClick={() => editMasterData(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F2D49B] bg-[#FFF9EE] text-[#B86A00] hover:bg-[#FFF1D7]"><Pencil class="h-3.5 w-3.5" /></button>{masterDataTab.value === 'position' && <button type="button" title={String(item.status || 'active').toLowerCase() === 'active' ? 'Nonaktifkan' : 'Aktifkan'} aria-label={String(item.status || 'active').toLowerCase() === 'active' ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => toggleMasterStatus(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C9DBF4] bg-[#F4F9FF] text-[#1E5AA8] hover:bg-[#EAF4FF]"><Power class="h-3.5 w-3.5" /></button>}<button type="button" title={`Hapus ${masterLabel().toLowerCase()}`} aria-label={`Hapus ${masterLabel().toLowerCase()}`} onClick={() => deleteMasterData(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td>
+                            </tr>) : <tr><td colSpan={masterDataTab.value === 'position' ? 5 : 3} class="px-4 py-12 text-center text-xs text-[#8190A5]">Belum ada data {masterLabel().toLowerCase()} yang sesuai.</td></tr>}
                           </tbody>
                         </table>
                       </div>
                     </div>
+                    <TablePagination page={masterPage.value} total={masterRows().length} onPageChange={(page: number) => masterPage.value = safePage(page, masterRows().length)} />
                   </section>
 
 
                 </div>
               </div>
 
-              {isMasterEditorOpen.value && <div class="fixed inset-0 z-[10020] flex items-center justify-center overflow-y-auto bg-[#07162E]/65 p-4 backdrop-blur-sm">
-                <div class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-[24px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]">
+              {isMasterEditorOpen.value && <div
+                class="bg-[#0B1220]/60 backdrop-blur-sm"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 2147483200,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100vw',
+                  height: '100dvh',
+                  padding: '24px',
+                  overflowY: 'auto',
+                  pointerEvents: 'auto',
+                }}
+              >
+                <div class="flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_30px_100px_rgba(8,25,60,0.48)]" style={{ width: 'min(92vw, 860px)', maxHeight: 'calc(100dvh - 48px)' }}>
                   <div class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-6 py-5">
                     <div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Form Master Data</p><h3 class="mt-1 text-lg font-extrabold text-[#102A56]">{masterDataForm.value.id ? `Ubah ${masterLabel(masterDataForm.value.type)}` : `Tambah ${masterLabel(masterDataForm.value.type)}`}</h3><p class="mt-1 text-xs text-[#7A8CA8]">Form dibuat overlay agar sama seperti modal lain dan tombol aksi lebih jelas.</p></div>
                     <button type="button" onClick={closeMasterEditor} class="flex h-10 w-10 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]" aria-label="Tutup form master data"><X class="h-5 w-5" /></button>
@@ -1222,9 +1260,9 @@ export default defineComponent({
                   <form onSubmit={saveMasterData} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                     <label class="block text-[11px] font-bold text-[#53658A]">Kode<input value={masterDataForm.value.code} onInput={event => masterDataForm.value = { ...masterDataForm.value, code: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: FIN' : 'Contoh: FIN-MGR'} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
                     <label class="block text-[11px] font-bold text-[#53658A]">Nama {masterLabel(masterDataForm.value.type)}<input required value={masterDataForm.value.name} onInput={event => masterDataForm.value = { ...masterDataForm.value, name: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: Keuangan' : 'Contoh: Finance Manager'} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
-                    {masterDataForm.value.type === 'position' && <label class="block text-[11px] font-bold text-[#53658A]">Divisi Induk<select value={masterDataForm.value.divisionId} onChange={event => masterDataForm.value = { ...masterDataForm.value, divisionId: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="">Berlaku untuk semua divisi</option>{divisions.value.filter((item: any) => String(item.status || 'active').toLowerCase() === 'active' || String(item.id) === String(masterDataForm.value.divisionId)).map((item: any) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}</select></label>}
+                    {masterDataForm.value.type === 'position' && <label class="block text-[11px] font-bold text-[#53658A]">Divisi Induk<select value={masterDataForm.value.divisionId} onChange={event => masterDataForm.value = { ...masterDataForm.value, divisionId: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="">Berlaku untuk semua divisi</option>{divisions.value.map((item: any) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}</select></label>}
                     <label class="block text-[11px] font-bold text-[#53658A]">Keterangan<textarea value={masterDataForm.value.description} onInput={event => masterDataForm.value = { ...masterDataForm.value, description: (event.target as HTMLTextAreaElement).value }} rows={4} placeholder="Keterangan singkat (opsional)" class="mt-1.5 w-full resize-none rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
-                    <label class="block text-[11px] font-bold text-[#53658A]">Status<select value={masterDataForm.value.status} onChange={event => masterDataForm.value = { ...masterDataForm.value, status: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
+                    {masterDataForm.value.type === 'position' && <label class="block text-[11px] font-bold text-[#53658A]">Status<select value={masterDataForm.value.status} onChange={event => masterDataForm.value = { ...masterDataForm.value, status: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>}
                     <div class="grid gap-3 pt-2 sm:grid-cols-2"><button id="btn-cancel-master-data" type="button" onClick={closeMasterEditor} class="h-11 rounded-xl border border-[#DCE7F4] bg-white px-4 text-xs font-bold text-[#53658A] transition hover:bg-[#F4F8FD]">Batal</button><button id="btn-save-master-data" type="submit" disabled={masterBusy.value} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"><Save class="h-4 w-4" /> {masterBusy.value ? 'Menyimpan...' : 'Simpan'}</button></div>
                   </form>
                 </div>
@@ -1467,7 +1505,7 @@ export default defineComponent({
                   <tbody class="divide-y divide-[#EDF2F8]">
                     {filteredTaxRows.value.length === 0 ? <tr>
                         <td colSpan={8} class="px-3 py-12 text-center text-sm text-[#8A99AD]">Tidak ada data pajak yang sesuai.</td>
-                      </tr> : filteredTaxRows.value.map(tax => <tr key={tax.id} class="transition hover:bg-[#FAFCFE]">
+                      </tr> : pagedTaxRows.value.map(tax => <tr key={tax.id} class="transition hover:bg-[#FAFCFE]">
                           <td class="px-3 py-3.5">
                             <span class="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-medium text-[#1E5AA8]">{tax.jenis}</span>
                           </td>
@@ -1496,6 +1534,7 @@ export default defineComponent({
                   </tbody>
                 </table>
               </div>
+              <TablePagination page={taxPage.value} total={filteredTaxRows.value.length} onPageChange={(page: number) => taxPage.value = safePage(page, filteredTaxRows.value.length)} />
             </div>
           </section>
         </div>}
@@ -1583,13 +1622,13 @@ export default defineComponent({
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <Field label="Nama Lengkap"><input required value={employeeForm.value.nama} onChange={e => setEmployeeForm({ ...employeeForm.value, nama: e.target.value })} class={inputClass} placeholder="Contoh: Rizka Farida Damayanti" /></Field>
-                  <Field label="NIK"><input required value={employeeForm.value.nik} onChange={e => setEmployeeForm({ ...employeeForm.value, nik: e.target.value })} class={inputClass} placeholder="Nomor identitas pegawai" /></Field>
-                  <Field label="Email"><input type="email" value={employeeForm.value.email} onChange={e => setEmployeeForm({ ...employeeForm.value, email: e.target.value })} class={inputClass} placeholder="nama@perusahaan.com" /></Field>
-                  <Field label="No. WhatsApp"><input value={employeeForm.value.whatsapp} onChange={e => setEmployeeForm({ ...employeeForm.value, whatsapp: e.target.value })} class={inputClass} placeholder="08xxxxxxxxxx" /></Field>
+                  <Field label="Nama Lengkap"><input required value={employeeForm.value.nama} onInput={e => setEmployeeForm({ ...employeeForm.value, nama: e.target.value })} class={inputClass} placeholder="Contoh: Rizka Farida Damayanti" /></Field>
+                  <Field label="NIK"><input required value={employeeForm.value.nik} onInput={e => setEmployeeForm({ ...employeeForm.value, nik: e.target.value })} class={inputClass} placeholder="Nomor identitas pegawai" /></Field>
+                  <Field label="Email"><input type="email" value={employeeForm.value.email} onInput={e => setEmployeeForm({ ...employeeForm.value, email: e.target.value })} class={inputClass} placeholder="nama@perusahaan.com" /></Field>
+                  <Field label="No. WhatsApp"><input value={employeeForm.value.whatsapp} onInput={e => setEmployeeForm({ ...employeeForm.value, whatsapp: e.target.value })} class={inputClass} placeholder="08xxxxxxxxxx" /></Field>
                   <Field label="Divisi"><select required value={employeeForm.value.divisionId} onChange={e => setEmployeeForm({ ...employeeForm.value, divisionId: e.target.value, positionId: '' })} class={inputClass}>
                     <option value="">Pilih divisi</option>
-                    {activeDivisions().map((division: any) => <option key={division.id} value={String(division.id)}>{division.name}{String(division.status || 'active').toLowerCase() === 'inactive' ? ' (Nonaktif)' : ''}</option>)}
+                    {activeDivisions().map((division: any) => <option key={division.id} value={String(division.id)}>{division.name}</option>)}
                   </select></Field>
                   <Field label="Jabatan"><select required value={employeeForm.value.positionId} onChange={e => setEmployeeForm({ ...employeeForm.value, positionId: e.target.value })} class={inputClass}>
                     <option value="">Pilih jabatan</option>
@@ -1608,7 +1647,7 @@ export default defineComponent({
                   </div>}
                   <Field label="Status PTKP"><select value={employeeForm.value.ptkpStatus} onChange={e => setEmployeeForm({ ...employeeForm.value, ptkpStatus: e.target.value })} class={inputClass}><option>TK/0</option><option>TK/1</option><option>TK/2</option><option>TK/3</option><option>K/0</option><option>K/1</option><option>K/2</option><option>K/3</option></select></Field>
                   <Field label="Tanggal Bergabung"><input required type="date" value={employeeForm.value.tanggalBergabung} onChange={e => setEmployeeForm({ ...employeeForm.value, tanggalBergabung: e.target.value })} class={inputClass} /></Field>
-                  <div class="md:col-span-2"><Field label="Gaji Pokok"><div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#1E5AA8]">Rp</span><input required type="number" min="0" value={employeeForm.value.gajiPokok || ''} onChange={e => setEmployeeForm({ ...employeeForm.value, gajiPokok: Number(e.target.value) })} class={`${inputClass} pl-12`} placeholder="0" /></div></Field></div>
+                  <div class="md:col-span-2"><Field label="Gaji Pokok"><div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#1E5AA8]">Rp</span><input required type="number" min="0" value={employeeForm.value.gajiPokok || ''} onInput={e => setEmployeeForm({ ...employeeForm.value, gajiPokok: Number(e.target.value) })} class={`${inputClass} pl-12`} placeholder="0" /></div></Field></div>
                 </div>
               </section>
 

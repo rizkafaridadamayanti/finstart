@@ -46,6 +46,9 @@ const targetForm = ref({
   notes: '',
 })
 
+const currentPageProjections = ref(1)
+const PAGE_SIZE = 10
+
 const monthOptions = [
   { value: 1, label: 'Januari' },
   { value: 2, label: 'Februari' },
@@ -235,6 +238,21 @@ async function deleteTarget(row) {
 
 const months = computed(() => projectionData.value.months || [])
 const summary = computed(() => projectionData.value.summary || {})
+
+// Sort months by newest first (descending order)
+const sortedMonths = computed(() => {
+  return [...months.value].sort((a, b) => b.month - a.month)
+})
+
+const paginatedMonths = computed(() => {
+  const start = (currentPageProjections.value - 1) * PAGE_SIZE
+  return sortedMonths.value.slice(start, start + PAGE_SIZE)
+})
+
+// Reset page when year changes
+watch(selectedYear, () => {
+  currentPageProjections.value = 1
+})
 
 const chartWidth = 1100
 const chartHeight = 310
@@ -637,7 +655,7 @@ onMounted(loadProjections)
           </thead>
 
           <tbody>
-            <tr v-for="row in months" :key="row.month">
+            <tr v-for="row in paginatedMonths" :key="row.month">
               <td>
                 <strong>{{ row.label }} {{ selectedYear }}</strong>
                 <small v-if="row.notes" class="table-subtext">
@@ -694,6 +712,37 @@ onMounted(loadProjections)
               </td>
             </tr>
           </tbody>
+
+          <!-- Pagination Controls for Projections -->
+          <tfoot>
+            <tr>
+              <td colspan="9">
+                <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+                  <div class="text-xs text-[#6B7A90]">
+                    Menampilkan {{ Math.min((currentPageProjections - 1) * PAGE_SIZE + 1, months.length) }} - {{ Math.min(currentPageProjections * PAGE_SIZE, months.length) }} dari {{ months.length }} data
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      :disabled="currentPageProjections <= 1"
+                      @click="currentPageProjections = Math.max(1, currentPageProjections - 1)"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      Prev
+                    </button>
+                    <button
+                      :disabled="currentPageProjections >= Math.ceil(months.length / PAGE_SIZE)"
+                      @click="currentPageProjections = currentPageProjections + 1"
+                      class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Next
+                      <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </article>
