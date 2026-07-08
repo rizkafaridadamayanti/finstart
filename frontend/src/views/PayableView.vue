@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
@@ -28,6 +28,8 @@ const summary = ref({
 const keyword = ref('')
 const selectedStatus = ref('all')
 const isLoading = ref(false)
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 const isSaving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -142,7 +144,7 @@ const billVendorPayable = computed(() => {
 const filteredBills = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  return bills.value.filter((bill) => {
+  const filtered = bills.value.filter((bill) => {
     const status = String(bill.display_status || bill.status || '').toLowerCase()
 
     const matchesStatus =
@@ -159,6 +161,17 @@ const filteredBills = computed(() => {
 
     return matchesStatus && matchesSearch
   })
+
+  return filtered.sort((a, b) => {
+    const dateA = a.due_date ? new Date(a.due_date) : (a.bill_date ? new Date(a.bill_date) : (a.created_at ? new Date(a.created_at) : new Date(0)))
+    const dateB = b.due_date ? new Date(b.due_date) : (b.bill_date ? new Date(b.bill_date) : (b.created_at ? new Date(b.created_at) : new Date(0)))
+    return dateB - dateA
+  })
+})
+
+const paginatedBills = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredBills.value.slice(start, start + PAGE_SIZE)
 })
 
 const selectedIssueBill = computed(() => {
@@ -505,6 +518,10 @@ async function savePayment() {
   }
 }
 
+watch([keyword, selectedStatus], () => {
+  currentPage.value = 1
+})
+
 onMounted(loadData)
 </script>
 
@@ -649,7 +666,7 @@ onMounted(loadData)
           </thead>
 
           <tbody>
-            <tr v-for="bill in filteredBills" :key="bill.id">
+            <tr v-for="bill in paginatedBills" :key="bill.id">
               <td>
                 <strong>{{ bill.bill_number }}</strong>
                 <small class="table-subtext">{{ formatDate(bill.bill_date) }}</small>
@@ -733,6 +750,31 @@ onMounted(loadData)
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredBills.length) }} - {{ Math.min(currentPage * PAGE_SIZE, filteredBills.length) }} dari {{ filteredBills.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(filteredBills.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

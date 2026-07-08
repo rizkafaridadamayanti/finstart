@@ -346,6 +346,9 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    const openingBalanceDelta =
+      openingBalance - Number(existingAccount.opening_balance || 0)
+
     await db.query(
       `
         UPDATE accounts
@@ -355,6 +358,7 @@ router.put('/:id', async (req, res) => {
           type = ?,
           normal_balance = ?,
           opening_balance = ?,
+          current_balance = COALESCE(current_balance, 0) + ?,
           status = ?,
           parent_id = ?
         WHERE id = ?
@@ -365,6 +369,7 @@ router.put('/:id', async (req, res) => {
         accountType,
         accountNormalBalance,
         openingBalance,
+        openingBalanceDelta,
         accountStatus,
         parentId,
         accountId,

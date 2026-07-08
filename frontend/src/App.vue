@@ -506,7 +506,7 @@ export default defineComponent({
       await financeApi.post(`/journals/${item.id}/approve`, {});
       await loadFinancialData({ silent: true });
       showToast('Jurnal disetujui dan siap diposting.');
-    }, 'Gagal menyetujui jurnal. Pembuat jurnal tidak boleh menyetujui jurnalnya sendiri.');
+    }, 'Gagal menyetujui jurnal. Pastikan jurnal masih draft dan user memiliki akses approval.');
 
     const handlePostJournal = async (item: any) => withApiFeedback(async () => {
       await financeApi.post(`/journals/${item.id}/post`, {});

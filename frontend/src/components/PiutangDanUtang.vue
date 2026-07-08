@@ -4,6 +4,7 @@ import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Re
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, AkunBukuBesar } from '../types.ts';
 import ConfirmDialog from './common/ConfirmDialog.vue';
+import { TablePagination, latestFirst, pageRows, safePage } from '../utils/tablePagination.tsx';
 interface Invoice {
   id: string;
   nomor: string;
@@ -89,6 +90,8 @@ export default defineComponent({
     const editingBill = ref<any>(null);
     const cancelConfirm = ref<any>(null); // New Invoice form input
     const statusFilter = ref('open');
+    const invoicePage = ref(1);
+    const billPage = ref(1);
     const statusOptions = [
       { value: 'open', label: 'Outstanding' },
       { value: 'overdue', label: 'Overdue' },
@@ -301,8 +304,10 @@ export default defineComponent({
     const totalOutstandingPiutang = invoices.value.filter(isInvoiceOpen).reduce((acc, i) => acc + receivableBalance(i), 0);
     const totalOverduePiutang = invoices.value.filter(i => i.status === 'Overdue').reduce((acc, i) => acc + receivableBalance(i), 0);
     const totalOutstandingUtang = bills.value.filter(isBillOpen).reduce((acc, b) => acc + payableBalance(b), 0);
-    const filteredInvoices = computed(() => invoices.value.filter((invoice) => matchesStatusFilter(invoice, isInvoiceOpen)));
-    const filteredBills = computed(() => bills.value.filter((bill) => matchesStatusFilter(bill, isBillOpen)));
+    const filteredInvoices = computed(() => latestFirst(invoices.value.filter((invoice) => matchesStatusFilter(invoice, isInvoiceOpen))));
+    const filteredBills = computed(() => latestFirst(bills.value.filter((bill) => matchesStatusFilter(bill, isBillOpen))));
+    const pagedInvoices = computed(() => pageRows(filteredInvoices.value, invoicePage.value));
+    const pagedBills = computed(() => pageRows(filteredBills.value, billPage.value));
     return () => <div class="space-y-6 font-sans">
       {/* Upper header switch */}
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
@@ -396,7 +401,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredInvoices.value.map(inv => <tr key={inv.id} class="hover:bg-slate-50 transition-colors">
+                  {pagedInvoices.value.map(inv => <tr key={inv.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-slate-800 text-sm">{inv.nomor}</td>
                       <td class="p-4 space-y-1">
                         <span class="font-bold text-[#0B1F4A] block text-sm">{inv.proyekNama}</span>
@@ -415,6 +420,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={invoicePage.value} total={filteredInvoices.value.length} onPageChange={(page: number) => invoicePage.value = safePage(page, filteredInvoices.value.length)} />
           </div>
         </div>}
 
@@ -472,7 +478,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredBills.value.map(bill => <tr key={bill.id} class="hover:bg-slate-50 transition-colors">
+                  {pagedBills.value.map(bill => <tr key={bill.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-[#0B1F4A]">{bill.nomorTagihan}</td>
                       <td class="p-4">
                         <span class="font-bold text-slate-800 block text-sm">{bill.vendor}</span>
@@ -492,6 +498,7 @@ export default defineComponent({
                 </tbody>
               </table>
             </div>
+            <TablePagination page={billPage.value} total={filteredBills.value.length} onPageChange={(page: number) => billPage.value = safePage(page, filteredBills.value.length)} />
           </div>
         </div>}
 

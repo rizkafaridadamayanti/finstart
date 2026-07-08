@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 /*
   PIUTANG FINSTART
@@ -40,6 +40,8 @@ const summary = ref({
 const keyword = ref('')
 const selectedStatus = ref('all')
 const isLoading = ref(false)
+const currentPage = ref(1)
+const PAGE_SIZE = 10
 const isSaving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -113,7 +115,7 @@ const cashAccounts = computed(() => {
 const filteredInvoices = computed(() => {
   const search = keyword.value.toLowerCase().trim()
 
-  return invoices.value.filter((invoice) => {
+  const filtered = invoices.value.filter((invoice) => {
     const invoiceStatus = String(
       invoice.display_status || invoice.status || '',
     ).toLowerCase()
@@ -132,6 +134,17 @@ const filteredInvoices = computed(() => {
 
     return matchesStatus && matchesKeyword
   })
+
+  return filtered.sort((a, b) => {
+    const dateA = a.due_date ? new Date(a.due_date) : (a.issue_date ? new Date(a.issue_date) : (a.created_at ? new Date(a.created_at) : new Date(0)))
+    const dateB = b.due_date ? new Date(b.due_date) : (b.issue_date ? new Date(b.issue_date) : (b.created_at ? new Date(b.created_at) : new Date(0)))
+    return dateB - dateA
+  })
+})
+
+const paginatedInvoices = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return filteredInvoices.value.slice(start, start + PAGE_SIZE)
 })
 
 const invoiceTotal = computed(() => {
@@ -524,6 +537,10 @@ async function savePayment() {
   }
 }
 
+watch([keyword, selectedStatus], () => {
+  currentPage.value = 1
+})
+
 onMounted(loadData)
 </script>
 
@@ -668,7 +685,7 @@ onMounted(loadData)
           </thead>
 
           <tbody>
-            <tr v-for="invoice in filteredInvoices" :key="invoice.id">
+            <tr v-for="invoice in paginatedInvoices" :key="invoice.id">
               <td>
                 <strong>{{ invoice.invoice_number }}</strong>
                 <small class="table-subtext">
@@ -754,6 +771,31 @@ onMounted(loadData)
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Controls -->
+        <div class="flex items-center justify-between p-4 border-t border-[#E8EEF7]">
+          <div class="text-xs text-[#6B7A90]">
+            Menampilkan {{ Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredInvoices.length) }} - {{ Math.min(currentPage * PAGE_SIZE, filteredInvoices.length) }} dari {{ filteredInvoices.length }} data
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <svg class="w-3 h-3 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              Prev
+            </button>
+            <button
+              :disabled="currentPage >= Math.ceil(filteredInvoices.length / PAGE_SIZE)"
+              @click="currentPage = currentPage + 1"
+              class="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border border-[#D8E5F4] text-[#0B1F4A] hover:bg-[#F8FAFC] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              Next
+              <svg class="w-3 h-3 -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </article>
 

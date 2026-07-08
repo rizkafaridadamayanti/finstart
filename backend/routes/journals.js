@@ -605,13 +605,6 @@ router.post('/:id/approve', requirePermission('journals', 'approve'), async (req
       )
     }
 
-    if (Number(journals[0].created_by) === Number(approvedBy)) {
-      throw createAppError(
-        403,
-        'Pembuat jurnal tidak boleh menyetujui jurnalnya sendiri.',
-      )
-    }
-
     const [lines] = await connection.query(
       `
         SELECT account_id, debit, credit
