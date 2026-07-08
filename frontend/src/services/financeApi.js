@@ -5,38 +5,50 @@ const AUTH_TOKEN_KEY = 'finstart-auth-token'
 const AUTH_USER_KEY = 'finstart-auth-user'
 const AUTH_EXPIRES_KEY = 'finstart-auth-expires-at'
 
+function storagePair() {
+  if (typeof window === 'undefined') return []
+  return [window.localStorage, window.sessionStorage]
+}
+
 function getStoredToken() {
   if (typeof window === 'undefined') return ''
-  return window.sessionStorage.getItem(AUTH_TOKEN_KEY) || ''
+  return window.localStorage.getItem(AUTH_TOKEN_KEY) || window.sessionStorage.getItem(AUTH_TOKEN_KEY) || ''
 }
 
 export function getStoredAuthUser() {
   if (typeof window === 'undefined') return null
   try {
-    return JSON.parse(window.sessionStorage.getItem(AUTH_USER_KEY) || 'null')
+    return JSON.parse(window.localStorage.getItem(AUTH_USER_KEY) || window.sessionStorage.getItem(AUTH_USER_KEY) || 'null')
   } catch {
     return null
   }
 }
 
-export function saveAuthSession(session) {
+export function saveAuthSession(session, remember = false) {
   if (typeof window === 'undefined') return
-  window.sessionStorage.setItem(AUTH_TOKEN_KEY, session?.token || '')
-  window.sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(session?.user || null))
-  window.sessionStorage.setItem(AUTH_EXPIRES_KEY, session?.expires_at || '')
+  const target = remember ? window.localStorage : window.sessionStorage
+  const other = remember ? window.sessionStorage : window.localStorage
+  other.removeItem(AUTH_TOKEN_KEY)
+  other.removeItem(AUTH_USER_KEY)
+  other.removeItem(AUTH_EXPIRES_KEY)
+  target.setItem(AUTH_TOKEN_KEY, session?.token || '')
+  target.setItem(AUTH_USER_KEY, JSON.stringify(session?.user || null))
+  target.setItem(AUTH_EXPIRES_KEY, session?.expires_at || '')
 }
 
 export function clearAuthSession() {
   if (typeof window === 'undefined') return
-  window.sessionStorage.removeItem(AUTH_TOKEN_KEY)
-  window.sessionStorage.removeItem(AUTH_USER_KEY)
-  window.sessionStorage.removeItem(AUTH_EXPIRES_KEY)
+  for (const storage of storagePair()) {
+    storage.removeItem(AUTH_TOKEN_KEY)
+    storage.removeItem(AUTH_USER_KEY)
+    storage.removeItem(AUTH_EXPIRES_KEY)
+  }
 }
 
 export function hasAuthSession() {
   if (typeof window === 'undefined') return false
   const token = getStoredToken()
-  const expiresAt = window.sessionStorage.getItem(AUTH_EXPIRES_KEY) || ''
+  const expiresAt = window.localStorage.getItem(AUTH_EXPIRES_KEY) || window.sessionStorage.getItem(AUTH_EXPIRES_KEY) || ''
   return Boolean(token && (!expiresAt || Date.parse(expiresAt) > Date.now()))
 }
 
@@ -101,7 +113,15 @@ async function request(path, options = {}) {
 
 export const financeApi = {
   health: () => request('/health'),
-  login: (email, password, mfaCode = '') => request('/auth/login', { method: 'POST', body: { email, password, mfa_code: mfaCode } }),
+  login: (email, password, mfaCode = '', rememberDevice = false) => request('/auth/login', {
+    method: 'POST',
+    body: {
+      email,
+      password,
+      mfa_code: mfaCode,
+      remember_device: Boolean(rememberDevice),
+    },
+  }),
   me: () => request('/auth/me'),
   logout: () => request('/auth/logout', { method: 'POST', body: {} }),
   requestPasswordReset: (email) => request('/auth/password/request-reset', { method: 'POST', body: { email } }),

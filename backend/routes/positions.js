@@ -137,13 +137,6 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Nama dan status jabatan wajib valid.' })
     }
 
-    if (status === 'inactive' && Number(existing.employee_count || 0) > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Jabatan masih dipakai pegawai. Ubah jabatan atau nonaktifkan pegawai terkait terlebih dahulu.',
-      })
-    }
-
     if (divisionId) {
       const division = await getDivision(divisionId)
       if (!division) return res.status(400).json({ success: false, message: 'Divisi jabatan tidak ditemukan.' })
@@ -181,13 +174,6 @@ router.put('/:id', async (req, res) => {
 
     if (!name || !status) {
       return res.status(400).json({ success: false, message: 'Nama dan status jabatan wajib valid.' })
-    }
-
-    if (status === 'inactive' && Number(existing.employee_count || 0) > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Jabatan masih dipakai pegawai. Ubah jabatan atau nonaktifkan pegawai terkait terlebih dahulu.',
-      })
     }
 
     if (divisionId) {

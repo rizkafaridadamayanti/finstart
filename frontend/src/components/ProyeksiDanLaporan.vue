@@ -82,6 +82,7 @@ export default defineComponent({
       setActiveReportType = next => activeReportType.value = typeof next === "function" ? next(activeReportType.value) : next;
     const isTargetModalOpen = ref(false),
       setIsTargetModalOpen = next => isTargetModalOpen.value = typeof next === "function" ? next(isTargetModalOpen.value) : next;
+    const editingTargetId = ref('');
     const isPrintModalOpen = ref(false),
       setIsPrintModalOpen = next => isPrintModalOpen.value = typeof next === "function" ? next(isPrintModalOpen.value) : next;
     const selectedScenarioKey = ref(String(projectionData?.scenario?.scenario_key || 'normal')),
@@ -259,9 +260,27 @@ export default defineComponent({
     const roadmapLinePoints = (key: 'revenueTargetY' | 'revenueForecastY' | 'revenueActualY' | 'expenseTargetY' | 'expenseForecastY' | 'expenseActualY') => roadmapChartRows.length
       ? roadmapChartRows.map((item, index) => `${index === 0 ? 'M' : 'L'} ${item.x} ${item[key]}`).join(' ')
       : '';
+    const firstAccountByType = (type: string) => akun.find((item: any) => String(item.tipe || '').toLowerCase() === type.toLowerCase()) || akun.find((item: any) => ['Pendapatan', 'Beban'].includes(String(item.tipe || ''))) || akun[0];
+    const openTargetModal = (target: AnnualTarget | null = null) => {
+      editingTargetId.value = target?.id || '';
+      const targetName = String(target?.nama || '').toLowerCase();
+      const selectedAccount = targetName.includes('beban') || targetName.includes('expense') ? firstAccountByType('Beban') : firstAccountByType('Pendapatan');
+      setNewTarget({
+        akunId: selectedAccount ? String(selectedAccount.id) : '',
+        nilaiTarget: Number(target?.nilaiTarget || 0),
+        nilaiRealisasi: Number(target?.nilaiRealisasi || 0),
+        satuan: target?.satuan || 'Rupiah',
+        bulanProyeksi: currentMonthIso()
+      });
+      setIsTargetModalOpen(true);
+    };
+    const closeTargetModal = () => {
+      editingTargetId.value = '';
+      setIsTargetModalOpen(false);
+    };
     const handleSaveTarget = async (event: Event) => {
       event.preventDefault();
-      const selected = akun.find(item => item.id === newTarget.value.akunId);
+      const selected = akun.find(item => String(item.id) === String(newTarget.value.akunId));
       if (!selected) {
         showToast('Pilih akun buku besar terlebih dahulu.');
         return;
@@ -270,6 +289,7 @@ export default defineComponent({
         showToast('Target API saat ini mendukung nilai Rupiah untuk pendapatan dan beban.');
         return;
       }
+      if (!onSaveProjection) { showToast('Handler simpan target belum tersedia.'); return; }
       await onSaveProjection({
         ...newTarget.value,
         akunType: selected.tipe,
@@ -278,6 +298,7 @@ export default defineComponent({
         month: Number(String(newTarget.value.bulanProyeksi || '').slice(-2)),
       });
       setNewTarget({ akunId: '', nilaiTarget: 0, nilaiRealisasi: 0, satuan: 'Rupiah', bulanProyeksi: currentMonthIso() });
+      editingTargetId.value = '';
       setIsTargetModalOpen(false);
     };
 
@@ -428,7 +449,7 @@ export default defineComponent({
           </div>
         </div>
         <div class="flex w-full flex-wrap gap-3 lg:w-auto">
-          {isForecast ? <button id="btn-open-target-modal" onClick={() => setIsTargetModalOpen(true)} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56]">
+          {isForecast ? <button id="btn-open-target-modal" onClick={() => openTargetModal()} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56]">
               <Plus class="h-4 w-4" /> Tambah Target
             </button> : <>
               <button onClick={exportCurrentReportExcel} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]">
@@ -516,6 +537,7 @@ export default defineComponent({
                     <th class="px-6 py-4 text-right">Realisasi</th>
                     <th class="px-6 py-4">Progress</th>
                     <th class="px-6 py-4 text-right">Status</th>
+                    <th class="px-6 py-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-[#EDF2F7]">
@@ -540,6 +562,9 @@ export default defineComponent({
                         </td>
                         <td class="px-6 py-5 text-right">
                           <span class="inline-flex rounded-full border border-[#CFE0F4] bg-[#EEF5FC] px-3 py-1 text-[10px] font-semibold text-[#0B1F4A]">On track</span>
+                        </td>
+                        <td class="px-6 py-5 text-center">
+                          <button type="button" onClick={() => openTargetModal(target)} class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]" title="Edit target"><Pencil class="h-4 w-4" /></button>
                         </td>
                       </tr>;
                 })}
@@ -675,7 +700,7 @@ export default defineComponent({
             <div class="overflow-x-auto">
               <table class="w-full min-w-[720px] text-left text-sm">
                 <thead class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]">
-                  <tr><th class="px-6 py-4">Akun / Target</th><th class="px-6 py-4">Bulan Proyeksi</th><th class="px-6 py-4 text-right">Nilai Target</th><th class="px-6 py-4">Catatan Finansial</th></tr>
+                  <tr><th class="px-6 py-4">Akun / Target</th><th class="px-6 py-4">Bulan Proyeksi</th><th class="px-6 py-4 text-right">Nilai Target</th><th class="px-6 py-4">Catatan Finansial</th><th class="px-6 py-4 text-center">Aksi</th></tr>
                 </thead>
                 <tbody class="divide-y divide-[#EDF2F7]">
                   {targets.value.map((target, index) => <tr key={`${target.id}-detail`} class="hover:bg-[#FBFDFF]">
@@ -683,6 +708,7 @@ export default defineComponent({
                       <td class="px-6 py-4 text-[#53658A]">{currentMonthIso()}</td>
                       <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">{currencyOrUnit(target.nilaiTarget, target.satuan)}</td>
                       <td class="px-6 py-4 text-[#6B7A90]">Dipantau bersama realisasi dan arus kas operasional.</td>
+                      <td class="px-6 py-4 text-center"><button type="button" onClick={() => openTargetModal(target)} class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]" title="Edit target"><Pencil class="h-4 w-4" /></button></td>
                     </tr>)}
                 </tbody>
               </table>
@@ -733,9 +759,9 @@ export default defineComponent({
             <div class="flex items-start justify-between border-b border-[#E8EEF7] px-7 py-6">
               <div class="flex items-start gap-3">
                 <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#EEF5FC] text-[#0B1F4A]"><Target class="h-5 w-5" /></span>
-                <div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Business Planning</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Tambah Target Proyeksi</h3><p class="mt-1 text-sm text-[#6B7A90]">Tetapkan target yang dapat dipantau bersama realisasi.</p></div>
+                <div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Business Planning</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">{editingTargetId.value ? 'Edit Target Proyeksi' : 'Tambah Target Proyeksi'}</h3><p class="mt-1 text-sm text-[#6B7A90]">Tetapkan target yang dapat dipantau bersama realisasi.</p></div>
               </div>
-              <button onClick={() => setIsTargetModalOpen(false)} class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2EAF4] text-[#8A98AB] hover:bg-[#F8FBFE]"><X class="h-5 w-5" /></button>
+              <button onClick={closeTargetModal} class="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2EAF4] text-[#8A98AB] hover:bg-[#F8FBFE]"><X class="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSaveTarget} class="flex-1 overflow-y-auto px-7 py-6">
               <div class="grid gap-5 md:grid-cols-2">
@@ -760,7 +786,7 @@ export default defineComponent({
                   bulanProyeksi: event.target.value
                 })} class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]" /></label>
               </div>
-              <div class="mt-7 flex flex-col-reverse gap-3 border-t border-[#E8EEF7] pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => setIsTargetModalOpen(false)} class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-medium text-[#53658A]">Batal</button><button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]"><CheckCircle2 class="h-4 w-4" /> Simpan Target</button></div>
+              <div class="mt-7 flex flex-col-reverse gap-3 border-t border-[#E8EEF7] pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={closeTargetModal} class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-medium text-[#53658A]">Batal</button><button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]"><CheckCircle2 class="h-4 w-4" /> {editingTargetId.value ? 'Simpan Perubahan Target' : 'Simpan Target'}</button></div>
             </form>
           </div>
         </div>}

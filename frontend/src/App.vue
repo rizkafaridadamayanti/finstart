@@ -109,7 +109,8 @@ function mapEmployee(row: any) {
     dbId: Number(row.id || 0),
     nama: row.full_name || row.employee_name || row.name || '-',
     jabatan: row.position_name || row.position || '-',
-    status: employmentLabels[String(row.employment_type || '').toLowerCase()] || 'Aktif',
+    status: employmentLabels[String(row.employment_type || '').toLowerCase()] || 'Karyawan',
+    statusAktif: String(row.employment_status || row.status || 'active').toLowerCase() === 'inactive' ? 'Nonaktif' : 'Aktif',
     compliance: String(row.bpjs_status || '').toLowerCase() === 'active' ? 'Patuh' : 'Tinjauan',
     gajiBersih: toNumber(row.base_salary ?? row.salary),
     _raw: row,
@@ -306,7 +307,6 @@ export default defineComponent({
 
       const subscriptionsResponse = value(4, {});
       replaceList(langganan, ((subscriptionsResponse?.subscriptions || subscriptionsResponse || []) as any[])
-        .filter((row) => String(row.status || '').toLowerCase() !== 'cancelled')
         .map(mapSubscription));
 
       const assetsResponse = value(5, {});
@@ -637,13 +637,13 @@ export default defineComponent({
         subscription_name: item.nama,
         provider_name: item.provider,
         category: item.kategori,
-        amount: toNumber(item.biaya || item.biayaIDR),
+        amount: toNumber(item.biayaIDR || item.biaya),
         billing_cycle: cycle,
         start_date: item.tanggalTagihan || new Date().toISOString().slice(0, 10),
         renewal_date: item.tanggalTagihan || new Date().toISOString().slice(0, 10),
         payment_terms_days: 0,
         status: 'active',
-        notes: '',
+        notes: item.mataUang && item.mataUang !== 'IDR' ? `Nominal asli: ${item.mataUang} ${item.biaya}. Kurs input: ${item.kurs || '-'}.` : '',
       });
       await loadFinancialData({ silent: true });
       showToast('Langganan berhasil disimpan ke database.');
@@ -733,7 +733,11 @@ export default defineComponent({
     }, 'Gagal mencatat setoran pajak.');
 
     const handleSaveProjection = async (item: any) => withApiFeedback(async () => {
-      const month = Number(item.bulanProyeksi || item.month || new Date().getMonth() + 1);
+      const rawMonth = item.month ?? item.bulanProyeksi;
+      const month = /^\d{4}-\d{2}$/.test(String(rawMonth || ''))
+        ? Number(String(rawMonth).slice(-2))
+        : Number(rawMonth || new Date().getMonth() + 1);
+      if (!Number.isFinite(month) || month < 1 || month > 12) throw new Error('Bulan target proyeksi tidak valid.');
       const existing = (projectionData.value.months || []).find((row: any) => Number(row.month) === month) || {};
       const isExpense = item.akunType === 'Beban' || String(item.akunName || item.nama || '').toLowerCase().includes('beban') || String(item.akunName || item.nama || '').toLowerCase().includes('expense');
       await financeApi.post('/projections', {
@@ -933,7 +937,6 @@ export default defineComponent({
                 top: '58%',
                 transform: 'translateY(-50%)',
                 zIndex: 99999,
-                display: 'flex',
                 width: '42px',
                 height: '72px',
                 alignItems: 'center',
@@ -948,7 +951,7 @@ export default defineComponent({
                 boxShadow: '0 16px 34px rgba(16,42,86,0.20)',
                 transition: 'left 240ms ease, background 180ms ease, color 180ms ease',
               }}
-              class="hover:!bg-[#0B3A78] hover:!text-white"
+              class="hidden lg:flex hover:!bg-[#0B3A78] hover:!text-white"
               title={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
               aria-label={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
             >
@@ -956,17 +959,20 @@ export default defineComponent({
             </button>
 
             {/* Right Workspaces Shell */}
-            <div class="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+            <div
+              class="app-workspace flex-1 flex flex-col h-screen min-w-0 overflow-hidden"
+              style={{
+                '--sidebar-offset': isSidebarCollapsed.value ? '0px' : '286px',
+              }}
+            >
               <Topbar userEmail={userEmail.value} userRole={userRole.value} onLogout={handleLogout} onOpenSettings={() => setActiveTab('pengaturan')} notifications={notifications.value} />
 
               {/* Main Contents Panel */}
               <main
                 style={{
-                  marginLeft: isSidebarCollapsed.value ? '0px' : '286px',
-                  width: isSidebarCollapsed.value ? '100%' : 'calc(100% - 286px)',
-                  transition: 'margin-left 260ms ease, width 260ms ease',
+                  transition: 'padding 260ms ease',
                 }}
-                class="app-main flex-1 overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
+                class="app-main flex-1 w-full overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
               >
                 <AnimatePresence mode="wait">
                   <motion.div key={activeTab.value} initial={{
@@ -986,7 +992,7 @@ export default defineComponent({
 
                     {(activeTab.value === 'piutang' || activeTab.value === 'utang') && <PiutangDanUtang key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} proyek={proyek.value} klien={klien.value} akun={akun.value} invoices={invoices.value} bills={bills.value} onCreateInvoice={handleCreateInvoice} onUpdateInvoice={handleUpdateInvoice} onIssueInvoice={handleIssueInvoice} onCancelInvoice={handleCancelInvoice} onRecordInvoicePayment={handleRecordInvoicePayment} onCreateBill={handleCreateBill} onUpdateBill={handleUpdateBill} onIssueBill={handleIssueBill} onCancelBill={handleCancelBill} onPayBill={handlePayBill} showToast={showToast} />}
 
-                    {(activeTab.value === 'langganan' || activeTab.value === 'aset') && <LanggananDanAset key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} langganan={langganan.value} assets={assets.value} onAddLangganan={handleAddLangganan} onDeleteLangganan={handleDeleteLangganan} onAddAsset={handleAddAsset} onUpdateAsset={handleUpdateAsset} onDisposeAsset={handleDisposeAsset} onRefreshData={() => loadFinancialData({ silent: true })} showToast={showToast} />}
+                    {(activeTab.value === 'langganan' || activeTab.value === 'aset') && <LanggananDanAset key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} langganan={langganan.value} assets={assets.value} onAddLangganan={handleAddLangganan} onDeleteLangganan={handleDeleteLangganan} onAddAsset={handleAddAsset} onUpdateAsset={handleUpdateAsset} onDisposeAsset={handleDisposeAsset} onRefreshData={() => loadFinancialData({ silent: true })} onSwitchSection={setActiveTab} showToast={showToast} />}
 
                     {(activeTab.value === 'sdm' || activeTab.value === 'perpajakan') && <SdmDanPajak key={`${activeTab.value}-${dataVersion.value}`} activeSection={activeTab.value} pegawai={pegawai.value} akun={akun.value} taxes={taxes.value} taxSummary={taxSummary.value} taxCalculationData={taxCalculation.value} onAddJournalFromSubledger={handleAddJournalFromSubledger} onCreateTax={handleCreateTax} onPayTax={handlePayTax} onRefreshData={() => loadFinancialData({ silent: true })} showToast={showToast} />}
 
@@ -1004,17 +1010,17 @@ export default defineComponent({
       <AnimatePresence>
         {toast.value.visible && <motion.div id="global-toast-alert" initial={{
           opacity: 0,
-          y: 50,
-          scale: 0.9
+          y: -24,
+          scale: 0.94
         }} animate={{
           opacity: 1,
           y: 0,
           scale: 1
         }} exit={{
           opacity: 0,
-          y: 20,
-          scale: 0.95
-        }} class="fixed bottom-6 right-6 z-50 bg-[#0F172A] border border-blue-900/60 shadow-2xl px-5 py-3.5 rounded-2xl flex items-center gap-3 text-white text-xs max-w-sm">
+          y: -18,
+          scale: 0.96
+        }} class="fixed left-1/2 top-6 z-[10050] w-[min(92vw,440px)] -translate-x-1/2 bg-[#0F172A] border border-blue-900/60 shadow-2xl px-5 py-3.5 rounded-2xl flex items-center gap-3 text-white text-xs">
             <div class="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
               <CheckCircle class="w-3.5 h-3.5 text-white" />
             </div>

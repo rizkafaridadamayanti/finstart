@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS user_security_settings (
   mfa_status ENUM('not_configured','pending','enabled') NOT NULL DEFAULT 'not_configured',
   mfa_secret VARCHAR(255) NULL,
   mfa_pending_secret VARCHAR(255) NULL,
+  mfa_setup_code VARCHAR(16) NULL,
+  mfa_time_offset_steps INT NULL,
+  mfa_last_counter BIGINT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_user_security_settings_user FOREIGN KEY (user_id) REFERENCES users(id)
@@ -85,6 +88,9 @@ CALL final_add_column_if_missing('project_members', 'estimated_cost', 'DECIMAL(1
 
 CALL final_add_column_if_missing('user_security_settings', 'mfa_secret', 'VARCHAR(255) NULL')$$
 CALL final_add_column_if_missing('user_security_settings', 'mfa_pending_secret', 'VARCHAR(255) NULL')$$
+CALL final_add_column_if_missing('user_security_settings', 'mfa_setup_code', 'VARCHAR(16) NULL')$$
+CALL final_add_column_if_missing('user_security_settings', 'mfa_time_offset_steps', 'INT NULL')$$
+CALL final_add_column_if_missing('user_security_settings', 'mfa_last_counter', 'BIGINT NULL')$$
 
 CALL final_add_column_if_missing('projects', 'budget_amount', 'DECIMAL(18,2) NOT NULL DEFAULT 0')$$
 CALL final_add_column_if_missing('projects', 'milestones_json', 'JSON NULL')$$

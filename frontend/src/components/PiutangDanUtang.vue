@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, ref } from "vue";
+import { Fragment, computed, defineComponent, h, ref } from "vue";
 import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Receipt, Trash2, Pencil, Send, Calendar, FilePlus, X, Save, CreditCard } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, AkunBukuBesar } from '../types.ts';
@@ -88,6 +88,15 @@ export default defineComponent({
     const editingInvoice = ref<any>(null);
     const editingBill = ref<any>(null);
     const cancelConfirm = ref<any>(null); // New Invoice form input
+    const statusFilter = ref('open');
+    const statusOptions = [
+      { value: 'open', label: 'Outstanding' },
+      { value: 'overdue', label: 'Overdue' },
+      { value: 'paid', label: 'Paid / Lunas' },
+      { value: 'draft', label: 'Draft' },
+      { value: 'cancelled', label: 'Cancelled' },
+      { value: 'all', label: 'Semua Status' },
+    ];
     const newInvoice = ref({
         proyekId: proyek[0]?.id || '',
         nomor: newReferenceNumber('INV'),
@@ -199,6 +208,19 @@ export default defineComponent({
     const getBillOutstanding = (bill: any) => Number(bill?.outstandingAmount ?? bill?.nominal ?? 0);
     const isInvoiceOpen = (invoice: any) => !['paid', 'cancelled', 'draft'].includes(String(invoice?.rawStatus || invoice?.status || '').toLowerCase()) && getInvoiceOutstanding(invoice) > 0;
     const isBillOpen = (bill: any) => !['paid', 'cancelled', 'draft'].includes(String(bill?.rawStatus || bill?.status || '').toLowerCase()) && getBillOutstanding(bill) > 0;
+    const normalizedStatus = (item: any) => {
+      const status = String(item?.rawStatus || item?.status || '').toLowerCase();
+      if (['paid', 'lunas', 'sudah bayar'].includes(status)) return 'paid';
+      if (['overdue', 'terlambat'].includes(status)) return 'overdue';
+      if (status === 'draft') return 'draft';
+      if (status === 'cancelled' || status === 'canceled') return 'cancelled';
+      return 'open';
+    };
+    const matchesStatusFilter = (item: any, isOpen: (row: any) => boolean) => {
+      if (statusFilter.value === 'all') return true;
+      if (statusFilter.value === 'open') return isOpen(item);
+      return normalizedStatus(item) === statusFilter.value;
+    };
 
     const selectInvoiceForReceipt = (invoiceId: string) => {
       const invoice = invoices.value.find(item => String(item.id) === String(invoiceId));
@@ -279,6 +301,8 @@ export default defineComponent({
     const totalOutstandingPiutang = invoices.value.filter(isInvoiceOpen).reduce((acc, i) => acc + receivableBalance(i), 0);
     const totalOverduePiutang = invoices.value.filter(i => i.status === 'Overdue').reduce((acc, i) => acc + receivableBalance(i), 0);
     const totalOutstandingUtang = bills.value.filter(isBillOpen).reduce((acc, b) => acc + payableBalance(b), 0);
+    const filteredInvoices = computed(() => invoices.value.filter((invoice) => matchesStatusFilter(invoice, isInvoiceOpen)));
+    const filteredBills = computed(() => bills.value.filter((bill) => matchesStatusFilter(bill, isBillOpen)));
     return () => <div class="space-y-6 font-sans">
       {/* Upper header switch */}
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5">
@@ -349,7 +373,14 @@ export default defineComponent({
           {/* Invoices listings */}
           <div class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
             <div class="p-4 bg-slate-50 border-b border-slate-150">
-              <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Piutang Usaha</span>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Piutang Usaha</span>
+                <label class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]">Filter
+                  <select value={statusFilter.value} onChange={event => statusFilter.value = event.target.value} class="h-9 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[11px] font-semibold text-[#0B1F4A] outline-none">
+                    {statusOptions.map(option => <option key={`inv-filter-${option.value}`} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-500">
@@ -365,7 +396,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {invoices.value.map(inv => <tr key={inv.id} class="hover:bg-slate-50 transition-colors">
+                  {filteredInvoices.value.map(inv => <tr key={inv.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-slate-800 text-sm">{inv.nomor}</td>
                       <td class="p-4 space-y-1">
                         <span class="font-bold text-[#0B1F4A] block text-sm">{inv.proyekNama}</span>
@@ -417,7 +448,14 @@ export default defineComponent({
           {/* Bills Listings */}
           <div class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
             <div class="p-4 bg-slate-50 border-b border-slate-150">
-              <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Utang Vendor</span>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span class="font-bold text-xs text-[#0B1F4A]">Buku Subledger Utang Vendor</span>
+                <label class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]">Filter
+                  <select value={statusFilter.value} onChange={event => statusFilter.value = event.target.value} class="h-9 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[11px] font-semibold text-[#0B1F4A] outline-none">
+                    {statusOptions.map(option => <option key={`bill-filter-${option.value}`} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-500">
@@ -434,7 +472,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {bills.value.map(bill => <tr key={bill.id} class="hover:bg-slate-50 transition-colors">
+                  {filteredBills.value.map(bill => <tr key={bill.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-[#0B1F4A]">{bill.nomorTagihan}</td>
                       <td class="p-4">
                         <span class="font-bold text-slate-800 block text-sm">{bill.vendor}</span>
@@ -544,7 +582,7 @@ export default defineComponent({
                 <label class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">Jumlah Diterima</label>
                 <div class="relative">
                   <span class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs">Rp</span>
-                  <input id="receipt-form-amount" type="number" min={0} value={receiptAmount.value || ''} onChange={e => setReceiptAmount(Number(e.target.value))} class="w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all" />
+                  <input id="receipt-form-amount" type="number" min={0} value={receiptAmount.value || ''} onInput={e => setReceiptAmount(Number(e.target.value))} class="w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all" />
                 </div>
               </div>
 
@@ -552,7 +590,7 @@ export default defineComponent({
                 <button id="btn-receipt-cancel" type="button" onClick={() => setIsReceiptModalOpen(false)} class="h-[66px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all">
                   Batal
                 </button>
-                <button id="btn-receipt-submit" type="submit" disabled={!selectedInvoiceId.value && !invoices.value.some(i => i.status !== 'Paid')} class="h-[66px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2">
+                <button id="btn-receipt-submit" type="submit" disabled={!selectedInvoiceId.value || !invoices.value.some(isInvoiceOpen)} class="h-[66px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2">
                   <Save class="w-4 h-4" /> Catat Pelunasan
                 </button>
               </div>
