@@ -4,6 +4,12 @@ import { Search, Plus, Filter, Users, MapPin, Mail, Phone, ArrowLeft, ArrowRight
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, Pegawai, AnggotaTim } from '../types.ts';
 function todayIso() { return new Date().toISOString().slice(0, 10); }
+const CRM_SUBTAB_KEY = 'finstart-crm-active-subtab';
+function getSavedCrmSubTab() {
+  if (typeof window === 'undefined') return 'proyek';
+  const saved = window.localStorage.getItem(CRM_SUBTAB_KEY);
+  return saved === 'klien' ? 'klien' : 'proyek';
+}
 
 interface CrmViewProps {
   proyek: Proyek[];
@@ -33,8 +39,12 @@ export default defineComponent({
       onDeleteKlien,
       showToast
     }: CrmViewProps = props;
-    const activeSubTab = ref('proyek'),
-      setActiveSubTab = next => activeSubTab.value = typeof next === "function" ? next(activeSubTab.value) : next;
+    const activeSubTab = ref(getSavedCrmSubTab()),
+      setActiveSubTab = next => {
+        const resolved = typeof next === "function" ? next(activeSubTab.value) : next;
+        activeSubTab.value = resolved === 'klien' ? 'klien' : 'proyek';
+        if (typeof window !== 'undefined') window.localStorage.setItem(CRM_SUBTAB_KEY, activeSubTab.value);
+      };
     const searchQuery = ref(''),
       setSearchQuery = next => searchQuery.value = typeof next === "function" ? next(searchQuery.value) : next;
     const statusFilter = ref('All'),
@@ -241,39 +251,18 @@ export default defineComponent({
         showToast('Harap lengkapi nama proyek dan tanggal pelaksanaan.');
         return;
       }
-      let finalKlienId = newProj.value.klienId;
-      let finalPicKontak = newProj.value.picKontak;
       if (isRegisteringNewClient.value) {
-        if (!regClient.value.namaPerusahaan || !regClient.value.pic) {
-          showToast('Harap lengkapi nama perusahaan klien dan nama PIC.');
-          return;
-        }
-
-        const clientItem: Klien = {
-          id: '',
-          namaPerusahaan: regClient.value.namaPerusahaan,
-          bidang: regClient.value.bidang || 'Teknologi',
-          lokasi: regClient.value.lokasi || 'Yogyakarta',
-          pic: regClient.value.pic,
-          email: regClient.value.email || 'pic@domain.co.id',
-          telepon: regClient.value.telepon || '08123456789'
-        };
-        const createdClient = await onAddKlien(clientItem);
-        const savedClientId = createdClient?.id || createdClient?._raw?.id;
-        if (!savedClientId) {
-          showToast('Klien baru belum berhasil disimpan. Proyek belum dibuat.');
-          return;
-        }
-        finalKlienId = String(savedClientId);
-        finalPicKontak = regClient.value.pic;
-      } else {
-        if (!newProj.value.klienId) {
-          showToast('Harap pilih perusahaan klien atau daftarkan klien baru.');
-          return;
-        }
-        const selectedClient = klien.find(k => k.id === newProj.value.klienId);
-        finalPicKontak = selectedClient ? selectedClient.pic : '';
+        setIsRegisteringNewClient(false);
+        showToast('Klien baru sekarang didaftarkan dari halaman Klien Partner, bukan dari Inisiasi Proyek.');
+        return;
       }
+      if (!newProj.value.klienId) {
+        showToast('Harap pilih perusahaan klien dari database Klien Partner.');
+        return;
+      }
+      const selectedClient = klien.find(k => k.id === newProj.value.klienId);
+      const finalKlienId = newProj.value.klienId;
+      const finalPicKontak = selectedClient ? selectedClient.pic : '';
       const projectItem: Proyek = {
         id: editingProjectId.value ? editingProjectId.value : '',
         ...newProj.value,
@@ -287,7 +276,7 @@ export default defineComponent({
       } else {
         const createdProject = await onAddProyek(projectItem);
         if (!createdProject) return;
-        showToast(isRegisteringNewClient.value ? 'Proyek baru & klien mitra berhasil disimpan dan diinisiasi.' : 'Proyek baru berhasil diinisiasi & disimpan.');
+        showToast('Proyek baru berhasil diinisiasi & disimpan.');
       }
       setIsFormOpen(false);
       resetProjectForm();
@@ -304,6 +293,7 @@ export default defineComponent({
         id: '',
         ...newClient.value
       };
+      setActiveSubTab('klien');
       if (editingClientId.value) {
         clientItem.id = editingClientId.value;
         const updatedClient = await onUpdateKlien(clientItem);
@@ -328,6 +318,7 @@ export default defineComponent({
     const openCreateClientModal = () => {
       setSelectedProjectDetailId(null);
       setSelectedClientDetailId(null);
+      setActiveSubTab('klien');
       resetClientForm();
       setIsClientFormOpen(true);
     };
@@ -409,11 +400,11 @@ export default defineComponent({
       {/* 1. Proyek Sub-Tab layout */}
       {activeSubTab.value === 'proyek' && <div class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
           <div class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="relative w-full lg:w-80"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span><input id="crm-search-box" type="text" value={searchQuery.value} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari nama proyek atau klien..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" /></div>
+            <div class="relative w-full lg:w-80"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span><input id="crm-search-box" type="text" value={searchQuery.value} onInput={e => setSearchQuery(e.target.value)} placeholder="Cari nama proyek atau klien..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" /></div>
             <div class="flex flex-wrap items-center gap-2"><span class="text-xs text-[#6B7A90]"><Filter class="mr-1 inline h-3.5 w-3.5" />Status:</span>{['All', 'Planning', 'Ongoing', 'Completed'].map(status => <button id={`status-filter-${status}`} key={status} onClick={() => setStatusFilter(status as any)} class={`h-9 rounded-lg px-3 text-[11px] font-medium transition ${statusFilter.value === status ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`}>{status}</button>)}</div>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs text-slate-500">
+            <table class="crm-client-table w-full text-left text-xs text-slate-500">
               <thead class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200">
                 <tr>
                   <th class="p-4">Info Proyek</th>
@@ -425,7 +416,7 @@ export default defineComponent({
               </thead>
               <tbody class="divide-y divide-slate-150">
                 {filteredProjects.length === 0 ? <tr>
-                    <td colSpan={5} class="p-12 text-center text-slate-400 font-light">
+                    <td colSpan={4} class="p-12 text-center text-slate-400 font-light">
                       Tidak ada proyek yang sesuai dengan kriteria pencarian.
                     </td>
                   </tr> : filteredProjects.map(proj => {
@@ -487,7 +478,7 @@ export default defineComponent({
       {/* 2. Klien Sub-Tab layout */}
       {activeSubTab.value === 'klien' && <div class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
           <div class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="relative w-full sm:w-80"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span><input id="crm-search-box" type="text" value={searchQuery.value} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari perusahaan klien atau PIC..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" /></div>
+            <div class="relative w-full sm:w-80"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span><input id="crm-search-box" type="text" value={searchQuery.value} onInput={e => setSearchQuery(e.target.value)} placeholder="Cari perusahaan klien atau PIC..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" /></div>
             <span class="text-xs text-[#6B7A90]">{filteredClients.length} klien ditampilkan</span>
           </div>
           <div class="overflow-x-auto">
@@ -497,7 +488,6 @@ export default defineComponent({
                   <th class="p-4">Nama Perusahaan</th>
                   <th class="p-4">Kategori Industri</th>
                   <th class="p-4">Lokasi Kantor</th>
-                  <th class="p-4">Kontak PIC</th>
                   <th class="p-4 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -514,13 +504,6 @@ export default defineComponent({
                       <td class="p-4 text-slate-600 font-semibold">{c.bidang}</td>
                       <td class="p-4 text-slate-500">
                         <span class="flex items-center gap-1"><MapPin class="w-3.5 h-3.5 text-slate-400 shrink-0" /> {c.lokasi}</span>
-                      </td>
-                      <td class="p-4 space-y-1">
-                        <span class="font-bold text-slate-700 block">{c.pic}</span>
-                        <div class="flex flex-col text-[10px] text-slate-400 font-mono space-y-0.5">
-                          <span class="flex items-center gap-1"><Mail class="w-3 h-3" /> {c.email}</span>
-                          <span class="flex items-center gap-1"><Phone class="w-3 h-3" /> {c.telepon}</span>
-                        </div>
                       </td>
                       <td class="p-4">
                         <div class="flex items-center justify-center gap-1.5">
@@ -640,6 +623,7 @@ export default defineComponent({
 
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Tim Terlibat</p>
+                      <p class="mt-1 text-[12px] leading-5 text-slate-500">Bagian ini untuk mencatat anggota internal yang dialokasikan ke proyek, termasuk role, persentase alokasi, dan estimasi biaya tim.</p>
                       {selectedProject.tim.length === 0 ? <p class="mt-3 text-[13px] text-slate-500 italic">Belum ada anggota tim yang dialokasikan.</p> : <div class="mt-3 grid gap-2.5 2xl:grid-cols-2">
                           {selectedProject.tim.map((member, index) => <div key={`${member.nama}-${index}`} class="grid rounded-2xl border border-slate-100 bg-white p-3 md:grid-cols-[minmax(0,1fr)_150px] md:items-center md:gap-3">
                               <div>
@@ -796,14 +780,14 @@ export default defineComponent({
                   <p class="text-[10px] leading-4 text-slate-500">Realisasi biaya otomatis dihitung dari bill yang dipilihkan ke proyek ini.</p>
                 </div>
 
-                <div class="grid grid-cols-1 gap-y-4 gap-x-6 sm:grid-cols-2 2xl:grid-cols-4 2xl:gap-x-6">
+                <div class="grid grid-cols-1 gap-y-4 gap-x-5 sm:grid-cols-2 xl:grid-cols-[minmax(190px,1.35fr)_minmax(150px,0.95fr)_minmax(150px,0.9fr)_minmax(150px,0.9fr)]">
                   <div class="min-w-0 space-y-2">
                     <label class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase">TIPE TENDER</label>
                     <div class="relative">
                       <select id="proj-form-tender" title={newProj.value.tipeTender} value={newProj.value.tipeTender} onChange={e => setNewProj({
                       ...newProj.value,
                       tipeTender: e.target.value as any
-                    })} class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-9 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20">
+                    })} class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-8 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20">
                         <option value="Tender Umum">Tender Umum</option>
                         <option value="Tender Terbatas">Tender Terbatas</option>
                         <option value="Penunjukan Langsung">Penunjukan Langsung</option>
@@ -821,7 +805,7 @@ export default defineComponent({
                       <select id="proj-form-status" title={newProj.value.status} value={newProj.value.status} onChange={e => setNewProj({
                       ...newProj.value,
                       status: e.target.value as any
-                    })} class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-9 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20">
+                    })} class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-8 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20">
                         <option value="Planning">Planning</option>
                         <option value="Ongoing">Ongoing</option>
                         <option value="Completed">Completed</option>
@@ -837,7 +821,7 @@ export default defineComponent({
                     <input id="proj-form-start" type="date" value={newProj.value.tanggalMulai} onChange={e => setNewProj({
                     ...newProj.value,
                     tanggalMulai: e.target.value
-                  })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
+                  })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
                   </div>
 
                   <div class="min-w-0 space-y-2">
@@ -845,7 +829,7 @@ export default defineComponent({
                     <input id="proj-form-end" type="date" min={newProj.value.tanggalMulai || undefined} value={newProj.value.tanggalSelesai} onChange={e => setNewProj({
                     ...newProj.value,
                     tanggalSelesai: e.target.value
-                  })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
+                  })} class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
                   </div>
                 </div>
               </div>
@@ -861,10 +845,10 @@ export default defineComponent({
                     <p class="mt-0.5 text-[10px] text-slate-500">Pantau tahapan kerja proyek dan tanggal targetnya.</p>
                   </div>
                 </div>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_150px_130px]">
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_170px]">
                   <input id="proj-milestone-title" type="text" value={milestoneTitle.value} onChange={e => setMilestoneTitle(e.target.value)} placeholder="Contoh: UAT dan serah terima" class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
                   <input id="proj-milestone-date" type="date" value={milestoneDate.value} onChange={e => setMilestoneDate(e.target.value)} class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20" />
-                  <button type="button" onClick={handleAddMilestone} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"><Plus class="h-4 w-4" /> Tambah</button>
+                  <button type="button" onClick={handleAddMilestone} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#102A56] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0B1F42] md:col-span-2"><Plus class="h-4 w-4" /> Simpan Milestone</button>
                 </div>
                 <div class="space-y-2 rounded-2xl border border-dashed border-indigo-200 bg-white/60 p-3">
                   {(newProj.value.milestones || []).length === 0 ? <p class="text-[11px] font-semibold text-slate-400">Belum ada milestone. Tambahkan tahapan utama proyek agar deadline dapat dipantau.</p> : (newProj.value.milestones || []).map((milestone, index) => <div key={`${milestone.title}-${index}`} class="grid gap-2 rounded-xl border border-indigo-100 bg-white p-2.5 sm:grid-cols-[minmax(0,1fr)_132px_118px_32px] sm:items-center">
@@ -882,7 +866,10 @@ export default defineComponent({
                   <div class="p-2 bg-amber-100 rounded-xl text-amber-700 ring-1 ring-amber-200">
                     <Users class="w-5 h-5" />
                   </div>
-                  <h4 class="text-[13px] font-extrabold tracking-[0.08em] text-[#102A56] uppercase">ALOKASI TIM SDM TERLIBAT</h4>
+                  <div>
+                    <h4 class="text-[13px] font-extrabold tracking-[0.08em] text-[#102A56] uppercase">ALOKASI TIM SDM TERLIBAT</h4>
+                    <p class="mt-1 text-[11px] font-medium leading-relaxed text-amber-700/80">Opsional untuk catatan internal: siapa saja tim yang ikut proyek, role, alokasi waktu, dan estimasi biaya. Data ini tidak perlu diisi untuk klien baru.</p>
+                  </div>
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_148px] xl:items-end">
@@ -926,18 +913,13 @@ export default defineComponent({
                     </div>
                     <h4 class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase">INFORMASI KLIEN PARTNER</h4>
                   </div>
-                  <div class="grid grid-cols-2 rounded-xl border border-[#D8E5F4] bg-white p-1 text-[11px] font-bold">
-                    <button type="button" onClick={() => setIsRegisteringNewClient(false)} class={`rounded-lg px-3 py-2 transition ${!isRegisteringNewClient.value ? 'bg-[#102A56] text-white shadow-sm' : 'text-[#637083] hover:bg-[#F8FBFE]'}`}>
-                      Database
-                    </button>
-                    <button type="button" onClick={() => setIsRegisteringNewClient(true)} class={`rounded-lg px-3 py-2 transition ${isRegisteringNewClient.value ? 'bg-[#102A56] text-white shadow-sm' : 'text-[#637083] hover:bg-[#F8FBFE]'}`}>
-                      Klien Baru
-                    </button>
+                  <div class="rounded-xl border border-[#D8E5F4] bg-white px-3 py-2 text-[11px] font-bold text-[#102A56]">
+                    Pilih dari Klien Partner
                   </div>
                 </div>
 
                 {/* Conditionally render database selection or new client registration form */}
-                {!isRegisteringNewClient.value ? <div class="space-y-2">
+                {true ? <div class="space-y-2">
                     <label class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase">PILIH KLIEN DARI DATABASE</label>
                     <div class="relative">
                       <select id="proj-form-klien" value={newProj.value.klienId} onChange={e => setNewProj({
@@ -1213,6 +1195,31 @@ export default defineComponent({
 .crm-workspace td span,
 .crm-workspace td p {
   overflow-wrap: anywhere;
+}
+
+.crm-client-table {
+  table-layout: fixed;
+  min-width: 1180px;
+}
+
+.crm-client-table th:first-child,
+.crm-client-table td:first-child {
+  width: 34%;
+}
+
+.crm-client-table th:nth-child(2),
+.crm-client-table td:nth-child(2) {
+  width: 24%;
+}
+
+.crm-client-table th:nth-child(3),
+.crm-client-table td:nth-child(3) {
+  width: 26%;
+}
+
+.crm-client-table th:last-child,
+.crm-client-table td:last-child {
+  width: 160px;
 }
 
 .crm-action-button {

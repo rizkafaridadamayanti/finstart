@@ -1,68 +1,57 @@
+const INTERNAL_ROLE = 'finance_manager'
+
 const ROLE_ALIASES = {
-  administrator: 'admin',
-  system_admin: 'admin',
-  finance_manager: 'finance_manager',
-  finance: 'finance',
-  staff_finance: 'finance',
-  hr: 'hr',
-  human_resources: 'hr',
-  pajak: 'tax',
-  tax: 'tax',
-  project_manager: 'project_manager',
-  direktur: 'director',
-  director: 'director',
-  auditor: 'auditor',
+  administrator: INTERNAL_ROLE,
+  admin: INTERNAL_ROLE,
+  system_admin: INTERNAL_ROLE,
+  finance_manager: INTERNAL_ROLE,
+  finance_internal: INTERNAL_ROLE,
+  keuangan_internal: INTERNAL_ROLE,
+  akses_internal: INTERNAL_ROLE,
+  internal: INTERNAL_ROLE,
+  finance: INTERNAL_ROLE,
+  staff_finance: INTERNAL_ROLE,
+  hr: INTERNAL_ROLE,
+  human_resources: INTERNAL_ROLE,
+  pajak: INTERNAL_ROLE,
+  tax: INTERNAL_ROLE,
+  project_manager: INTERNAL_ROLE,
+  direktur: INTERNAL_ROLE,
+  director: INTERNAL_ROLE,
+  auditor: INTERNAL_ROLE,
 }
 
 const ROLE_PERMISSIONS = {
-  admin: ['*'],
-  finance_manager: [
-    'dashboard:read', 'projects:*', 'accounts:*', 'journals:*', 'reports:*',
-    'receivable:*', 'payable:*', 'subscriptions:*', 'assets:*', 'taxes:*',
-    'projections:*', 'employees:*', 'payroll:read', 'settings:read',
-    'notifications:*', 'audit:read', 'roles:read', 'users:read',
-  ],
-  finance: [
-    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
-    'journals:write', 'reports:read', 'receivable:*', 'payable:*',
-    'subscriptions:*', 'assets:read', 'taxes:read', 'projections:read',
+  [INTERNAL_ROLE]: [
+    'dashboard:read',
+    'projects:*',
+    'accounts:*',
+    'journals:*',
+    'reports:*',
+    'receivable:*',
+    'payable:*',
+    'subscriptions:*',
+    'assets:*',
+    'taxes:*',
+    'projections:*',
+    'employees:*',
+    'payroll:*',
+    'settings:*',
     'notifications:*',
-  ],
-  hr: [
-    'dashboard:read', 'employees:*', 'payroll:*', 'taxes:read',
-    'projects:read', 'notifications:*', 'audit:read',
-  ],
-  tax: [
-    'dashboard:read', 'taxes:*', 'reports:read', 'employees:read',
-    'payroll:read', 'accounts:read', 'notifications:*', 'audit:read',
-  ],
-  project_manager: [
-    'dashboard:read', 'projects:*', 'reports:read', 'receivable:read',
-    'payable:read', 'employees:read', 'notifications:*',
-  ],
-  director: [
-    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
-    'journals:approve', 'journals:post', 'reports:read', 'receivable:read',
-    'payable:read', 'subscriptions:read', 'assets:read', 'taxes:read',
-    'projections:read', 'employees:read', 'payroll:read', 'settings:read',
-    'notifications:*', 'audit:read',
-  ],
-  auditor: [
-    'dashboard:read', 'projects:read', 'accounts:read', 'journals:read',
-    'reports:read', 'receivable:read', 'payable:read', 'assets:read',
-    'taxes:read', 'employees:read', 'payroll:read', 'notifications:read',
     'audit:read',
+    'roles:read',
+    'users:*',
   ],
 }
 
 function normalizeRole(roleName) {
   const raw = String(roleName || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
-  return ROLE_ALIASES[raw] || raw || 'auditor'
+  return ROLE_ALIASES[raw] || INTERNAL_ROLE
 }
 
 function getRolePermissions(roleName) {
   const role = normalizeRole(roleName)
-  return [...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.auditor)]
+  return [...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS[INTERNAL_ROLE])]
 }
 
 function hasPermission(roleName, moduleName, action = 'read') {

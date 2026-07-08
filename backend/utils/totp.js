@@ -40,8 +40,11 @@ function generateSecret(size = 20) {
   return base32Encode(crypto.randomBytes(size))
 }
 
-function generateCode(secret, epoch = Date.now(), period = 30, digits = 6) {
-  const counter = Math.floor(epoch / 1000 / period)
+function getCounter(epoch = Date.now(), period = 30) {
+  return Math.floor(epoch / 1000 / period)
+}
+
+function generateCodeForCounter(secret, counter, digits = 6) {
   const buffer = Buffer.alloc(8)
   buffer.writeBigUInt64BE(BigInt(counter))
   const digest = crypto.createHmac('sha1', base32Decode(secret)).update(buffer).digest()
@@ -51,6 +54,10 @@ function generateCode(secret, epoch = Date.now(), period = 30, digits = 6) {
     | ((digest[offset + 2] & 0xff) << 8)
     | (digest[offset + 3] & 0xff)
   return String(binary % (10 ** digits)).padStart(digits, '0')
+}
+
+function generateCode(secret, epoch = Date.now(), period = 30, digits = 6) {
+  return generateCodeForCounter(secret, getCounter(epoch, period), digits)
 }
 
 function verifyCode(secret, code, window = 1) {
@@ -63,6 +70,28 @@ function verifyCode(secret, code, window = 1) {
   return false
 }
 
+function verifyCodeWithCounter(secret, code, options = {}) {
+  const {
+    window = 1,
+    centerOffset = 0,
+    epoch = Date.now(),
+    period = 30,
+    digits = 6,
+  } = options
+  const normalized = String(code || '').replace(/\D/g, '')
+  if (!/^\d{6}$/.test(normalized) || !secret) return { valid: false }
+  const currentCounter = getCounter(epoch, period)
+  for (let delta = -window; delta <= window; delta += 1) {
+    const offset = Number(centerOffset || 0) + delta
+    const counter = currentCounter + offset
+    const expected = generateCodeForCounter(secret, counter, digits)
+    if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(normalized))) {
+      return { valid: true, counter, offset }
+    }
+  }
+  return { valid: false }
+}
+
 function buildOtpAuthUrl({ secret, accountName, issuer = 'FinStart' }) {
   const label = encodeURIComponent(`${issuer}:${accountName}`)
   return `otpauth://totp/${label}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`
@@ -71,6 +100,7 @@ function buildOtpAuthUrl({ secret, accountName, issuer = 'FinStart' }) {
 module.exports = {
   generateSecret,
   generateCode,
+  verifyCodeWithCounter,
   verifyCode,
   buildOtpAuthUrl,
 }

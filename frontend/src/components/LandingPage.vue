@@ -1219,8 +1219,9 @@ export default defineComponent({
         .landing-carousel-shell { position:relative; isolation:isolate; }
         .landing-carousel-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; align-items:stretch; }
         .landing-feature-card { position:relative; min-height:328px; overflow:hidden; border:1px solid rgba(255,255,255,.12); border-radius:24px; padding:22px; text-align:left; color:#dbeafe; background:linear-gradient(145deg,rgba(12,42,94,.7),rgba(6,22,53,.84)); box-shadow:0 16px 38px rgba(1,13,38,.2); transition:transform .42s cubic-bezier(.22,1,.36,1), border-color .42s ease, background .42s ease, box-shadow .42s ease; animation:landingFeatureEnter .52s cubic-bezier(.16,1,.3,1) both; }
-        .landing-feature-card:hover { transform:translateY(-7px); border-color:rgba(125,211,252,.45); }
-        .landing-feature-card--active { color:#102a56; border-color:rgba(255,255,255,.88); background:linear-gradient(155deg,#ffffff 0%,#f6faff 100%); box-shadow:0 28px 62px rgba(0,10,36,.3),0 0 0 1px rgba(255,255,255,.4); transform:translateY(-12px); }
+        .landing-feature-card:hover { transform:translateY(-7px) scale(1.015); border-color:rgba(125,211,252,.45); }
+        .landing-feature-card::before { content:""; position:absolute; inset:-1px; border-radius:inherit; background:radial-gradient(circle at 25% 10%,rgba(125,211,252,.22),transparent 38%); opacity:.65; pointer-events:none; }
+        .landing-feature-card--active { color:#102a56; border-color:rgba(255,255,255,.88); background:linear-gradient(155deg,#ffffff 0%,#f6faff 100%); box-shadow:0 28px 62px rgba(0,10,36,.3),0 0 0 1px rgba(255,255,255,.4); transform:translateY(-12px); animation:landingCardPop .72s cubic-bezier(.16,1,.3,1) both; }
         .landing-feature-card--active:hover { transform:translateY(-16px); }
         .landing-carousel-nav { position:absolute; top:50%; z-index:5; display:flex; height:42px; width:42px; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.2); border-radius:999px; color:#fff; background:rgba(7,29,68,.76); box-shadow:0 14px 28px rgba(1,13,38,.26); transform:translateY(-50%); transition:background .2s ease,transform .2s ease; }
         .landing-carousel-nav:hover { background:rgba(37,99,235,.88); transform:translateY(-50%) scale(1.06); }
@@ -1229,6 +1230,7 @@ export default defineComponent({
         .landing-progress-dot { height:7px; border-radius:999px; border:0; background:rgba(191,219,254,.32); transition:width .3s ease,background .3s ease; }
         .landing-progress-dot--active { width:28px; background:#7dd3fc; }
         @keyframes landingFeatureEnter { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes landingCardPop { 0% { opacity:.72; transform:translateY(4px) scale(.96); } 58% { opacity:1; transform:translateY(-15px) scale(1.035); } 100% { opacity:1; transform:translateY(-12px) scale(1); } }
         @media (max-width: 900px) { .landing-carousel-grid { grid-template-columns:1fr; max-width:430px; margin:0 auto; } .landing-feature-card:not(.landing-feature-card--active) { display:none; } .landing-carousel-nav--prev { left:calc(50% - 226px); } .landing-carousel-nav--next { right:calc(50% - 226px); } }
         @media (max-width: 520px) { .landing-feature-card { min-height:302px; padding:20px; } .landing-carousel-nav { height:38px; width:38px; } .landing-carousel-nav--prev { left:-4px; } .landing-carousel-nav--next { right:-4px; } }
         @media (prefers-reduced-motion:reduce) { .landing-feature-card,.landing-carousel-nav,.landing-progress-dot { animation:none!important; transition:none!important; } }

@@ -333,6 +333,20 @@ export default defineComponent({
         messages: [...session.messages, message]
       } : session));
     };
+    const normalizeCfoTemplate = (reply: string) => {
+      if (reply.includes('**AI INSIGHT**')) return reply;
+      return [
+        '**AI INSIGHT**',
+        reply,
+        '',
+        '**DATA TERBACA**',
+        `- Modul aktif: ${formatCount(klien.length, 'klien')}, ${formatCount(proyek.length, 'proyek')}, ${formatCount(transaksi.length, 'jurnal')}, ${formatCount(openInvoices.length, 'invoice terbuka')}.`,
+        `- Kas, piutang, utang: ${formatRupiah(totalKasBank)} / ${formatRupiah(totalReceivable)} / ${formatRupiah(totalPayable)}.`,
+        '',
+        '**ARAH TINDAKAN**',
+        '- Buka modul terkait dari sidebar, cek data yang disebut, lalu posting atau simpan transaksi dari form resmi modul.'
+      ].join('\n');
+    };
     const handleFastQuestion = async (prompt: string) => {
       if (isAiLoading.value) return;
       const targetChatId = activeChatId.value;
@@ -348,7 +362,7 @@ export default defineComponent({
         appendMessageToChat(targetChatId, {
           id: `ai-${Date.now()}`,
           sender: 'ai',
-          text: buildCfoReply(prompt)
+          text: normalizeCfoTemplate(buildCfoReply(prompt))
         });
         setIsAiLoading(false);
       }, 360);
@@ -540,21 +554,6 @@ export default defineComponent({
           <p class="mt-1.5 text-sm leading-6 text-[#6B7A90]">
             Pantau posisi kas, proyek aktif, piutang, dan agenda finance PT Kedata Indonesia Digital.
           </p>
-        </div>
-
-        <div class="mt-5 flex flex-wrap gap-2.5 xl:mt-0">
-          <button id="dashboard-action-journal" type="button" onClick={() => onQuickAction('entri_jurnal')} class="dashboard-action inline-flex h-11 items-center gap-2 rounded-xl border border-[#DCE7F4] bg-white/90 px-4 text-sm font-medium text-[#102A56] transition hover:border-[#BFCFE2] hover:bg-white">
-            <FileText class="h-4 w-4" />
-            Entri Jurnal
-          </button>
-          <button id="dashboard-action-invoice" type="button" onClick={() => onQuickAction('buat_invoice')} class="dashboard-action inline-flex h-11 items-center gap-2 rounded-xl border border-[#DCE7F4] bg-white/90 px-4 text-sm font-medium text-[#102A56] transition hover:border-[#BFCFE2] hover:bg-white">
-            <ArrowUpRight class="h-4 w-4" />
-            Buat Invoice
-          </button>
-          <button id="dashboard-action-project" type="button" onClick={() => onQuickAction('tambah_proyek')} class="dashboard-action inline-flex h-11 items-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-sm font-medium text-white transition hover:bg-[#082E61]">
-            <Briefcase class="h-4 w-4" />
-            Inisiasi Proyek
-          </button>
         </div>
       </section>
 

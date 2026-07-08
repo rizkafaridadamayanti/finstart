@@ -38,15 +38,28 @@ export default defineComponent({
       setShowPassword = next => showPassword.value = typeof next === "function" ? next(showPassword.value) : next;
     const mfaCode = ref(''),
       setMfaCode = next => mfaCode.value = typeof next === "function" ? next(mfaCode.value) : next;
+    const rememberBrowser = ref(true),
+      setRememberBrowser = next => rememberBrowser.value = typeof next === "function" ? next(rememberBrowser.value) : next;
     const isLoading = ref(false),
       setIsLoading = next => isLoading.value = typeof next === "function" ? next(isLoading.value) : next;
     const error = ref(''),
       setError = next => error.value = typeof next === "function" ? next(error.value) : next;
     const resetNotice = ref(''),
       setResetNotice = next => resetNotice.value = typeof next === "function" ? next(resetNotice.value) : next;
+    const resetToken = ref(''),
+      setResetToken = next => resetToken.value = typeof next === "function" ? next(resetToken.value) : next;
+    const resetPassword = ref(''),
+      setResetPassword = next => resetPassword.value = typeof next === "function" ? next(resetPassword.value) : next;
+    const resetPasswordConfirm = ref(''),
+      setResetPasswordConfirm = next => resetPasswordConfirm.value = typeof next === "function" ? next(resetPasswordConfirm.value) : next;
+    const isResettingPassword = ref(false),
+      setIsResettingPassword = next => isResettingPassword.value = typeof next === "function" ? next(isResettingPassword.value) : next;
     const handleRequestReset = async () => {
       setError('');
       setResetNotice('');
+      setResetToken('');
+      setResetPassword('');
+      setResetPasswordConfirm('');
       const normalizedEmail = email.value.trim().toLowerCase();
       if (!normalizedEmail) {
         setError('Masukkan email akun terlebih dahulu untuk meminta reset kata sandi.');
@@ -55,11 +68,43 @@ export default defineComponent({
       try {
         const result = await financeApi.requestPasswordReset(normalizedEmail);
         const token = result?.reset_token;
+        setResetToken(token || '');
         setResetNotice(token
-          ? `Token reset pengembangan: ${token}. Gunakan endpoint reset password sesuai prosedur administrator.`
+          ? 'Token reset lokal diterima. Buat kata sandi baru melalui form di bawah ini.'
           : 'Permintaan reset diterima. Hubungi administrator bila kanal reset belum dikonfigurasi.');
       } catch (requestError) {
         setError(getApiErrorMessage(requestError, 'Gagal mengajukan reset kata sandi.'));
+      }
+    };
+    const handleResetPassword = async (event: Event) => {
+      event.preventDefault();
+      setError('');
+      setResetNotice('');
+      if (!resetToken.value.trim()) {
+        setError('Token reset wajib diisi.');
+        return;
+      }
+      if (resetPassword.value.length < 8) {
+        setError('Kata sandi baru minimal 8 karakter.');
+        return;
+      }
+      if (resetPassword.value !== resetPasswordConfirm.value) {
+        setError('Konfirmasi kata sandi baru belum sama.');
+        return;
+      }
+      setIsResettingPassword(true);
+      try {
+        await financeApi.resetPassword(resetToken.value.trim(), resetPassword.value);
+        setResetToken('');
+        setResetPassword('');
+        setResetPasswordConfirm('');
+        setPassword('');
+        setMfaCode('');
+        setResetNotice('Kata sandi berhasil direset. Silakan login memakai kata sandi baru.');
+      } catch (resetError) {
+        setError(getApiErrorMessage(resetError, 'Gagal reset kata sandi.'));
+      } finally {
+        setIsResettingPassword(false);
       }
     };
     const handleSubmit = async (event: Event) => {
@@ -71,8 +116,8 @@ export default defineComponent({
       }
       setIsLoading(true);
       try {
-        const session = await financeApi.login(email.value.trim().toLowerCase(), password.value, mfaCode.value.trim());
-        saveAuthSession(session);
+        const session = await financeApi.login(email.value.trim().toLowerCase(), password.value, mfaCode.value.trim(), rememberBrowser.value);
+        saveAuthSession(session, rememberBrowser.value);
         setIsLoading(false);
         onLoginSuccess(session);
       } catch (error) {
@@ -202,6 +247,26 @@ export default defineComponent({
             {resetNotice.value && <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-5 text-sky-800" role="status">
                 {resetNotice.value}
               </div>}
+            {resetToken.value && <form onSubmit={handleResetPassword} class="mt-5 space-y-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4" aria-label="Form reset kata sandi">
+                <div class="space-y-2">
+                  <label for="reset-token" class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]">Token Reset</label>
+                  <input id="reset-token" value={resetToken.value} onChange={event => setResetToken(event.target.value)} class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 font-mono text-xs font-semibold text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="space-y-2">
+                    <label for="reset-password" class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]">Password Baru</label>
+                    <input id="reset-password" type="password" value={resetPassword.value} onChange={event => setResetPassword(event.target.value)} placeholder="Minimal 8 karakter" class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                  </div>
+                  <div class="space-y-2">
+                    <label for="reset-password-confirm" class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]">Konfirmasi</label>
+                    <input id="reset-password-confirm" type="password" value={resetPasswordConfirm.value} onChange={event => setResetPasswordConfirm(event.target.value)} placeholder="Ulangi password" class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                  </div>
+                </div>
+                <button type="submit" disabled={isResettingPassword.value} class="flex h-11 w-full items-center justify-center rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-70">
+                  {isResettingPassword.value ? 'Menyimpan Password...' : 'Simpan Password Baru'}
+                </button>
+                <p class="text-[11px] leading-5 text-[#70819B]">Token ini dibuat oleh sistem, bukan diverifikasi oleh role lain. Untuk produksi, token sebaiknya dikirim lewat email atau kanal administrator.</p>
+              </form>}
 
             <form onSubmit={handleSubmit} class="mt-6 space-y-5" noValidate>
               <div class="space-y-2">
@@ -236,6 +301,20 @@ export default defineComponent({
               </div>
 
               <p class="text-xs leading-5 text-[#637083]">Sesi disimpan sementara pada browser dan dapat dicabut dari halaman Pengaturan.</p>
+
+              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-3 text-xs leading-5 text-[#53658A]">
+                <input
+                  id="login-remember-browser"
+                  type="checkbox"
+                  checked={rememberBrowser.value}
+                  onChange={event => setRememberBrowser(event.target.checked)}
+                  class="mt-0.5 h-4 w-4 rounded border-[#BFD0E6] text-[#0B1F4A] focus:ring-[#1E5AA8]"
+                />
+                <span>
+                  <span class="block font-bold text-[#0B1F4A]">Ingat sesi login</span>
+                  <span class="mt-0.5 block">Sesi tetap tersimpan selama token belum kedaluwarsa. Setelah Keluar Sistem, akun dengan MFA aktif tetap wajib memasukkan token saat login lagi.</span>
+                </span>
+              </label>
 
               <button id="btn-submit-login" type="submit" disabled={isLoading.value} class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-sm font-bold text-white shadow-[0_12px_22px_rgba(11,31,74,0.18)] transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-75">
                 {isLoading.value ? <><ShieldCheck class="h-4 w-4 animate-pulse text-blue-200" /> Memverifikasi Akses...</> : 'Masuk ke Dashboard'}

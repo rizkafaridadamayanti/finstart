@@ -28,14 +28,14 @@ export default defineComponent({
 
     const roleLabel = () => {
       const labels: Record<string, string> = {
-        admin: 'Administrator',
-        finance_manager: 'Finance Manager',
-        finance: 'Finance',
-        hr: 'HR',
-        tax: 'Pajak',
-        project_manager: 'Project Manager',
-        director: 'Direktur',
-        auditor: 'Auditor',
+        admin: 'Keuangan Internal',
+        finance_manager: 'Keuangan Internal',
+        finance: 'Keuangan Internal',
+        hr: 'Keuangan Internal',
+        tax: 'Keuangan Internal',
+        project_manager: 'Keuangan Internal',
+        director: 'Keuangan Internal',
+        auditor: 'Keuangan Internal',
       }
       return labels[String(props.userRole || '').toLowerCase()] || 'Pengguna Internal'
     }
@@ -54,7 +54,7 @@ export default defineComponent({
       const unreadNotifications = notifications.filter((item) => !item.is_read).length
 
       return (
-        <header class="sticky top-0 z-30 grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-[84px] pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl md:pl-[88px] md:pr-8">
+        <header class="sticky top-0 z-30 grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-9 pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl sm:pl-10 md:pr-8 lg:pl-[104px]">
           <div class="flex min-w-0 items-center">
             <div class="flex min-w-0 items-center gap-3">
               <img src={FinStartLogo} alt="Finstart logo" class="h-11 w-11 shrink-0 object-contain" />

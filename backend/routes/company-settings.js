@@ -20,7 +20,30 @@ function normalizeFiscalYear(value) {
   return year
 }
 
+function normalizeFiscalStartMonth(value) {
+  const month = Number(value ?? 1)
+  if (!Number.isInteger(month) || month < 1 || month > 12) return null
+  return month
+}
+
+
+async function addColumnIfMissing(columnName, definition) {
+  const [columns] = await db.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = ?`,
+    [columnName],
+  )
+  if (columns.length === 0) {
+    await db.query(`ALTER TABLE company_settings ADD COLUMN ${columnName} ${definition}`)
+  }
+}
+
+async function ensureSettingsSchema() {
+  await addColumnIfMissing('fiscal_year_start_month', 'TINYINT UNSIGNED NOT NULL DEFAULT 1')
+}
+
 async function getSettings() {
+  await ensureSettingsSchema()
   const [rows] = await db.query('SELECT * FROM company_settings ORDER BY id ASC LIMIT 1')
   return rows[0] || null
 }
@@ -35,6 +58,7 @@ function defaultSettings() {
     phone: null,
     npwp: null,
     fiscal_year: new Date().getFullYear(),
+    fiscal_year_start_month: 1,
     currency: 'IDR',
     city: null,
     province: null,
@@ -45,9 +69,11 @@ function defaultSettings() {
 
 function normalizePayload(body = {}) {
   const fiscalYear = normalizeFiscalYear(body.fiscal_year ?? new Date().getFullYear())
+  const fiscalStartMonth = normalizeFiscalStartMonth(body.fiscal_year_start_month ?? 1)
   const currency = normalizeCurrency(body.currency ?? 'IDR')
 
   if (!fiscalYear) throw new Error('Tahun buku harus berada antara 2000 sampai 2100.')
+  if (!fiscalStartMonth) throw new Error('Bulan awal tahun buku harus berada antara 1 sampai 12.')
   if (!currency) throw new Error('Mata uang tidak valid.')
 
   return {
@@ -58,6 +84,7 @@ function normalizePayload(body = {}) {
     phone: cleanText(body.phone, 40),
     npwp: cleanText(body.npwp, 50),
     fiscal_year: fiscalYear,
+    fiscal_year_start_month: fiscalStartMonth,
     currency,
     city: cleanText(body.city, 120),
     province: cleanText(body.province, 120),
@@ -86,13 +113,13 @@ router.put('/', async (req, res) => {
           UPDATE company_settings
           SET
             company_name = ?, logo_url = ?, address = ?, email = ?, phone = ?,
-            npwp = ?, fiscal_year = ?, currency = ?, city = ?, province = ?,
+            npwp = ?, fiscal_year = ?, fiscal_year_start_month = ?, currency = ?, city = ?, province = ?,
             postal_code = ?, website = ?
           WHERE id = ?
         `,
         [
           payload.company_name, payload.logo_url, payload.address, payload.email, payload.phone,
-          payload.npwp, payload.fiscal_year, payload.currency, payload.city, payload.province,
+          payload.npwp, payload.fiscal_year, payload.fiscal_year_start_month, payload.currency, payload.city, payload.province,
           payload.postal_code, payload.website, existing.id,
         ],
       )
@@ -101,13 +128,13 @@ router.put('/', async (req, res) => {
         `
           INSERT INTO company_settings (
             id, company_name, logo_url, address, email, phone,
-            npwp, fiscal_year, currency, city, province, postal_code, website
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            npwp, fiscal_year, fiscal_year_start_month, currency, city, province, postal_code, website
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           1,
           payload.company_name, payload.logo_url, payload.address, payload.email, payload.phone,
-          payload.npwp, payload.fiscal_year, payload.currency, payload.city, payload.province,
+          payload.npwp, payload.fiscal_year, payload.fiscal_year_start_month, payload.currency, payload.city, payload.province,
           payload.postal_code, payload.website,
         ],
       )

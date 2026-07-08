@@ -6,7 +6,7 @@ const router = express.Router()
 const ASSET_ACCOUNT_CODE = '1210'
 const ACCUMULATED_DEPRECIATION_ACCOUNT_CODE = '1220'
 const DEPRECIATION_EXPENSE_ACCOUNT_CODE = '5250'
-const PAYMENT_ACCOUNT_CODES = ['1110', '1120', '2100']
+const PAYMENT_ACCOUNT_CODES = ['1001', '1110', '1120', '2100']
 
 function numberValue(value) {
   return Number(value || 0)
@@ -46,19 +46,45 @@ function lastDateOfPeriod(period) {
   return `${period}-${String(lastDay).padStart(2, '0')}`
 }
 
-async function getAccountByCode(connection, code) {
+async function findAccountByCode(connection, code) {
   const [rows] = await connection.query(
     `
-      SELECT id, code, name, normal_balance
+      SELECT id, code, name, type, normal_balance, status
       FROM accounts
       WHERE code = ? AND status = 'active'
       LIMIT 1
     `,
     [code],
   )
+  return rows[0] || null
+}
 
-  if (!rows[0]) throw new Error(`Akun COA ${code} belum tersedia atau tidak aktif.`)
+async function ensureAccountByCode(connection, code, name, type, normalBalance, parentCode = null) {
+  const existing = await findAccountByCode(connection, code)
+  if (existing) return existing
+
+  let parentId = null
+  if (parentCode) {
+    const [parents] = await connection.query('SELECT id FROM accounts WHERE code = ? LIMIT 1', [parentCode])
+    parentId = parents[0]?.id || null
+  }
+
+  const [result] = await connection.query(
+    `INSERT INTO accounts (code, name, type, normal_balance, opening_balance, current_balance, status, parent_id)
+     VALUES (?, ?, ?, ?, 0, 0, 'active', ?)`,
+    [code, name, type, normalBalance, parentId],
+  )
+  const [rows] = await connection.query(
+    'SELECT id, code, name, type, normal_balance, status FROM accounts WHERE id = ? LIMIT 1',
+    [result.insertId],
+  )
   return rows[0]
+}
+
+async function getAccountByCode(connection, code) {
+  const account = await findAccountByCode(connection, code)
+  if (!account) throw new Error(`Akun COA ${code} belum tersedia atau tidak aktif.`)
+  return account
 }
 
 async function getPaymentAccount(connection, accountId) {
@@ -224,8 +250,8 @@ async function postDepreciation(connection, asset, period, notes = null) {
   }
 
   const plan = makeDepreciationPlan(asset, period)
-  const expenseAccount = await getAccountByCode(connection, DEPRECIATION_EXPENSE_ACCOUNT_CODE)
-  const accumulatedAccount = await getAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE)
+  const expenseAccount = await ensureAccountByCode(connection, DEPRECIATION_EXPENSE_ACCOUNT_CODE, 'Beban Penyusutan Aset', 'expense', 'debit', '5000')
+  const accumulatedAccount = await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
 
   const [depreciationResult] = await connection.query(
     `
@@ -429,7 +455,7 @@ router.post('/', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
-    const assetAccount = await getAccountByCode(connection, ASSET_ACCOUNT_CODE)
+    const assetAccount = await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
     const paymentAccount = await getPaymentAccount(connection, paymentAccountId)
     if (!assetCode) assetCode = await generateAssetCode(connection, acquisitionDate)
 
@@ -503,15 +529,7 @@ router.put('/:id', async (req, res) => {
 })
 
 async function ensureDisposalLossAccount(connection) {
-  const existing = await getAccountByCode(connection, '5295')
-  if (existing) return existing
-  const [parents] = await connection.query("SELECT id FROM accounts WHERE code = '5000' LIMIT 1")
-  await connection.query(
-    `INSERT INTO accounts (code, name, type, normal_balance, opening_balance, current_balance, status, parent_id)
-     VALUES ('5295', 'Rugi Pelepasan Aset', 'expense', 'debit', 0, 0, 'active', ?)`,
-    [parents[0]?.id || null],
-  )
-  return getAccountByCode(connection, '5295')
+  return ensureAccountByCode(connection, '5295', 'Rugi Pelepasan Aset', 'expense', 'debit', '5000')
 }
 
 router.post('/:id/dispose', async (req, res) => {
@@ -531,8 +549,8 @@ router.post('/:id/dispose', async (req, res) => {
     const cost = money(asset.acquisition_cost)
     const accumulated = money(asset.accumulated_depreciation)
     const bookValue = money(Math.max(cost - accumulated, Number(asset.residual_value || 0)))
-    const assetAccount = await getAccountByCode(connection, ASSET_ACCOUNT_CODE)
-    const accumulatedAccount = await getAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE)
+    const assetAccount = await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
+    const accumulatedAccount = await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
     const lossAccount = await ensureDisposalLossAccount(connection)
     const lines = []
     if (accumulated > 0) lines.push({ account_id: accumulatedAccount.id, description: `Akumulasi penyusutan ${asset.asset_name}`, debit: accumulated, credit: 0 })

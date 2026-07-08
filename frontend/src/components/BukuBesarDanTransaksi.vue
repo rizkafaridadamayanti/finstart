@@ -1,6 +1,6 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, ref } from "vue";
-import { Search, Plus, BookOpen, ArrowLeftRight, Check, Trash2, Pencil, Filter, Calculator, AlertCircle, RefreshCw, FileCheck, Download, Calendar, Send, ShieldCheck, CircleCheck } from "lucide-vue-next";
+import { Fragment, computed, defineComponent, h, ref } from "vue";
+import { Search, Plus, BookOpen, ArrowLeftRight, Check, Trash2, Pencil, Filter, Calculator, AlertCircle, RefreshCw, FileCheck, Download, Calendar, Send, ShieldCheck, CircleCheck, Eye } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { AkunBukuBesar, Transaksi, TipeAkun } from '../types.ts';
 import ConfirmDialog from './common/ConfirmDialog.vue';
@@ -36,8 +36,8 @@ export default defineComponent({
       userRole,
       showToast
     }: BukuBesarDanTransaksiProps = props;
-    const activeTab = ref(activeSection === 'bukubesar' ? 'ledger' : 'journal'),
-      setActiveTab = next => activeTab.value = typeof next === "function" ? next(activeTab.value) : next; // Search and Filters
+    const activeTab = computed(() => props.activeSection === 'bukubesar' ? 'ledger' : 'journal');
+    // Search and Filters
     const ledgerSearch = ref(''),
       setLedgerSearch = next => ledgerSearch.value = typeof next === "function" ? next(ledgerSearch.value) : next;
     const journalSearch = ref(''),
@@ -47,6 +47,7 @@ export default defineComponent({
     const isAccountModalOpen = ref(false),
       setIsAccountModalOpen = next => isAccountModalOpen.value = typeof next === "function" ? next(isAccountModalOpen.value) : next;
     const deleteConfirm = ref<any>(null);
+    const selectedAccountDetail = ref<any>(null);
     const newAccount = ref({
         kode: '',
         nama: '',
@@ -161,9 +162,9 @@ export default defineComponent({
     };
 
     // Balancing Calculation
-    const totalDebit = debitLines.value.reduce((acc, l) => acc + Number(l.nominal), 0);
-    const totalCredit = creditLines.value.reduce((acc, l) => acc + Number(l.nominal), 0);
-    const isBalanced = totalDebit === totalCredit && totalDebit > 0;
+    const totalDebit = computed(() => debitLines.value.reduce((acc, l) => acc + Number(l.nominal || 0), 0));
+    const totalCredit = computed(() => creditLines.value.reduce((acc, l) => acc + Number(l.nominal || 0), 0));
+    const isBalanced = computed(() => totalDebit.value === totalCredit.value && totalDebit.value > 0);
 
     const resetAccountForm = () => {
       editingAccount.value = null;
@@ -221,7 +222,7 @@ export default defineComponent({
         showToast('Harap berikan keterangan memo jurnal.');
         return;
       }
-      if (!isBalanced) {
+      if (!isBalanced.value) {
         showToast('Jurnal tidak seimbang! Nilai total debit harus sama dengan total kredit.');
         return;
       }
@@ -233,7 +234,7 @@ export default defineComponent({
         tanggal: journalDateInput.value,
         refVoucher: voucherNo.value,
         keterangan: memo.value,
-        nominal: totalDebit,
+        nominal: totalDebit.value,
         debitAkun: firstDebit.kode,
         kreditAkun: firstCredit.kode,
         divisionId: journalDivisionId.value || null,
@@ -260,14 +261,16 @@ export default defineComponent({
     };
 
     // Filters
-    const filteredLedgers = akun.filter(a => {
-      return a.kode.includes(ledgerSearch.value) || a.nama.toLowerCase().includes(ledgerSearch.value.toLowerCase());
-    });
-    const filteredJournals = transaksi.filter(t => {
-      const matchesSearch = t.keterangan.toLowerCase().includes(journalSearch.value.toLowerCase()) || t.refVoucher.toLowerCase().includes(journalSearch.value.toLowerCase());
+    const filteredLedgers = computed(() => (props.akun || []).filter((a: any) => {
+      const query = ledgerSearch.value.toLowerCase();
+      return String(a.kode || '').toLowerCase().includes(query) || String(a.nama || '').toLowerCase().includes(query) || String(a.tipe || '').toLowerCase().includes(query);
+    }));
+    const filteredJournals = computed(() => (props.transaksi || []).filter((t: any) => {
+      const query = journalSearch.value.toLowerCase();
+      const matchesSearch = String(t.keterangan || '').toLowerCase().includes(query) || String(t.refVoucher || '').toLowerCase().includes(query);
       const matchesDate = !journalDate.value || t.tanggal === journalDate.value;
       return matchesSearch && matchesDate;
-    });
+    }));
     const escapeHtml = (value: any) => String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -338,13 +341,9 @@ export default defineComponent({
           <p class="text-xs text-slate-400 font-light mt-1">Kelola Chart of Accounts (COA), buat draft jurnal, lalu lakukan approval dan posting sesuai role.</p>
         </div>
         <div class="flex items-center gap-3">
-          <div class="bg-slate-100 border border-slate-200 rounded-xl p-1 flex shrink-0">
-            <button id="btn-switch-ledger" onClick={() => setActiveTab('ledger')} class={`text-xs px-4 py-2 font-semibold rounded-lg transition-all ${activeTab.value === 'ledger' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-              <BookOpen class="w-3.5 h-3.5 inline mr-1.5" /> Chart of Accounts
-            </button>
-            <button id="btn-switch-journal" onClick={() => setActiveTab('journal')} class={`text-xs px-4 py-2 font-semibold rounded-lg transition-all ${activeTab.value === 'journal' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-              <ArrowLeftRight class="w-3.5 h-3.5 inline mr-1.5" /> Jurnal Transaksi
-            </button>
+          <div class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3 py-2 text-xs font-bold text-[#0B1F4A]">
+            {activeTab.value === 'ledger' ? <BookOpen class="w-3.5 h-3.5" /> : <ArrowLeftRight class="w-3.5 h-3.5" />}
+            {activeTab.value === 'ledger' ? 'Chart of Accounts' : 'Jurnal Transaksi'}
           </div>
 
           <button id="btn-open-modal-primary" onClick={() => activeTab.value === 'ledger' ? openAccountForm() : setIsJournalModalOpen(true)} class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0">
@@ -361,9 +360,9 @@ export default defineComponent({
             <div class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div class="relative w-full sm:w-80">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span>
-                <input id="ledger-search-box" type="text" value={ledgerSearch.value} onChange={e => setLedgerSearch(e.target.value)} placeholder="Cari kode atau nama akun..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" />
+                <input id="ledger-search-box" type="text" value={ledgerSearch.value} onInput={e => setLedgerSearch(e.target.value)} placeholder="Cari kode atau nama akun..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" />
               </div>
-              <span class="text-xs text-[#6B7A90]">Menampilkan {filteredLedgers.length} akun</span>
+              <span class="text-xs text-[#6B7A90]">Menampilkan {filteredLedgers.value.length} akun</span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-500">
@@ -378,7 +377,7 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredLedgers.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
+                  {filteredLedgers.value.map(item => <tr key={item.id} class="hover:bg-slate-50 transition-colors">
                       <td class="p-4 font-mono font-bold text-slate-700 text-sm">
                         {item.kode}
                       </td>
@@ -396,7 +395,7 @@ export default defineComponent({
                       <td class="p-4 text-center">
                         <span class={`${String(item.status || item._raw?.status || 'active') === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'} text-[9px] px-1.5 py-0.5 rounded font-mono font-bold`}>{String(item.status || item._raw?.status || 'active') === 'active' ? 'Aktif' : 'Nonaktif'}</span>
                       </td>
-                      <td class="p-4"><div class="flex justify-center gap-1"><button type="button" aria-label={`Ubah akun ${item.nama}`} title="Ubah" onClick={() => openAccountForm(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus akun ${item.nama}`} title="Hapus" onClick={() => deleteAccount(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td>
+                      <td class="p-4"><div class="flex justify-center gap-1"><button type="button" aria-label={`Detail akun ${item.nama}`} title="Detail" onClick={() => selectedAccountDetail.value = item} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Eye class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Ubah akun ${item.nama}`} title="Ubah" onClick={() => openAccountForm(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"><Pencil class="h-3.5 w-3.5" /></button><button type="button" aria-label={`Hapus akun ${item.nama}`} title="Hapus" onClick={() => deleteAccount(item)} class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"><Trash2 class="h-3.5 w-3.5" /></button></div></td>
                     </tr>)}
                 </tbody>
               </table>
@@ -411,7 +410,7 @@ export default defineComponent({
             <div class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div class="relative w-full lg:w-80">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"><Search class="w-4 h-4" /></span>
-                <input id="journal-search-box" type="text" value={journalSearch.value} onChange={e => setJournalSearch(e.target.value)} placeholder="Cari keterangan memo atau voucher..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" />
+                <input id="journal-search-box" type="text" value={journalSearch.value} onInput={e => setJournalSearch(e.target.value)} placeholder="Cari keterangan memo atau voucher..." class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white" />
               </div>
               <div class="flex items-center gap-2">
                 <span class="text-xs text-[#6B7A90]"><Calendar class="mr-1 inline h-3.5 w-3.5" />Tanggal:</span>
@@ -433,11 +432,11 @@ export default defineComponent({
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-150">
-                  {filteredJournals.length === 0 ? <tr>
+                  {filteredJournals.value.length === 0 ? <tr>
                       <td colSpan={7} class="p-12 text-center text-slate-400 font-light">
                         Tidak ada transaksi keuangan yang sesuai dengan pencarian.
                       </td>
-                    </tr> : filteredJournals.map(t => {
+                    </tr> : filteredJournals.value.map(t => {
                   const dbAcc = akun.find(a => a.kode === t.debitAkun);
                   const crAcc = akun.find(a => a.kode === t.kreditAkun);
                   return <tr key={t.id} class="hover:bg-slate-50 transition-colors">
@@ -481,7 +480,7 @@ export default defineComponent({
 
       {/* 3. COA ADD ACCOUNT MODAL */}
       {isAccountModalOpen.value && <div class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4">
-          <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
+          <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-[980px] overflow-hidden shadow-2xl">
             <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h3 class="font-extrabold text-sm text-[#0B1F4A]">{editingAccount.value ? 'Ubah Akun COA' : 'Tambah Akun COA Baru'}</h3>
@@ -639,26 +638,41 @@ export default defineComponent({
             <div class="p-4 bg-[#F8FAFC] border-y border-slate-200/80 shrink-0 grid grid-cols-2 gap-4 font-mono">
               <div class="space-y-1 rounded-2xl border border-slate-200 bg-white p-3">
                 <span class="block font-sans text-sm text-slate-400">Total Debit (Dr)</span>
-                <span class="block text-base font-bold text-[#0B1F4A]">{formatRupiah(totalDebit)}</span>
+                <span class="block text-base font-bold text-[#0B1F4A]">{formatRupiah(totalDebit.value)}</span>
               </div>
               <div class="space-y-1 rounded-2xl border border-slate-200 bg-white p-3">
                 <span class="block font-sans text-sm text-slate-400">Total Kredit (Cr)</span>
-                <span class="block text-base font-bold text-[#0B1F4A]">{formatRupiah(totalCredit)}</span>
+                <span class="block text-base font-bold text-[#0B1F4A]">{formatRupiah(totalCredit.value)}</span>
               </div>
             </div>
 
             {/* Balance check validation footer */}
             <div class="p-4 bg-slate-50 flex items-center justify-between shrink-0">
               <div class="flex items-center gap-2 text-sm font-semibold">
-                {isBalanced ? <span class="text-emerald-600 flex items-center gap-1"><Check class="w-4 h-4" /> Balanced & siap dibuat sebagai draft</span> : <span class="text-rose-500 flex items-center gap-1"><AlertCircle class="w-4 h-4 animate-bounce" /> Unbalanced &bull; Selisih: {formatRupiah(Math.abs(totalDebit - totalCredit))}</span>}
+                {isBalanced.value ? <span class="text-emerald-600 flex items-center gap-1"><Check class="w-4 h-4" /> Balanced & siap dibuat sebagai draft</span> : <span class="text-rose-500 flex items-center gap-1"><AlertCircle class="w-4 h-4 animate-bounce" /> Unbalanced &bull; Selisih: {formatRupiah(Math.abs(totalDebit.value - totalCredit.value))}</span>}
               </div>
 
-              <button id="btn-journal-submit" type="button" disabled={!isBalanced} onClick={handleSaveJournal} class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50">
+              <button id="btn-journal-submit" type="button" disabled={!isBalanced.value} onClick={handleSaveJournal} class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50">
                 Simpan Draft Jurnal
               </button>
             </div>
           </div>
         </div>}
+
+      {selectedAccountDetail.value && <div class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm">
+        <div class="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl">
+          <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+            <div>
+              <p class="text-[10px] font-extrabold uppercase tracking-widest text-[#94A3B8]">Detail Akun Buku Besar</p>
+              <h3 class="mt-1 text-lg font-black text-[#0B1F4A]">{selectedAccountDetail.value.kode} · {selectedAccountDetail.value.nama}</h3>
+            </div>
+            <button type="button" onClick={() => selectedAccountDetail.value = null} class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-slate-600">×</button>
+          </div>
+          <div class="grid gap-3 p-6 text-xs sm:grid-cols-2">
+            {[['Tipe', selectedAccountDetail.value.tipe], ['Status', selectedAccountDetail.value.status || selectedAccountDetail.value._raw?.status || 'active'], ['Saldo Berjalan', formatRupiah(selectedAccountDetail.value.saldo || 0)], ['Saldo Awal', formatRupiah(selectedAccountDetail.value._raw?.opening_balance || 0)], ['Normal Balance', selectedAccountDetail.value._raw?.normal_balance || '-'], ['Parent ID', selectedAccountDetail.value._raw?.parent_id || '-']].map(([label, value]) => <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4"><p class="text-[10px] font-bold uppercase text-[#94A3B8]">{label}</p><p class="mt-1 font-bold text-[#0B1F4A]">{value}</p></div>)}
+          </div>
+        </div>
+      </div>}
 
       <ConfirmDialog
         open={!!deleteConfirm.value}
