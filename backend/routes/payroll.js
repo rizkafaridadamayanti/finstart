@@ -580,9 +580,9 @@ async function processPayrollRecord(input) {
     if (existingRows[0]) throw new Error(`Payroll ${employee.employee_name} untuk periode ${payrollPeriod} sudah pernah diproses.`)
 
     const [salaryExpense, bpjsExpense, bpjsPayable, cashAccount, bpjsConfig, taxPayable, employeeReceivable, otherDeductionPayable] = await Promise.all([
-      findAccountByCode(connection, SALARY_EXPENSE_CODE, 'expense'),
-      findAccountByCode(connection, BPJS_EXPENSE_CODE, 'expense'),
-      findAccountByCode(connection, BPJS_PAYABLE_CODE, 'liability'),
+      ensureOperationalAccount(connection, SALARY_EXPENSE_CODE, 'Beban Gaji', 'expense', 'debit'),
+      ensureOperationalAccount(connection, BPJS_EXPENSE_CODE, 'Beban BPJS Perusahaan', 'expense', 'debit'),
+      ensureOperationalAccount(connection, BPJS_PAYABLE_CODE, 'Utang BPJS', 'liability', 'credit'),
       findCashAccount(connection, cashAccountId),
       getBpjsConfig(connection),
       ensureOperationalAccount(connection, TAX_PAYABLE_CODE, 'Utang Pajak', 'liability', 'credit'),

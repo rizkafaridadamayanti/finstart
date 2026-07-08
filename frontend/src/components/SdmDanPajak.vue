@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { Fragment, defineComponent, h, onMounted, ref, Teleport } from "vue";
+import { Fragment, computed, defineComponent, h, onMounted, ref, Teleport } from "vue";
 import { Users, Percent, ShieldCheck, HeartPulse, Plus, Search, CheckCircle2, DollarSign, ArrowRight, Calculator, Landmark, FileText, RefreshCw, AlertTriangle, CreditCard, X, Save, Upload, UserCircle, Eye, Pencil, Trash2, Building2, BriefcaseBusiness, Power } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Pegawai, AkunBukuBesar } from '../types.ts';
@@ -106,7 +106,7 @@ export default defineComponent({
     const selectedEmployeeDetail = ref<any>(null);
     const editingEmployee = ref<any>(null);
     const isMasterDataModalOpen = ref(false);
-    const isMasterEditorOpen = ref(true);
+    const isMasterEditorOpen = ref(false);
     const masterDataTab = ref<'division' | 'position'>('division');
     const masterSearch = ref('');
     const masterBusy = ref(false);
@@ -470,7 +470,7 @@ export default defineComponent({
       return type === 'division' ? 'Divisi' : 'Jabatan';
     }
 
-    function resetMasterDataForm(type: 'division' | 'position' = masterDataTab.value) {
+    function resetMasterDataForm(type: 'division' | 'position' = masterDataTab.value, openEditor = true) {
       editingMasterData.value = null;
       masterDataForm.value = {
         id: '',
@@ -481,13 +481,13 @@ export default defineComponent({
         status: 'active',
         divisionId: '',
       };
-      isMasterEditorOpen.value = true;
+      isMasterEditorOpen.value = openEditor;
     }
 
     async function openMasterData(type: 'division' | 'position' = 'division') {
       masterDataTab.value = type;
       masterSearch.value = '';
-      resetMasterDataForm(type);
+      resetMasterDataForm(type, false);
       isMasterDataModalOpen.value = true;
       try {
         await refreshMasterData();
@@ -499,7 +499,12 @@ export default defineComponent({
     function changeMasterTab(type: 'division' | 'position') {
       masterDataTab.value = type;
       masterSearch.value = '';
-      resetMasterDataForm(type);
+      resetMasterDataForm(type, false);
+    }
+
+    function closeMasterEditor() {
+      isMasterEditorOpen.value = false;
+      editingMasterData.value = null;
     }
 
     function masterRows() {
@@ -545,7 +550,8 @@ export default defineComponent({
         else await financeApi.post(masterEndpoint(form.type), payload);
         await refreshMasterData();
         showToast(`${masterLabel(form.type)} berhasil ${form.id ? 'diperbarui' : 'ditambahkan'}.`);
-        resetMasterDataForm(form.type);
+        resetMasterDataForm(form.type, false);
+        isMasterEditorOpen.value = false;
       } catch (error) {
         console.error(error);
         showToast(getApiErrorMessage(error, `Gagal menyimpan ${masterLabel(form.type).toLowerCase()}.`));
@@ -575,7 +581,7 @@ export default defineComponent({
       try {
         await financeApi.delete(`${masterEndpoint(type)}/${item.id}`);
         await refreshMasterData();
-        if (String(editingMasterData.value?.id || '') === String(item.id)) resetMasterDataForm(type);
+        if (String(editingMasterData.value?.id || '') === String(item.id)) resetMasterDataForm(type, false);
         showToast(`${masterLabel(type)} berhasil dihapus.`);
       } catch (error) {
         showToast(getApiErrorMessage(error, `${masterLabel(type)} tidak dapat dihapus karena masih digunakan.`));
@@ -611,10 +617,13 @@ export default defineComponent({
 
     function resetEmployeeForm() {
       editingEmployee.value = null;
-      setEmployeeForm({ nama: '', nip: '', nik: '', email: '', whatsapp: '', npwp: '', jabatan: '', departemen: '', divisionId: '', positionId: '', statusKontrak: 'Karyawan Tetap', employmentStatus: 'active', tanggalBergabung: todayIso(), bpjsKesehatanNo: '', bpjsKesehatanTipe: 'PPU (Penerima Upah)', bpjsKesehatanKelas: 'Kelas 1', bpjsKetenagakerjaanNo: '', ptkpStatus: 'TK/0', gajiPokok: 0, bankNama: '', noRekening: '' });
+      const defaultDivision = divisions.value.find((item: any) => String(item.status || 'active').toLowerCase() === 'active') || divisions.value[0] || {};
+      const defaultPosition = positions.value.find((item: any) => String(item.status || 'active').toLowerCase() === 'active' && (!item.division_id || String(item.division_id) === String(defaultDivision.id || ''))) || positions.value[0] || {};
+      setEmployeeForm({ nama: '', nip: '', nik: '', email: '', whatsapp: '', npwp: '', jabatan: '', departemen: '', divisionId: String(defaultDivision.id || ''), positionId: String(defaultPosition.id || ''), statusKontrak: 'Karyawan Tetap', employmentStatus: 'active', tanggalBergabung: todayIso(), bpjsKesehatanNo: '', bpjsKesehatanTipe: 'PPU (Penerima Upah)', bpjsKesehatanKelas: 'Kelas 1', bpjsKetenagakerjaanNo: '', ptkpStatus: 'TK/0', gajiPokok: 0, bankNama: '', noRekening: '' });
     }
 
-    function openEmployeeForm(employee: any = null) {
+    async function openEmployeeForm(employee: any = null) {
+      if (!divisions.value.length || !positions.value.length) await refreshMasterData();
       if (!employee) { resetEmployeeForm(); setIsEmployeeModalOpen(true); return; }
       const raw = employee._raw || employee;
       editingEmployee.value = employee;
@@ -802,9 +811,11 @@ export default defineComponent({
         showToast(getApiErrorMessage(error, 'Gagal membuat file transfer bank.'));
       }
     }
-    const filteredEmployees = pegawai.filter(p => {
-      return p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || p.jabatan.toLowerCase().includes(searchQuery.value.toLowerCase());
-    });
+    const filteredEmployees = computed(() => (pegawai || []).filter((p: any) => {
+      const raw = p?._raw || {};
+      const haystack = `${p.nama || raw.full_name || ''} ${p.id || raw.employee_code || ''} ${p.jabatan || raw.position_name || ''} ${raw.division_name || ''} ${raw.employment_status || ''}`.toLowerCase();
+      return haystack.includes(searchQuery.value.toLowerCase());
+    }));
     const totalTaxesOwed = taxes.value.filter(t => t.status === 'Belum Setor').reduce((acc, t) => acc + t.nominal, 0);
     const overdueTaxCount = taxes.value.filter(t => t.status === 'Belum Setor' && new Date(t.jatuhTempo) < new Date()).length;
     const getOutstandingTax = (jenis: PajakKewajiban['jenis']) => taxes.value.find(t => t.jenis === jenis && t.status === 'Belum Setor');
@@ -823,13 +834,13 @@ export default defineComponent({
       if (jenis === 'PPh Badan') return `Kewajiban PPh Badan periode ${masaPajak}.`;
       return `Kewajiban pajak lainnya periode ${masaPajak}.`;
     };
-    const filteredTaxRows = taxes.value.filter(tax => {
+    const filteredTaxRows = computed(() => taxes.value.filter(tax => {
       const matchesTab = taxTableTab.value === 'unpaid' ? tax.status === 'Belum Setor' : tax.status === 'Sudah Setor';
       const matchesType = taxTypeFilter.value === 'Semua' || tax.jenis === taxTypeFilter.value;
       const haystack = `${tax.jenis} ${tax.masaPajak} ${tax.status} ${tax.ntpn || ''}`.toLowerCase();
       const matchesSearch = haystack.includes(taxSearchQuery.value.toLowerCase());
       return matchesTab && matchesType && matchesSearch;
-    });
+    }));
     const csvEscape = (value: any) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const downloadTextFile = (filename: string, content: string, type = 'text/csv;charset=utf-8;') => {
       const blob = new Blob([content], { type });
@@ -847,7 +858,7 @@ export default defineComponent({
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-    const currentTaxDocumentRows = () => filteredTaxRows.length ? filteredTaxRows : taxes.value;
+    const currentTaxDocumentRows = () => filteredTaxRows.value.length ? filteredTaxRows.value : taxes.value;
     const exportTaxCsv = () => {
       const rows = currentTaxDocumentRows();
       const csvRows = [
@@ -1045,7 +1056,8 @@ export default defineComponent({
             <Plus class="w-4 h-4" /> Tambah Pegawai
           </button>
           <button id="btn-open-payroll" type="button" onClick={() => {
-            if (!pegawai.length) {
+            const activeEmployees = pegawai.filter((item: any) => String(item?._raw?.employment_status || 'active').toLowerCase() === 'active');
+            if (!activeEmployees.length) {
               showToast('Tambahkan pegawai aktif terlebih dahulu.');
               return;
             }
@@ -1107,7 +1119,7 @@ export default defineComponent({
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#94A3B8]">
                   <Search class="w-4 h-4" />
                 </span>
-                <input id="staff-search-box" type="text" value={searchQuery.value} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari pegawai berdasarkan nama atau NIP..." class="w-full h-10 pl-10 pr-4 bg-white border border-[#D8E5F4] rounded-2xl text-sm text-[#1F2A44] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20" />
+                <input id="staff-search-box" type="text" value={searchQuery.value} onInput={e => setSearchQuery(e.target.value)} placeholder="Cari pegawai berdasarkan nama atau NIP..." class="w-full h-10 pl-10 pr-4 bg-white border border-[#D8E5F4] rounded-2xl text-sm text-[#1F2A44] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20" />
               </div>
             </div>
             <div class="overflow-x-auto">
@@ -1115,20 +1127,22 @@ export default defineComponent({
                 <thead class="bg-white text-[10px] text-[#94A3B8] uppercase font-extrabold tracking-[0.22em]">
                   <tr>
                     <th class="px-7 py-5">Identitas Pegawai</th>
-                    <th class="px-7 py-5">Jabatan & Status</th>
+                    <th class="px-7 py-5">Jabatan</th>
+                    <th class="px-7 py-5">Status Aktif</th>
                     <th class="px-7 py-5">Compliance</th>
                     <th class="px-7 py-5 text-[#0B1F4A]">Gaji Bersih (Net)</th>
                     <th class="px-7 py-5 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                  {filteredEmployees.map(staff => {
+                  {filteredEmployees.value.map(staff => {
                   return <tr key={staff.id} class="hover:bg-slate-50 transition-colors">
                         <td class="px-7 py-4">
                           <span class="font-bold text-[#020B2D] block text-sm">{staff.nama}</span>
                           <span class="text-[10px] text-slate-400 font-mono">{staff.id}</span>
                         </td>
                         <td class="px-7 py-4 text-slate-700 font-semibold">{staff.jabatan}<span class="text-[10px] text-slate-400 block">{staff.status}</span></td>
+                        <td class="px-7 py-4"><span class={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${String(staff?._raw?.employment_status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{String(staff?._raw?.employment_status || 'active').toLowerCase() === 'active' ? 'Aktif' : 'Nonaktif'}</span></td>
                         <td class="px-7 py-4">
                           <span class={`text-[10px] px-2.5 py-1 rounded-full font-bold ${staff.compliance === 'Patuh' ? 'bg-[#EEF5FC] text-[#0B1F4A]' : 'bg-amber-50 text-amber-700'}`}>{staff.compliance}</span>
                         </td>
@@ -1148,15 +1162,15 @@ export default defineComponent({
           </div>
 
           {isMasterDataModalOpen.value && <Teleport to="body">
-            <div class="fixed inset-0 z-[9998] flex items-center justify-center overflow-y-auto bg-[#07162E]/60 p-3 backdrop-blur-sm sm:p-6">
-              <div class="my-3 flex w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)] sm:my-5">
+            <div class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#07162E]/70 p-3 backdrop-blur-sm sm:p-6">
+              <div class="my-3 flex max-h-[calc(100dvh-2rem)] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)] sm:my-5">
                 <div class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4 sm:px-7 sm:py-5">
                   <div>
                     <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Master Data SDM</p>
                     <h3 class="mt-1 text-xl font-extrabold tracking-tight text-[#102A56]">Kelola Divisi & Jabatan</h3>
                     <p class="mt-1 max-w-2xl text-xs leading-5 text-[#6B7A90]">Tambahkan, ubah, aktifkan/nonaktifkan, atau hapus master data. Data yang masih digunakan pegawai tidak dapat dihapus secara langsung.</p>
                   </div>
-                  <button id="btn-close-master-data" type="button" onClick={() => { isMasterDataModalOpen.value = false; resetMasterDataForm(masterDataTab.value); }} class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]" aria-label="Tutup kelola divisi dan jabatan"><X class="h-5 w-5" /></button>
+                  <button id="btn-close-master-data" type="button" onClick={() => { isMasterDataModalOpen.value = false; resetMasterDataForm(masterDataTab.value, false); }} class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]" aria-label="Tutup kelola divisi dan jabatan"><X class="h-5 w-5" /></button>
                 </div>
 
                 <div class="flex flex-wrap gap-2 border-b border-[#E8EEF7] bg-[#FAFCFF] px-5 py-3 sm:px-7">
@@ -1164,21 +1178,21 @@ export default defineComponent({
                   <button type="button" onClick={() => changeMasterTab('position')} class={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition ${masterDataTab.value === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`}><BriefcaseBusiness class="h-4 w-4" /> Jabatan <span class={`rounded-full px-1.5 py-0.5 text-[10px] ${masterDataTab.value === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`}>{positions.value.length}</span></button>
                 </div>
 
-                <div class="grid min-h-[520px] lg:grid-cols-[minmax(0,1fr)_350px]">
-                  <section class="min-w-0 border-b border-[#E8EEF7] p-5 lg:border-b-0 lg:border-r lg:p-6">
+                <div class="min-h-0 flex-1 overflow-y-auto">
+                  <section class="min-w-0 p-5 lg:p-6">
                     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p class="text-sm font-extrabold text-[#102A56]">Daftar {masterLabel()}</p>
                         <p class="mt-1 text-[11px] text-[#7A8CA8]">Gunakan ikon untuk ubah, aktif/nonaktif, atau hapus data.</p>
                       </div>
-                      <button id="btn-add-master-data" type="button" onClick={() => resetMasterDataForm(masterDataTab.value)} class="inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"><Plus class="h-4 w-4" /> Tambah {masterLabel()}</button>
+                      <button id="btn-add-master-data" type="button" onClick={() => resetMasterDataForm(masterDataTab.value, true)} class="inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"><Plus class="h-4 w-4" /> Tambah {masterLabel()}</button>
                     </div>
                     <div class="relative mb-4">
                       <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8FA0B8]" />
                       <input id="master-data-search" value={masterSearch.value} onInput={event => masterSearch.value = (event.target as HTMLInputElement).value} placeholder={`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`} class="h-11 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-xs font-medium text-[#243650] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
                     </div>
                     <div class="overflow-hidden rounded-2xl border border-[#E1EAF5]">
-                      <div class="max-h-[390px] overflow-auto">
+                      <div class="max-h-[min(52vh,460px)] overflow-auto">
                         <table class="min-w-full text-left text-xs">
                           <thead class="sticky top-0 z-10 bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"><tr><th class="px-4 py-3">Kode / Nama</th>{masterDataTab.value === 'position' && <th class="px-4 py-3">Divisi</th>}<th class="px-4 py-3">Status</th><th class="px-4 py-3 text-center">Dipakai</th><th class="px-4 py-3 text-right">Aksi</th></tr></thead>
                           <tbody class="divide-y divide-[#EDF2F7] bg-white">
@@ -1195,19 +1209,26 @@ export default defineComponent({
                     </div>
                   </section>
 
-                  <aside class="bg-[#FBFDFF] p-5 lg:p-6">
-                    <div class="mb-4 flex items-start justify-between gap-3"><div><p class="text-sm font-extrabold text-[#102A56]">{masterDataForm.value.id ? `Ubah ${masterLabel(masterDataForm.value.type)}` : `Tambah ${masterLabel(masterDataForm.value.type)}`}</p><p class="mt-1 text-[11px] leading-5 text-[#7A8CA8]">Kode boleh dikosongkan agar dibuat otomatis.</p></div>{editingMasterData.value && <button type="button" onClick={() => resetMasterDataForm(masterDataTab.value)} class="text-[11px] font-bold text-[#1E5AA8] hover:underline">Form baru</button>}</div>
-                    <form onSubmit={saveMasterData} class="space-y-3">
-                      <label class="block text-[11px] font-bold text-[#53658A]">Kode<input value={masterDataForm.value.code} onInput={event => masterDataForm.value = { ...masterDataForm.value, code: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: FIN' : 'Contoh: FIN-MGR'} class="mt-1.5 h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
-                      <label class="block text-[11px] font-bold text-[#53658A]">Nama {masterLabel(masterDataForm.value.type)}<input required value={masterDataForm.value.name} onInput={event => masterDataForm.value = { ...masterDataForm.value, name: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: Keuangan' : 'Contoh: Finance Manager'} class="mt-1.5 h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
-                      {masterDataForm.value.type === 'position' && <label class="block text-[11px] font-bold text-[#53658A]">Divisi Induk<select value={masterDataForm.value.divisionId} onChange={event => masterDataForm.value = { ...masterDataForm.value, divisionId: event.target.value }} class="mt-1.5 h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="">Berlaku untuk semua divisi</option>{divisions.value.filter((item: any) => String(item.status || 'active').toLowerCase() === 'active' || String(item.id) === String(masterDataForm.value.divisionId)).map((item: any) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}</select></label>}
-                      <label class="block text-[11px] font-bold text-[#53658A]">Keterangan<textarea value={masterDataForm.value.description} onInput={event => masterDataForm.value = { ...masterDataForm.value, description: (event.target as HTMLTextAreaElement).value }} rows={4} placeholder="Keterangan singkat (opsional)" class="mt-1.5 w-full resize-none rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
-                      <label class="block text-[11px] font-bold text-[#53658A]">Status<select value={masterDataForm.value.status} onChange={event => masterDataForm.value = { ...masterDataForm.value, status: event.target.value }} class="mt-1.5 h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
-                      <div class="flex gap-2 pt-2"><button type="button" onClick={() => resetMasterDataForm(masterDataTab.value)} class="h-10 flex-1 rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs font-bold text-[#53658A] hover:bg-[#F4F8FD]">Batal</button><button id="btn-save-master-data" type="submit" disabled={masterBusy.value} class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-3 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"><Save class="h-4 w-4" /> {masterBusy.value ? 'Menyimpan...' : 'Simpan'}</button></div>
-                    </form>
-                  </aside>
+
                 </div>
               </div>
+
+              {isMasterEditorOpen.value && <div class="fixed inset-0 z-[10020] flex items-center justify-center overflow-y-auto bg-[#07162E]/65 p-4 backdrop-blur-sm">
+                <div class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-[24px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]">
+                  <div class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-6 py-5">
+                    <div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Form Master Data</p><h3 class="mt-1 text-lg font-extrabold text-[#102A56]">{masterDataForm.value.id ? `Ubah ${masterLabel(masterDataForm.value.type)}` : `Tambah ${masterLabel(masterDataForm.value.type)}`}</h3><p class="mt-1 text-xs text-[#7A8CA8]">Form dibuat overlay agar sama seperti modal lain dan tombol aksi lebih jelas.</p></div>
+                    <button type="button" onClick={closeMasterEditor} class="flex h-10 w-10 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]" aria-label="Tutup form master data"><X class="h-5 w-5" /></button>
+                  </div>
+                  <form onSubmit={saveMasterData} class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
+                    <label class="block text-[11px] font-bold text-[#53658A]">Kode<input value={masterDataForm.value.code} onInput={event => masterDataForm.value = { ...masterDataForm.value, code: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: FIN' : 'Contoh: FIN-MGR'} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
+                    <label class="block text-[11px] font-bold text-[#53658A]">Nama {masterLabel(masterDataForm.value.type)}<input required value={masterDataForm.value.name} onInput={event => masterDataForm.value = { ...masterDataForm.value, name: (event.target as HTMLInputElement).value }} placeholder={masterDataForm.value.type === 'division' ? 'Contoh: Keuangan' : 'Contoh: Finance Manager'} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
+                    {masterDataForm.value.type === 'position' && <label class="block text-[11px] font-bold text-[#53658A]">Divisi Induk<select value={masterDataForm.value.divisionId} onChange={event => masterDataForm.value = { ...masterDataForm.value, divisionId: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="">Berlaku untuk semua divisi</option>{divisions.value.filter((item: any) => String(item.status || 'active').toLowerCase() === 'active' || String(item.id) === String(masterDataForm.value.divisionId)).map((item: any) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}</select></label>}
+                    <label class="block text-[11px] font-bold text-[#53658A]">Keterangan<textarea value={masterDataForm.value.description} onInput={event => masterDataForm.value = { ...masterDataForm.value, description: (event.target as HTMLTextAreaElement).value }} rows={4} placeholder="Keterangan singkat (opsional)" class="mt-1.5 w-full resize-none rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" /></label>
+                    <label class="block text-[11px] font-bold text-[#53658A]">Status<select value={masterDataForm.value.status} onChange={event => masterDataForm.value = { ...masterDataForm.value, status: (event.target as HTMLSelectElement).value }} class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
+                    <div class="grid gap-3 pt-2 sm:grid-cols-2"><button id="btn-cancel-master-data" type="button" onClick={closeMasterEditor} class="h-11 rounded-xl border border-[#DCE7F4] bg-white px-4 text-xs font-bold text-[#53658A] transition hover:bg-[#F4F8FD]">Batal</button><button id="btn-save-master-data" type="submit" disabled={masterBusy.value} class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"><Save class="h-4 w-4" /> {masterBusy.value ? 'Menyimpan...' : 'Simpan'}</button></div>
+                  </form>
+                </div>
+              </div>}
             </div>
           </Teleport>}
 
@@ -1426,7 +1447,7 @@ export default defineComponent({
                   <h2 class="text-sm font-semibold text-[#102A56]">Kewajiban Pajak</h2>
                   <p class="mt-1 text-[11px] leading-5 text-[#7A8CA8]">Alur: kalkulasi atau input manual → draft → terbitkan kewajiban → setor pajak → jurnal dan laporan diperbarui.</p>
                 </div>
-                <span class="shrink-0 text-[11px] text-[#7A8CA8]">{filteredTaxRows.length} data</span>
+                <span class="shrink-0 text-[11px] text-[#7A8CA8]">{filteredTaxRows.value.length} data</span>
               </div>
 
               <div class="overflow-x-auto">
@@ -1444,9 +1465,9 @@ export default defineComponent({
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-[#EDF2F8]">
-                    {filteredTaxRows.length === 0 ? <tr>
+                    {filteredTaxRows.value.length === 0 ? <tr>
                         <td colSpan={8} class="px-3 py-12 text-center text-sm text-[#8A99AD]">Tidak ada data pajak yang sesuai.</td>
-                      </tr> : filteredTaxRows.map(tax => <tr key={tax.id} class="transition hover:bg-[#FAFCFE]">
+                      </tr> : filteredTaxRows.value.map(tax => <tr key={tax.id} class="transition hover:bg-[#FAFCFE]">
                           <td class="px-3 py-3.5">
                             <span class="inline-flex rounded-full bg-[#EEF5FF] px-2.5 py-1 text-[10px] font-medium text-[#1E5AA8]">{tax.jenis}</span>
                           </td>
@@ -1479,8 +1500,8 @@ export default defineComponent({
           </section>
         </div>}
       {/* 3. SET RATE BPJS MODAL */}
-      {isBpjsModalOpen.value && <div class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[560px] overflow-hidden shadow-2xl">
+      {isBpjsModalOpen.value && <div class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm">
+          <div class="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-[560px] overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl">
             <div class="px-8 py-7 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <p class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]">Langkah 1 dari 3</p>
@@ -1541,8 +1562,8 @@ export default defineComponent({
         </div>}
 
       {/* 4. EMPLOYEE REGISTRATION MODAL */}
-      {isEmployeeModalOpen.value && <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-3 backdrop-blur-sm">
-          <div class="my-6 flex w-full max-w-[760px] flex-col overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-2xl">
+      {isEmployeeModalOpen.value && <div class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-3 backdrop-blur-sm">
+          <div class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-2xl">
             <div class="flex items-start justify-between border-b border-slate-100 px-7 py-6">
               <div>
                 <p class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#1E5AA8]">Langkah 2 dari 3</p>
@@ -1554,7 +1575,7 @@ export default defineComponent({
               </button>
             </div>
 
-            <form onSubmit={handleCreateEmployee} class="space-y-6 px-7 py-6 text-xs">
+            <form onSubmit={handleCreateEmployee} class="min-h-0 flex-1 space-y-6 overflow-y-auto px-7 py-6 text-xs">
               <section class="space-y-4">
                 <div class="flex items-center gap-2 border-b border-[#D8E5F4] pb-3">
                   <UserCircle class="w-4 h-4 text-[#0B1F4A]" />
@@ -1614,8 +1635,8 @@ export default defineComponent({
 
 
       {/* 5. PROCESS PAYROLL MODAL */}
-      {isPayrollModalOpen.value && <div class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4">
-          <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
+      {isPayrollModalOpen.value && <div class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#000]/60 p-4 backdrop-blur-sm">
+          <div class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
             <div class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <p class="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]">Langkah 3 dari 3</p>
@@ -1627,12 +1648,12 @@ export default defineComponent({
               </button>
             </div>
 
-            <div class="p-6 space-y-4 text-xs">
+            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
               <div class="space-y-1.5">
                 <label class="font-bold text-slate-700">Pegawai yang Diproses</label>
                 <select id="payroll-employee" value={payrollForm.value.employeeId} onChange={event => payrollForm.value.employeeId = event.target.value} class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs">
                   <option value="">-- Pilih pegawai --</option>
-                  {pegawai.map((employee: any) => <option key={employee?._raw?.id || employee.id} value={String(employee?._raw?.id || '')}>{employee.nama} · {employee.id}</option>)}
+                  {pegawai.filter((employee: any) => String(employee?._raw?.employment_status || 'active').toLowerCase() === 'active').map((employee: any) => <option key={employee?._raw?.id || employee.id} value={String(employee?._raw?.id || '')}>{employee.nama} · {employee.id}</option>)}
                 </select>
               </div>
 

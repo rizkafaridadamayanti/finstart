@@ -90,6 +90,28 @@ function defaultMessage() {
 
 const messages = ref([defaultMessage()])
 
+
+function enforceTemplate(title, rawAnswer) {
+  const lines = String(rawAnswer || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const bulletLines = lines.filter((item) => item.startsWith('•')).map((item) => item.replace(/^•\s*/, ''))
+  const recommendation = lines.slice().reverse().find((item) => !item.startsWith('•') && !/analisis|ringkasan/i.test(item)) || 'Pantau data secara berkala dan tindak lanjuti item yang berisiko.'
+
+  return `Ringkasan:
+${title}
+
+Temuan utama:
+${bulletLines.length ? bulletLines.map((item, index) => `${index + 1}. ${item}`).join('\n') : '1. Data belum cukup untuk ditarik menjadi temuan khusus.'}
+
+Rekomendasi:
+1. ${recommendation}
+
+Data yang dibaca:
+Kas ${formatCurrency(props.summary.cash_balance)}; pendapatan ${formatCurrency(props.summary.total_revenue)}; beban ${formatCurrency(props.summary.total_expense)}; laba bersih ${formatCurrency(props.summary.net_profit)}; piutang ${formatCurrency(props.summary.total_receivable)}; utang ${formatCurrency(props.summary.total_payable)}; proyek ongoing ${props.ongoingProjects.length}; klien aktif ${props.activeClients}.`
+}
+
 function buildOverallAnalysis() {
   const priority =
     numberValue(props.summary.overdue_invoices) > 0
@@ -172,22 +194,22 @@ function createAnswer(rawQuestion) {
   const text = rawQuestion.toLowerCase()
 
   if (/(kas|bank|arus kas|cashflow)/.test(text)) {
-    return buildCashAnalysis()
+    return enforceTemplate('Analisis kas dan arus kas FinStart berdasarkan data dashboard.', buildCashAnalysis())
   }
 
   if (/(laba|profit|pendapatan|beban)/.test(text)) {
-    return buildProfitAnalysis()
+    return enforceTemplate('Analisis profitabilitas FinStart berdasarkan pendapatan, beban, dan laba bersih.', buildProfitAnalysis())
   }
 
   if (/(piutang|invoice|utang|tagihan)/.test(text)) {
-    return buildReceivablePayableAnalysis()
+    return enforceTemplate('Analisis piutang dan utang yang perlu dipantau.', buildReceivablePayableAnalysis())
   }
 
   if (/(proyek|project|klien|client|crm)/.test(text)) {
-    return buildProjectAnalysis()
+    return enforceTemplate('Analisis proyek dan klien aktif.', buildProjectAnalysis())
   }
 
-  return buildOverallAnalysis()
+  return enforceTemplate('Ringkasan kondisi umum FinStart.', buildOverallAnalysis())
 }
 
 async function scrollToEnd() {

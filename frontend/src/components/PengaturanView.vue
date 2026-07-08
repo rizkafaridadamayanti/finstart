@@ -1,5 +1,6 @@
 <script lang="tsx">
 import { Fragment, defineComponent, h, onMounted, ref } from "vue";
+import QRCode from "qrcode";
 import {
   ArrowUpRight, BadgeCheck, Building2, CheckCircle2, ChevronRight, CircleAlert,
   Clock3, KeyRound, LockKeyhole, Monitor, Plus, Save, Shield, Smartphone,
@@ -28,8 +29,8 @@ function formatTime(value: any) {
 
 function roleLabel(role: string) {
   const labels: Record<string, string> = {
-    admin: 'Administrator', finance_manager: 'Finance Manager', finance: 'Staff Finance',
-    hr: 'Human Resources', tax: 'Pajak', project_manager: 'Project Manager', director: 'Direktur', auditor: 'Auditor',
+    admin: 'Keuangan Internal', finance_manager: 'Keuangan Internal', finance: 'Keuangan Internal',
+    hr: 'Keuangan Internal', tax: 'Keuangan Internal', project_manager: 'Keuangan Internal', director: 'Keuangan Internal', auditor: 'Keuangan Internal',
   };
   return labels[String(role || '').toLowerCase()] || String(role || 'Role internal');
 }
@@ -53,12 +54,15 @@ export default defineComponent({
     const isUserModalOpen = ref(false);
     const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' });
     const newUser = ref({ name: '', email: '', phone: '', role_id: '', password: '' });
-    const mfaSetup = ref({ open: false, secret: '', otpauth_url: '', code: '' });
+    const mfaSetup = ref({ open: false, secret: '', otpauth_url: '', setup_code: '', code: '' });
+    const mfaQrCode = ref('');
     const mfaDisable = ref({ open: false, code: '', password: '' });
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const inputClass = 'h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10';
     const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.14em] text-[#70819B]';
-    const isAdmin = () => String(userRole || '').toLowerCase() === 'admin';
+    const isAdmin = () => ['admin', 'finance_manager', 'finance'].includes(String(userRole || '').toLowerCase());
+    const internalFinanceRole = () => roles.value.find((role: any) => String(role.name || '').toLowerCase() === 'finance_manager') || roles.value[0] || { id: '1', name: 'finance_manager', user_count: 0 };
+    const internalFinanceRoleId = () => String(internalFinanceRole().id || '1');
 
     async function loadCompanySettings() {
       try {
@@ -133,18 +137,35 @@ export default defineComponent({
     async function beginMfaSetup() {
       try {
         const data = await financeApi.post('/auth/mfa/setup', {});
-        mfaSetup.value = { open: true, secret: data?.secret || '', otpauth_url: data?.otpauth_url || '', code: '' };
+        const otpauthUrl = data?.otpauth_url || '';
+        mfaSetup.value = { open: true, secret: data?.secret || '', otpauth_url: data?.otpauth_url || '', setup_code: data?.setup_code || '', code: '' };
+        mfaQrCode.value = otpauthUrl ? await QRCode.toDataURL(otpauthUrl, {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 220,
+          color: { dark: '#0B1F4A', light: '#FFFFFF' },
+        }) : '';
         await loadSecurityData();
       } catch (error) {
         showToast(getApiErrorMessage(error, 'Gagal menyiapkan MFA.'));
       }
     }
 
+    function closeMfaSetup() {
+      mfaSetup.value = { open: false, secret: '', otpauth_url: '', setup_code: '', code: '' };
+      mfaQrCode.value = '';
+    }
+
     async function confirmMfa(event: Event) {
       event.preventDefault();
       try {
-        await financeApi.post('/auth/mfa/confirm', { code: mfaSetup.value.code });
-        mfaSetup.value = { open: false, secret: '', otpauth_url: '', code: '' };
+        const code = String(mfaSetup.value.code || '').replace(/\D/g, '').slice(0, 6);
+        if (code.length !== 6) {
+          showToast('Kode MFA harus 6 digit.');
+          return;
+        }
+        await financeApi.post('/auth/mfa/confirm', { code });
+        closeMfaSetup();
         await loadSecurityData();
         showToast('Autentikasi dua langkah berhasil diaktifkan.');
       } catch (error) {
@@ -194,8 +215,8 @@ export default defineComponent({
     async function createUser(event: Event) {
       event.preventDefault();
       try {
-        await financeApi.post('/users', { ...newUser.value, role_id: Number(newUser.value.role_id), status: 'active' });
-        newUser.value = { name: '', email: '', phone: '', role_id: '', password: '' };
+        await financeApi.post('/users', { ...newUser.value, role_id: Number(internalFinanceRoleId()), status: 'active' });
+        newUser.value = { name: '', email: '', phone: '', role_id: internalFinanceRoleId(), password: '' };
         isUserModalOpen.value = false;
         await loadSecurityData();
         showToast('Pengguna baru berhasil dibuat.');
@@ -240,7 +261,7 @@ export default defineComponent({
         </div>
 
         <div class="grid gap-5 2xl:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)]">
-          <section class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><h3 class="text-base font-semibold text-[#0B1F4A]">Role & Hak Akses</h3><p class="mt-1 text-sm text-[#6B7A90]">Role berikut berasal dari tabel roles; pembatasan juga diterapkan pada API.</p></div>{isAdmin() && <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#1E5AA8]">Kelola API role <ArrowUpRight class="h-4 w-4" /></span>}</div><div class="divide-y divide-[#EDF2F7] px-6">{roles.value.length ? roles.value.map(role => <div key={role.id} class="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF5FC] text-xs font-semibold text-[#0B1F4A]">{String(role.name || 'R').slice(0, 2).toUpperCase()}</span><div class="min-w-0"><p class="text-sm font-medium text-[#182338]">{roleLabel(role.name)}</p><p class="mt-1 text-xs text-[#6B7A90]">{role.description || 'Role operasional FinStart.'}</p></div></div><span class="w-fit rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-medium text-[#53658A]">{Number(role.user_count || 0)} pengguna</span></div>) : <p class="py-6 text-sm text-[#8A98AB]">Data role tidak tersedia untuk hak akses akun ini.</p>}</div></section>
+          <section class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><h3 class="text-base font-semibold text-[#0B1F4A]">Hak Akses Internal</h3><p class="mt-1 text-sm text-[#6B7A90]">Satu jenis role: Keuangan Internal. Jumlah akun login tetap bisa lebih dari satu orang.</p></div><span class="inline-flex rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-bold text-[#0B1F4A]">1 akses</span></div><div class="px-6 py-5"><div class="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-5 sm:flex-row sm:items-center sm:justify-between"><div class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-semibold text-[#0B1F4A] shadow-sm">FI</span><div class="min-w-0"><p class="text-sm font-semibold text-[#182338]">Akses Internal FinStart</p><p class="mt-1 text-xs leading-5 text-[#6B7A90]">Digunakan oleh tim keuangan/internal. Banyak pengguna bisa dibuat, semuanya memakai akses yang sama.</p></div></div><span class="w-fit rounded-full border border-[#D8E5F4] bg-white px-3 py-1 text-[10px] font-medium text-[#53658A]">{Number(internalFinanceRole().user_count || users.value.length || 0)} pengguna</span></div></div></section>
           <section class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"><div class="border-b border-[#E8EEF7] px-6 py-5"><h3 class="text-base font-semibold text-[#0B1F4A]">Kontrol Keamanan</h3><p class="mt-1 text-sm text-[#6B7A90]">Pengaturan yang tersedia benar-benar disimpan di server.</p></div><div class="divide-y divide-[#EDF2F7] px-6"><div class="flex items-center justify-between gap-4 py-5"><div class="flex gap-3"><span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF5FC] text-[#1E5AA8]"><KeyRound class="h-4 w-4" /></span><div><p class="text-sm font-medium text-[#182338]">Autentikasi dua langkah</p><p class="mt-1 text-xs leading-5 text-[#6B7A90]">Gunakan aplikasi authenticator berbasis TOTP untuk melindungi login akun Anda.</p></div></div>{securitySettings.value.mfa_status === 'enabled' ? <button type="button" onClick={() => mfaDisable.value = { open: true, code: '', password: '' }} class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">Nonaktifkan</button> : <button type="button" onClick={beginMfaSetup} class="rounded-xl bg-[#0B1F4A] px-3 py-2 text-[10px] font-semibold text-white">{securitySettings.value.mfa_status === 'pending' ? 'Atur ulang' : 'Aktifkan MFA'}</button>}</div><div class="flex items-center justify-between gap-4 py-5"><div class="flex gap-3"><span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF5FC] text-[#1E5AA8]"><CircleAlert class="h-4 w-4" /></span><div><p class="text-sm font-medium text-[#182338]">Peringatan login baru</p><p class="mt-1 text-xs leading-5 text-[#6B7A90]">Notifikasi saat sesi login baru dibuat.</p></div></div><Toggle checked={Boolean(securitySettings.value.login_alerts)} disabled={isSavingSecurity.value} label="Peringatan login baru" onChange={() => saveSecurity({ ...securitySettings.value, login_alerts: !securitySettings.value.login_alerts })} /></div><div class="flex items-center justify-between gap-4 py-5"><div class="flex gap-3"><span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF5FC] text-[#1E5AA8]"><Monitor class="h-4 w-4" /></span><div><p class="text-sm font-medium text-[#182338]">Peringatan sesi</p><p class="mt-1 text-xs leading-5 text-[#6B7A90]">Notifikasi ketika sesi perangkat ditutup atau berubah.</p></div></div><Toggle checked={Boolean(securitySettings.value.session_alerts)} disabled={isSavingSecurity.value} label="Peringatan sesi" onChange={() => saveSecurity({ ...securitySettings.value, session_alerts: !securitySettings.value.session_alerts })} /></div><div class="flex justify-end py-4"><button type="button" onClick={() => isPasswordOpen.value = !isPasswordOpen.value} class="inline-flex items-center gap-2 text-xs font-semibold text-[#1E5AA8]"><LockKeyhole class="h-4 w-4" /> Ubah kata sandi</button></div>{isPasswordOpen.value && <form onSubmit={changePassword} class="space-y-3 border-t border-[#EDF2F7] py-4"><input required type="password" value={passwordForm.value.current_password} onChange={event => passwordForm.value = { ...passwordForm.value, current_password: event.target.value }} placeholder="Password saat ini" class={inputClass} /><input required type="password" value={passwordForm.value.new_password} onChange={event => passwordForm.value = { ...passwordForm.value, new_password: event.target.value }} placeholder="Password baru (minimal 8 karakter)" class={inputClass} /><input required type="password" value={passwordForm.value.confirm_password} onChange={event => passwordForm.value = { ...passwordForm.value, confirm_password: event.target.value }} placeholder="Konfirmasi password baru" class={inputClass} /><button type="submit" class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Simpan Password</button></form>}</div></section>
         </div>
 
@@ -250,10 +271,47 @@ export default defineComponent({
         </div>
       </div>}
 
-      {mfaSetup.value.open && <div class="fixed inset-0 z-[110] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"><div class="w-full max-w-xl overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Keamanan Akun</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Aktifkan MFA TOTP</h3></div><button type="button" onClick={() => mfaSetup.value = { open: false, secret: '', otpauth_url: '', code: '' }} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><form onSubmit={confirmMfa} class="space-y-4 p-6"><p class="text-sm leading-6 text-[#53658A]">Tambahkan secret berikut ke Google Authenticator, Microsoft Authenticator, atau aplikasi TOTP lain. Setelah itu masukkan kode enam digit yang muncul.</p><div class="rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] p-4"><p class={labelClass}>Secret TOTP</p><code class="mt-2 block break-all text-sm font-bold tracking-[0.12em] text-[#0B1F4A]">{mfaSetup.value.secret}</code><p class="mt-3 text-[11px] leading-5 text-[#70819B]">URI untuk aplikasi yang mendukung impor: {mfaSetup.value.otpauth_url}</p></div><input required inputmode="numeric" maxlength="6" value={mfaSetup.value.code} onChange={event => mfaSetup.value = { ...mfaSetup.value, code: event.target.value.replace(/\D/g, '').slice(0, 6) }} placeholder="Kode 6 digit" class={inputClass} /><div class="flex justify-end gap-3"><button type="button" onClick={() => mfaSetup.value = { open: false, secret: '', otpauth_url: '', code: '' }} class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium">Batal</button><button type="submit" class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Konfirmasi MFA</button></div></form></div></div>}
+      {mfaSetup.value.open && <div class="fixed inset-0 z-[110] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm">
+        <div class="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Keamanan Akun</p>
+              <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Aktifkan MFA TOTP</h3>
+            </div>
+            <button type="button" onClick={closeMfaSetup} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button>
+          </div>
+          <form onSubmit={confirmMfa} class="max-h-[calc(92vh-90px)] space-y-4 overflow-y-auto p-6">
+            <p class="text-sm leading-6 text-[#53658A]">Scan QR ini memakai Google Authenticator, Microsoft Authenticator, 2FAS, atau aplikasi TOTP lain. Setelah akun tersimpan, masukkan kode enam digit yang sedang tampil di aplikasi.</p>
+            <div class="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
+              <div class="flex flex-col items-center rounded-2xl border border-[#D8E5F4] bg-white p-4 text-center shadow-sm">
+                <p class={labelClass}>Scan QR MFA</p>
+                {mfaQrCode.value
+                  ? <img src={mfaQrCode.value} alt="QR setup MFA FinStart" class="mt-3 h-[220px] w-[220px] rounded-xl border border-[#E8EEF7] bg-white p-2" />
+                  : <div class="mt-3 flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-dashed border-[#C9D8E8] bg-[#F8FBFE] px-4 text-xs font-semibold leading-5 text-[#70819B]">QR belum tersedia. Gunakan secret manual.</div>}
+                <p class="mt-3 text-[11px] leading-5 text-[#70819B]">QR dibuat lokal di browser dari secret akun ini.</p>
+              </div>
+              <div class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-4">
+                <p class={labelClass}>Secret Manual</p>
+                <code class="mt-2 block break-all rounded-xl border border-[#D8E5F4] bg-white p-3 text-sm font-bold tracking-[0.12em] text-[#0B1F4A]">{mfaSetup.value.secret}</code>
+                <p class="mt-3 text-[11px] leading-5 text-[#70819B]">Kalau tidak bisa scan QR, pilih tambah akun manual di aplikasi authenticator, lalu masukkan secret ini.</p>
+                <p class="mt-3 break-all text-[11px] leading-5 text-[#70819B]">URI impor: {mfaSetup.value.otpauth_url}</p>
+                <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
+                  <p class="text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">Konfirmasi scan</p>
+                  <p class="mt-1 text-[11px] leading-5 text-sky-700">Kode yang dimasukkan di bawah harus berasal dari aplikasi authenticator setelah QR discan, bukan dari FinStart.</p>
+                </div>
+              </div>
+            </div>
+            <input required inputmode="numeric" maxlength="6" value={mfaSetup.value.code} onChange={event => mfaSetup.value = { ...mfaSetup.value, code: event.target.value.replace(/\D/g, '').slice(0, 6) }} placeholder="Kode 6 digit dari authenticator" class={inputClass} />
+            <div class="flex justify-end gap-3">
+              <button type="button" onClick={closeMfaSetup} class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium">Batal</button>
+              <button type="submit" class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white">Konfirmasi MFA</button>
+            </div>
+          </form>
+        </div>
+      </div>}
       {mfaDisable.value.open && <div class="fixed inset-0 z-[110] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"><div class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600">Keamanan Akun</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Nonaktifkan MFA</h3></div><button type="button" onClick={() => mfaDisable.value = { open: false, code: '', password: '' }} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><form onSubmit={disableMfa} class="space-y-4 p-6"><p class="text-sm leading-6 text-[#53658A]">Masukkan password dan kode authenticator saat ini untuk menonaktifkan MFA.</p><input required type="password" value={mfaDisable.value.password} onChange={event => mfaDisable.value = { ...mfaDisable.value, password: event.target.value }} placeholder="Password saat ini" class={inputClass} /><input required inputmode="numeric" maxlength="6" value={mfaDisable.value.code} onChange={event => mfaDisable.value = { ...mfaDisable.value, code: event.target.value.replace(/\D/g, '').slice(0, 6) }} placeholder="Kode MFA 6 digit" class={inputClass} /><div class="flex justify-end gap-3"><button type="button" onClick={() => mfaDisable.value = { open: false, code: '', password: '' }} class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium">Batal</button><button type="submit" class="h-10 rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white">Nonaktifkan</button></div></form></div></div>}
 
-      {isUserModalOpen.value && <div class="fixed inset-0 z-[100] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"><div class="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Administrator</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Tambah Pengguna</h3></div><button type="button" onClick={() => isUserModalOpen.value = false} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><form onSubmit={createUser} class="space-y-4 p-6"><input required value={newUser.value.name} onChange={event => newUser.value = { ...newUser.value, name: event.target.value }} placeholder="Nama pengguna" class={inputClass} /><input required type="email" value={newUser.value.email} onChange={event => newUser.value = { ...newUser.value, email: event.target.value }} placeholder="Email" class={inputClass} /><input value={newUser.value.phone} onChange={event => newUser.value = { ...newUser.value, phone: event.target.value }} placeholder="Nomor telepon (opsional)" class={inputClass} /><select required value={newUser.value.role_id} onChange={event => newUser.value = { ...newUser.value, role_id: event.target.value }} class={inputClass}><option value="">Pilih role</option>{roles.value.map(role => <option key={role.id} value={role.id}>{roleLabel(role.name)}</option>)}</select><input required minLength={8} type="password" value={newUser.value.password} onChange={event => newUser.value = { ...newUser.value, password: event.target.value }} placeholder="Password awal (minimal 8 karakter)" class={inputClass} /><div class="flex justify-end gap-3 pt-2"><button type="button" onClick={() => isUserModalOpen.value = false} class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium">Batal</button><button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"><Plus class="h-4 w-4" /> Buat Pengguna</button></div></form></div></div>}
+      {isUserModalOpen.value && <div class="fixed inset-0 z-[100] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"><div class="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-2xl"><div class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"><div><p class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]">Administrator</p><h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">Tambah Pengguna</h3></div><button type="button" onClick={() => isUserModalOpen.value = false} class="rounded-xl p-2 text-[#6B7A90]"><X class="h-5 w-5" /></button></div><form onSubmit={createUser} class="space-y-4 p-6"><input required value={newUser.value.name} onChange={event => newUser.value = { ...newUser.value, name: event.target.value }} placeholder="Nama pengguna" class={inputClass} /><input required type="email" value={newUser.value.email} onChange={event => newUser.value = { ...newUser.value, email: event.target.value }} placeholder="Email" class={inputClass} /><input value={newUser.value.phone} onChange={event => newUser.value = { ...newUser.value, phone: event.target.value }} placeholder="Nomor telepon (opsional)" class={inputClass} /><select value={newUser.value.role_id || internalFinanceRoleId()} onChange={event => newUser.value = { ...newUser.value, role_id: event.target.value }} class={inputClass}><option value={internalFinanceRoleId()}>Keuangan Internal</option></select><input required minLength={8} type="password" value={newUser.value.password} onChange={event => newUser.value = { ...newUser.value, password: event.target.value }} placeholder="Password awal (minimal 8 karakter)" class={inputClass} /><div class="flex justify-end gap-3 pt-2"><button type="button" onClick={() => isUserModalOpen.value = false} class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium">Batal</button><button type="submit" class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"><Plus class="h-4 w-4" /> Buat Pengguna</button></div></form></div></div>}
     </div>;
   },
 });

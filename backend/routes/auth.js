@@ -7,7 +7,7 @@ const {
   verifyPassword,
 } = require('../utils/password')
 const { safeAudit } = require('../utils/audit')
-const { generateSecret, verifyCode, buildOtpAuthUrl } = require('../utils/totp')
+const { generateSecret, verifyCode, verifyCodeWithCounter, buildOtpAuthUrl } = require('../utils/totp')
 const {
   getAllowedTabs,
   getRolePermissions,
@@ -19,18 +19,13 @@ const router = express.Router()
 const SESSION_HOURS = Number(process.env.AUTH_SESSION_HOURS || 8)
 const RESET_TOKEN_MINUTES = Number(process.env.AUTH_RESET_TOKEN_MINUTES || 30)
 const LOGIN_MAX_ATTEMPTS = Number(process.env.AUTH_LOGIN_MAX_ATTEMPTS || 5)
-const LOGIN_LOCK_MINUTES = Number(process.env.AUTH_LOGIN_LOCK_MINUTES || 15)
+const LOGIN_LOCK_MINUTES = Number(process.env.AUTH_LOGIN_LOCK_MINUTES || 1)
 const loginAttempts = new Map()
 
+const INTERNAL_ROLE = 'finance_manager'
+const INTERNAL_ROLE_DESCRIPTION = 'Keuangan Internal - satu jenis akses internal, dapat digunakan oleh banyak akun bagian keuangan.'
 const CORE_ROLES = [
-  ['admin', 'Administrator sistem dengan akses penuh.'],
-  ['finance_manager', 'Menyusun, meninjau, dan mengelola operasi keuangan.'],
-  ['finance', 'Staf keuangan untuk transaksi operasional dan sub-ledger.'],
-  ['hr', 'Mengelola data SDM dan payroll.'],
-  ['tax', 'Mengelola administrasi serta pelaporan pajak internal.'],
-  ['project_manager', 'Mengelola klien, proyek, dan alokasi tim.'],
-  ['director', 'Membaca ringkasan dan menyetujui/posting jurnal.'],
-  ['auditor', 'Akses baca untuk audit dan pemeriksaan.'],
+  [INTERNAL_ROLE, INTERNAL_ROLE_DESCRIPTION],
 ]
 
 function sanitizeUser(user) {
@@ -76,11 +71,36 @@ function clearAttempts(req, email) {
   loginAttempts.delete(attemptKey(req, email))
 }
 
+function isLocalDevelopmentRequest(req) {
+  if (process.env.NODE_ENV === 'production') return false
+  const hostname = String(req.hostname || '').toLowerCase()
+  const hostHeader = String(req.headers.host || '').toLowerCase()
+  const ip = String(req.ip || '').replace('::ffff:', '')
+  return [hostname, hostHeader, ip].some((value) => (
+    value === 'localhost'
+    || value === '127.0.0.1'
+    || value === '::1'
+    || value.startsWith('localhost:')
+    || value.startsWith('127.0.0.1:')
+  ))
+}
+
 async function ensureCoreRoles(connection = db) {
   for (const [name, description] of CORE_ROLES) {
     await connection.query(
       'INSERT IGNORE INTO roles (name, description) VALUES (?, ?)',
       [name, description],
+    )
+    await connection.query('UPDATE roles SET description = ? WHERE name = ?', [description, name])
+  }
+  const [roles] = await connection.query('SELECT id FROM roles WHERE name = ? LIMIT 1', [INTERNAL_ROLE])
+  if (roles[0]?.id) {
+    await connection.query(
+      `UPDATE users
+       SET role_id = ?
+       WHERE role_id IS NULL
+          OR role_id NOT IN (SELECT id FROM roles WHERE name = ?)`,
+      [roles[0].id, INTERNAL_ROLE],
     )
   }
 }
@@ -145,8 +165,29 @@ async function ensureAuthTables(connection = db) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `)
 
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS trusted_mfa_devices (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT UNSIGNED NOT NULL,
+      token_hash VARCHAR(128) NOT NULL UNIQUE,
+      user_agent VARCHAR(255) NULL,
+      ip_address VARCHAR(64) NULL,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_trusted_mfa_user (user_id),
+      INDEX idx_trusted_mfa_expiry (expires_at),
+      CONSTRAINT fk_trusted_mfa_devices_user FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `)
+
   await addColumnIfMissing(connection, 'user_security_settings', 'mfa_secret', 'VARCHAR(128) NULL')
   await addColumnIfMissing(connection, 'user_security_settings', 'mfa_pending_secret', 'VARCHAR(128) NULL')
+  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_setup_code', 'VARCHAR(16) NULL')
+  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_time_offset_steps', 'INT NULL')
+  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_last_counter', 'BIGINT NULL')
   await ensureCoreRoles(connection)
 }
 
@@ -159,14 +200,14 @@ async function ensureInitialUser() {
     {
       email: process.env.AUTH_DEFAULT_ADMIN_EMAIL || 'admin@kedata.id',
       password: process.env.AUTH_DEFAULT_ADMIN_PASSWORD || 'Admin123!',
-      name: process.env.AUTH_DEFAULT_ADMIN_NAME || 'Administrator FinStart',
-      roleName: 'admin',
+      name: process.env.AUTH_DEFAULT_ADMIN_NAME || 'Keuangan Internal Utama',
+      roleName: INTERNAL_ROLE,
     },
     {
       email: process.env.AUTH_DEFAULT_EMAIL || 'finance@kedata.id',
       password: process.env.AUTH_DEFAULT_PASSWORD || 'kedata123',
-      name: process.env.AUTH_DEFAULT_NAME || 'Finance Manager',
-      roleName: process.env.AUTH_DEFAULT_ROLE || 'finance_manager',
+      name: process.env.AUTH_DEFAULT_NAME || 'Staf Keuangan Internal',
+      roleName: INTERNAL_ROLE,
     },
   ]
 
@@ -221,9 +262,11 @@ router.post('/login', async (req, res) => {
     const attempt = getAttemptState(req, email)
 
     if (attempt.lockedUntil > Date.now()) {
+      const remainingSeconds = Math.max(1, Math.ceil((attempt.lockedUntil - Date.now()) / 1000))
+      const remainingText = remainingSeconds >= 60 ? '1 menit' : `${remainingSeconds} detik`
       return res.status(429).json({
         success: false,
-        message: `Terlalu banyak percobaan login. Coba lagi setelah ${new Date(attempt.lockedUntil).toLocaleTimeString('id-ID')}.`,
+        message: `Terlalu banyak percobaan. Coba lagi ${remainingText}.`,
       })
     }
 
@@ -244,14 +287,24 @@ router.post('/login', async (req, res) => {
     }
 
     const security = await getSecuritySettings(user.id)
-    if (security.mfa_status === 'enabled') {
+    if (security.mfa_status === 'enabled' || security.mfa_status === 'pending') {
       const mfaCode = String(req.body?.mfa_code || '').replace(/\s/g, '')
       const [securityRows] = await db.query(
-        'SELECT mfa_secret FROM user_security_settings WHERE user_id = ? LIMIT 1',
+        'SELECT mfa_status, mfa_secret, mfa_pending_secret, mfa_time_offset_steps, mfa_last_counter FROM user_security_settings WHERE user_id = ? LIMIT 1',
         [user.id],
       )
-      const secret = securityRows[0]?.mfa_secret
-      if (!mfaCode || !secret || !verifyCode(secret, mfaCode)) {
+      const securityRow = securityRows[0] || {}
+      const mfaStatus = securityRow.mfa_status || security.mfa_status
+      const secret = mfaStatus === 'pending' ? securityRow.mfa_pending_secret : securityRow.mfa_secret
+      const hasStoredOffset = securityRow.mfa_time_offset_steps !== null && securityRow.mfa_time_offset_steps !== undefined
+      const verification = mfaCode && secret
+        ? verifyCodeWithCounter(secret, mfaCode, hasStoredOffset
+          ? { centerOffset: Number(securityRow.mfa_time_offset_steps), window: 0 }
+          : { window: 10 })
+        : { valid: false }
+      const lastCounter = Number(securityRow.mfa_last_counter || 0)
+      const hasValidMfaCode = Boolean(verification.valid && (!lastCounter || Number(verification.counter) > lastCounter))
+      if (!hasValidMfaCode) {
         const failed = registerFailedAttempt(req, email)
         await safeAudit(db, {
           userId: user.id,
@@ -259,7 +312,34 @@ router.post('/login', async (req, res) => {
           description: `Kode MFA tidak valid untuk ${user.email} (percobaan ${failed.attempts}).`,
           module: 'security',
         })
-        return res.status(401).json({ success: false, code: 'MFA_REQUIRED', message: 'Kode MFA enam digit wajib dan harus valid.' })
+        return res.status(401).json({
+          success: false,
+          code: 'MFA_REQUIRED',
+          message: mfaStatus === 'pending'
+            ? 'Setup MFA belum selesai. Scan QR terakhir lalu masukkan kode enam digit dari aplikasi authenticator.'
+            : 'Kode MFA enam digit wajib dan harus valid.',
+        })
+      }
+      if (mfaStatus === 'pending') {
+        await db.query(
+          `UPDATE user_security_settings
+           SET mfa_status = 'enabled',
+               mfa_secret = mfa_pending_secret,
+               mfa_pending_secret = NULL,
+               mfa_setup_code = NULL,
+               mfa_time_offset_steps = ?,
+               mfa_last_counter = ?
+           WHERE user_id = ?`,
+          [verification.offset, verification.counter, user.id],
+        )
+      } else {
+        await db.query(
+          `UPDATE user_security_settings
+           SET mfa_time_offset_steps = COALESCE(mfa_time_offset_steps, ?),
+               mfa_last_counter = ?
+           WHERE user_id = ?`,
+          [verification.offset, verification.counter, user.id],
+        )
       }
     }
 
@@ -410,9 +490,14 @@ router.post('/mfa/setup', async (req, res) => {
     await ensureAuthTables()
     const secret = generateSecret()
     await db.query(
-      `INSERT INTO user_security_settings (user_id, mfa_status, mfa_pending_secret)
-       VALUES (?, 'pending', ?)
-       ON DUPLICATE KEY UPDATE mfa_status = 'pending', mfa_pending_secret = VALUES(mfa_pending_secret)`,
+      `INSERT INTO user_security_settings (user_id, mfa_status, mfa_pending_secret, mfa_setup_code)
+       VALUES (?, 'pending', ?, NULL)
+       ON DUPLICATE KEY UPDATE
+         mfa_status = 'pending',
+         mfa_pending_secret = VALUES(mfa_pending_secret),
+         mfa_setup_code = VALUES(mfa_setup_code),
+         mfa_time_offset_steps = NULL,
+         mfa_last_counter = NULL`,
       [req.user.id, secret],
     )
     await safeAudit(db, {
@@ -437,20 +522,26 @@ router.post('/mfa/setup', async (req, res) => {
 router.post('/mfa/confirm', async (req, res) => {
   try {
     await ensureAuthTables()
-    const code = String(req.body?.code || '')
+    const code = String(req.body?.code || '').replace(/\D/g, '')
     const [rows] = await db.query(
       'SELECT mfa_pending_secret FROM user_security_settings WHERE user_id = ? LIMIT 1',
       [req.user.id],
     )
     const secret = rows[0]?.mfa_pending_secret
-    if (!secret || !verifyCode(secret, code)) {
+    const verification = secret ? verifyCodeWithCounter(secret, code, { window: 10 }) : { valid: false }
+    if (!secret || !verification.valid) {
       return res.status(422).json({ success: false, message: 'Kode MFA tidak valid atau sesi konfigurasi sudah berakhir.' })
     }
     await db.query(
       `UPDATE user_security_settings
-       SET mfa_status = 'enabled', mfa_secret = mfa_pending_secret, mfa_pending_secret = NULL
+       SET mfa_status = 'enabled',
+           mfa_secret = mfa_pending_secret,
+           mfa_pending_secret = NULL,
+           mfa_setup_code = NULL,
+           mfa_time_offset_steps = ?,
+           mfa_last_counter = ?
        WHERE user_id = ?`,
-      [req.user.id],
+      [verification.offset, verification.counter, req.user.id],
     )
     await safeAudit(db, {
       userId: req.user.id,
@@ -470,14 +561,25 @@ router.post('/mfa/disable', async (req, res) => {
     const code = String(req.body?.code || '')
     const password = String(req.body?.password || '')
     const [userRows] = await db.query('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id])
-    const [securityRows] = await db.query('SELECT mfa_status, mfa_secret FROM user_security_settings WHERE user_id = ? LIMIT 1', [req.user.id])
+    const [securityRows] = await db.query('SELECT mfa_status, mfa_secret, mfa_time_offset_steps FROM user_security_settings WHERE user_id = ? LIMIT 1', [req.user.id])
     const security = securityRows[0]
-    if (!userRows[0] || !verifyPassword(password, userRows[0].password_hash) || !security || security.mfa_status !== 'enabled' || !verifyCode(security.mfa_secret, code)) {
+    const verification = security?.mfa_secret
+      ? verifyCodeWithCounter(security.mfa_secret, code, {
+        centerOffset: Number(security.mfa_time_offset_steps || 0),
+        window: 0,
+      })
+      : { valid: false }
+    if (!userRows[0] || !verifyPassword(password, userRows[0].password_hash) || !security || security.mfa_status !== 'enabled' || !verification.valid) {
       return res.status(401).json({ success: false, message: 'Password atau kode MFA tidak valid.' })
     }
     await db.query(
       `UPDATE user_security_settings
-       SET mfa_status = 'not_configured', mfa_secret = NULL, mfa_pending_secret = NULL
+       SET mfa_status = 'not_configured',
+           mfa_secret = NULL,
+           mfa_pending_secret = NULL,
+           mfa_setup_code = NULL,
+           mfa_time_offset_steps = NULL,
+           mfa_last_counter = NULL
        WHERE user_id = ?`,
       [req.user.id],
     )
@@ -552,8 +654,8 @@ router.post('/password/request-reset', async (req, res) => {
         description: `Permintaan reset password dibuat untuk ${user.email}.`,
         module: 'security',
       })
-      // Token hanya boleh ditampilkan saat pengembangan lokal secara eksplisit.
-      if (process.env.AUTH_SHOW_RESET_TOKEN === 'true') {
+      // Token hanya boleh tampil untuk development lokal atau saat env eksplisit mengizinkan.
+      if (process.env.AUTH_SHOW_RESET_TOKEN === 'true' || isLocalDevelopmentRequest(req)) {
         debugData = { reset_token: token, expires_at: expiresAt.toISOString() }
       }
     }
