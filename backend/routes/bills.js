@@ -117,7 +117,17 @@ async function refreshOverdueBills(executor = db) {
     WHERE status IN ('unpaid', 'partial')
       AND due_date IS NOT NULL
       AND due_date < CURDATE()
-      AND paid_amount < total_amount
+      AND paid_amount < GREATEST(
+        total_amount - COALESCE((
+          SELECT transaction_taxes.tax_amount
+          FROM transaction_taxes
+          WHERE transaction_taxes.source_type = 'bill'
+            AND transaction_taxes.source_id = bills.id
+            AND transaction_taxes.tax_type = 'PPH23'
+          LIMIT 1
+        ), 0),
+        0
+      )
   `)
 }
 

@@ -6,6 +6,7 @@ const router = express.Router()
 const TAX_PAYABLE_ACCOUNT_CODE = '2200'
 const DEFAULT_TAX_EXPENSE_ACCOUNT_CODE = '5100'
 const DEFAULT_BANK_ACCOUNT_CODE = '1120'
+const PPH23_PAYABLE_ACCOUNT_CODE = '2211'
 
 /*
   TER PPh 21 bulanan untuk pegawai tetap (masa Januari–November).
@@ -1327,26 +1328,61 @@ router.post('/:id/pay', async (req, res) => {
       throw new Error('Kewajiban pajak ini sudah disetor.')
     }
 
+    const [vatRows] = await connection.query(
+      `
+        SELECT id
+        FROM vat_period_closings
+        WHERE tax_record_id = ?
+        LIMIT 1
+      `,
+      [record.id],
+    )
+
+    const [pph23Rows] = await connection.query(
+      `
+        SELECT id, journal_entry_id
+        FROM transaction_taxes
+        WHERE tax_record_id = ?
+          AND tax_type = 'PPH23'
+          AND status = 'posted'
+        LIMIT 1
+      `,
+      [record.id],
+    )
+
     const [obligationJournalRows] = await connection.query(
       `
         SELECT id
         FROM journal_entries
-        WHERE (
-          source_type = 'tax_record'
-          OR source_type = 'employee_payroll'
-        )
-        AND (
-          source_id = ?
-          OR source_id IN (
+        WHERE status = 'posted'
+          AND (
+            (source_type = 'tax_record' AND source_id = ?)
+            OR (source_type = 'employee_payroll' AND source_id IN (
             SELECT id
             FROM payroll_tax_calculations
             WHERE tax_record_id = ?
+            ))
+            OR (source_type = 'payroll' AND source_id IN (
+              SELECT id
+              FROM payroll_records
+              WHERE tax_record_id = ?
+            ))
+            OR (source_type = 'vat_closing' AND source_id IN (
+              SELECT id
+              FROM vat_period_closings
+              WHERE tax_record_id = ?
+            ))
+            OR id IN (
+              SELECT journal_entry_id
+              FROM transaction_taxes
+              WHERE tax_record_id = ?
+                AND status = 'posted'
+                AND journal_entry_id IS NOT NULL
+            )
           )
-        )
-        AND status = 'posted'
         LIMIT 1
       `,
-      [record.id, record.id],
+      [record.id, record.id, record.id, record.id, record.id],
     )
 
     if (!obligationJournalRows[0]) {
@@ -1368,9 +1404,13 @@ router.post('/:id/pay', async (req, res) => {
       throw new Error('Jurnal setoran pajak sudah pernah dibuat.')
     }
 
+    const settlementAccountCode = pph23Rows[0]
+      ? PPH23_PAYABLE_ACCOUNT_CODE
+      : TAX_PAYABLE_ACCOUNT_CODE
+
     const payableAccount = await findAccountByCode(
       connection,
-      TAX_PAYABLE_ACCOUNT_CODE,
+      settlementAccountCode,
       'liability',
     )
 
@@ -1383,7 +1423,7 @@ router.post('/:id/pay', async (req, res) => {
         )
 
     if (!payableAccount) {
-      throw new Error(`Akun Utang Pajak dengan kode ${TAX_PAYABLE_ACCOUNT_CODE} tidak ditemukan.`)
+      throw new Error(`Akun kewajiban pajak dengan kode ${settlementAccountCode} tidak ditemukan.`)
     }
 
     if (!cashAccount || Number(cashAccount.id) === Number(payableAccount.id)) {
@@ -1429,6 +1469,13 @@ router.post('/:id/pay', async (req, res) => {
         record.id,
       ],
     )
+
+    if (vatRows[0]) {
+      await connection.query(
+        "UPDATE vat_period_closings SET status = 'paid' WHERE id = ?",
+        [vatRows[0].id],
+      )
+    }
 
     await connection.commit()
 

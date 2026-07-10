@@ -168,7 +168,7 @@ export default defineComponent({
         setActiveTab(allowedTabs.value.includes('dashboard') ? 'dashboard' : allowedTabs.value[0]);
       }
     };
-    const isSidebarCollapsed = ref(true);
+    const isSidebarCollapsed = ref(false);
     const toggleSidebar = () => { isSidebarCollapsed.value = !isSidebarCollapsed.value; };
 
     // Semua daftar keuangan di bawah ini berasal dari API backend yang sudah ada.
@@ -923,7 +923,7 @@ export default defineComponent({
           opacity: 1
         }} exit={{
           opacity: 0
-        }} class="app-shell flex flex-col lg:flex-row h-screen overflow-hidden">
+        }} class="app-shell dashboard-shell-enter flex flex-col lg:flex-row h-screen overflow-hidden">
             {/* Navigation Drawer Sidebar */}
             <Sidebar activeTab={activeTab.value} setActiveTab={setActiveTab} isCollapsed={isSidebarCollapsed.value} onToggleSidebar={toggleSidebar} onLogout={handleLogout} allowedTabs={allowedTabs.value} />
 
@@ -933,27 +933,27 @@ export default defineComponent({
               onClick={toggleSidebar}
               style={{
                 position: 'fixed',
-                left: isSidebarCollapsed.value ? '0px' : '286px',
-                top: '58%',
+                left: isSidebarCollapsed.value ? '72px' : '286px',
+                top: '54%',
                 transform: 'translateY(-50%)',
                 zIndex: 99999,
-                width: '42px',
-                height: '72px',
+                width: '34px',
+                height: '54px',
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderTop: '1px solid #D8E5F4',
                 borderRight: '1px solid #D8E5F4',
                 borderBottom: '1px solid #D8E5F4',
                 borderLeft: 0,
-                borderRadius: '0 18px 18px 0',
+                borderRadius: '0 14px 14px 0',
                 background: '#FFFFFF',
                 color: '#102A56',
-                boxShadow: '0 16px 34px rgba(16,42,86,0.20)',
+                boxShadow: '0 12px 26px rgba(16,42,86,0.14)',
                 transition: 'left 240ms ease, background 180ms ease, color 180ms ease',
               }}
-              class="hidden lg:flex hover:!bg-[#0B3A78] hover:!text-white"
-              title={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
-              aria-label={isSidebarCollapsed.value ? 'Tampilkan sidebar' : 'Sembunyikan sidebar'}
+              class="dashboard-sidebar-drawer-enter hidden lg:flex hover:!bg-[#0B3A78] hover:!text-white"
+              title={isSidebarCollapsed.value ? 'Tampilkan teks sidebar' : 'Sembunyikan teks sidebar'}
+              aria-label={isSidebarCollapsed.value ? 'Tampilkan teks sidebar' : 'Sembunyikan teks sidebar'}
             >
               {isSidebarCollapsed.value ? <ChevronRight class="h-5 w-5" /> : <ChevronLeft class="h-5 w-5" />}
             </button>
@@ -962,17 +962,19 @@ export default defineComponent({
             <div
               class="app-workspace flex-1 flex flex-col h-screen min-w-0 overflow-hidden"
               style={{
-                '--sidebar-offset': isSidebarCollapsed.value ? '0px' : '286px',
+                '--sidebar-offset': isSidebarCollapsed.value ? '72px' : '286px',
               }}
             >
-              <Topbar userEmail={userEmail.value} userRole={userRole.value} onLogout={handleLogout} onOpenSettings={() => setActiveTab('pengaturan')} notifications={notifications.value} />
+              <div class="dashboard-topbar-enter">
+                <Topbar userEmail={userEmail.value} userRole={userRole.value} onLogout={handleLogout} onOpenSettings={() => setActiveTab('pengaturan')} notifications={notifications.value} />
+              </div>
 
               {/* Main Contents Panel */}
               <main
                 style={{
                   transition: 'padding 260ms ease',
                 }}
-                class="app-main flex-1 w-full overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
+                class="app-main dashboard-content-enter flex-1 w-full overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
               >
                 <AnimatePresence mode="wait">
                   <motion.div key={activeTab.value} initial={{

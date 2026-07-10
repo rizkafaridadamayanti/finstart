@@ -46,7 +46,7 @@ Authorization: Bearer <token-sesi>
 | Modul | Endpoint utama |
 |---|---|
 | Klien | `/clients` |
-| Proyek dan tim | `/projects` — payload menerima `members[]`, `budget_amount`, dan `milestones[]`; anggota disimpan di `project_members` |
+| Proyek dan tim | `/projects`, `/projects/:id/close` — payload menerima `members[]`, `budget_amount`, dan `milestones[]`; anggota disimpan di `project_members`. Closing proyek membuat draft invoice final untuk sisa kontrak yang belum ditagih; kas tetap bertambah hanya saat pembayaran invoice dicatat. |
 | COA | `/accounts` |
 | Jurnal | `/journals`, `/journals/:id/approve`, `/journals/:id/post`; jurnal dapat diberi `division_id` untuk realisasi budget |
 | Invoice/piutang | `/invoices`, `PUT /invoices/:id`, `/invoices/:id/issue`, `/invoices/:id/cancel`, `/invoices/:id/payments` |

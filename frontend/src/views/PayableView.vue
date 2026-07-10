@@ -37,6 +37,7 @@ const successMessage = ref('')
 const showBillModal = ref(false)
 const showIssueModal = ref(false)
 const showPaymentModal = ref(false)
+const editingBillId = ref('')
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -290,12 +291,61 @@ async function loadData() {
 function openBillModal() {
   clearMessages()
   billForm.value = createBillForm()
+  editingBillId.value = ''
   showBillModal.value = true
+}
+
+async function openEditBillModal(bill) {
+  clearMessages()
+
+  if (bill.status !== 'draft') {
+    errorMessage.value = 'Hanya tagihan draft yang dapat diubah. Tagihan yang sudah diterbitkan harus dibatalkan atau dikoreksi dengan jurnal.'
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    const response = await api.get(`/bills/${bill.id}`)
+    const detail = response.data.data || bill
+
+    billForm.value = {
+      vendor_name: detail.vendor_name || '',
+      project_id: detail.project_id ? String(detail.project_id) : '',
+      bill_number: detail.bill_number || '',
+      bill_date: String(detail.bill_date || today).slice(0, 10),
+      due_date: String(detail.due_date || '').slice(0, 10),
+      notes: detail.notes || '',
+      tax: {
+        ppn_enabled: Boolean(detail.ppn_enabled),
+        ppn_rate: numberValue(detail.ppn_rate),
+        pph23_enabled: numberValue(detail.pph23_amount) > 0,
+        pph23_rate: numberValue(detail.pph23_rate) || 2,
+        pph23_object: detail.pph23_object || 'Jasa',
+        vendor_has_npwp: detail.vendor_has_npwp !== false,
+      },
+      items: Array.isArray(detail.items) && detail.items.length
+        ? detail.items.map((item) => ({
+          description: item.description || '',
+          quantity: numberValue(item.quantity || 1),
+          unit_price: numberValue(item.unit_price),
+        }))
+        : createBillForm().items,
+    }
+
+    editingBillId.value = String(detail.id || bill.id)
+    showBillModal.value = true
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal mengambil detail tagihan untuk diedit.')
+  } finally {
+    isSaving.value = false
+  }
 }
 
 function closeBillModal() {
   showBillModal.value = false
   billForm.value = createBillForm()
+  editingBillId.value = ''
 }
 
 function openIssueModal(bill) {
@@ -388,7 +438,7 @@ async function createBill() {
   isSaving.value = true
 
   try {
-    const response = await api.post('/bills', {
+    const payload = {
       ...billForm.value,
       project_id: billForm.value.project_id
         ? Number(billForm.value.project_id)
@@ -406,12 +456,19 @@ async function createBill() {
         pph23_object: billForm.value.tax.pph23_object,
         vendor_has_npwp: Boolean(billForm.value.tax.vendor_has_npwp),
       },
-    })
+    }
+
+    const isEditing = Boolean(editingBillId.value)
+    const response = isEditing
+      ? await api.put(`/bills/${editingBillId.value}`, payload)
+      : await api.post('/bills', payload)
 
     closeBillModal()
     successMessage.value =
       response.data.message ||
-      'Tagihan draft berhasil dibuat. Terbitkan untuk mencatat beban, utang vendor, PPN Masukan, dan/atau PPh 23.'
+      (isEditing
+        ? 'Tagihan draft berhasil diperbarui.'
+        : 'Tagihan draft berhasil dibuat. Terbitkan untuk mencatat beban, utang vendor, PPN Masukan, dan/atau PPh 23.')
 
     await loadData()
   } catch (error) {
@@ -712,6 +769,16 @@ onMounted(loadData)
                   type="button"
                   class="table-action"
                   :disabled="isSaving"
+                  @click="openEditBillModal(bill)"
+                >
+                  Edit
+                </button>
+
+                <button
+                  v-if="bill.status === 'draft'"
+                  type="button"
+                  class="table-action"
+                  :disabled="isSaving"
                   @click="openIssueModal(bill)"
                 >
                   Terbitkan
@@ -783,7 +850,7 @@ onMounted(loadData)
         <div class="modal-header">
           <div>
             <p class="eyebrow">UTANG</p>
-            <h3>Buat Tagihan Vendor</h3>
+            <h3>{{ editingBillId ? 'Edit Draft Tagihan' : 'Buat Tagihan Vendor' }}</h3>
           </div>
 
           <button type="button" class="modal-close" @click="closeBillModal">×</button>
@@ -1017,7 +1084,7 @@ onMounted(loadData)
           </button>
 
           <button type="submit" class="primary-button" :disabled="isSaving">
-            {{ isSaving ? 'Menyimpan...' : 'Simpan Draft Tagihan' }}
+            {{ isSaving ? 'Menyimpan...' : (editingBillId ? 'Perbarui Draft Tagihan' : 'Simpan Draft Tagihan') }}
           </button>
         </div>
       </form>

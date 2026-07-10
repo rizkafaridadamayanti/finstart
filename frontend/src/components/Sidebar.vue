@@ -96,7 +96,47 @@ export default defineComponent({
       isMobileOpen.value = false
     }
 
-    const renderNavigation = (scope: 'desktop' | 'mobile') => (
+    const renderNavigation = (scope: 'desktop' | 'mobile') => {
+      const iconRail = isCollapsed.value && scope === 'desktop'
+
+      if (iconRail) {
+        const groups = visibleMenuGroups()
+
+        return (
+          <div class="flex flex-col items-center gap-1.5">
+            {groups.map((group, groupIndex) => (
+              <section key={`${scope}-${group.title}`} class="flex w-full flex-col items-center gap-1.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon as any
+                  const isActive = activeTab.value === item.id
+
+                  return (
+                    <button
+                      id={`${scope}-sidebar-item-${item.id}`}
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigate(item.id)}
+                      title={item.label}
+                      class={`group relative flex h-12 w-12 items-center justify-center rounded-2xl transition-all ${
+                        isActive
+                          ? 'bg-[#0B3A78] text-white shadow-[0_10px_22px_rgba(11,58,120,0.24)]'
+                          : 'text-[#8A99AD] hover:bg-[#F1F7FD] hover:text-[#0E4F9E]'
+                      }`}
+                      aria-label={item.label}
+                    >
+                      {isActive && <span class="absolute -left-1.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#2BA7FF]" />}
+                      <Icon class={`h-[18px] w-[18px] shrink-0 ${isActive ? 'text-white' : item.iconClass || ''}`} />
+                    </button>
+                  )
+                })}
+                {groupIndex < groups.length - 1 && <span class="my-1 h-px w-8 rounded-full bg-[#E5EDF6]" />}
+              </section>
+            ))}
+          </div>
+        )
+      }
+
+      return (
       <div class="space-y-7">
         {visibleMenuGroups().map((group) => (
           <section key={`${scope}-${group.title}`}>
@@ -128,7 +168,8 @@ export default defineComponent({
           </section>
         ))}
       </div>
-    )
+      )
+    }
 
     return () => (
       <>
@@ -136,7 +177,7 @@ export default defineComponent({
           id="btn-sidebar-mobile-drawer"
           type="button"
           onClick={() => { isMobileOpen.value = true }}
-          class="fixed left-0 top-1/2 z-40 flex h-14 w-9 -translate-y-1/2 items-center justify-center rounded-r-2xl border-y border-r border-[#D8E5F4] bg-white/95 text-[#102A56] shadow-[0_12px_28px_rgba(16,42,86,0.14)] transition hover:bg-[#0B3A78] hover:text-white lg:hidden"
+          class="dashboard-sidebar-drawer-enter fixed left-0 top-1/2 z-40 flex h-14 w-9 -translate-y-1/2 items-center justify-center rounded-r-2xl border-y border-r border-[#D8E5F4] bg-white/95 text-[#102A56] shadow-[0_12px_28px_rgba(16,42,86,0.14)] transition hover:bg-[#0B3A78] hover:text-white lg:hidden"
           aria-label="Buka sidebar"
           title="Buka sidebar"
         >
@@ -149,30 +190,33 @@ export default defineComponent({
             top: '88px',
             height: 'calc(100vh - 88px)',
             zIndex: 35,
-            overflowY: 'scroll',
+            overflowY: 'auto',
             overflowX: 'hidden',
-            scrollbarGutter: 'stable',
+            scrollbarGutter: isCollapsed.value ? 'auto' : 'stable',
           }}
-          class={`fixed left-0 hidden shrink-0 flex-col border-r border-[#DCE7F4] bg-white text-[#52647E] shadow-[18px_0_50px_rgba(16,42,86,0.10)] transition-[width,opacity,transform,border-color] duration-300 lg:flex ${
+          class={`dashboard-sidebar-enter fixed left-0 hidden shrink-0 flex-col border-r border-[#DCE7F4] bg-white text-[#52647E] transition-[width,opacity,transform,border-color] duration-300 lg:flex ${
             isCollapsed.value
-              ? 'w-0 -translate-x-full overflow-hidden border-r-transparent opacity-0 pointer-events-none'
-              : 'w-[286px] translate-x-0 opacity-100'
+              ? 'finstart-sidebar-rail w-[72px] translate-x-0 opacity-100 shadow-[10px_0_28px_rgba(16,42,86,0.07)]'
+              : 'w-[286px] translate-x-0 opacity-100 shadow-[18px_0_50px_rgba(16,42,86,0.10)]'
           }`}
-          aria-hidden={isCollapsed.value}
+          aria-label={isCollapsed.value ? 'Sidebar ikon' : 'Sidebar navigasi'}
         >
-          <nav class="min-w-[286px] px-4 py-6" aria-label="Navigasi utama">
+          <nav class={isCollapsed.value ? 'w-[72px] px-3 py-4' : 'min-w-[286px] px-4 py-6'} aria-label="Navigasi utama">
             {renderNavigation('desktop')}
           </nav>
 
-          <div class="min-w-[286px] border-t border-[#E8EEF7] p-4">
+          <div class={isCollapsed.value ? 'w-[72px] border-t border-[#E8EEF7] p-3' : 'min-w-[286px] border-t border-[#E8EEF7] p-4'}>
             <button
               id="btn-sidebar-logout"
               type="button"
               onClick={onLogout}
-              class="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"
+              title={isCollapsed.value ? 'Keluar Sistem' : undefined}
+              class={`flex w-full items-center rounded-xl text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 ${
+                isCollapsed.value ? 'h-12 justify-center px-0' : 'min-h-[48px] gap-3 px-4 py-3'
+              }`}
             >
               <LogOut class="h-[18px] w-[18px]" />
-              <span>Keluar Sistem</span>
+              {!isCollapsed.value && <span>Keluar Sistem</span>}
             </button>
           </div>
         </aside>
