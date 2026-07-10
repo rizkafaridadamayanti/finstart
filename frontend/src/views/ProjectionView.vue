@@ -375,7 +375,7 @@ onMounted(loadProjections)
 </script>
 
 <template>
-  <section>
+  <section class="projection-full-screen">
     <div class="page-heading">
       <div>
         <p class="eyebrow">BUSINESS PLANNING</p>
@@ -862,6 +862,15 @@ onMounted(loadProjections)
 </template>
 
 <style scoped>
+.projection-full-screen {
+  width: 100%;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: #f5f8fc;
+}
+
 .projection-message {
   border-radius: 10px;
   padding: 12px 14px;

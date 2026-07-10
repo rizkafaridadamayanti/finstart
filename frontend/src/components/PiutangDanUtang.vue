@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { Fragment, computed, defineComponent, h, ref } from "vue";
+import { Fragment, computed, defineComponent, h, ref, watch } from "vue";
 import { Plus, Search, CheckCircle, FileText, Landmark, Clock, AlertTriangle, Receipt, Trash2, Pencil, Send, Calendar, FilePlus, X, Save, CreditCard } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Proyek, Klien, AkunBukuBesar } from '../types.ts';
@@ -78,6 +78,20 @@ export default defineComponent({
     // Komponen ini hanya mempertahankan modal dan tata letak UI desain asli.
     const invoices = ref<any[]>(props.invoices || []);
     const bills = ref<any[]>(props.bills || []);
+    watch(
+      () => props.invoices,
+      (next) => {
+        invoices.value = Array.isArray(next) ? next : [];
+      },
+      { deep: true },
+    );
+    watch(
+      () => props.bills,
+      (next) => {
+        bills.value = Array.isArray(next) ? next : [];
+      },
+      { deep: true },
+    );
     const isInvoiceModalOpen = ref(false),
       setIsInvoiceModalOpen = next => isInvoiceModalOpen.value = typeof next === "function" ? next(isInvoiceModalOpen.value) : next;
     const isReceiptModalOpen = ref(false),
@@ -301,9 +315,9 @@ export default defineComponent({
     // Gunakan saldo tersisa dari API agar invoice/tagihan yang dibayar sebagian tetap akurat.
     const receivableBalance = getInvoiceOutstanding;
     const payableBalance = getBillOutstanding;
-    const totalOutstandingPiutang = invoices.value.filter(isInvoiceOpen).reduce((acc, i) => acc + receivableBalance(i), 0);
-    const totalOverduePiutang = invoices.value.filter(i => i.status === 'Overdue').reduce((acc, i) => acc + receivableBalance(i), 0);
-    const totalOutstandingUtang = bills.value.filter(isBillOpen).reduce((acc, b) => acc + payableBalance(b), 0);
+    const totalOutstandingPiutang = computed(() => invoices.value.filter(isInvoiceOpen).reduce((acc, i) => acc + receivableBalance(i), 0));
+    const totalOverduePiutang = computed(() => invoices.value.filter(i => normalizedStatus(i) === 'overdue').reduce((acc, i) => acc + receivableBalance(i), 0));
+    const totalOutstandingUtang = computed(() => bills.value.filter(isBillOpen).reduce((acc, b) => acc + payableBalance(b), 0));
     const filteredInvoices = computed(() => latestFirst(invoices.value.filter((invoice) => matchesStatusFilter(invoice, isInvoiceOpen))));
     const filteredBills = computed(() => latestFirst(bills.value.filter((bill) => matchesStatusFilter(bill, isBillOpen))));
     const pagedInvoices = computed(() => pageRows(filteredInvoices.value, invoicePage.value));
@@ -358,7 +372,7 @@ export default defineComponent({
               </div>
               <div class="min-w-0">
                 <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Total Outstanding Piutang</span>
-                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingPiutang)}</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingPiutang.value)}</span>
                 <span class="mt-1 block text-xs text-[#6B7A90]">Invoice belum tercatat sebagai pelunasan.</span>
               </div>
             </div>
@@ -369,7 +383,7 @@ export default defineComponent({
               </div>
               <div class="min-w-0">
                 <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#AA6477]">Piutang Overdue</span>
-                <span class="mt-2 block text-xl font-semibold text-[#B22D4B]">{formatRupiah(totalOverduePiutang)}</span>
+                <span class="mt-2 block text-xl font-semibold text-[#B22D4B]">{formatRupiah(totalOverduePiutang.value)}</span>
                 <span class="mt-1 block text-xs text-[#B86A7C]">Perlu follow-up penagihan segera.</span>
               </div>
             </div>
@@ -434,7 +448,7 @@ export default defineComponent({
               </div>
               <div class="min-w-0">
                 <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Total Outstanding Utang Usaha</span>
-                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang)}</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang.value)}</span>
                 <span class="mt-1 block text-xs text-[#6B7A90]">Tagihan vendor yang masih terbuka.</span>
               </div>
             </div>
@@ -445,7 +459,7 @@ export default defineComponent({
               </div>
               <div class="min-w-0">
                 <span class="block text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A8CA8]">Tagihan Dalam Periode</span>
-                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang)}</span>
+                <span class="mt-2 block text-xl font-semibold text-[#102A56]">{formatRupiah(totalOutstandingUtang.value)}</span>
                 <span class="mt-1 block text-xs text-[#6B7A90]">Siap diproses sesuai prioritas jatuh tempo.</span>
               </div>
             </div>

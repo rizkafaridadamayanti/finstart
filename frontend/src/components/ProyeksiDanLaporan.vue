@@ -1,6 +1,6 @@
 <script lang="tsx">
 import { Fragment, computed, defineComponent, h, ref } from "vue";
-import { AlertCircle, BarChart3, CalendarDays, CheckCircle2, Download, FileSpreadsheet, Pencil, Plus, Printer, RefreshCw, Target, Trash2, TrendingUp, X } from "lucide-vue-next";
+import { AlertCircle, BarChart3, CalendarDays, CheckCircle2, ChevronDown, Download, FileSpreadsheet, Pencil, Plus, Printer, RefreshCw, Target, Trash2, TrendingUp, X } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { AkunBukuBesar, Proyek, Transaksi } from '../types.ts';
 import ConfirmDialog from './common/ConfirmDialog.vue';
@@ -81,6 +81,13 @@ export default defineComponent({
     const isForecast = activeSection === 'proyeksi';
     const activeReportType = ref<ReportType>('labarugi'),
       setActiveReportType = next => activeReportType.value = typeof next === "function" ? next(activeReportType.value) : next;
+    const isReportTypeMenuOpen = ref(false);
+    const activeReportTab = computed(() => reportTabs.find(tab => tab.id === activeReportType.value) || reportTabs[0]);
+    const selectReportType = (reportType: ReportType) => {
+      setActiveReportType(reportType);
+      isReportTypeMenuOpen.value = false;
+      reportPage.value = 1;
+    };
     const isTargetModalOpen = ref(false),
       setIsTargetModalOpen = next => isTargetModalOpen.value = typeof next === "function" ? next(isTargetModalOpen.value) : next;
     const editingTargetId = ref('');
@@ -729,11 +736,43 @@ export default defineComponent({
             <TablePagination page={targetDetailPage.value} total={orderedTargets.value.length} onPageChange={(page: number) => targetDetailPage.value = safePage(page, orderedTargets.value.length)} />
           </div>
         </section> : <section class="space-y-5">
-          <div class="rounded-2xl border border-[#DCE7F4] bg-white p-2 shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
-            <div class="flex flex-col gap-2 sm:flex-row">
-              {reportTabs.map(tab => <button key={tab.id} id={`report-type-${tab.id}`} onClick={() => setActiveReportType(tab.id)} class={`flex h-11 items-center justify-center rounded-xl px-5 text-sm font-medium transition ${activeReportType.value === tab.id ? 'bg-[#0B1F4A] text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)]' : 'text-[#53658A] hover:bg-[#F4F8FC] hover:text-[#0B1F4A]'}`}>
-                  {tab.label}
-                </button>)}
+          <div class="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3 shadow-[0_12px_30px_rgba(11,31,74,0.04)]">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]">Jenis Laporan</p>
+                <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">{activeReportTab.value.label}</p>
+              </div>
+
+              <div class="relative w-full md:w-[360px]">
+                <button
+                  type="button"
+                  id="report-type-dropdown"
+                  aria-haspopup="listbox"
+                  aria-expanded={isReportTypeMenuOpen.value ? 'true' : 'false'}
+                  onClick={() => isReportTypeMenuOpen.value = !isReportTypeMenuOpen.value}
+                  class="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 text-left text-sm font-semibold text-[#0B1F4A] transition hover:border-[#BFD4EC] hover:bg-white"
+                >
+                  <span class="truncate">{activeReportTab.value.label}</span>
+                  <ChevronDown class={`h-4 w-4 shrink-0 text-[#53658A] transition ${isReportTypeMenuOpen.value ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isReportTypeMenuOpen.value && <div class="absolute right-0 z-30 mt-2 w-full overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,74,0.16)]" role="listbox" aria-labelledby="report-type-dropdown">
+                  <div class="grid gap-1 sm:grid-cols-2">
+                    {reportTabs.map(tab => <button
+                      key={tab.id}
+                      id={`report-type-${tab.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={activeReportType.value === tab.id ? 'true' : 'false'}
+                      onClick={() => selectReportType(tab.id)}
+                      class={`flex min-h-[40px] items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition ${activeReportType.value === tab.id ? 'bg-[#0B1F4A] text-white' : 'text-[#53658A] hover:bg-[#F4F8FC] hover:text-[#0B1F4A]'}`}
+                    >
+                      <span class="leading-tight">{tab.label}</span>
+                      {activeReportType.value === tab.id && <CheckCircle2 class="h-4 w-4 shrink-0" />}
+                    </button>)}
+                  </div>
+                </div>}
+              </div>
             </div>
           </div>
 

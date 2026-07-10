@@ -16,6 +16,178 @@
   padding-left: 0;
 }
 
+.dashboard-shell-enter {
+  animation: dashboard-shell-fade 220ms ease-out both;
+}
+
+.dashboard-topbar-enter {
+  animation: dashboard-topbar-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dashboard-sidebar-enter {
+  animation: dashboard-sidebar-in 820ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+}
+
+.dashboard-sidebar-drawer-enter {
+  animation: dashboard-drawer-in 620ms cubic-bezier(0.16, 1, 0.3, 1) 520ms both;
+}
+
+.dashboard-content-enter {
+  animation: dashboard-content-in 220ms ease-out 650ms both;
+}
+
+.dashboard-card-enter {
+  opacity: 0;
+  animation: dashboard-card-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dashboard-card-delay-0 {
+  animation-delay: 0.72s;
+}
+
+.dashboard-metric-grid > .dashboard-card-enter:nth-child(1) {
+  animation-delay: 0.8s;
+}
+
+.dashboard-metric-grid > .dashboard-card-enter:nth-child(2) {
+  animation-delay: 0.88s;
+}
+
+.dashboard-metric-grid > .dashboard-card-enter:nth-child(3) {
+  animation-delay: 0.96s;
+}
+
+.dashboard-metric-grid > .dashboard-card-enter:nth-child(4) {
+  animation-delay: 1.04s;
+}
+
+.dashboard-card-delay-5 {
+  animation-delay: 1.12s;
+}
+
+.dashboard-card-delay-6 {
+  animation-delay: 1.2s;
+}
+
+.dashboard-card-delay-7 {
+  animation-delay: 1.28s;
+}
+
+.dashboard-card-delay-8 {
+  animation-delay: 1.36s;
+}
+
+.dashboard-card-delay-9 {
+  animation-delay: 1.44s;
+}
+
+.finstart-sidebar-rail {
+  scrollbar-width: none;
+}
+
+.finstart-sidebar-rail::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@keyframes dashboard-shell-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dashboard-topbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+    filter: blur(10px);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(6px);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes dashboard-sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+    filter: blur(8px);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateX(8px);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes dashboard-drawer-in {
+  from {
+    opacity: 0;
+    transform: translate(-20px, -50%) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+}
+
+@keyframes dashboard-content-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dashboard-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-shell-enter,
+  .dashboard-topbar-enter,
+  .dashboard-sidebar-enter,
+  .dashboard-sidebar-drawer-enter,
+  .dashboard-content-enter,
+  .dashboard-card-enter {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
 #app .app-main {
   margin-left: 0;
   width: 100%;

@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { Fragment, computed, defineComponent, h, onMounted, ref, Teleport } from "vue";
+import { Fragment, computed, defineComponent, h, onMounted, ref, Teleport, watch } from "vue";
 import { Users, Percent, ShieldCheck, HeartPulse, Plus, Search, CheckCircle2, DollarSign, ArrowRight, Calculator, Landmark, FileText, RefreshCw, AlertTriangle, CreditCard, X, Save, Upload, UserCircle, Eye, Pencil, Trash2, Building2, BriefcaseBusiness, Power } from "lucide-vue-next";
 import { formatRupiah } from '../data.ts';
 import { Pegawai, AkunBukuBesar } from '../types.ts';
@@ -157,6 +157,7 @@ export default defineComponent({
     const manualTaxForm = ref({
       jenis: 'PPh 21' as PajakKewajiban['jenis'],
       period: currentPayrollPeriod(),
+      sourceId: '',
       subjectName: '',
       subjectIdentity: '',
       taxObject: 'Gaji, upah, honorarium, atau imbalan',
@@ -262,16 +263,164 @@ export default defineComponent({
       setManualTaxForm({
         ...manualTaxForm.value,
         jenis: type,
+        sourceId: '',
+        subjectName: '',
+        subjectIdentity: '',
         taxObject: selected?.defaultObject || '',
+        taxBase: 0,
+        rate: 0,
+        nominal: 0,
+        reference: '',
+        notes: '',
       });
     };
 
     const selectedManualTaxOption = () => manualTaxOptions.find((item) => item.value === manualTaxForm.value.jenis);
 
+    const employeeIdentity = (employee: any) => {
+      const raw = employee?._raw || {};
+      return raw.npwp || raw.nik || '';
+    };
+
+    const employeeTaxBase = (employee: any) => {
+      const raw = employee?._raw || {};
+      return asNumber(raw.base_salary ?? employee?.gajiBersih);
+    };
+
+    const employeeCode = (employee: any) => {
+      const raw = employee?._raw || {};
+      return raw.employee_code || employee?.id || '';
+    };
+
+    const employeeTaxOptions = () => pegawai
+      .filter((employee: any) => String(employee?._raw?.employment_status || employee?._raw?.status || 'active').toLowerCase() !== 'inactive')
+      .map((employee: any) => ({
+        id: `employee:${employee.id}`,
+        label: `${employee.nama || '-'}${employee.jabatan ? ` - ${employee.jabatan}` : ''}`,
+        description: `${employeeCode(employee) || 'Tanpa kode'} · ${formatRupiah(employeeTaxBase(employee))}`,
+        employee,
+      }));
+
+    const existingTaxOptions = () => taxes.value
+      .filter((tax: any) => {
+        const sameType = tax.jenis === manualTaxForm.value.jenis;
+        const openStatus = String(tax.status || '').toLowerCase() !== 'sudah setor';
+        return sameType && openStatus;
+      })
+      .map((tax: any) => ({
+        id: `tax:${tax.id}`,
+        label: `${tax.jenis} masa ${tax.masaPajak}`,
+        description: `${formatRupiah(asNumber(tax.nominal))} · jatuh tempo ${tax.jatuhTempo || '-'}`,
+        tax,
+      }));
+
+    const financialTaxOptions = () => [
+      {
+        id: 'financial:revenue',
+        label: 'Pendapatan posted',
+        description: formatRupiah(asNumber(taxCalculationData?.revenue)),
+        taxObject: 'Dasar dari pendapatan posted',
+        taxBase: asNumber(taxCalculationData?.revenue),
+      },
+      {
+        id: 'financial:expense',
+        label: 'Beban posted',
+        description: formatRupiah(asNumber(taxCalculationData?.expense)),
+        taxObject: 'Dasar dari beban posted',
+        taxBase: asNumber(taxCalculationData?.expense),
+      },
+      {
+        id: 'financial:net_profit',
+        label: 'Laba bersih posted',
+        description: formatRupiah(Math.max(asNumber(taxCalculationData?.net_profit), 0)),
+        taxObject: 'Dasar dari laba bersih posted',
+        taxBase: Math.max(asNumber(taxCalculationData?.net_profit), 0),
+      },
+    ].filter((item) => item.taxBase > 0);
+
+    const manualTaxSourceOptions = () => {
+      if (manualTaxForm.value.jenis === 'PPh 21') return employeeTaxOptions();
+      if (['PPN', 'PPh 23'].includes(manualTaxForm.value.jenis)) return existingTaxOptions();
+      return financialTaxOptions();
+    };
+
+    const manualTaxSourceLabel = () => {
+      if (manualTaxForm.value.jenis === 'PPh 21') return 'Pegawai dari Master Data';
+      if (manualTaxForm.value.jenis === 'PPh 23') return 'Kewajiban PPh 23 dari Bill Vendor';
+      if (manualTaxForm.value.jenis === 'PPN') return 'Kewajiban PPN dari Penutupan Masa';
+      return 'Dasar Pajak dari Data Posted';
+    };
+
+    const isExistingTaxSourceSelected = () => String(manualTaxForm.value.sourceId || '').startsWith('tax:');
+
+    const applyManualTaxSource = (sourceId: string) => {
+      const options = manualTaxSourceOptions();
+      const selected: any = options.find((item: any) => item.id === sourceId);
+
+      if (!selected) {
+        setManualTaxForm({
+          ...manualTaxForm.value,
+          sourceId: '',
+          subjectName: '',
+          subjectIdentity: '',
+          taxBase: 0,
+          nominal: 0,
+          reference: '',
+        });
+        return;
+      }
+
+      if (selected.employee) {
+        const employee = selected.employee;
+        setManualTaxForm({
+          ...manualTaxForm.value,
+          sourceId,
+          subjectName: employee.nama || '',
+          subjectIdentity: employeeIdentity(employee),
+          taxObject: 'Gaji, upah, honorarium, atau imbalan',
+          taxBase: employeeTaxBase(employee),
+          reference: employeeCode(employee),
+        });
+        return;
+      }
+
+      if (selected.tax) {
+        const tax = selected.tax;
+        setManualTaxForm({
+          ...manualTaxForm.value,
+          sourceId,
+          period: tax.masaPajak || manualTaxForm.value.period,
+          subjectName: tax._raw?.payroll_employee_name || tax.jenis || '',
+          subjectIdentity: tax.ntpn || tax._raw?.tax_number || '',
+          taxObject: taxDescription(tax.jenis, tax.masaPajak),
+          taxBase: asNumber(tax.nominal),
+          nominal: asNumber(tax.nominal),
+          dueDate: tax.jatuhTempo || manualTaxForm.value.dueDate,
+          reference: `TAX-${tax.id}`,
+          notes: tax._raw?.notes || '',
+        });
+        return;
+      }
+
+      setManualTaxForm({
+        ...manualTaxForm.value,
+        sourceId,
+        subjectName: selected.label,
+        subjectIdentity: '',
+        taxObject: selected.taxObject,
+        taxBase: selected.taxBase,
+        nominal: manualTaxForm.value.rate > 0
+          ? Math.round(selected.taxBase * asNumber(manualTaxForm.value.rate) / 100)
+          : manualTaxForm.value.nominal,
+        reference: selected.id,
+      });
+    };
+
     const resetManualTaxForm = () => {
       setManualTaxForm({
         jenis: 'PPh 21',
         period: currentPayrollPeriod(),
+        sourceId: '',
         subjectName: '',
         subjectIdentity: '',
         taxObject: 'Gaji, upah, honorarium, atau imbalan',
@@ -348,6 +497,13 @@ export default defineComponent({
 
     // Kewajiban pajak berasal dari database melalui API.
     const taxes = ref<any[]>(props.taxes || []);
+    watch(
+      () => props.taxes,
+      (next) => {
+        taxes.value = Array.isArray(next) ? next : [];
+      },
+      { deep: true },
+    );
     const selectedTaxId = ref(''),
       setSelectedTaxId = next => selectedTaxId.value = typeof next === "function" ? next(selectedTaxId.value) : next;
     const taxPaymentAccount = ref('1001'),
@@ -371,16 +527,30 @@ export default defineComponent({
       const nominal = asNumber(manualTaxForm.value.nominal) || suggestedManualTaxAmount();
       const jenis = manualTaxForm.value.jenis;
       const subjectName = String(manualTaxForm.value.subjectName || '').trim();
+      const sourceId = String(manualTaxForm.value.sourceId || '');
 
       if (!manualTaxForm.value.dueDate || nominal <= 0) {
         showToast('Isi nominal pajak dan tanggal jatuh tempo terlebih dahulu.');
         return;
       }
 
-      if (['PPh 21', 'PPh 23'].includes(jenis) && !subjectName) {
-        showToast(jenis === 'PPh 21'
-          ? 'Nama pegawai atau penerima penghasilan wajib diisi.'
-          : 'Nama vendor atau penerima penghasilan wajib diisi.');
+      if (jenis === 'PPh 21' && !sourceId.startsWith('employee:')) {
+        showToast('Pilih pegawai dari master data terlebih dahulu.');
+        return;
+      }
+
+      if (['PPN', 'PPh 23'].includes(jenis)) {
+        if (!sourceId.startsWith('tax:')) {
+          showToast(jenis === 'PPN'
+            ? 'Pilih kewajiban PPN hasil penutupan masa yang sudah tersedia.'
+            : 'Pilih kewajiban PPh 23 dari tagihan vendor yang sudah tersedia.');
+          return;
+        }
+
+        setTaxTableTab('unpaid');
+        setIsTaxManualModalOpen(false);
+        resetManualTaxForm();
+        showToast(`${jenis} yang dipilih sudah tersedia di daftar kewajiban pajak. Lanjutkan dari tombol Setor/Bayar pajak.`);
         return;
       }
 
@@ -1829,27 +1999,29 @@ export default defineComponent({
                   </div>
 
                   <div class="space-y-1.5">
-                    <label class="text-[10px] font-medium text-[#7A8CA8]">{manualTaxSubjectLabel()}</label>
-                    <input type="text" value={manualTaxForm.value.subjectName} onChange={event => setManualTaxForm({
-                      ...manualTaxForm.value,
-                      subjectName: event.target.value
-                    })} placeholder={manualTaxForm.value.jenis === 'PPh 21' ? 'Contoh: Rizka Farida Damayanti' : manualTaxForm.value.jenis === 'PPh 23' ? 'Contoh: PT Konsultan Nusantara' : 'Opsional'} class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" required={['PPh 21', 'PPh 23'].includes(manualTaxForm.value.jenis)} />
+                    <label class="text-[10px] font-medium text-[#7A8CA8]">{manualTaxSourceLabel()}</label>
+                    <select value={manualTaxForm.value.sourceId} onChange={event => applyManualTaxSource(event.target.value)} class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-white px-3 text-[12px] font-semibold text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" required>
+                      <option value="">Pilih dari data yang sudah ada</option>
+                      {manualTaxSourceOptions().map((option: any) => <option key={option.id} value={option.id}>{option.label} - {option.description}</option>)}
+                    </select>
+                    {manualTaxSourceOptions().length === 0 && <p class="text-[10px] leading-4 text-rose-600">
+                      Belum ada data sumber untuk {manualTaxForm.value.jenis}. Buat/posting transaksi terkait terlebih dahulu.
+                    </p>}
                   </div>
 
                   <div class="space-y-1.5">
                     <label class="text-[10px] font-medium text-[#7A8CA8]">{manualTaxIdentityLabel()}</label>
-                    <input type="text" value={manualTaxForm.value.subjectIdentity} onChange={event => setManualTaxForm({
-                      ...manualTaxForm.value,
-                      subjectIdentity: event.target.value
-                    })} placeholder="Opsional" class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                    <input type="text" value={manualTaxForm.value.subjectIdentity || '-'} readOnly class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[12px] font-medium text-[#64748B] outline-none" />
+                  </div>
+
+                  <div class="space-y-1.5 md:col-span-2">
+                    <label class="text-[10px] font-medium text-[#7A8CA8]">{manualTaxSubjectLabel()}</label>
+                    <input type="text" value={manualTaxForm.value.subjectName || '-'} readOnly class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[12px] font-semibold text-[#243650] outline-none" />
                   </div>
 
                   <div class="space-y-1.5 md:col-span-2">
                     <label class="text-[10px] font-medium text-[#7A8CA8]">Objek / Keterangan Pajak</label>
-                    <input type="text" value={manualTaxForm.value.taxObject} onChange={event => setManualTaxForm({
-                      ...manualTaxForm.value,
-                      taxObject: event.target.value
-                    })} placeholder="Contoh: Jasa desain, gaji bulan berjalan, atau angsuran PPh badan" class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                    <input type="text" value={manualTaxForm.value.taxObject} readOnly class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[12px] font-medium text-[#243650] outline-none" />
                   </div>
                 </div>
               </section>
@@ -1868,10 +2040,10 @@ export default defineComponent({
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                   <div class="space-y-1.5">
                     <label class="text-[10px] font-medium text-[#7A8CA8]">Dasar Pengenaan (opsional)</label>
-                    <input type="number" min="0" value={manualTaxForm.value.taxBase || ''} onChange={event => setManualTaxForm({
+                    <input type="number" min="0" value={manualTaxForm.value.taxBase || ''} readOnly={Boolean(manualTaxForm.value.sourceId)} onChange={event => setManualTaxForm({
                       ...manualTaxForm.value,
                       taxBase: Number(event.target.value)
-                    })} placeholder="0" class="h-11 w-full rounded-lg border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10" />
+                    })} placeholder="0" class={`h-11 w-full rounded-lg border border-[#DCE7F4] px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10 ${manualTaxForm.value.sourceId ? 'bg-[#F8FBFE]' : 'bg-white'}`} />
                   </div>
 
                   <div class="space-y-1.5">
@@ -1884,7 +2056,7 @@ export default defineComponent({
 
                   <div class="space-y-1.5">
                     <label class="text-[10px] font-medium text-[#7A8CA8]">Nominal Pajak</label>
-                    <input type="number" min="1" value={manualTaxForm.value.nominal || ''} onChange={event => setManualTaxForm({
+                    <input type="number" min="1" value={manualTaxForm.value.nominal || ''} readOnly={isExistingTaxSourceSelected()} onChange={event => setManualTaxForm({
                       ...manualTaxForm.value,
                       nominal: Number(event.target.value)
                     })} placeholder="Wajib diisi" class="h-11 w-full rounded-lg border border-[#1E5AA8] bg-[#F7FBFF] px-3 text-[12px] font-semibold text-[#102A56] outline-none placeholder:text-[#8EA7C3] focus:ring-4 focus:ring-[#1E5AA8]/10" required />
@@ -1927,7 +2099,7 @@ export default defineComponent({
                   Batal
                 </button>
                 <button id="btn-save-tax-manual" type="submit" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0B1F4A] px-4 text-[12px] font-medium text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#102A56]">
-                  <Save class="h-4 w-4" /> Simpan & Terbitkan Kewajiban
+                  <Save class="h-4 w-4" /> {isExistingTaxSourceSelected() ? 'Gunakan Kewajiban Terpilih' : 'Simpan & Terbitkan Kewajiban'}
                 </button>
               </div>
             </form>

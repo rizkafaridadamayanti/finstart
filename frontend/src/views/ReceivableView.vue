@@ -48,6 +48,7 @@ const successMessage = ref('')
 
 const showInvoiceModal = ref(false)
 const showPaymentModal = ref(false)
+const editingInvoiceId = ref('')
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -300,12 +301,57 @@ function openInvoiceModal() {
   }
 
   invoiceForm.value = emptyInvoiceForm()
+  editingInvoiceId.value = ''
   showInvoiceModal.value = true
+}
+
+async function openEditInvoiceModal(invoice) {
+  clearMessages()
+
+  if (invoice.status !== 'draft') {
+    errorMessage.value = 'Hanya invoice draft yang dapat diubah. Invoice yang sudah diterbitkan harus dibatalkan atau dikoreksi dengan jurnal.'
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    const response = await api.get(`/invoices/${invoice.id}`)
+    const detail = response.data.data || invoice
+
+    invoiceForm.value = {
+      client_id: String(detail.client_id || ''),
+      project_id: detail.project_id ? String(detail.project_id) : '',
+      invoice_number: detail.invoice_number || '',
+      issue_date: String(detail.issue_date || today).slice(0, 10),
+      due_date: String(detail.due_date || '').slice(0, 10),
+      notes: detail.notes || '',
+      tax: {
+        ppn_enabled: Boolean(detail.ppn_enabled),
+        ppn_rate: numberValue(detail.ppn_rate),
+      },
+      items: Array.isArray(detail.items) && detail.items.length
+        ? detail.items.map((item) => ({
+          description: item.description || '',
+          quantity: numberValue(item.quantity || 1),
+          unit_price: numberValue(item.unit_price),
+        }))
+        : emptyInvoiceForm().items,
+    }
+
+    editingInvoiceId.value = String(detail.id || invoice.id)
+    showInvoiceModal.value = true
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error, 'Gagal mengambil detail invoice untuk diedit.')
+  } finally {
+    isSaving.value = false
+  }
 }
 
 function closeInvoiceModal() {
   showInvoiceModal.value = false
   invoiceForm.value = emptyInvoiceForm()
+  editingInvoiceId.value = ''
 }
 
 function openPaymentModal(invoice = null) {
@@ -408,7 +454,7 @@ async function createInvoice() {
   isSaving.value = true
 
   try {
-    const response = await api.post('/invoices', {
+    const payload = {
       ...invoiceForm.value,
       client_id: Number(invoiceForm.value.client_id),
       project_id: invoiceForm.value.project_id
@@ -423,12 +469,19 @@ async function createInvoice() {
         ppn_enabled: Boolean(invoiceForm.value.tax.ppn_enabled),
         ppn_rate: numberValue(invoiceForm.value.tax.ppn_rate),
       },
-    })
+    }
+
+    const isEditing = Boolean(editingInvoiceId.value)
+    const response = isEditing
+      ? await api.put(`/invoices/${editingInvoiceId.value}`, payload)
+      : await api.post('/invoices', payload)
 
     closeInvoiceModal()
     successMessage.value =
       response.data.message ||
-      'Invoice draft berhasil dibuat. Terbitkan untuk mencatat piutang, pendapatan, dan PPN Keluaran bila dipilih.'
+      (isEditing
+        ? 'Invoice draft berhasil diperbarui.'
+        : 'Invoice draft berhasil dibuat. Terbitkan untuk mencatat piutang, pendapatan, dan PPN Keluaran bila dipilih.')
 
     await loadData()
   } catch (error) {
@@ -730,6 +783,16 @@ onMounted(loadData)
                   type="button"
                   class="table-action"
                   :disabled="isSaving"
+                  @click="openEditInvoiceModal(invoice)"
+                >
+                  Edit
+                </button>
+
+                <button
+                  v-if="invoice.status === 'draft'"
+                  type="button"
+                  class="table-action"
+                  :disabled="isSaving"
                   @click="issueInvoice(invoice)"
                 >
                   Terbitkan
@@ -808,7 +871,7 @@ onMounted(loadData)
         <div class="modal-header">
           <div>
             <p class="eyebrow">PIUTANG</p>
-            <h3>Buat Invoice Baru</h3>
+            <h3>{{ editingInvoiceId ? 'Edit Draft Invoice' : 'Buat Invoice Baru' }}</h3>
           </div>
 
           <button
@@ -1017,7 +1080,7 @@ onMounted(loadData)
           </button>
 
           <button type="submit" class="primary-button" :disabled="isSaving">
-            {{ isSaving ? 'Menyimpan...' : 'Simpan Draft Invoice' }}
+            {{ isSaving ? 'Menyimpan...' : (editingInvoiceId ? 'Perbarui Draft Invoice' : 'Simpan Draft Invoice') }}
           </button>
         </div>
       </form>

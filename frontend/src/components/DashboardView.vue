@@ -160,7 +160,7 @@ function MetricCard({
     amber: 'bg-[#FFF7E8] text-[#D48A00] ring-[#F7DCA3]',
     purple: 'bg-[#F7F0FF] text-[#8B2CF5] ring-[#D8C4FA]'
   };
-  return <div class="dashboard-surface dashboard-lift group overflow-hidden rounded-2xl p-5">
+  return <div class="dashboard-card-enter dashboard-surface dashboard-lift group overflow-hidden rounded-2xl p-5">
       <div class="flex items-start justify-between gap-3">
         <p class="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#7A8CA8]">{label}</p>
         <div class={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ring-1 ${styleByTone[tone]}`}>
@@ -547,7 +547,7 @@ export default defineComponent({
     const incomePath = createCurvePath(incomePoints);
     const expensePath = createCurvePath(expensePoints);
     return () => <Fragment><main class="dashboard-view space-y-7 pb-4 md:pb-8">
-      <section class="dashboard-hero rounded-3xl px-5 py-5 xl:flex xl:items-end xl:justify-between xl:gap-5">
+      <section class="dashboard-card-enter dashboard-card-delay-0 dashboard-hero rounded-3xl px-5 py-5 xl:flex xl:items-end xl:justify-between xl:gap-5">
         <div>
           <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1E5AA8]">Financial Overview</p>
           <h1 class="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-[#102A56]">Ringkasan Keuangan</h1>
@@ -557,7 +557,7 @@ export default defineComponent({
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section class="dashboard-metric-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Bank & Kas Lancar" value={formatRupiah(totalKasBank)} detail="+12,4% dibanding bulan lalu" tone="blue" icon={Landmark} />
         <MetricCard label="Proyek Berjalan" value={`${ongoingProjectsCount} Proyek`} detail={`Dari ${proyek.length} total inisiasi proyek`} tone="green" icon={Briefcase} />
         <MetricCard label="Klien Aktif" value={`${activeClientsCount} Klien`} detail="Mitra korporasi dan institusi" tone="amber" icon={Users} />
@@ -566,7 +566,7 @@ export default defineComponent({
 
       <section class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
         <div class="min-w-0 space-y-6">
-          <article class="dashboard-surface overflow-hidden rounded-2xl">
+          <article class="dashboard-card-enter dashboard-card-delay-5 dashboard-surface overflow-hidden rounded-2xl">
             <div class="flex flex-col gap-4 border-b border-[#E8EEF7] px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1E5AA8]">Cash Flow Performance</p>
@@ -629,7 +629,7 @@ export default defineComponent({
             </div>
           </article>
 
-          <article class="dashboard-surface rounded-2xl p-5">
+          <article class="dashboard-card-enter dashboard-card-delay-6 dashboard-surface rounded-2xl p-5">
             <div class="flex items-center justify-between gap-3 border-b border-[#E8EEF7] pb-4">
               <div class="flex items-center gap-2.5">
                 <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF2F4] text-[#D93858]">
@@ -663,7 +663,7 @@ export default defineComponent({
         </div>
 
         <aside class="min-w-0">
-          <section id="ai-cfo-card" ref={aiCardRef} class="cfo-shell cfo-shell-live relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border text-[#142033]">
+          <section id="ai-cfo-card" ref={aiCardRef} class="dashboard-card-enter dashboard-card-delay-7 cfo-shell cfo-shell-live relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border text-[#142033]">
             <div class="cfo-bg-gradient pointer-events-none absolute inset-0" />
             <div class="cfo-bg-grid pointer-events-none absolute inset-0" />
 
@@ -813,7 +813,7 @@ export default defineComponent({
         </aside>
       </section>
 
-      <section class="dashboard-surface rounded-2xl p-5">
+      <section class="dashboard-card-enter dashboard-card-delay-8 dashboard-surface rounded-2xl p-5">
         <div class="flex items-center justify-between gap-3 border-b border-[#E8EEF7] pb-4">
           <div class="flex items-center gap-2.5">
             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF5FF] text-[#1E5AA8]">
@@ -844,7 +844,7 @@ export default defineComponent({
         </div>
       </section>
 
-      <section class="dashboard-surface rounded-2xl p-5">
+      <section class="dashboard-card-enter dashboard-card-delay-9 dashboard-surface rounded-2xl p-5">
         <div class="flex flex-col gap-3 border-b border-[#E8EEF7] pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1E5AA8]">Aktivitas Terkini</p>

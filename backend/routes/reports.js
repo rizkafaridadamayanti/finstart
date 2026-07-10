@@ -48,7 +48,7 @@ function classifyCashMovement(counterparts, sourceType) {
   const types = counterparts.map((item) => String(item.account_type || '').toLowerCase())
   const codes = counterparts.map((item) => String(item.account_code || ''))
 
-  if (['invoice_payment', 'bill_payment', 'tax_payment', 'employee_payroll'].includes(source)) {
+  if (['invoice_payment', 'bill_payment', 'tax_payment', 'employee_payroll', 'payroll'].includes(source)) {
     return 'operating'
   }
 
@@ -513,11 +513,31 @@ router.get('/', async (req, res) => {
       safeRows(
         `
           SELECT bill_number, vendor_name, bill_date, due_date, status,
-                 GREATEST(total_amount - paid_amount, 0) AS outstanding_amount,
+                 GREATEST(
+                   total_amount - COALESCE((
+                     SELECT transaction_taxes.tax_amount
+                     FROM transaction_taxes
+                     WHERE transaction_taxes.source_type = 'bill'
+                       AND transaction_taxes.source_id = bills.id
+                       AND transaction_taxes.tax_type = 'PPH23'
+                     LIMIT 1
+                   ), 0) - paid_amount,
+                   0
+                 ) AS outstanding_amount,
                  GREATEST(DATEDIFF(CURDATE(), COALESCE(due_date, bill_date)), 0) AS overdue_days
           FROM bills
           WHERE status IN ('unpaid', 'partial', 'overdue')
-            AND total_amount > paid_amount
+            AND GREATEST(
+              total_amount - COALESCE((
+                SELECT transaction_taxes.tax_amount
+                FROM transaction_taxes
+                WHERE transaction_taxes.source_type = 'bill'
+                  AND transaction_taxes.source_id = bills.id
+                  AND transaction_taxes.tax_type = 'PPH23'
+                LIMIT 1
+              ), 0),
+              0
+            ) > paid_amount
           ORDER BY due_date ASC, id ASC
         `,
         [], warnings, 'Umur Utang',
@@ -561,10 +581,30 @@ router.get('/', async (req, res) => {
                  c.company_name AS client_name,
                  COALESCE((SELECT SUM(i.total_amount) FROM invoices i
                    WHERE i.project_id = p.id AND i.status <> 'cancelled'), 0) AS billed_amount,
+                 COALESCE((SELECT SUM(
+                   i.total_amount - COALESCE((
+                     SELECT transaction_taxes.tax_amount
+                     FROM transaction_taxes
+                     WHERE transaction_taxes.source_type = 'invoice'
+                       AND transaction_taxes.source_id = i.id
+                       AND transaction_taxes.tax_type = 'PPN_OUTPUT'
+                     LIMIT 1
+                   ), 0)
+                 ) FROM invoices i
+                   WHERE i.project_id = p.id AND i.status IN ('unpaid', 'partial', 'paid', 'overdue')), 0) AS recognized_revenue,
                  COALESCE((SELECT SUM(i.paid_amount) FROM invoices i
                    WHERE i.project_id = p.id AND i.status <> 'cancelled'), 0) AS collected_amount,
-                 COALESCE((SELECT SUM(b.total_amount) FROM bills b
-                   WHERE b.project_id = p.id AND b.status <> 'cancelled'), 0) AS actual_cost
+                 COALESCE((SELECT SUM(
+                   b.total_amount - COALESCE((
+                     SELECT transaction_taxes.tax_amount
+                     FROM transaction_taxes
+                     WHERE transaction_taxes.source_type = 'bill'
+                       AND transaction_taxes.source_id = b.id
+                       AND transaction_taxes.tax_type = 'PPN_INPUT'
+                     LIMIT 1
+                   ), 0)
+                 ) FROM bills b
+                   WHERE b.project_id = p.id AND b.status IN ('unpaid', 'partial', 'paid', 'overdue')), 0) AS actual_cost
           FROM projects p
           LEFT JOIN clients c ON c.id = p.client_id
           ORDER BY p.status = 'ongoing' DESC, p.project_name ASC
@@ -599,10 +639,13 @@ router.get('/', async (req, res) => {
     }))
     const projectItems = projectRows.map((row) => ({
       ...row,
+      contract_value: numberValue(row.contract_value),
       billed_amount: numberValue(row.billed_amount),
+      recognized_revenue: numberValue(row.recognized_revenue),
       collected_amount: numberValue(row.collected_amount),
       actual_cost: numberValue(row.actual_cost),
-      profit: numberValue(row.billed_amount) - numberValue(row.actual_cost),
+      unbilled_amount: Math.max(numberValue(row.contract_value) - numberValue(row.billed_amount), 0),
+      profit: numberValue(row.recognized_revenue) - numberValue(row.actual_cost),
     }))
 
     data.receivable_aging = {

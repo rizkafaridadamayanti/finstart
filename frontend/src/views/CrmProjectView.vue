@@ -342,13 +342,25 @@ async function saveProject() {
   }
 
   try {
+    let projectResponse = null
+    let successMessage = projectForm.value.id
+      ? 'Data proyek berhasil diperbarui.'
+      : 'Proyek baru berhasil ditambahkan.'
+
     if (projectForm.value.id) {
-      await api.put(`/projects/${projectForm.value.id}`, payload)
-      alert('Data proyek berhasil diperbarui.')
+      const projectId = projectForm.value.id
+      projectResponse = await api.put(`/projects/${projectId}`, payload)
     } else {
-      await api.post('/projects', payload)
-      alert('Proyek baru berhasil ditambahkan.')
+      projectResponse = await api.post('/projects', payload)
     }
+
+    if (payload.status === 'completed') {
+      successMessage = projectResponse?.data?.data?.final_invoice_id
+        ? 'Proyek berhasil ditutup dan draft invoice final dibuat. Buka menu Piutang untuk menerbitkan invoice.'
+        : projectResponse?.data?.message || 'Proyek berhasil ditutup.'
+    }
+
+    alert(successMessage)
 
     await loadData()
     closeProjectModal()
@@ -389,6 +401,27 @@ async function deleteProject(project) {
     alert('Proyek berhasil dihapus.')
   } catch (error) {
     alert(getErrorMessage(error, 'Gagal menghapus proyek.'))
+  }
+}
+
+async function closeProjectAccounting(project) {
+  const confirmed = confirm(
+    `Tutup proyek "${project.project_name}"?\n\nSistem akan menandai proyek sebagai completed dan membuat draft invoice final bila masih ada sisa kontrak yang belum ditagih. Kas baru bertambah setelah invoice diterbitkan dan pembayarannya dicatat.`,
+  )
+
+  if (!confirmed) return
+
+  isSaving.value = true
+
+  try {
+    const response = await api.post(`/projects/${project.id}/close`)
+    await loadData()
+    closeProjectDetailModal()
+    alert(response.data?.message || 'Proyek ditutup. Lanjutkan dari menu Piutang untuk menerbitkan dan menerima pembayaran invoice final.')
+  } catch (error) {
+    alert(getErrorMessage(error, 'Gagal menutup proyek.'))
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -942,6 +975,11 @@ onMounted(loadData)
           </div>
 
           <div>
+            <p class="detail-label">Belum Ditagih</p>
+            <p>{{ formatCurrency(selectedProject.unbilled_amount || 0) }}</p>
+          </div>
+
+          <div>
             <p class="detail-label">Status</p>
             <p>{{ projectStatusLabel(selectedProject.status) }}</p>
           </div>
@@ -967,6 +1005,16 @@ onMounted(loadData)
             @click="openEditProjectModal(selectedProject); closeProjectDetailModal()"
           >
             Ubah
+          </button>
+
+          <button
+            v-if="selectedProject.status !== 'cancelled'"
+            type="button"
+            class="secondary-button"
+            :disabled="isSaving"
+            @click="closeProjectAccounting(selectedProject)"
+          >
+            {{ selectedProject.status === 'completed' ? 'Buat Invoice Final' : 'Tutup & Invoice Final' }}
           </button>
 
           <button
