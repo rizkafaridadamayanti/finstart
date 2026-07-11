@@ -72,10 +72,10 @@ async function authenticate(req, res, next) {
 
     return next()
   } catch (error) {
+    console.error('[auth middleware] Gagal memvalidasi sesi:', error)
     return res.status(500).json({
       success: false,
       message: 'Gagal memvalidasi sesi login.',
-      error: error.message,
     })
   }
 }

@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -95,53 +96,9 @@ function normalizeMembers(rawMembers) {
     .filter((member) => member.employee_id || member.member_name || member.role_name)
 }
 
-async function addColumnIfMissing(executor, tableName, columnName, definition) {
-  const [columns] = await executor.query(
-    `
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-    `,
-    [tableName, columnName],
-  )
-
-  if (columns.length === 0) {
-    await executor.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
-  }
-}
-
-async function ensureProjectMemberSchema(executor = db) {
-  await executor.query(`
-    CREATE TABLE IF NOT EXISTS project_members (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      project_id BIGINT UNSIGNED NOT NULL,
-      employee_id BIGINT UNSIGNED NULL,
-      user_id BIGINT UNSIGNED NULL,
-      member_name VARCHAR(150) NULL,
-      role_name VARCHAR(100) NULL,
-      allocation_percent DECIMAL(5,2) NOT NULL DEFAULT 100.00,
-      estimated_cost DECIMAL(18,2) NOT NULL DEFAULT 0,
-      assigned_at DATE NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_project_members_project (project_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await addColumnIfMissing(executor, 'project_members', 'member_name', 'VARCHAR(150) NULL')
-  await addColumnIfMissing(executor, 'project_members', 'estimated_cost', 'DECIMAL(18,2) NOT NULL DEFAULT 0')
-  await addColumnIfMissing(executor, 'projects', 'budget_amount', 'DECIMAL(18,2) NOT NULL DEFAULT 0')
-  await addColumnIfMissing(executor, 'projects', 'milestones_json', 'LONGTEXT NULL')
-}
-
 async function getProjectMembers(projectIds, executor = db, skipEnsure = false) {
   if (!projectIds.length) return new Map()
 
-  if (!skipEnsure) {
-    await ensureProjectMemberSchema(executor)
-  }
 
   const [members] = await executor.query(
     `
@@ -518,7 +475,6 @@ async function closeProjectAndCreateFinalInvoice(connection, projectId, options 
 */
 router.get('/', async (req, res) => {
   try {
-    await ensureProjectMemberSchema()
     const [projects] = await db.query(`
       SELECT
         projects.*,
@@ -540,7 +496,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data project',
-      error: error.message,
     })
   }
 })
@@ -551,7 +506,6 @@ router.get('/', async (req, res) => {
 */
 router.get('/:id', async (req, res) => {
   try {
-    await ensureProjectMemberSchema()
     const project = await getProjectById(req.params.id)
 
     if (!project) {
@@ -570,7 +524,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail project',
-      error: error.message,
     })
   }
 })
@@ -650,7 +603,6 @@ router.post('/', async (req, res) => {
       })
     }
 
-    await ensureProjectMemberSchema()
 
     const [clients] = await db.query(
       'SELECT id FROM clients WHERE id = ?',
@@ -734,7 +686,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menambahkan project',
-      error: error.message,
     })
   } finally {
     if (connection) {
@@ -827,7 +778,6 @@ router.put('/:id', async (req, res) => {
       })
     }
 
-    await ensureProjectMemberSchema()
 
     const [clients] = await db.query(
       'SELECT id FROM clients WHERE id = ?',
@@ -912,7 +862,6 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal memperbarui project',
-      error: error.message,
     })
   } finally {
     if (connection) {
@@ -953,7 +902,6 @@ router.post('/:id/close', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
-    await ensureProjectMemberSchema(connection)
 
     const closingResult = await closeProjectAndCreateFinalInvoice(connection, projectId, {
       issueDate,
@@ -980,7 +928,7 @@ router.post('/:id/close', async (req, res) => {
     if (error.status) {
       return res.status(error.status).json({
         success: false,
-        message: error.message,
+        message: safePublicMessage(error, 'Permintaan tidak dapat diproses.'),
       })
     }
 
@@ -994,7 +942,6 @@ router.post('/:id/close', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menutup project',
-      error: error.message,
     })
   } finally {
     if (connection) {
@@ -1009,7 +956,6 @@ router.post('/:id/close', async (req, res) => {
 */
 router.delete('/:id', async (req, res) => {
   try {
-    await ensureProjectMemberSchema()
     await db.query(
       'DELETE FROM project_members WHERE project_id = ?',
       [req.params.id],
@@ -1035,7 +981,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus project',
-      error: error.message,
     })
   }
 })

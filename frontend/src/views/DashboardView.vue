@@ -1,11 +1,7 @@
 <script setup>
-import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
 import FinStartAssistant from '../components/dashboard/FinStartAssistant.vue'
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
-})
+import api from '../services/api'
 
 const summary = ref({
   cash_balance: 0,
@@ -270,10 +266,9 @@ onMounted(loadDashboard)
     <div class="dashboard-heading">
       <div>
         <p class="eyebrow">FINANCIAL OVERVIEW</p>
-        <h1>Health Check Bisnis</h1>
+        <h1>Ringkasan Keuangan</h1>
         <p>
-          Monitor kondisi kas, laba, proyek, piutang, utang, serta pergerakan
-          cashflow dari jurnal yang sudah diposting.
+          Pantau posisi kas, proyek aktif, piutang, dan agenda finance PT Kedata Indonesia Digital.
         </p>
       </div>
 
@@ -312,9 +307,9 @@ onMounted(loadDashboard)
           <span class="kpi-icon cash">Rp</span>
           <span class="kpi-trend">Live</span>
         </div>
-        <p>Bank & Kas</p>
+        <p>Bank & Kas Lancar</p>
         <h2>{{ formatCurrency(summary.cash_balance) }}</h2>
-        <small>Saldo akun Kas dan Bank</small>
+        <small>Saldo akun Kas dan Bank terkini</small>
       </article>
 
       <article class="dashboard-kpi">
@@ -323,8 +318,8 @@ onMounted(loadDashboard)
           <span class="kpi-trend">Live</span>
         </div>
         <p>Proyek Berjalan</p>
-        <h2>{{ summary.active_projects }}</h2>
-        <small>Proyek berstatus ongoing</small>
+        <h2>{{ summary.active_projects }} Proyek</h2>
+        <small>Dari total inisiasi proyek</small>
       </article>
 
       <article class="dashboard-kpi">
@@ -333,8 +328,8 @@ onMounted(loadDashboard)
           <span class="kpi-trend">Live</span>
         </div>
         <p>Klien Aktif</p>
-        <h2>{{ activeClients }}</h2>
-        <small>Klien berstatus aktif</small>
+        <h2>{{ activeClients }} Klien</h2>
+        <small>Mitra korporasi dan institusi</small>
       </article>
 
       <article class="dashboard-kpi">
@@ -342,9 +337,9 @@ onMounted(loadDashboard)
           <span class="kpi-icon profit">NP</span>
           <span class="kpi-trend">{{ financialHealthLabel }}</span>
         </div>
-        <p>Net Profit</p>
-        <h2>{{ formatCurrency(summary.net_profit) }}</h2>
-        <small>Pendapatan dikurangi beban</small>
+        <p>Estimasi Net Profit</p>
+        <h2>{{ financialHealthLabel }}</h2>
+        <small>{{ formatCurrency(summary.net_profit) }} laba berjalan</small>
       </article>
     </div>
 
@@ -353,14 +348,14 @@ onMounted(loadDashboard)
         <div class="panel-header">
           <div>
             <p class="eyebrow">CASHFLOW PERFORMANCE</p>
-            <h3>Pergerakan Cashflow 6 Bulan</h3>
-            <p>Perbandingan pendapatan dan beban dari jurnal yang sudah diposting.</p>
+            <h3>Performa Arus Kas Operasional</h3>
+            <p>Perbandingan pemasukan dan pengeluaran dari jurnal yang sudah diposting.</p>
           </div>
         </div>
 
         <div class="cashflow-legend">
-          <span><i class="legend-income"></i>Pendapatan</span>
-          <span><i class="legend-expense"></i>Beban</span>
+          <span><i class="legend-income"></i>Pemasukan</span>
+          <span><i class="legend-expense"></i>Pengeluaran</span>
         </div>
 
         <div class="cashflow-line-wrapper">

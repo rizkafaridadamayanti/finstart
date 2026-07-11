@@ -1,34 +1,25 @@
-# FinStart Frontend — Final Tersinkron
+# FinStart Frontend
 
-Aplikasi frontend Vue 3 + Vite untuk prototype sistem accounting startup **FinStart**.
+Frontend FinStart menggunakan Vue 3 Single File Component, Composition API, dan Vite. Semua halaman ditulis dengan `<template>` dan `<script setup>`.
 
-## Cara menjalankan
+Struktur utama:
+
+- `src/App.vue`: komposisi layar dan layout aplikasi.
+- `src/composables/useFinStartApp.ts`: state global dan integrasi API.
+- `src/composables/useFinStartContext.ts`: penyedia action untuk modul.
+- `src/components/`: logic dan tampilan setiap workspace.
+- `src/services/`: client API dan mapper response.
+- `src/utils/`: utilitas bersama.
+
+Menjalankan frontend:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Buka alamat yang muncul di terminal (biasanya `http://localhost:5173`).
+Build produksi:
 
-## Sinkronisasi data
-
-Seluruh modul menggunakan satu Pinia store dan disimpan otomatis pada browser melalui `localStorage`.
-
-Data berikut saling terhubung:
-
-- CRM & Proyek → klien/proyek aktif pada Dashboard dan AI.
-- Buku Besar & Jurnal → saldo akun, Dashboard, AI, dan Laporan.
-- Piutang → terbitkan invoice menambah piutang dan pendapatan; pelunasan menambah kas dan mengurangi piutang.
-- Utang → persetujuan tagihan menambah beban dan utang; pembayaran mengurangi kas dan utang.
-- Proyeksi → roadmap pada halaman Proyeksi dan Dashboard.
-- Pajak → setoran mengurangi kas dan tercatat sebagai jurnal.
-- SDM → payroll menambah beban dan mengurangi Bank BCA.
-- Aset, langganan, pengaturan, serta data pengguna → tersimpan dan dibaca ulang setelah refresh.
-- AI FinStart Assistant → rule-based dan membaca data live dari seluruh modul prototype yang tersimpan.
-
-## Catatan
-
-- Ini adalah frontend prototype dengan penyimpanan browser, belum memakai database atau API backend.
-- AI FinStart Assistant adalah **rule-based data-aware assistant**, bukan koneksi ke Gemini/ChatGPT/API eksternal.
-- Untuk mengembalikan data awal, hapus data situs/browser untuk aplikasi ini atau hapus key localStorage `finstartFinanceStateV3` dan `finstartAssistantChatV2`.
+```bash
+npm run build
+```

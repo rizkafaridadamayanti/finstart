@@ -45,7 +45,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data client',
-      error: error.message,
     })
   }
 })
@@ -77,7 +76,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail client',
-      error: error.message,
     })
   }
 })
@@ -160,7 +158,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menambahkan client',
-      error: error.message,
     })
   }
 })
@@ -251,7 +248,6 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal memperbarui client',
-      error: error.message,
     })
   }
 })
@@ -282,7 +278,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus client',
-      error: error.message,
     })
   }
 })

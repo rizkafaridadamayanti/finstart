@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -57,60 +58,6 @@ const SCENARIO_DEFAULTS = {
 function normalizeScenarioKey(value) {
   const key = String(value || 'normal').trim().toLowerCase()
   return Object.prototype.hasOwnProperty.call(SCENARIO_DEFAULTS, key) ? key : 'normal'
-}
-
-async function addColumnIfMissing(tableName, columnName, definition) {
-  const [columns] = await db.query(
-    `
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-    `,
-    [tableName, columnName],
-  )
-
-  if (columns.length === 0) {
-    await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
-  }
-}
-
-async function ensureProjectionPlanningSchema() {
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS projection_scenarios (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      projection_year SMALLINT UNSIGNED NOT NULL,
-      scenario_key VARCHAR(20) NOT NULL,
-      revenue_factor DECIMAL(8,4) NOT NULL DEFAULT 1.0000,
-      expense_factor DECIMAL(8,4) NOT NULL DEFAULT 1.0000,
-      notes TEXT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_projection_scenario_year (projection_year, scenario_key),
-      KEY idx_projection_scenario_year (projection_year)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS budget_allocations (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      budget_year SMALLINT UNSIGNED NOT NULL,
-      budget_month TINYINT UNSIGNED NULL,
-      scenario_key VARCHAR(20) NOT NULL DEFAULT 'normal',
-      account_id BIGINT UNSIGNED NOT NULL,
-      division_id BIGINT UNSIGNED NULL,
-      budget_amount DECIMAL(18,2) NOT NULL DEFAULT 0.00,
-      notes TEXT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      KEY idx_budget_allocations_period (budget_year, budget_month, scenario_key),
-      KEY idx_budget_allocations_account (account_id),
-      KEY idx_budget_allocations_division (division_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await addColumnIfMissing('journal_entries', 'division_id', 'BIGINT UNSIGNED NULL')
 }
 
 async function ensureDefaultScenarios(year) {
@@ -278,7 +225,6 @@ router.get('/', async (req, res) => {
       : currentDate.year
     const scenarioKey = normalizeScenarioKey(req.query.scenario)
 
-    await ensureProjectionPlanningSchema()
     await ensureDefaultScenarios(year)
     const scenarios = await getScenarios(year)
     const selectedScenario = scenarios.find((scenario) => scenario.scenario_key === scenarioKey) || {
@@ -516,7 +462,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data proyeksi bisnis.',
-      error: error.message,
     })
   }
 })
@@ -596,7 +541,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menyimpan target proyeksi.',
-      error: error.message,
     })
   }
 })
@@ -609,11 +553,10 @@ router.post('/', async (req, res) => {
 router.get('/scenarios', async (req, res) => {
   try {
     const year = isValidYear(req.query.year) ? Number(req.query.year) : getCurrentDateInfo().year
-    await ensureProjectionPlanningSchema()
     await ensureDefaultScenarios(year)
     res.json({ success: true, message: 'Skenario proyeksi berhasil diambil.', data: await getScenarios(year) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil skenario proyeksi.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil skenario proyeksi.'})
   }
 })
 
@@ -627,7 +570,6 @@ router.put('/scenarios/:key', async (req, res) => {
     if (!isValidYear(year) || !Number.isFinite(revenueFactor) || revenueFactor <= 0 || !Number.isFinite(expenseFactor) || expenseFactor <= 0) {
       return res.status(422).json({ success: false, message: 'Tahun dan faktor skenario harus bernilai positif.' })
     }
-    await ensureProjectionPlanningSchema()
     await ensureDefaultScenarios(year)
     await db.query(
       `UPDATE projection_scenarios SET revenue_factor = ?, expense_factor = ?, notes = ? WHERE projection_year = ? AND scenario_key = ?`,
@@ -636,7 +578,7 @@ router.put('/scenarios/:key', async (req, res) => {
     const scenarios = await getScenarios(year)
     res.json({ success: true, message: 'Skenario proyeksi berhasil diperbarui.', data: scenarios.find((row) => row.scenario_key === scenarioKey) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memperbarui skenario proyeksi.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memperbarui skenario proyeksi.'})
   }
 })
 
@@ -647,11 +589,10 @@ router.get('/budgets', async (req, res) => {
   try {
     const year = isValidYear(req.query.year) ? Number(req.query.year) : getCurrentDateInfo().year
     const scenarioKey = normalizeScenarioKey(req.query.scenario)
-    await ensureProjectionPlanningSchema()
     await ensureDefaultScenarios(year)
     res.json({ success: true, message: 'Budget detail berhasil diambil.', data: await getBudgetAllocations(year, scenarioKey) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil budget detail.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil budget detail.'})
   }
 })
 
@@ -669,7 +610,6 @@ router.post('/budgets', async (req, res) => {
     if (!isValidYear(year) || (month !== null && !isValidMonth(month)) || !Number.isInteger(accountId) || accountId <= 0 || (divisionId !== null && (!Number.isInteger(divisionId) || divisionId <= 0)) || budgetAmount < 0) {
       return res.status(422).json({ success: false, message: 'Data budget tidak valid.' })
     }
-    await ensureProjectionPlanningSchema()
     await validateBudgetReferences(accountId, divisionId)
     const [result] = await db.query(
       `INSERT INTO budget_allocations (budget_year, budget_month, scenario_key, account_id, division_id, budget_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -678,7 +618,7 @@ router.post('/budgets', async (req, res) => {
     const rows = await getBudgetAllocations(year, scenarioKey)
     res.status(201).json({ success: true, message: 'Budget akun/divisi berhasil disimpan.', data: rows.find((row) => Number(row.id) === Number(result.insertId)) })
   } catch (error) {
-    res.status(error.status || 500).json({ success: false, message: error.message || 'Gagal menyimpan budget.', error: error.status ? undefined : error.message })
+    res.status(error.status || 500).json({ success: false, message: safePublicMessage(error, 'Gagal menyimpan budget.')})
   }
 })
 
@@ -697,7 +637,6 @@ router.put('/budgets/:id', async (req, res) => {
     if (!Number.isInteger(id) || id <= 0 || !isValidYear(year) || (month !== null && !isValidMonth(month)) || !Number.isInteger(accountId) || accountId <= 0 || (divisionId !== null && (!Number.isInteger(divisionId) || divisionId <= 0)) || budgetAmount < 0) {
       return res.status(422).json({ success: false, message: 'Data budget tidak valid.' })
     }
-    await ensureProjectionPlanningSchema()
     await validateBudgetReferences(accountId, divisionId)
     const [result] = await db.query(
       `UPDATE budget_allocations SET budget_year = ?, budget_month = ?, scenario_key = ?, account_id = ?, division_id = ?, budget_amount = ?, notes = ? WHERE id = ?`,
@@ -707,7 +646,7 @@ router.put('/budgets/:id', async (req, res) => {
     const rows = await getBudgetAllocations(year, scenarioKey)
     res.json({ success: true, message: 'Budget akun/divisi berhasil diperbarui.', data: rows.find((row) => Number(row.id) === id) })
   } catch (error) {
-    res.status(error.status || 500).json({ success: false, message: error.message || 'Gagal memperbarui budget.', error: error.status ? undefined : error.message })
+    res.status(error.status || 500).json({ success: false, message: safePublicMessage(error, 'Gagal memperbarui budget.')})
   }
 })
 
@@ -715,12 +654,11 @@ router.delete('/budgets/:id', async (req, res) => {
   try {
     const id = Number(req.params.id)
     if (!Number.isInteger(id) || id <= 0) return res.status(422).json({ success: false, message: 'ID budget tidak valid.' })
-    await ensureProjectionPlanningSchema()
     const [result] = await db.query('DELETE FROM budget_allocations WHERE id = ?', [id])
     if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Data budget tidak ditemukan.' })
     res.json({ success: true, message: 'Budget berhasil dihapus.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal menghapus budget.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal menghapus budget.'})
   }
 })
 
@@ -765,7 +703,6 @@ router.delete('/:year/:month', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus target proyeksi.',
-      error: error.message,
     })
   }
 })

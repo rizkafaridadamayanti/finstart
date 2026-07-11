@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -445,7 +446,7 @@ router.post('/employee-pph21/calculate', (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menghitung PPh 21 pegawai.',
+      message: safePublicMessage(error, 'Gagal menghitung PPh 21 pegawai.'),
     })
   }
 })
@@ -499,7 +500,6 @@ router.get('/employee-pph21', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data PPh 21 pegawai',
-      error: error.message,
     })
   }
 })
@@ -605,7 +605,7 @@ router.post('/employee-pph21', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal membuat draft PPh 21 pegawai.',
+      message: safePublicMessage(error, 'Gagal membuat draft PPh 21 pegawai.'),
     })
   } finally {
     if (connection) connection.release()
@@ -782,7 +782,7 @@ router.post('/employee-pph21/:id/post', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal memposting payroll.',
+      message: safePublicMessage(error, 'Gagal memposting payroll.'),
     })
   } finally {
     if (connection) connection.release()
@@ -844,7 +844,6 @@ router.get('/calculation', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil dasar kalkulasi pajak',
-      error: error.message,
     })
   }
 })
@@ -918,7 +917,6 @@ router.get('/summary', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan pajak',
-      error: error.message,
     })
   }
 })
@@ -1007,7 +1005,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar pajak',
-      error: error.message,
     })
   }
 })
@@ -1034,7 +1031,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail pajak',
-      error: error.message,
     })
   }
 })
@@ -1111,7 +1107,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal membuat draft pajak',
-      error: error.message,
     })
   }
 })
@@ -1149,7 +1144,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus draft pajak',
-      error: error.message,
     })
   }
 })
@@ -1279,7 +1273,7 @@ router.post('/:id/issue', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menerbitkan kewajiban pajak.',
+      message: safePublicMessage(error, 'Gagal menerbitkan kewajiban pajak.'),
     })
   } finally {
     if (connection) connection.release()
@@ -1494,7 +1488,7 @@ router.post('/:id/pay', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal mengonfirmasi setoran pajak.',
+      message: safePublicMessage(error, 'Gagal mengonfirmasi setoran pajak.'),
     })
   } finally {
     if (connection) connection.release()

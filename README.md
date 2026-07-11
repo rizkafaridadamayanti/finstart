@@ -1,50 +1,58 @@
+# FinStart Final Vue Native
 
-## Konfigurasi dan menjalankan aplikasi
+FinStart adalah aplikasi internal keuangan berbasis **Vue 3 native**, Express, MySQL, dan Drizzle ORM. Tampilan modern versi awal tetap dipertahankan; perubahan final berfokus pada struktur kode, keamanan API, migration, seeder, audit kode tidak terpakai, dan optimasi bundle.
 
-### 1. Backend
+Pada revisi ini, seluruh 24 Single File Component telah diaudit sebagai Vue native. Semua inline arrow function di template telah dihapus, event memakai pemanggilan method atau ekspresi Vue, form memakai binding Vue, dan overlay menggunakan event modifier ketika diperlukan. Tidak ada React, JSX, atau TSX. CSS, kelas tampilan, warna, aset, dan susunan visual tidak diganti.
 
-```bash
-cd backend
-copy .env.example .env
-npm ci
-npm run dev
-```
+## Menjalankan paling mudah di Windows/Laragon
 
-Pada macOS/Linux, gunakan `cp .env.example .env`.
+1. Ekstrak ZIP ke `C:\laragon\www\` sehingga menjadi `C:\laragon\www\finstart`.
+2. Nyalakan MySQL pada Laragon.
+3. Klik dua kali `SETUP_DAN_JALANKAN.bat`.
+4. Isi konfigurasi database saat diminta.
+5. Setelah setup pertama selesai, berikutnya cukup klik `JALANKAN_FINSTART.bat`.
 
-Edit `backend/.env` sesuai MySQL lokal. Backend berjalan pada `http://localhost:4000`.
+Tidak perlu menjalankan `npm install` secara manual. Script setup menjalankan `npm ci`, pemeriksaan backend, ESLint, `vue-tsc`, build frontend, migration sesuai pilihan, dan seeder user demo.
 
-### 2. Frontend
+## Database pengujian
 
-Buka terminal baru:
+Untuk folder percobaan gunakan database terpisah, misalnya `finstart_test`. Jangan menggunakan database produksi/asli ketika menguji migration atau seeder.
 
-```bash
+## Perintah pemeriksaan
+
+Frontend:
+
+```bat
 cd frontend
-npm ci
-npm run dev
-```
-
-Frontend berjalan pada `http://localhost:5173` dan memakai `VITE_API_URL=http://localhost:4000/api`.
-
-## Akun awal
-
-Akun awal dibuat otomatis **hanya jika tabel `users` masih kosong**.
-
-| Role | Email | Password awal |
-|---|---|---|
-| Finance Manager | `finance@kedata.id` | `kedata123` |
-
-Segera ganti password awal setelah login pertama. Jangan gunakan akun awal pada deployment publik.
-
-## Build dan pengujian
-
-```bash
-cd backend
-npm test
-
-cd ../frontend
+npm run check:vue-native
+npm run lint
+npm run typecheck
 npm run build
+npm run check
 ```
 
-Dokumen uji manual ada di `docs/MANUAL_TESTING.md`.PRD_FinStart_Final.docx` sesuai dengan fungsi yang tersedia pada source ini.
-- Tidak memerlukan import SQL baru. Saat menimpa source, pertahankan `backend/.env` lokal.
+Backend:
+
+```bat
+cd backend
+npm run db:check
+npm test
+```
+
+## Drizzle ORM
+
+Seluruh 36 tabel aplikasi didefinisikan di `backend/db/schema.js`. Migration yang sudah digunakan tetap berada di `backend/drizzle/migrations` agar instalasi lama tidak terputus. Untuk perubahan schema baru, ubah `db/schema.js`, lalu jalankan:
+
+```bat
+cd backend
+npm run db:check
+npm run db:generate
+```
+
+`db:generate` menghasilkan draft perbandingan schema di `backend/drizzle/generated`. Setelah direview, buat migration berurutan melalui `npm run db:new -- nama_perubahan`, masukkan SQL yang diperlukan, lalu jalankan `npm run db:migrate`. Cara ini mempertahankan riwayat migration lama yang sudah digunakan.
+
+## Keamanan
+
+File `.env`, password, token, `node_modules`, dan hasil build tidak disertakan dalam ZIP. Password demo hanya ditulis pada `backend/.env` lokal, kemudian di-hash oleh seeder sebelum disimpan ke database.
+
+Setelah source dipindahkan ke repository asli, jalankan `CEK_KEAMANAN_GIT.bat` untuk memastikan `.env` tidak sedang dilacak Git.

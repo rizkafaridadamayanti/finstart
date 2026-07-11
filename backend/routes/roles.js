@@ -37,7 +37,7 @@ router.get('/', async (_req, res) => {
     const role = await ensureInternalRole()
     res.json({ success: true, data: role ? [role] : [] })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil role.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil role.'})
   }
 })
 
@@ -46,7 +46,7 @@ router.post('/', async (_req, res) => {
     const role = await ensureInternalRole()
     res.status(200).json({ success: true, message: 'Hak akses dibuat 1 saja: Keuangan Internal.', data: role })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal membuat role internal.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal membuat role internal.'})
   }
 })
 
@@ -61,7 +61,7 @@ router.put('/:id', async (req, res) => {
     await db.query('UPDATE roles SET description = ? WHERE id = ?', [description, req.params.id])
     res.json({ success: true, message: 'Deskripsi akses internal diperbarui.', data: await getRole(req.params.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memperbarui role.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memperbarui role.'})
   }
 })
 

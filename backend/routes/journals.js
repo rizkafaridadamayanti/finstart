@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { requirePermission, hasPermission } = require('../middleware/authorization')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -48,20 +49,6 @@ function optionalPositiveInteger(value) {
   return number
 }
 
-
-async function addColumnIfMissing(executor, tableName, columnName, definition) {
-  const [columns] = await executor.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-    [tableName, columnName],
-  )
-  if (columns.length === 0) {
-    await executor.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
-  }
-}
-
-async function ensureJournalDimensionSchema(executor = db) {
-  await addColumnIfMissing(executor, 'journal_entries', 'division_id', 'BIGINT UNSIGNED NULL')
-}
 
 async function validateDivision(executor, divisionId) {
   if (!divisionId) return null
@@ -313,7 +300,6 @@ async function insertJournalLines(executor, journalId, lines) {
 */
 router.get('/', async (req, res) => {
   try {
-    await ensureJournalDimensionSchema()
     const [journals] = await db.query(`
       SELECT
         journal_entries.id,
@@ -356,7 +342,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data jurnal',
-      error: error.message,
     })
   }
 })
@@ -366,7 +351,6 @@ router.get('/', async (req, res) => {
 */
 router.get('/:id', async (req, res) => {
   try {
-    await ensureJournalDimensionSchema()
     const journal = await getJournalDetail(db, req.params.id)
 
     if (!journal) {
@@ -385,7 +369,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail jurnal',
-      error: error.message,
     })
   }
 })
@@ -403,7 +386,6 @@ router.post('/', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
-    await ensureJournalDimensionSchema(connection)
     await validateAccounts(connection, payload.lines)
     await validateDivision(connection, payload.divisionId)
 
@@ -453,8 +435,7 @@ router.post('/', async (req, res) => {
       message:
         error.code === 'ER_DUP_ENTRY'
           ? 'Nomor voucher sudah digunakan.'
-          : error.message || 'Gagal membuat jurnal',
-      error: error.status ? undefined : error.message,
+          : safePublicMessage(error, 'Gagal membuat jurnal'),
     })
   } finally {
     if (connection) {
@@ -481,7 +462,6 @@ router.put('/:id', async (req, res) => {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
-    await ensureJournalDimensionSchema(connection)
     const [existingJournals] = await connection.query(
       'SELECT id, status, created_by FROM journal_entries WHERE id = ? FOR UPDATE',
       [journalId],
@@ -550,8 +530,7 @@ router.put('/:id', async (req, res) => {
       message:
         error.code === 'ER_DUP_ENTRY'
           ? 'Nomor voucher sudah digunakan.'
-          : error.message || 'Gagal memperbarui jurnal',
-      error: error.status ? undefined : error.message,
+          : safePublicMessage(error, 'Gagal memperbarui jurnal'),
     })
   } finally {
     if (connection) {
@@ -645,8 +624,7 @@ router.post('/:id/approve', requirePermission('journals', 'approve'), async (req
 
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || 'Gagal menyetujui jurnal',
-      error: error.status ? undefined : error.message,
+      message: safePublicMessage(error, 'Gagal menyetujui jurnal'),
     })
   } finally {
     if (connection) {
@@ -752,8 +730,7 @@ router.post('/:id/post', requirePermission('journals', 'post'), async (req, res)
 
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || 'Gagal memposting jurnal',
-      error: error.status ? undefined : error.message,
+      message: safePublicMessage(error, 'Gagal memposting jurnal'),
     })
   } finally {
     if (connection) {
@@ -813,8 +790,7 @@ router.delete('/:id', async (req, res) => {
 
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || 'Gagal menghapus jurnal',
-      error: error.status ? undefined : error.message,
+      message: safePublicMessage(error, 'Gagal menghapus jurnal'),
     })
   } finally {
     if (connection) {

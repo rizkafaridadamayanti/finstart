@@ -1,10 +1,6 @@
 <script setup>
-import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
-})
+import api from '../services/api'
 
 const today = new Date().toISOString().slice(0, 10)
 const currentPeriod = new Date().toISOString().slice(0, 7)

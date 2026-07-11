@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -477,7 +478,6 @@ router.get('/summary', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan piutang',
-      error: error.message,
     })
   }
 })
@@ -563,7 +563,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar invoice',
-      error: error.message,
     })
   }
 })
@@ -590,7 +589,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail invoice',
-      error: error.message,
     })
   }
 })
@@ -770,7 +768,7 @@ router.post('/', async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Gagal membuat invoice.',
+      message: safePublicMessage(error, 'Gagal membuat invoice.'),
     })
   } finally {
     if (connection) connection.release()
@@ -836,7 +834,7 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Invoice draft berhasil diperbarui.', data: invoice })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 400).json({ success: false, message: error.message || 'Gagal memperbarui invoice.' })
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 400).json({ success: false, message: safePublicMessage(error, 'Gagal memperbarui invoice.') })
   } finally { if (connection) connection.release() }
 })
 
@@ -893,7 +891,7 @@ router.post('/:id/cancel', async (req, res) => {
     res.json({ success: true, message: 'Invoice dibatalkan dan jurnal sumber dibalik.', data: updated })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(400).json({ success: false, message: error.message || 'Gagal membatalkan invoice.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal membatalkan invoice.') })
   } finally { if (connection) connection.release() }
 })
 
@@ -940,7 +938,7 @@ router.delete('/:id', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menghapus invoice.',
+      message: safePublicMessage(error, 'Gagal menghapus invoice.'),
     })
   } finally {
     if (connection) connection.release()
@@ -1120,7 +1118,7 @@ router.post('/:id/issue', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menerbitkan invoice.',
+      message: safePublicMessage(error, 'Gagal menerbitkan invoice.'),
     })
   } finally {
     if (connection) connection.release()
@@ -1324,7 +1322,7 @@ router.post('/:id/payments', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal mencatat pembayaran invoice.',
+      message: safePublicMessage(error, 'Gagal mencatat pembayaran invoice.'),
     })
   } finally {
     if (connection) connection.release()

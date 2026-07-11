@@ -1,4 +1,4 @@
-export type TipeAkun = 'Aset' | 'Kewajiban' | 'Modal' | 'Pendapatan' | 'Beban';
+export type TipeAkun = "Aset" | "Kewajiban" | "Modal" | "Pendapatan" | "Beban";
 export interface AkunBukuBesar {
   id: string;
   kode: string;
@@ -22,17 +22,21 @@ export interface AnggotaTim {
   alokasiPersen: number;
   estimasiBiaya: number;
 }
-export interface MilestoneProyek {
+interface MilestoneProyek {
   title: string;
   due_date?: string | null;
-  status?: 'planned' | 'in_progress' | 'completed';
+  status?: "planned" | "in_progress" | "completed";
 }
 export interface Proyek {
   id: string;
   nama: string;
   nilaiKontrak: number;
-  tipeTender: 'Tender Umum' | 'Tender Terbatas' | 'Penunjukan Langsung' | 'Pengadaan Langsung';
-  status: 'Planning' | 'Ongoing' | 'Completed';
+  tipeTender:
+    | "Tender Umum"
+    | "Tender Terbatas"
+    | "Penunjukan Langsung"
+    | "Pengadaan Langsung";
+  status: "Planning" | "Ongoing" | "Completed";
   tanggalMulai: string;
   tanggalSelesai: string;
   klienId: string;
@@ -61,9 +65,9 @@ export interface Langganan {
   id: string;
   nama: string;
   provider: string;
-  mataUang: 'IDR';
-  siklus: 'Bulanan' | 'Tahunan';
-  kategori: 'Infrastruktur' | 'Software' | 'Marketing';
+  mataUang: "IDR" | "USD";
+  siklus: "Bulanan" | "Tahunan";
+  kategori: "Infrastruktur" | "Software" | "Marketing";
   biaya: number; // in original currency or IDR
   biayaIDR: number;
   tanggalTagihan: string;
@@ -76,7 +80,7 @@ export interface Piutang {
   nominal: number;
   tanggalInvoice: string;
   jatuhTempo: string;
-  status: 'Belum Bayar' | 'Lunas' | 'Overdue';
+  status: "Belum Bayar" | "Lunas" | "Overdue";
   catatan?: string;
 }
 export interface Utang {
@@ -87,7 +91,7 @@ export interface Utang {
   tanggalTagihan: string;
   batasBayar: string;
   nominal: number;
-  status: 'Belum Bayar' | 'Lunas' | 'Overdue';
+  status: "Belum Bayar" | "Lunas" | "Overdue";
   catatan?: string;
   historiBayar?: {
     tanggal: string;
@@ -108,9 +112,10 @@ export interface Pegawai {
   id: string;
   nama: string;
   jabatan: string;
-  status: 'Kontrak' | 'Tetap';
+  status: "Kontrak" | "Tetap";
   gajiBersih: number;
-  compliance: 'Patuh' | 'Tinjauan';
+  compliance: "Patuh" | "Tinjauan";
+  _raw?: Record<string, any>;
 }
 export interface Aset {
   id: string;

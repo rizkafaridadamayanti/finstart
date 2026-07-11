@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -398,7 +399,7 @@ router.get('/', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil data aset.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil data aset.'})
   }
 })
 
@@ -428,7 +429,7 @@ router.get('/:id/depreciations', async (req, res) => {
 
     res.json({ success: true, message: 'Riwayat penyusutan berhasil diambil.', data: { asset: assetRows[0], depreciations: rows } })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil riwayat penyusutan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil riwayat penyusutan.'})
   }
 })
 
@@ -494,7 +495,6 @@ router.post('/', async (req, res) => {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
       message: error?.code === 'ER_DUP_ENTRY' ? 'Kode aset sudah digunakan.' : 'Gagal menyimpan aset.',
-      error: error.message,
     })
   } finally {
     if (connection) connection.release()
@@ -524,7 +524,7 @@ router.put('/:id', async (req, res) => {
     )
     res.json({ success: true, message: 'Data aset berhasil diperbarui.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memperbarui aset.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memperbarui aset.'})
   }
 })
 
@@ -572,7 +572,7 @@ router.post('/:id/dispose', async (req, res) => {
     res.json({ success: true, message: 'Aset berhasil dilepas dan jurnal pelepasan diposting.', data: { asset_id: asset.id, journal_voucher_number: journal.voucher_number, book_value: bookValue } })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(400).json({ success: false, message: error.message || 'Gagal melepas aset.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal melepas aset.') })
   } finally { if (connection) connection.release() }
 })
 
@@ -593,7 +593,7 @@ router.post('/depreciate-batch', async (req, res) => {
       try {
         processed.push(await postDepreciation(connection, asset, period, notes))
       } catch (error) {
-        skipped.push({ asset_id: asset.id, asset_name: asset.asset_name, reason: error.message })
+        skipped.push({ asset_id: asset.id, asset_name: asset.asset_name, reason: safePublicMessage(error, 'Tidak dapat diproses.') })
       }
     }
 
@@ -607,7 +607,7 @@ router.post('/depreciate-batch', async (req, res) => {
     })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(500).json({ success: false, message: 'Gagal memproses penyusutan bulanan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memproses penyusutan bulanan.'})
   } finally {
     if (connection) connection.release()
   }
@@ -633,7 +633,7 @@ router.post('/:id/depreciate', async (req, res) => {
     res.status(201).json({ success: true, message: 'Penyusutan aset dan jurnal beban berhasil diposting.', data: depreciation })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(400).json({ success: false, message: error.message || 'Gagal memproses penyusutan aset.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal memproses penyusutan aset.') })
   } finally {
     if (connection) connection.release()
   }

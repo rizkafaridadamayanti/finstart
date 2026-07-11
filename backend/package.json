@@ -1,12 +1,18 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "FinStart API backend with versioned Drizzle migrations and seeders.",
   "main": "index.js",
   "scripts": {
     "test": "node tests/run-tests.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed-demo-user.js",
     "dev": "node --watch index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "db:new": "node scripts/create-migration.js",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.js",
+    "db:check": "drizzle-kit check --config=drizzle.config.js"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +20,11 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "mysql2": "^3.22.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.4"
   }
 }

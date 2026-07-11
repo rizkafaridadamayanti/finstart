@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -532,7 +533,6 @@ router.get('/summary', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan utang',
-      error: error.message,
     })
   }
 })
@@ -620,7 +620,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar tagihan',
-      error: error.message,
     })
   }
 })
@@ -647,7 +646,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail tagihan',
-      error: error.message,
     })
   }
 })
@@ -839,7 +837,7 @@ router.post('/', async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message || 'Gagal membuat tagihan.',
+      message: safePublicMessage(error, 'Gagal membuat tagihan.'),
     })
   } finally {
     if (connection) connection.release()
@@ -898,7 +896,7 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Tagihan draft berhasil diperbarui.', data: bill })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 400).json({ success: false, message: error.message || 'Gagal memperbarui tagihan.' })
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 400).json({ success: false, message: safePublicMessage(error, 'Gagal memperbarui tagihan.') })
   } finally { if (connection) connection.release() }
 })
 
@@ -941,7 +939,7 @@ router.post('/:id/cancel', async (req, res) => {
     res.json({ success: true, message: 'Tagihan dibatalkan dan jurnal sumber dibalik.', data: updated })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(400).json({ success: false, message: error.message || 'Gagal membatalkan tagihan.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal membatalkan tagihan.') })
   } finally { if (connection) connection.release() }
 })
 
@@ -988,7 +986,7 @@ router.delete('/:id', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menghapus tagihan.',
+      message: safePublicMessage(error, 'Gagal menghapus tagihan.'),
     })
   } finally {
     if (connection) connection.release()
@@ -1235,7 +1233,7 @@ router.post('/:id/issue', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menerbitkan tagihan.',
+      message: safePublicMessage(error, 'Gagal menerbitkan tagihan.'),
     })
   } finally {
     if (connection) connection.release()
@@ -1460,7 +1458,7 @@ router.post('/:id/payments', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal mencatat pembayaran tagihan.',
+      message: safePublicMessage(error, 'Gagal mencatat pembayaran tagihan.'),
     })
   } finally {
     if (connection) connection.release()

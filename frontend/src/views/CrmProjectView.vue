@@ -1,6 +1,6 @@
 <script setup>
-import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
+import api from '../services/api'
 
 /*
   FRONTEND CRM & PROJECT FINSTART
@@ -8,10 +8,6 @@ import { computed, onMounted, ref, watch } from 'vue'
   http://localhost:4000/api/clients
   http://localhost:4000/api/projects
 */
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
-})
 
 const clients = ref([])
 const projectList = ref([])

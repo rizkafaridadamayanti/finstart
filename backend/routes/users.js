@@ -54,7 +54,7 @@ router.get('/', async (_req, res) => {
     }))
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil pengguna.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil pengguna.'})
   }
 })
 
@@ -76,7 +76,7 @@ router.post('/', async (req, res) => {
     )
     res.status(201).json({ success: true, message: 'Pengguna Keuangan Internal berhasil dibuat.', data: await getUser(result.insertId) })
   } catch (error) {
-    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal membuat pengguna.', error: error.code === 'ER_DUP_ENTRY' ? undefined : error.message })
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal membuat pengguna.'})
   }
 })
 
@@ -94,7 +94,7 @@ router.put('/:id', async (req, res) => {
     await db.query('UPDATE users SET name = ?, email = ?, phone = ?, role_id = ?, status = ? WHERE id = ?', [name, email, phone, role.id, status, req.params.id])
     res.json({ success: true, message: 'Pengguna diperbarui.', data: await getUser(req.params.id) })
   } catch (error) {
-    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal memperbarui pengguna.', error: error.code === 'ER_DUP_ENTRY' ? undefined : error.message })
+    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal memperbarui pengguna.'})
   }
 })
 
@@ -108,7 +108,7 @@ router.patch('/:id/password', async (req, res) => {
     await db.query('UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL', [req.params.id])
     res.json({ success: true, message: 'Password diubah dan sesi lama ditutup.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengubah password.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengubah password.'})
   }
 })
 

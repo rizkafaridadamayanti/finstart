@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     )
     res.json({ success: true, data: rows.map((row) => ({ ...row, is_read: Boolean(row.is_read) })) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil notifikasi.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil notifikasi.'})
   }
 })
 
@@ -21,7 +21,7 @@ router.patch('/:id/read', async (req, res) => {
     await db.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', [req.params.id, req.user.id])
     res.json({ success: true, message: 'Notifikasi ditandai sudah dibaca.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memperbarui notifikasi.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memperbarui notifikasi.'})
   }
 })
 
@@ -30,7 +30,7 @@ router.post('/read-all', async (req, res) => {
     await db.query('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0', [req.user.id])
     res.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memperbarui notifikasi.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memperbarui notifikasi.'})
   }
 })
 

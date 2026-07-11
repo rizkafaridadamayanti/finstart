@@ -1,45 +1,45 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { AlertTriangle, X } from 'lucide-vue-next'
+import { computed, ref, watch } from "vue";
+import { AlertTriangle, X } from "lucide-vue-next";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
-  eyebrow: { type: String, default: 'Konfirmasi' },
-  title: { type: String, default: 'Lanjutkan tindakan?' },
-  message: { type: String, default: '' },
+  eyebrow: { type: String, default: "Konfirmasi" },
+  title: { type: String, default: "Lanjutkan tindakan?" },
+  message: { type: String, default: "" },
   details: { type: Array, default: () => [] },
-  impactTitle: { type: String, default: '' },
+  impactTitle: { type: String, default: "" },
   impactItems: { type: Array, default: () => [] },
-  confirmLabel: { type: String, default: 'Lanjutkan' },
-  cancelLabel: { type: String, default: 'Batalkan' },
-  variant: { type: String, default: 'danger' },
+  confirmLabel: { type: String, default: "Lanjutkan" },
+  cancelLabel: { type: String, default: "Batalkan" },
+  variant: { type: String, default: "danger" },
   requireReason: { type: Boolean, default: false },
-  reasonLabel: { type: String, default: 'Alasan' },
-  reasonPlaceholder: { type: String, default: 'Tulis alasan singkat...' },
-  defaultReason: { type: String, default: '' },
-})
+  reasonLabel: { type: String, default: "Alasan" },
+  reasonPlaceholder: { type: String, default: "Tulis alasan singkat..." },
+  defaultReason: { type: String, default: "" },
+});
 
-const emit = defineEmits(['confirm', 'cancel'])
-const reason = ref(props.defaultReason)
+const emit = defineEmits(["confirm", "cancel"]);
+const reason = ref(props.defaultReason);
 
 watch(
   () => props.open,
   (open) => {
-    if (open) reason.value = props.defaultReason
+    if (open) reason.value = props.defaultReason;
   },
-)
+);
 
 const canConfirm = computed(() => {
-  return !props.requireReason || reason.value.trim().length > 0
-})
+  return !props.requireReason || reason.value.trim().length > 0;
+});
 
 function closeDialog() {
-  emit('cancel')
+  emit("cancel");
 }
 
 function confirmDialog() {
-  if (!canConfirm.value) return
-  emit('confirm', reason.value.trim())
+  if (!canConfirm.value) return;
+  emit("confirm", reason.value.trim());
 }
 </script>
 
@@ -60,7 +60,12 @@ function confirmDialog() {
           <p class="confirm-eyebrow">{{ eyebrow }}</p>
           <h3>{{ title }}</h3>
         </div>
-        <button type="button" class="confirm-close" aria-label="Tutup" @click="closeDialog">
+        <button
+          type="button"
+          class="confirm-close"
+          aria-label="Tutup"
+          @click="closeDialog"
+        >
           <X :size="18" />
         </button>
       </header>
@@ -86,7 +91,7 @@ function confirmDialog() {
         </label>
 
         <div v-if="impactItems.length" class="confirm-impact">
-          <p>{{ impactTitle || 'Yang akan terdampak' }}</p>
+          <p>{{ impactTitle || "Yang akan terdampak" }}</p>
           <ul>
             <li v-for="item in impactItems" :key="item">{{ item }}</li>
           </ul>
@@ -94,7 +99,11 @@ function confirmDialog() {
       </div>
 
       <footer class="confirm-actions">
-        <button type="button" class="confirm-button secondary" @click="closeDialog">
+        <button
+          type="button"
+          class="confirm-button secondary"
+          @click="closeDialog"
+        >
           {{ cancelLabel }}
         </button>
         <button
@@ -186,7 +195,9 @@ function confirmDialog() {
   place-items: center;
   border-radius: 12px;
   color: #8a98ab;
-  transition: background-color 0.18s ease, color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .confirm-close:hover {
@@ -305,7 +316,11 @@ function confirmDialog() {
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 900;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .confirm-button:hover {
