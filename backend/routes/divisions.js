@@ -106,7 +106,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar divisi.',
-      error: error.message,
     })
   }
 })
@@ -135,7 +134,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail divisi.',
-      error: error.message,
     })
   }
 })
@@ -180,7 +178,6 @@ router.post('/', async (req, res) => {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
       message: duplicateMessage(error, 'Kode atau nama divisi sudah digunakan.') || 'Gagal menambahkan divisi.',
-      error: error?.code === 'ER_DUP_ENTRY' ? undefined : error.message,
     })
   }
 })
@@ -235,7 +232,6 @@ router.put('/:id', async (req, res) => {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
       message: duplicateMessage(error, 'Kode atau nama divisi sudah digunakan.') || 'Gagal memperbarui divisi.',
-      error: error?.code === 'ER_DUP_ENTRY' ? undefined : error.message,
     })
   }
 })
@@ -279,7 +275,6 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengubah status divisi.',
-      error: error.message,
     })
   }
 })
@@ -321,7 +316,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus divisi.',
-      error: error.message,
     })
   }
 })

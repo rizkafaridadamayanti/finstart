@@ -65,10 +65,10 @@ app.get('/api/health', async (req, res) => {
       },
     })
   } catch (error) {
+    console.error('[health] Koneksi database gagal:', error)
     res.status(500).json({
       success: false,
       message: 'API berjalan, tetapi koneksi database gagal',
-      error: error.message,
     })
   }
 })

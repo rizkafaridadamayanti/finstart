@@ -90,7 +90,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data akun',
-      error: error.message,
     })
   }
 })
@@ -118,7 +117,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail akun',
-      error: error.message,
     })
   }
 })
@@ -249,7 +247,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menambahkan akun',
-      error: error.message,
     })
   }
 })
@@ -394,7 +391,6 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal memperbarui akun',
-      error: error.message,
     })
   }
 })
@@ -431,7 +427,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus akun',
-      error: error.message,
     })
   }
 })

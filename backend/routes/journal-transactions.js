@@ -150,7 +150,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data transaksi jurnal.',
-      error: error.message,
     })
   }
 })

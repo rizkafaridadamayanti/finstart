@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 const CONFIG_ID = 1
@@ -83,7 +84,7 @@ router.get('/', async (req, res) => {
 
     res.json({ success: true, message: 'Konfigurasi BPJS berhasil diambil.', data: config })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil konfigurasi BPJS.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil konfigurasi BPJS.'})
   }
 })
 
@@ -125,7 +126,7 @@ router.put('/', async (req, res) => {
 
     res.json({ success: true, message: 'Konfigurasi BPJS berhasil disimpan.', data: await getConfig() })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || 'Gagal menyimpan konfigurasi BPJS.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal menyimpan konfigurasi BPJS.') })
   }
 })
 

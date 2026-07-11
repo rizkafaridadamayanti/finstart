@@ -1,6 +1,6 @@
 <script setup>
-import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
+import api from '../services/api'
 
 /*
   Halaman Transaksi FinStart
@@ -13,10 +13,6 @@ import { computed, onMounted, ref, watch } from 'vue'
   POST   /api/journals/:id/post
   DELETE /api/journals/:id
 */
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
-})
 
 const accounts = ref([])
 const journals = ref([])

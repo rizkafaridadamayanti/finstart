@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -440,7 +441,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data langganan.',
-      error: error.message,
     })
   }
 })
@@ -491,7 +491,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menyimpan langganan.',
+      message: safePublicMessage(error, 'Gagal menyimpan langganan.'),
     })
   }
 })
@@ -557,7 +557,7 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal memperbarui langganan.',
+      message: safePublicMessage(error, 'Gagal memperbarui langganan.'),
     })
   }
 })
@@ -601,7 +601,7 @@ router.post('/generate-due-bills', async (req, res) => {
         skipped.push({
           subscription_id: subscription.id,
           subscription_name: subscription.subscription_name,
-          reason: error.message,
+          reason: safePublicMessage(error, 'Tidak dapat diproses.'),
         })
       }
     }
@@ -627,7 +627,6 @@ router.post('/generate-due-bills', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal membuat draft tagihan jatuh tempo.',
-      error: error.message,
     })
   } finally {
     if (connection) {
@@ -682,7 +681,7 @@ router.post('/:id/create-bill', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal membuat draft tagihan langganan.',
+      message: safePublicMessage(error, 'Gagal membuat draft tagihan langganan.'),
     })
   } finally {
     if (connection) {

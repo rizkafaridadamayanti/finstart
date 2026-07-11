@@ -22,12 +22,6 @@ const LOGIN_MAX_ATTEMPTS = Number(process.env.AUTH_LOGIN_MAX_ATTEMPTS || 5)
 const LOGIN_LOCK_MINUTES = Number(process.env.AUTH_LOGIN_LOCK_MINUTES || 1)
 const loginAttempts = new Map()
 
-const INTERNAL_ROLE = 'finance_manager'
-const INTERNAL_ROLE_DESCRIPTION = 'Keuangan Internal - satu jenis akses internal, dapat digunakan oleh banyak akun bagian keuangan.'
-const CORE_ROLES = [
-  [INTERNAL_ROLE, INTERNAL_ROLE_DESCRIPTION],
-]
-
 function sanitizeUser(user) {
   const roleName = normalizeRole(user.role_name || 'auditor')
   return {
@@ -40,6 +34,11 @@ function sanitizeUser(user) {
     permissions: getRolePermissions(roleName),
     allowed_tabs: getAllowedTabs(roleName),
   }
+}
+
+function sendAuthServerError(res, message, error) {
+  console.error(`[auth] ${message}`, error)
+  return res.status(500).json({ success: false, message })
 }
 
 function attemptKey(req, email) {
@@ -85,142 +84,6 @@ function isLocalDevelopmentRequest(req) {
   ))
 }
 
-async function ensureCoreRoles(connection = db) {
-  for (const [name, description] of CORE_ROLES) {
-    await connection.query(
-      'INSERT IGNORE INTO roles (name, description) VALUES (?, ?)',
-      [name, description],
-    )
-    await connection.query('UPDATE roles SET description = ? WHERE name = ?', [description, name])
-  }
-  const [roles] = await connection.query('SELECT id FROM roles WHERE name = ? LIMIT 1', [INTERNAL_ROLE])
-  if (roles[0]?.id) {
-    await connection.query(
-      `UPDATE users
-       SET role_id = ?
-       WHERE role_id IS NULL
-          OR role_id NOT IN (SELECT id FROM roles WHERE name = ?)`,
-      [roles[0].id, INTERNAL_ROLE],
-    )
-  }
-}
-
-async function addColumnIfMissing(connection, tableName, columnName, definition) {
-  const [columns] = await connection.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
-    [tableName, columnName],
-  )
-  if (columns.length === 0) {
-    await connection.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
-  }
-}
-
-async function ensureAuthTables(connection = db) {
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS auth_sessions (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      token_hash VARCHAR(128) NOT NULL UNIQUE,
-      user_agent VARCHAR(255) NULL,
-      ip_address VARCHAR(64) NULL,
-      expires_at DATETIME NOT NULL,
-      revoked_at DATETIME NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_auth_sessions_user (user_id),
-      INDEX idx_auth_sessions_expiry (expires_at),
-      CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id)
-        ON UPDATE CASCADE ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS password_reset_tokens (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      token_hash VARCHAR(128) NOT NULL UNIQUE,
-      expires_at DATETIME NOT NULL,
-      used_at DATETIME NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_password_reset_user (user_id),
-      INDEX idx_password_reset_expiry (expires_at),
-      CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id) REFERENCES users(id)
-        ON UPDATE CASCADE ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS user_security_settings (
-      user_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
-      login_alerts TINYINT(1) NOT NULL DEFAULT 1,
-      session_alerts TINYINT(1) NOT NULL DEFAULT 1,
-      mfa_status ENUM('not_configured','pending','enabled') NOT NULL DEFAULT 'not_configured',
-      mfa_secret VARCHAR(128) NULL,
-      mfa_pending_secret VARCHAR(128) NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      CONSTRAINT fk_user_security_settings_user FOREIGN KEY (user_id) REFERENCES users(id)
-        ON UPDATE CASCADE ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS trusted_mfa_devices (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      user_id BIGINT UNSIGNED NOT NULL,
-      token_hash VARCHAR(128) NOT NULL UNIQUE,
-      user_agent VARCHAR(255) NULL,
-      ip_address VARCHAR(64) NULL,
-      expires_at DATETIME NOT NULL,
-      revoked_at DATETIME NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_trusted_mfa_user (user_id),
-      INDEX idx_trusted_mfa_expiry (expires_at),
-      CONSTRAINT fk_trusted_mfa_devices_user FOREIGN KEY (user_id) REFERENCES users(id)
-        ON UPDATE CASCADE ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `)
-
-  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_secret', 'VARCHAR(128) NULL')
-  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_pending_secret', 'VARCHAR(128) NULL')
-  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_setup_code', 'VARCHAR(16) NULL')
-  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_time_offset_steps', 'INT NULL')
-  await addColumnIfMissing(connection, 'user_security_settings', 'mfa_last_counter', 'BIGINT NULL')
-  await ensureCoreRoles(connection)
-}
-
-async function ensureInitialUser() {
-  await ensureAuthTables()
-  const [users] = await db.query('SELECT id FROM users LIMIT 1')
-  if (users.length) return
-
-  const defaults = [
-    {
-      email: process.env.AUTH_DEFAULT_ADMIN_EMAIL || 'admin@kedata.id',
-      password: process.env.AUTH_DEFAULT_ADMIN_PASSWORD || 'Admin123!',
-      name: process.env.AUTH_DEFAULT_ADMIN_NAME || 'Keuangan Internal Utama',
-      roleName: INTERNAL_ROLE,
-    },
-    {
-      email: process.env.AUTH_DEFAULT_EMAIL || 'finance@kedata.id',
-      password: process.env.AUTH_DEFAULT_PASSWORD || 'kedata123',
-      name: process.env.AUTH_DEFAULT_NAME || 'Staf Keuangan Internal',
-      roleName: INTERNAL_ROLE,
-    },
-  ]
-
-  for (const user of defaults) {
-    const [roles] = await db.query('SELECT id FROM roles WHERE name = ? LIMIT 1', [normalizeRole(user.roleName)])
-    await db.query(
-      `INSERT INTO users (role_id, name, email, password_hash, status)
-       VALUES (?, ?, ?, ?, 'active')`,
-      [roles[0]?.id || null, user.name, user.email.toLowerCase(), hashPassword(user.password)],
-    )
-  }
-}
-
 async function findUserByEmail(email) {
   const [rows] = await db.query(
     `
@@ -255,7 +118,6 @@ async function getSecuritySettings(userId) {
 
 router.post('/login', async (req, res) => {
   try {
-    await ensureInitialUser()
 
     const email = String(req.body.email || '').trim().toLowerCase()
     const password = String(req.body.password || '')
@@ -383,7 +245,7 @@ router.post('/login', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memproses login.', error: error.message })
+    return sendAuthServerError(res, 'Gagal memproses login.', error)
   }
 })
 
@@ -397,7 +259,6 @@ router.get('/me', async (req, res) => {
 
 router.get('/sessions', async (req, res) => {
   try {
-    await ensureAuthTables()
     const canViewAll = hasPermission(req.user.role_name, 'users', 'read')
     const params = []
     const where = ["sessions.revoked_at IS NULL", "sessions.expires_at > NOW()"]
@@ -424,7 +285,7 @@ router.get('/sessions', async (req, res) => {
       })),
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil sesi aktif.', error: error.message })
+    return sendAuthServerError(res, 'Gagal mengambil sesi aktif.', error)
   }
 })
 
@@ -448,22 +309,20 @@ router.delete('/sessions/:id', async (req, res) => {
     })
     res.json({ success: true, message: 'Sesi berhasil ditutup.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal menutup sesi.', error: error.message })
+    return sendAuthServerError(res, 'Gagal menutup sesi.', error)
   }
 })
 
 router.get('/security-settings', async (req, res) => {
   try {
-    await ensureAuthTables()
     res.json({ success: true, data: await getSecuritySettings(req.user.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil pengaturan keamanan.', error: error.message })
+    return sendAuthServerError(res, 'Gagal mengambil pengaturan keamanan.', error)
   }
 })
 
 router.put('/security-settings', async (req, res) => {
   try {
-    await ensureAuthTables()
     const loginAlerts = req.body?.login_alerts === undefined ? true : Boolean(req.body.login_alerts)
     const sessionAlerts = req.body?.session_alerts === undefined ? true : Boolean(req.body.session_alerts)
     await db.query(
@@ -480,14 +339,13 @@ router.put('/security-settings', async (req, res) => {
     })
     res.json({ success: true, message: 'Pengaturan keamanan disimpan.', data: await getSecuritySettings(req.user.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal menyimpan pengaturan keamanan.', error: error.message })
+    return sendAuthServerError(res, 'Gagal menyimpan pengaturan keamanan.', error)
   }
 })
 
 
 router.post('/mfa/setup', async (req, res) => {
   try {
-    await ensureAuthTables()
     const secret = generateSecret()
     await db.query(
       `INSERT INTO user_security_settings (user_id, mfa_status, mfa_pending_secret, mfa_setup_code)
@@ -515,13 +373,12 @@ router.post('/mfa/setup', async (req, res) => {
       },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal menyiapkan MFA.', error: error.message })
+    return sendAuthServerError(res, 'Gagal menyiapkan MFA.', error)
   }
 })
 
 router.post('/mfa/confirm', async (req, res) => {
   try {
-    await ensureAuthTables()
     const code = String(req.body?.code || '').replace(/\D/g, '')
     const [rows] = await db.query(
       'SELECT mfa_pending_secret FROM user_security_settings WHERE user_id = ? LIMIT 1',
@@ -551,13 +408,12 @@ router.post('/mfa/confirm', async (req, res) => {
     })
     res.json({ success: true, message: 'MFA berhasil diaktifkan.', data: await getSecuritySettings(req.user.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengaktifkan MFA.', error: error.message })
+    return sendAuthServerError(res, 'Gagal mengaktifkan MFA.', error)
   }
 })
 
 router.post('/mfa/disable', async (req, res) => {
   try {
-    await ensureAuthTables()
     const code = String(req.body?.code || '')
     const password = String(req.body?.password || '')
     const [userRows] = await db.query('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id])
@@ -591,7 +447,7 @@ router.post('/mfa/disable', async (req, res) => {
     })
     res.json({ success: true, message: 'MFA dinonaktifkan.', data: await getSecuritySettings(req.user.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal menonaktifkan MFA.', error: error.message })
+    return sendAuthServerError(res, 'Gagal menonaktifkan MFA.', error)
   }
 })
 
@@ -607,7 +463,7 @@ router.post('/logout', async (req, res) => {
     })
     res.json({ success: true, message: 'Logout berhasil.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal logout.', error: error.message })
+    return sendAuthServerError(res, 'Gagal logout.', error)
   }
 })
 
@@ -629,13 +485,12 @@ router.post('/password/change', async (req, res) => {
     })
     res.json({ success: true, message: 'Password berhasil diubah. Sesi lain telah ditutup.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengubah password.', error: error.message })
+    return sendAuthServerError(res, 'Gagal mengubah password.', error)
   }
 })
 
 router.post('/password/request-reset', async (req, res) => {
   try {
-    await ensureAuthTables()
     const email = String(req.body.email || '').trim().toLowerCase()
     const user = email ? await findUserByEmail(email) : null
     let debugData = null
@@ -666,7 +521,7 @@ router.post('/password/request-reset', async (req, res) => {
       data: debugData,
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal membuat permintaan reset password.', error: error.message })
+    return sendAuthServerError(res, 'Gagal membuat permintaan reset password.', error)
   }
 })
 
@@ -694,10 +549,8 @@ router.post('/password/reset', async (req, res) => {
     })
     res.json({ success: true, message: 'Kata sandi berhasil diperbarui. Silakan login kembali.' })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal reset password.', error: error.message })
+    return sendAuthServerError(res, 'Gagal reset password.', error)
   }
 })
 
 module.exports = router
-module.exports.ensureAuthTables = ensureAuthTables
-module.exports.ensureCoreRoles = ensureCoreRoles

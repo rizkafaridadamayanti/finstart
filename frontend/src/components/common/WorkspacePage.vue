@@ -8,7 +8,7 @@ import api from '../../services/api'
 import MetricCard from './MetricCard.vue'
 import StatusBadge from './StatusBadge.vue'
 import { useToast } from '../../composables/useToast'
-import { latestFirst, pageRows, safePage, totalPages } from '../../utils/tablePagination.tsx'
+import { latestFirst, pageRows, safePage, totalPages } from '../../utils/tablePagination'
 
 const props = defineProps({
   eyebrow: { type: String, required: true },

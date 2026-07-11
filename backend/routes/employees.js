@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -359,7 +360,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar pegawai.',
-      error: error.message,
     })
   }
 })
@@ -384,7 +384,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil detail pegawai.',
-      error: error.message,
     })
   }
 })
@@ -478,7 +477,7 @@ router.post('/', async (req, res) => {
       message:
         error?.code === 'ER_DUP_ENTRY'
           ? 'Kode pegawai atau NIK sudah digunakan.'
-          : error.message || 'Gagal menambahkan pegawai.',
+          : safePublicMessage(error, 'Gagal menambahkan pegawai.'),
     })
   } finally {
     if (connection) {
@@ -580,7 +579,7 @@ router.put('/:id', async (req, res) => {
       message:
         error?.code === 'ER_DUP_ENTRY'
           ? 'Kode pegawai atau NIK sudah digunakan.'
-          : error.message || 'Gagal memperbarui pegawai.',
+          : safePublicMessage(error, 'Gagal memperbarui pegawai.'),
     })
   }
 })
@@ -627,7 +626,6 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengubah status pegawai.',
-      error: error.message,
     })
   }
 })
@@ -705,7 +703,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus pegawai.',
-      error: error?.message,
     })
   } finally {
     if (connection) connection.release()

@@ -1,6 +1,6 @@
 <script setup>
-import axios from 'axios'
 import { computed, onMounted, ref, watch } from 'vue'
+import api from '../services/api'
 
 /*
   PIUTANG FINSTART
@@ -12,10 +12,6 @@ import { computed, onMounted, ref, watch } from 'vue'
   POST   /api/invoices/:id/payments
   DELETE /api/invoices/:id
 */
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
-})
 
 const clients = ref([])
 const projects = ref([])

@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -278,7 +279,6 @@ router.get('/vat', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan PPN Masa.',
-      error: error.message,
     })
   }
 })
@@ -542,7 +542,7 @@ router.post('/vat/close', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal menutup Masa PPN.',
+      message: safePublicMessage(error, 'Gagal menutup Masa PPN.'),
     })
   } finally {
     if (connection) connection.release()
@@ -748,7 +748,7 @@ router.post('/tax-record/:id/pay', async (req, res) => {
 
     res.status(400).json({
       success: false,
-      message: error.message || 'Gagal mencatat setoran pajak.',
+      message: safePublicMessage(error, 'Gagal mencatat setoran pajak.'),
     })
   } finally {
     if (connection) connection.release()

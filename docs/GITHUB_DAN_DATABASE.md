@@ -1,50 +1,44 @@
 # GitHub dan Database FinStart
 
-Dokumen ini menjelaskan cara memasukkan source code final ke GitHub tanpa mengunggah kredensial atau folder besar.
+## Database sebagai version control
 
-## Database
-
-- `database/finstart_db_final_seed.sql` adalah snapshot untuk **database kosong**.
-- File tersebut tidak memuat sesi login, reset token, atau secret MFA.
-- Untuk database `finstart_db` yang sudah terisi saat ini, **jangan import snapshot ini lagi**. Data dapat duplikat atau konflik.
-- Backup sebelum perubahan:
+Struktur database resmi berada pada `backend/drizzle/migrations`. Jalankan migration setelah mengambil source terbaru:
 
 ```bat
-mysqldump -u root -p finstart_db > backup_finstart_YYYYMMDD.sql
+cd backend
+npm install
+npm run db:migrate
 ```
+
+Setiap perubahan tabel atau kolom harus dibuat sebagai file migration baru. Route API tidak membuat atau mengubah tabel ketika request berjalan.
+
+## Seeder pengguna demo
+
+Salin `.env.example` menjadi `.env`, kemudian isi:
+
+```env
+DEMO_USER_EMAIL=finance@kedata.id
+DEMO_USER_NAME=Finance Manager
+DEMO_USER_PASSWORD=<isi-password-lokal>
+```
+
+Jalankan:
+
+```bat
+npm run db:seed
+```
+
+Password plain text hanya berada di `.env` lokal. Seeder meng-hash password sebelum melakukan insert atau update pengguna.
 
 ## File yang boleh masuk GitHub
 
-- Source `backend/`, `frontend/src/`, `docs/`, dan `database/`
-- `package.json`, `package-lock.json`
-- `.env.example`
+- Source `backend/`, `frontend/`, dan `docs/`
+- Migration di `backend/drizzle/migrations`
+- `package.json`, `package-lock.json`, dan `.env.example`
 
 ## File yang tidak boleh masuk GitHub
 
-- `backend/.env` dan `frontend/.env`
-- `node_modules/`, `frontend/dist/`, `.git/`
-- Backup database pribadi (`*.sql` hasil export lokal), kecuali snapshot yang memang dipilih untuk project
-
-`.gitignore` sudah menahan file runtime tersebut.
-
-## Push branch feature ke GitHub
-
-Dari folder root project:
-
-```bat
-cd C:\laragon\www\finstart
-git status
-git add .
-git status
-git commit -m "fix: laporan API, sidebar, dan konsistensi aksi tabel"
-git push origin feature/integrasi-uiux-rizka
-```
-
-Setelah push selesai, buka repository GitHub, buat Pull Request dari `feature/integrasi-uiux-rizka` ke `main`, lalu merge. Setelah merge, tarik branch `main` pada komputer:
-
-```bat
-git checkout main
-git pull origin main
-```
-
-Jangan pernah menjalankan `git add -f backend/.env`.
+- `.env`
+- `node_modules/` dan `dist/`
+- Folder `.git/` di dalam arsip distribusi
+- Dump database lokal, backup SQL, token, secret MFA, atau password

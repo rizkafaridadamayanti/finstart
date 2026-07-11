@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const taxModule = require('./taxes')
+const { safePublicMessage } = require('../utils/api-errors')
 const { buildEmployeePph21Calculation } = taxModule
 
 const router = express.Router()
@@ -42,31 +43,6 @@ function isValidPeriod(value) {
 function cleanText(value, maxLength = 5000) {
   const text = String(value ?? '').trim()
   return text ? text.slice(0, maxLength) : null
-}
-
-let payrollSchemaReady = null
-
-async function addColumnIfMissing(executor, table, column, definition) {
-  const [rows] = await executor.query(
-    `SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
-    [table, column],
-  )
-  if (!rows.length) await executor.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`)
-}
-
-async function ensurePayrollEnhancements(executor = db) {
-  if (executor === db && payrollSchemaReady) return payrollSchemaReady
-  const work = (async () => {
-    await addColumnIfMissing(executor, 'payroll_records', 'overtime_amount', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'allowance_amount', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'bonus_amount', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'loan_deduction', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'other_deduction', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'pph21_amount', 'DECIMAL(15,2) NOT NULL DEFAULT 0')
-    await addColumnIfMissing(executor, 'payroll_records', 'tax_record_id', 'BIGINT UNSIGNED NULL')
-  })()
-  if (executor === db) payrollSchemaReady = work.catch((error) => { payrollSchemaReady = null; throw error })
-  return work
 }
 
 async function ensureOperationalAccount(executor, code, name, type, normalBalance) {
@@ -387,10 +363,6 @@ async function getPayrollRecord(executor, id) {
   return record
 }
 
-router.use(async (req, res, next) => {
-  try { await ensurePayrollEnhancements(); next() } catch (error) { next(error) }
-})
-
 router.get('/accounts', async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -416,7 +388,6 @@ router.get('/accounts', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil akun pembayaran payroll.',
-      error: error.message,
     })
   }
 })
@@ -467,7 +438,6 @@ router.get('/summary', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan payroll.',
-      error: error.message,
     })
   }
 })
@@ -539,13 +509,11 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar payroll.',
-      error: error.message,
     })
   }
 })
 
 async function processPayrollRecord(input) {
-  await ensurePayrollEnhancements()
   let connection
   const employeeId = Number(input?.employee_id)
   const payrollPeriod = String(input?.payroll_period || currentPeriod())
@@ -707,7 +675,7 @@ router.get('/export/bank-transfer', async (req, res) => {
       data: rows.map((row) => ({ ...row, net_pay: numberValue(row.net_pay) })),
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil export transfer bank.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil export transfer bank.'})
   }
 })
 
@@ -723,7 +691,7 @@ router.get('/:id/payslip', async (req, res) => {
     )
     res.json({ success: true, message: 'Payslip berhasil diambil.', data: { ...record, employee_contact: employees[0] || null } })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil payslip.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil payslip.'})
   }
 })
 
@@ -736,7 +704,7 @@ router.post('/process', async (req, res) => {
       data: record,
     })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || 'Gagal memproses payroll.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal memproses payroll.') })
   }
 })
 
@@ -775,7 +743,7 @@ router.post('/process-bulk', async (req, res) => {
         })
         processed.push(record)
       } catch (error) {
-        skipped.push({ employee_id: employee.id, employee_name: employee.full_name || employee.name, reason: error.message })
+        skipped.push({ employee_id: employee.id, employee_name: employee.full_name || employee.name, reason: safePublicMessage(error, 'Tidak dapat diproses.') })
       }
     }
 
@@ -787,7 +755,7 @@ router.post('/process-bulk', async (req, res) => {
       data: { payroll_period: payrollPeriod, processed, skipped },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memproses payroll massal.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal memproses payroll massal.'})
   }
 })
 

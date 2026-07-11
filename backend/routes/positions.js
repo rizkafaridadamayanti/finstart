@@ -106,7 +106,7 @@ router.get('/', async (req, res) => {
       data: rows.map((row) => ({ ...row, employee_count: Number(row.employee_count || 0) })),
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil daftar jabatan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil daftar jabatan.'})
   }
 })
 
@@ -121,7 +121,7 @@ router.get('/:id', async (req, res) => {
       data: { ...position, employee_count: Number(position.employee_count || 0) },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil detail jabatan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil detail jabatan.'})
   }
 })
 
@@ -156,7 +156,6 @@ router.post('/', async (req, res) => {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
       message: error?.code === 'ER_DUP_ENTRY' ? 'Kode jabatan sudah digunakan.' : 'Gagal menambahkan jabatan.',
-      error: error?.code === 'ER_DUP_ENTRY' ? undefined : error.message,
     })
   }
 })
@@ -191,7 +190,6 @@ router.put('/:id', async (req, res) => {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
       message: error?.code === 'ER_DUP_ENTRY' ? 'Kode jabatan sudah digunakan.' : 'Gagal memperbarui jabatan.',
-      error: error?.code === 'ER_DUP_ENTRY' ? undefined : error.message,
     })
   }
 })
@@ -214,7 +212,7 @@ router.patch('/:id/status', async (req, res) => {
     await db.query('UPDATE positions SET status = ? WHERE id = ?', [status, req.params.id])
     res.json({ success: true, message: `Status jabatan berhasil diubah menjadi ${status}.`, data: await getPositionById(req.params.id) })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengubah status jabatan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengubah status jabatan.'})
   }
 })
 
@@ -248,7 +246,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus jabatan.',
-      error: error.message,
     })
   }
 })

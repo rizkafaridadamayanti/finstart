@@ -273,7 +273,6 @@ router.get('/summary', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil ringkasan dashboard',
-      error: error.message,
     })
   }
 })

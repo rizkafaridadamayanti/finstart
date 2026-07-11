@@ -1,0 +1,23 @@
+FINSTART FINAL - CARA PALING MUDAH
+
+1. Hapus/ubah nama folder lama agar tidak bercampur dengan file lama.
+2. Ekstrak ZIP langsung ke C:\laragon\www\
+3. Hasil akhirnya harus: C:\laragon\www\finstart
+4. Nyalakan MySQL pada Laragon.
+5. Klik dua kali SETUP_DAN_JALANKAN.bat
+6. Isi konfigurasi yang diminta. Untuk Laragon standar:
+   DB host     : 127.0.0.1
+   DB port     : 3306
+   DB user     : root
+   DB password : kosong
+7. Untuk database baru, jawab Y saat ditanya migration.
+   Untuk database lama yang tabelnya sudah lengkap, jawab N.
+8. Setelah setup pertama selesai, selanjutnya cukup klik JALANKAN_FINSTART.bat.
+
+Alamat aplikasi: http://localhost:5173
+Alamat backend : http://localhost:4000/api/health
+
+Catatan:
+- ZIP tidak menyimpan file .env atau password agar credential tidak masuk repository.
+- Password user demo diminta saat setup dan di-hash oleh seeder sebelum masuk database.
+- Registry npm proyek sudah diarahkan ke https://registry.npmjs.org/.

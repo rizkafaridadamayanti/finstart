@@ -66,9 +66,9 @@ async function safeRows(query, params, warnings, section) {
     const [rows] = await db.query(query, params)
     return Array.isArray(rows) ? rows : []
   } catch (error) {
-    const message = error?.message || 'Query tidak dapat dijalankan.'
-    console.warn(`[reports] ${section}: ${message}`)
-    warnings.push({ section, message })
+    const internalMessage = error?.message || 'Query tidak dapat dijalankan.'
+    console.warn(`[reports] ${section}: ${internalMessage}`)
+    warnings.push({ section, message: 'Bagian laporan ini belum dapat dimuat.' })
     return []
   }
 }
@@ -695,13 +695,12 @@ router.get('/', async (req, res) => {
     console.error(`[reports] Gagal menghitung laporan: ${error?.message || error}`)
     warnings.push({
       section: 'Laporan Keuangan',
-      message: error?.message || 'Terjadi kesalahan saat menghitung laporan.',
+      message: 'Terjadi kesalahan saat menghitung laporan.',
     })
     data.warnings = warnings
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil laporan keuangan.',
-      error: error?.message,
       data,
     })
   }

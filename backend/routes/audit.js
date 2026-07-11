@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     )
     res.json({ success: true, data: rows })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil audit trail.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil audit trail.'})
   }
 })
 

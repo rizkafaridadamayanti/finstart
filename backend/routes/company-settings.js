@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 
@@ -27,23 +28,7 @@ function normalizeFiscalStartMonth(value) {
 }
 
 
-async function addColumnIfMissing(columnName, definition) {
-  const [columns] = await db.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = ?`,
-    [columnName],
-  )
-  if (columns.length === 0) {
-    await db.query(`ALTER TABLE company_settings ADD COLUMN ${columnName} ${definition}`)
-  }
-}
-
-async function ensureSettingsSchema() {
-  await addColumnIfMissing('fiscal_year_start_month', 'TINYINT UNSIGNED NOT NULL DEFAULT 1')
-}
-
 async function getSettings() {
-  await ensureSettingsSchema()
   const [rows] = await db.query('SELECT * FROM company_settings ORDER BY id ASC LIMIT 1')
   return rows[0] || null
 }
@@ -98,7 +83,7 @@ router.get('/', async (req, res) => {
     const settings = (await getSettings()) || defaultSettings()
     res.json({ success: true, message: 'Pengaturan perusahaan berhasil diambil.', data: settings })
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengambil pengaturan perusahaan.', error: error.message })
+    res.status(500).json({ success: false, message: 'Gagal mengambil pengaturan perusahaan.'})
   }
 })
 
@@ -142,7 +127,7 @@ router.put('/', async (req, res) => {
 
     res.json({ success: true, message: 'Pengaturan perusahaan berhasil disimpan.', data: await getSettings() })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message || 'Gagal menyimpan pengaturan perusahaan.' })
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal menyimpan pengaturan perusahaan.') })
   }
 })
 
