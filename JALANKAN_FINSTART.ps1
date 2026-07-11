@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Backend = Join-Path $Root 'backend'
 $Frontend = Join-Path $Root 'frontend'
+$Cleanup = Join-Path $Root 'SELESAIKAN_REPLACE.ps1'
+if (Test-Path $Cleanup) { & $Cleanup -Quiet }
 
 if (-not (Test-Path (Join-Path $Backend '.env'))) {
   Write-Host 'Konfigurasi belum dibuat. Jalankan SETUP_DAN_JALANKAN.bat terlebih dahulu.' -ForegroundColor Yellow

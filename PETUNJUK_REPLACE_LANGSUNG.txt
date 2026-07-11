@@ -1,0 +1,16 @@
+FINSTART FINAL - REPLACE LANGSUNG
+
+1. Hentikan backend dan frontend (Ctrl+C).
+2. Ekstrak seluruh ISI ZIP ini langsung ke C:\laragon\www\finstart.
+3. Pilih Replace files in the destination.
+4. Klik SELESAIKAN_REPLACE.bat satu kali.
+5. Jalankan JALANKAN_FINSTART.bat.
+
+File yang tidak dibawa ZIP dan tetap dipertahankan:
+- .git
+- .gitignore
+- backend\.env
+- node_modules
+- uploads / storage
+
+Database MySQL finstart_db tidak dihapus. File SQL legacy di folder proyek akan dipindahkan ke folder backup di C:\laragon\www.
