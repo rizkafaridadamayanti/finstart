@@ -3,43 +3,43 @@
 ## Frontend Vue Native
 
 - Tampilan, warna, aset, susunan halaman, dan CSS modern tetap mengikuti versi desain awal.
-- Seluruh antarmuka menggunakan Vue 3 Single File Component: `<template>`, `<script setup>`, props, emit, ref, computed, watch, lifecycle, dan provide/inject.
+- Seluruh antarmuka menggunakan Vue 3 Single File Component: `<template>`, `<script setup>`, props, emit, `ref`, `computed`, `watch`, lifecycle, serta provide/inject.
 - Tidak terdapat React, JSX, TSX, `useState`, `useEffect`, `className`, atau event handler React.
-- Handler client dan project sekarang berada langsung di `CrmView.vue`, yaitu komponen yang menggunakan fungsi tersebut.
-- Seluruh 24 komponen `.vue` telah diaudit. Tidak ada inline arrow function pada template mana pun, termasuk `DashboardView.vue`, `LandingPage.vue`, `LanggananDanAset.vue`, `SdmDanPajak.vue`, `BukuBesarDanTransaksi.vue`, `PiutangDanUtang.vue`, `ProyeksiDanLaporan.vue`, `PengaturanView.vue`, dan `CrmView.vue`.
-- Event template menggunakan method/pemanggilan method Vue, `$event`, `v-model`, dan event modifier yang sesuai. Tidak ada pola handler React seperti `onClick`, `onChange`, `className`, `useState`, atau `useEffect`.
-- Cabang template CRM yang tidak pernah dapat dijalankan (`v-if="true"`/`v-else`) beserta state pendukungnya telah dihapus sebagai kode mati.
-- `useFinStartApp.ts` dikurangi dari sekitar 1.273 baris menjadi sekitar 508 baris dan hanya menangani state global, autentikasi, navigasi, serta pemuatan data.
-- Handler domain lain dipisahkan ke composable khusus: ledger, piutang/utang, langganan/aset, pajak, dan perencanaan.
-- ESLint dan pemeriksaan tipe Vue tersedia melalui `npm run lint` dan `npm run typecheck`.
-- Import, variable, fungsi, dan context action yang tidak digunakan telah dihapus, termasuk action jurnal subledger yang tidak pernah dipanggil.
-- Halaman dashboard besar menggunakan dynamic import melalui `defineAsyncComponent` tanpa mengubah tampilan.
-- Bundle awal turun menjadi sekitar 222 KB sebelum gzip; modul besar dimuat sebagai chunk terpisah dan tidak lagi memunculkan peringatan chunk di atas 500 KB.
-- Perbaikan event navigasi Sidebar tetap disertakan sehingga seluruh menu dapat dibuka.
+- Handler client dan project berada langsung di `CrmView.vue`, yaitu komponen yang menggunakan fungsi tersebut.
+- Seluruh 24 komponen `.vue` telah diaudit dan tidak memiliki inline arrow function pada template.
+- Event template menggunakan method Vue bernama, `$event`, `v-model`, dan event modifier yang sesuai.
+- `App.vue` hanya berperan sebagai orchestrator aplikasi; handler domain dipisahkan ke komponen atau composable terkait.
+- ESLint, Vue TypeScript checking, audit Vue-native, audit file legacy, dan production build tersedia dalam satu perintah: `npm run check`.
+- Import, variable, fungsi, duplicate object key, dan source lama yang tidak digunakan telah dibersihkan.
+- Halaman besar menggunakan dynamic import tanpa mengubah tampilan.
+- Initial JavaScript chunk sekitar 222 KB sebelum gzip.
 
-## Backend
+## Backend dan Database
 
-- Detail error SQL tidak dikirim ke response API. Pesan publik dikirim ke client dan detail teknis hanya dicatat di server.
-- Terdapat 38 file migration berurutan untuk version control database.
-- `backend/db/schema.js` mendefinisikan seluruh 36 tabel aplikasi, bukan hanya `roles` dan `users`.
-- `drizzle.config.js` serta script `db:generate` dan `db:check` tersedia untuk perubahan schema berikutnya.
-- Seeder membaca password plain text dari `DEMO_USER_PASSWORD` pada `.env`, melakukan hash di script, lalu menyimpan `password_hash`.
-- Nilai password demo pada `.env.example` tetap kosong.
-- `.env` diabaikan oleh `.gitignore` root dan backend.
+- Detail error SQL tidak dikirim ke response API. Pesan umum dikirim ke client, sedangkan detail teknis dicatat di server.
+- Terdapat 38 migration Drizzle berurutan untuk version control database.
+- `backend/db/schema.js` mendefinisikan seluruh tabel aplikasi.
+- Sumber resmi struktur database hanya `backend/db/schema.js` dan `backend/drizzle/migrations`.
+- Dump `database/finstart_db.sql`, `database/finstart_db_final_seed.sql`, migration SQL lama, dan `backend/database/seed_coa.sql` tidak disertakan lagi.
+- Data COA dipindahkan ke Drizzle seeder `backend/scripts/seed-chart-of-accounts.js`.
+- Demo user disiapkan melalui Drizzle seeder `backend/scripts/seed-demo-user.js`.
+- Password demo dibaca dalam plain text dari `DEMO_USER_PASSWORD` di `.env`, di-hash di seeder, lalu disimpan sebagai `password_hash`.
+- `db:seed` menjalankan COA dan demo user; tersedia juga `db:seed:coa` dan `db:seed:user`.
+- `.env.example` tidak berisi default password dan `.env` diabaikan oleh Git.
+
+## Kebersihan Repository
+
+- Folder/file lama seperti `frontend/src/views`, `frontend/src/stores`, `WorkspacePage.vue`, `tablePagination.tsx`, dump SQL, dan seed SQL manual dihapus melalui pemasangan bersih.
+- `npm run check:clean` memastikan file legacy tersebut tidak kembali masuk ke repository.
+- Paket pemasangan bersih mempertahankan `.git`, `.gitignore`, file `.env`, uploads, dan storage.
+- Installer tidak menjalankan migration atau seeder sehingga database `finstart_db` tidak diubah saat source code diganti.
 
 ## Verifikasi
 
-- `npm run lint`: berhasil tanpa error dan warning.
-- `npm run check:vue-native`: berhasil untuk 24 SFC. Jumlah arrow function pada seluruh template Vue: 0.
-- `npm run typecheck`: berhasil tanpa error.
-- `npm run build`: berhasil.
-- Initial JavaScript chunk: sekitar 222 KB sebelum gzip.
+- `npm run check:clean`: lulus.
+- `npm run check:vue-native`: lulus untuk 24 SFC; arrow function pada template: 0.
+- `npm run lint`: 0 error dan 0 warning.
+- `npm run typecheck`: lulus.
+- `npm run build`: lulus.
+- `npm test`: 8/8 pengujian backend lulus.
 - `npm run db:check`: schema Drizzle valid.
-- Seluruh file JavaScript backend lolos `node --check`.
-- `npm test`: 8 pengujian backend berhasil.
-- Tidak ditemukan pola React pada source frontend.
-- Tidak ditemukan URL registry internal pada lockfile final.
-
-## Catatan Git
-
-ZIP tidak membawa folder `.git`, sehingga riwayat commit lama tidak dapat diverifikasi dari paket ini. Setelah dipasang ke repository asli, jalankan `CEK_KEAMANAN_GIT.bat` atau `git ls-files` untuk memastikan file `.env` tidak pernah ikut dilacak.

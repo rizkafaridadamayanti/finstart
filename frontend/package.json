@@ -9,8 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
-    "check": "npm run check:vue-native && npm run lint && npm run typecheck && npm run build",
-    "check:vue-native": "node scripts/check-vue-native.mjs"
+    "check:clean": "node scripts/check-project-clean.mjs",
+    "check:vue-native": "node scripts/check-vue-native.mjs",
+    "check": "npm run check:clean && npm run check:vue-native && npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "lucide-vue-next": "^1.0.0",

@@ -6,13 +6,15 @@
   "scripts": {
     "test": "node tests/run-tests.js",
     "db:migrate": "node scripts/migrate.js",
-    "db:seed": "node scripts/seed-demo-user.js",
-    "dev": "node --watch index.js",
-    "start": "node index.js",
+    "db:seed": "node scripts/seed.js",
+    "db:seed:user": "node scripts/seed-demo-user.js",
+    "db:seed:coa": "node scripts/seed-chart-of-accounts.js",
     "db:setup": "npm run db:migrate && npm run db:seed",
     "db:new": "node scripts/create-migration.js",
     "db:generate": "drizzle-kit generate --config=drizzle.config.js",
-    "db:check": "drizzle-kit check --config=drizzle.config.js"
+    "db:check": "drizzle-kit check --config=drizzle.config.js",
+    "dev": "node --watch index.js",
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",

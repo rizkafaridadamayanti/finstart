@@ -1,18 +1,18 @@
 # Audit Vue Native Final
 
-Paket ini memiliki pemeriksaan otomatis melalui:
+Jalankan pemeriksaan lengkap:
 
 ```bat
 cd frontend
-npm run check:vue-native
+npm run check
 ```
 
-Pemeriksaan tersebut memastikan:
+Perintah tersebut menjalankan:
 
-- tidak ada file `.jsx` atau `.tsx`;
-- tidak ada dependency `react`, `react-dom`, atau `@vitejs/plugin-react`;
-- tidak ada pola `useState`, `useEffect`, `useMemo`, `useCallback`, `ReactDOM`, `className`, `onClick`, atau `onChange`;
-- tidak ada arrow function `=>` di seluruh template Vue;
-- setiap file `.vue` memiliki blok `<template>`.
+1. `check:clean` untuk menolak source legacy, store/view lama, JSX/TSX, dump database, dan seed SQL manual;
+2. `check:vue-native` untuk menolak pola React dan arrow function di template Vue;
+3. ESLint untuk unused import/variable/function dan duplicate object key;
+4. Vue TypeScript checking;
+5. production build.
 
-Hasil final: **24 SFC lulus audit Vue native**. ESLint, Vue TypeScript checking, production build, 8 pengujian backend, dan Drizzle schema check juga berhasil. Style block seluruh halaman tetap identik dengan paket desain sebelumnya sehingga tampilan tidak diubah.
+Hasil final: **24 SFC lulus audit Vue native**, tidak ada inline arrow function pada template, tidak ada React/JSX/TSX, dan lint lulus tanpa error/warning.

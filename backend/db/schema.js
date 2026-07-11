@@ -1,5 +1,5 @@
 // Drizzle schema lengkap untuk seluruh tabel FinStart.
-// Migration SQL lama tetap dipertahankan agar instalasi yang sudah berjalan tidak terputus.
+// Sumber resmi struktur database adalah schema ini dan migration versioned di drizzle/migrations.
 const { sql } = require("drizzle-orm");
 const { bigint, char, date, datetime, decimal, index, int, json, mysqlEnum, mysqlTable, smallint, text, timestamp, tinyint, uniqueIndex, varchar } = require("drizzle-orm/mysql-core");
 

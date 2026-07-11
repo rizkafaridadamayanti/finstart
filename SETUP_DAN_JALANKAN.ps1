@@ -4,6 +4,8 @@ $Backend = Join-Path $Root 'backend'
 $Frontend = Join-Path $Root 'frontend'
 $BackendEnv = Join-Path $Backend '.env'
 $FrontendEnv = Join-Path $Frontend '.env'
+$Cleanup = Join-Path $Root 'SELESAIKAN_REPLACE.ps1'
+if (Test-Path $Cleanup) { & $Cleanup -Quiet }
 
 function Write-Step([string]$Text) {
   Write-Host "`n=== $Text ===" -ForegroundColor Cyan
@@ -95,7 +97,7 @@ if (-not $keepExisting) {
   Write-Step 'Membuat konfigurasi lokal'
   $dbHost = Read-Default 'DB host' '127.0.0.1'
   $dbPort = Read-Default 'DB port' '3306'
-  $dbName = Read-Default 'Nama database' 'finstart'
+  $dbName = Read-Default 'Nama database' 'finstart_db'
   $dbUser = Read-Default 'DB user' 'root'
   $dbPassword = Read-Secret 'DB password (tekan Enter jika kosong)' $true
   $demoEmail = Read-Default 'Email user demo' 'finance@kedata.id'
@@ -175,8 +177,15 @@ if ($runMigration) {
   Write-Host 'Migration dilewati karena menggunakan database lama.' -ForegroundColor Yellow
 }
 
-Write-Step 'Menjalankan seeder user demo'
-Run-Npm -Directory $Backend -Arguments @('run', 'db:seed')
+$defaultSeed = if ($envAlreadyExists -and $keepExisting) { 'n' } else { 'y' }
+$seedChoice = Read-Host "Jalankan seeder demo dan chart of accounts? [$defaultSeed]"
+if ([string]::IsNullOrWhiteSpace($seedChoice)) { $seedChoice = $defaultSeed }
+if ($seedChoice.Trim().ToLower() -eq 'y') {
+  Write-Step 'Menjalankan seeder Drizzle'
+  Run-Npm -Directory $Backend -Arguments @('run', 'db:seed')
+} else {
+  Write-Host 'Seeder dilewati.' -ForegroundColor Yellow
+}
 
 Write-Step 'Membuka backend dan frontend'
 $backendCommand = 'cd /d "' + $Backend + '" && npm run dev'

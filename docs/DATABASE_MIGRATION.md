@@ -1,37 +1,28 @@
-# Migration dan Seeder FinStart
+# Database Migration dan Seeder FinStart
 
-FinStart memakai **Drizzle ORM** untuk menjalankan migration MySQL secara berurutan dan untuk seeder pengguna demo. Seluruh perubahan struktur database disimpan di `backend/drizzle/migrations`, sedangkan status migration yang sudah dijalankan dicatat oleh Drizzle pada tabel `__drizzle_migrations`.
+## Sumber Resmi Database
 
-## Menyiapkan database
+Struktur database hanya dikelola melalui:
+
+- `backend/db/schema.js` sebagai Drizzle schema;
+- `backend/drizzle/migrations` sebagai versioned migration;
+- `backend/scripts/seed-chart-of-accounts.js` sebagai seeder COA;
+- `backend/scripts/seed-demo-user.js` sebagai seeder demo user.
+
+Dump database besar dan script SQL seed lama tidak digunakan lagi sebagai sumber instalasi.
+
+## Perintah
 
 ```bat
-cd backend
-copy .env.example .env
-npm install
 npm run db:migrate
 npm run db:seed
+npm run db:seed:coa
+npm run db:seed:user
+npm run db:setup
+npm run db:new -- nama_migration
+npm run db:check
 ```
 
-`db:migrate` membuat database apabila belum tersedia lalu menjalankan migration yang belum pernah diterapkan. `db:seed` membaca credential demo dari `.env`, meng-hash `DEMO_USER_PASSWORD` melalui PBKDF2, kemudian melakukan upsert role dan pengguna. Password plain text dan hash demo tidak disimpan dalam repository.
+`db:seed` menjalankan seeder COA dan demo user. Sebelum menjalankan demo user seeder, isi `DEMO_USER_PASSWORD` di `backend/.env`. Password plain text hanya dibaca saat proses seed, kemudian di-hash sebelum disimpan ke database.
 
-## Menambahkan perubahan database
-
-Buat migration baru dengan perintah berikut:
-
-```bat
-npm run db:new -- add_feature_table
-```
-
-Perintah tersebut membuat file migration berikutnya sekaligus mendaftarkannya pada journal Drizzle. Isi file SQL yang baru dibuat. Untuk beberapa statement, pisahkan setiap statement dengan baris:
-
-```sql
---> statement-breakpoint
-```
-
-Setelah itu jalankan:
-
-```bat
-npm run db:migrate
-```
-
-Migration lama yang sudah pernah dijalankan tidak boleh diedit. Setiap perubahan berikutnya harus dibuat sebagai file migration baru agar histori database tetap konsisten di Git dan saat deployment.
+Pada database produksi atau database lama, buat backup terlebih dahulu dan jalankan migration secara terkontrol. Installer clean replace tidak menjalankan migration maupun seeder.
