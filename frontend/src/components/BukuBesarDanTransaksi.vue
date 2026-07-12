@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <!-- Upper action header -->
     <div
-      class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5"
+      class="workspace-page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
@@ -261,12 +261,6 @@
                         ><template v-else>Draft</template></template
                       ></span
                     >
-                    <p
-                      v-if="t._raw?.created_by_name"
-                      class="mt-1 text-[9px] text-[#8A98AB]"
-                    >
-                      Pembuat: {{ t._raw.created_by_name }}
-                    </p>
                   </td>
                   <td class="p-4">
                     <div class="flex items-center justify-center gap-1">
@@ -308,12 +302,13 @@
       </div>
     </div>
     <!-- 3. COA ADD ACCOUNT MODAL -->
+    <Teleport to="body">
     <div
       v-if="isAccountModalOpen"
-      class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4"
+      class="account-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
-        class="bg-white border border-slate-200 rounded-3xl w-full max-w-[980px] overflow-hidden shadow-2xl"
+        class="account-form-modal-card bg-white border border-slate-200 rounded-3xl w-full max-w-[720px] overflow-hidden shadow-2xl"
       >
         <div
           class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center"
@@ -333,13 +328,28 @@
           </div>
           <button
             id="btn-close-account-modal"
-            class="text-slate-400 hover:text-slate-600 text-xs font-semibold"
-            @click="updateIsAccountModalOpen(false)"
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white hover:text-slate-600"
+            aria-label="Tutup form akun"
+            @click="closeAccountModal"
           >
-            Batal
+            <X class="h-5 w-5" />
           </button>
         </div>
-        <form class="p-6 space-y-4 text-xs" @submit="handleSaveAccount">
+        <form
+          novalidate
+          data-manual-validation="true"
+          class="p-6 space-y-4 text-xs"
+          @submit="handleSaveAccount"
+        >
+          <div
+            v-if="accountFormErrorMessages.length"
+            class="form-validation-summary"
+            role="alert"
+          >
+            <strong>Lengkapi seluruh data akun.</strong>
+            <span>Semua kolom wajib diisi sebelum akun buku besar disimpan.</span>
+          </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Kode Akun (Kode COA)</label
             ><input
@@ -348,9 +358,15 @@
               required
               placeholder="Contoh: 1102, 5004"
               :value="newAccount.kode"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"
-              @change="updateNewAccount({ ...newAccount, kode: eventValue($event) })"
+              :class="[
+                accountInputClass,
+                { 'form-control-invalid': accountFormErrors.kode },
+              ]"
+              @input="setAccountField('kode', eventValue($event))"
             />
+            <p v-if="accountFormErrors.kode" class="form-field-warning">
+              {{ accountFormErrors.kode }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Nama Akun Buku Besar</label
@@ -360,17 +376,28 @@
               required
               placeholder="Contoh: Beban Perjalanan Dinas"
               :value="newAccount.nama"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"
-              @change="updateNewAccount({ ...newAccount, nama: eventValue($event) })"
+              :class="[
+                accountInputClass,
+                { 'form-control-invalid': accountFormErrors.nama },
+              ]"
+              @input="setAccountField('nama', eventValue($event))"
             />
+            <p v-if="accountFormErrors.nama" class="form-field-warning">
+              {{ accountFormErrors.nama }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Tipe Klasifikasi Akun</label
             ><select
               id="acc-form-type"
+              required
               :value="newAccount.tipe"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800"
-              @change="updateNewAccount({ ...newAccount, tipe: eventValue($event) })"
+              :class="[
+                accountInputClass,
+                'text-slate-800',
+                { 'form-control-invalid': accountFormErrors.tipe },
+              ]"
+              @change="setAccountField('tipe', eventValue($event))"
             >
               <option value="Aset">Aset</option>
               <option value="Kewajiban">Kewajiban (Utang)</option>
@@ -378,14 +405,18 @@
               <option value="Pendapatan">Pendapatan</option>
               <option value="Beban">Beban Operasional</option>
             </select>
+            <p v-if="accountFormErrors.tipe" class="form-field-warning">
+              {{ accountFormErrors.tipe }}
+            </p>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Akun Induk</label
               ><select
+                id="acc-form-parent"
                 :value="newAccount.parentId"
-                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"
-                @change="updateNewAccount({ ...newAccount, parentId: eventValue($event) })"
+                :class="accountInputClass"
+                @change="setAccountField('parentId', eventValue($event))"
               >
                 <option value="">Tidak ada</option>
                 <option
@@ -400,13 +431,21 @@
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Status</label
               ><select
+                id="acc-form-status"
+                required
                 :value="newAccount.status"
-                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"
-                @change="updateNewAccount({ ...newAccount, status: eventValue($event) })"
+                :class="[
+                  accountInputClass,
+                  { 'form-control-invalid': accountFormErrors.status },
+                ]"
+                @change="setAccountField('status', eventValue($event))"
               >
                 <option value="active">Aktif</option>
                 <option value="inactive">Nonaktif</option>
               </select>
+              <p v-if="accountFormErrors.status" class="form-field-warning">
+                {{ accountFormErrors.status }}
+              </p>
             </div>
           </div>
           <div class="space-y-1.5">
@@ -414,13 +453,18 @@
             ><input
               id="acc-form-val"
               type="number"
+              required
               :value="newAccount.saldo"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono"
-              @change="updateNewAccount({
-                    ...newAccount,
-                    saldo: Number(eventValue($event)),
-                  })"
+              :class="[
+                accountInputClass,
+                'font-mono',
+                { 'form-control-invalid': accountFormErrors.saldo },
+              ]"
+              @input="setAccountField('saldo', Number(eventValue($event)))"
             />
+            <p v-if="accountFormErrors.saldo" class="form-field-warning">
+              {{ accountFormErrors.saldo }}
+            </p>
           </div>
           <button
             id="btn-account-submit"
@@ -432,11 +476,13 @@
         </form>
       </div>
     </div>
+    </Teleport>
     <!-- 4. JOURNAL ENTRY FORM MODAL -->
-    <div
-      v-if="isJournalModalOpen"
-      class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4"
-    >
+    <Teleport to="body">
+      <div
+        v-if="isJournalModalOpen"
+        class="journal-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
       <div
         class="journal-entry-modal bg-white border border-slate-200 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col"
       >
@@ -453,10 +499,12 @@
           </div>
           <button
             id="btn-close-journal-modal"
-            class="inline-flex h-10 min-w-[92px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-extrabold text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
-            @click="updateIsJournalModalOpen(false)"
+            type="button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#DCE7F4] bg-white text-[#8A98AB] shadow-sm transition-colors hover:border-[#C8D6EA] hover:bg-slate-50 hover:text-[#0B1F4A]"
+            aria-label="Tutup form jurnal"
+            @click="closeJournalModal"
           >
-            Batal
+            <X class="h-5 w-5" />
           </button>
         </div>
         <!-- Quick Templates Selector -->
@@ -476,6 +524,13 @@
           </button>
         </div>
         <div class="p-6 text-sm space-y-4 flex-1">
+          <div
+            v-if="journalErrorCount > 0"
+            class="form-validation-summary"
+          >
+            <strong>Form belum dapat disimpan.</strong>
+            <span>Lengkapi {{ journalErrorCount }} kolom yang ditandai di bawah ini.</span>
+          </div>
           <!-- Core Voucher & Date -->
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
@@ -486,9 +541,15 @@
                 type="text"
                 required
                 :value="voucherNo"
-                class="h-12 w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 font-mono text-sm font-bold text-slate-700 focus:outline-none"
+                :class="[
+                  'h-12 w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 font-mono text-sm font-bold text-slate-700 focus:outline-none',
+                  { 'form-control-invalid': journalFormErrors.voucherNo },
+                ]"
                 @change="updateVoucherNo(eventValue($event))"
               />
+              <p v-if="journalFormErrors.voucherNo" class="form-field-warning">
+                {{ journalFormErrors.voucherNo }}
+              </p>
             </div>
             <div class="space-y-2">
               <label class="text-sm font-bold text-slate-700"
@@ -498,20 +559,29 @@
                 type="date"
                 required
                 :value="journalDateInput"
-                class="h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 font-mono text-sm text-slate-700 focus:outline-none"
+                :class="[
+                  'h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 font-mono text-sm text-slate-700 focus:outline-none',
+                  { 'form-control-invalid': journalFormErrors.journalDate },
+                ]"
                 @change="updateJournalDateInput(eventValue($event))"
               />
+              <p v-if="journalFormErrors.journalDate" class="form-field-warning">
+                {{ journalFormErrors.journalDate }}
+              </p>
             </div>
             <div class="space-y-2">
               <label class="text-sm font-bold text-slate-700"
-                >Divisi (opsional)</label
+                >Divisi</label
               ><select
                 id="journ-form-division"
                 :value="journalDivisionId"
-                class="h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 focus:outline-none"
+                :class="[
+                  'h-12 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 focus:outline-none',
+                  { 'form-control-invalid': journalFormErrors.division },
+                ]"
                 @change="updateJournalDivisionId(eventValue($event))"
               >
-                <option value="">Operasional umum / tanpa divisi</option>
+                <option value="">Pilih divisi transaksi</option>
                 <option
                   v-for="division in activeDivisions"
                   :key="division.id"
@@ -523,6 +593,9 @@
                   ><template v-else></template>{{ division.name }}
                 </option>
               </select>
+              <p v-if="journalFormErrors.division" class="form-field-warning">
+                {{ journalFormErrors.division }}
+              </p>
             </div>
           </div>
           <!-- Memo -->
@@ -535,9 +608,15 @@
               required
               placeholder="Tulis alasan transaksi atau invoice..."
               :value="memo"
-              class="h-11 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-800 focus:outline-none"
+              :class="[
+                'h-11 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-800 focus:outline-none',
+                { 'form-control-invalid': journalFormErrors.memo },
+              ]"
               @change="updateMemo(eventValue($event))"
             />
+            <p v-if="journalFormErrors.memo" class="form-field-warning">
+              {{ journalFormErrors.memo }}
+            </p>
           </div>
           <div class="grid gap-4 xl:grid-cols-2">
             <!-- DEBIT ENTRIES (Multi Row) -->
@@ -566,7 +645,13 @@
                   <select
                     :id="`debit-line-acc-${idx}`"
                     :value="line.kode"
-                    class="h-11 min-w-0 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 focus:outline-none"
+                    :class="[
+                      'h-11 min-w-0 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 focus:outline-none',
+                      {
+                        'form-control-invalid':
+                          journalFormErrors[`debitKode-${idx}`],
+                      },
+                    ]"
                     @change="handleDebitRowChange(idx, 'kode', eventValue($event))"
                   >
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
@@ -577,7 +662,13 @@
                     type="number"
                     placeholder="Debit Nominal"
                     :value="line.nominal"
-                    class="h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none"
+                    :class="[
+                      'h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none',
+                      {
+                        'form-control-invalid':
+                          journalFormErrors[`debitNominal-${idx}`],
+                      },
+                    ]"
                     @change="handleDebitRowChange(
                           idx,
                           'nominal',
@@ -591,6 +682,18 @@
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>
+                  <p
+                    v-if="
+                      journalFormErrors[`debitKode-${idx}`] ||
+                      journalFormErrors[`debitNominal-${idx}`]
+                    "
+                    class="form-field-warning md:col-span-3"
+                  >
+                    {{
+                      journalFormErrors[`debitKode-${idx}`] ||
+                      journalFormErrors[`debitNominal-${idx}`]
+                    }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -620,7 +723,13 @@
                   <select
                     :id="`credit-line-acc-${idx}`"
                     :value="line.kode"
-                    class="h-11 min-w-0 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 focus:outline-none"
+                    :class="[
+                      'h-11 min-w-0 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 focus:outline-none',
+                      {
+                        'form-control-invalid':
+                          journalFormErrors[`creditKode-${idx}`],
+                      },
+                    ]"
                     @change="handleCreditRowChange(idx, 'kode', eventValue($event))"
                   >
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
@@ -631,7 +740,13 @@
                     type="number"
                     placeholder="Kredit Nominal"
                     :value="line.nominal"
-                    class="h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none"
+                    :class="[
+                      'h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none',
+                      {
+                        'form-control-invalid':
+                          journalFormErrors[`creditNominal-${idx}`],
+                      },
+                    ]"
                     @change="handleCreditRowChange(
                           idx,
                           'nominal',
@@ -645,6 +760,18 @@
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>
+                  <p
+                    v-if="
+                      journalFormErrors[`creditKode-${idx}`] ||
+                      journalFormErrors[`creditNominal-${idx}`]
+                    "
+                    class="form-field-warning md:col-span-3"
+                  >
+                    {{
+                      journalFormErrors[`creditKode-${idx}`] ||
+                      journalFormErrors[`creditNominal-${idx}`]
+                    }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -690,18 +817,19 @@
           <button
             id="btn-journal-submit"
             type="button"
-            :disabled="!isBalanced"
-            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A]"
             @click="handleSaveJournal"
           >
             Simpan Draft Jurnal
           </button>
         </div>
       </div>
-    </div>
-    <div
+      </div>
+    </Teleport>
+    <Teleport to="body">
+      <div
       v-if="selectedAccountDetail"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      class="account-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -762,7 +890,8 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <ConfirmDialog
       :open="!!deleteConfirm"
       eyebrow="Konfirmasi Penghapusan"
@@ -778,8 +907,8 @@
         'Jika backend menolak penghapusan, nonaktifkan akun tersebut sebagai gantinya.',
       ]"
       confirm-label="Hapus Akun"
-      :on-cancel="closeDeleteConfirm"
-      :on-confirm="confirmDeleteAccount"
+      @cancel="closeDeleteConfirm"
+      @confirm="confirmDeleteAccount"
     />
   </div>
 </template>
@@ -802,6 +931,7 @@ import {
   Send,
   ShieldCheck,
   Eye,
+  X,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { AkunBukuBesar, Transaksi, TipeAkun } from "../types.ts";
@@ -860,19 +990,143 @@ const newAccount = ref({
     parentId: "",
   }),
   updateNewAccount = (next) => (newAccount.value = next);
+
+const accountInputClass =
+  "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none";
+
+type AccountFormFieldKey = "kode" | "nama" | "tipe" | "status" | "saldo";
+
+const emptyAccountFormErrors = (): Record<AccountFormFieldKey, string> => ({
+  kode: "",
+  nama: "",
+  tipe: "",
+  status: "",
+  saldo: "",
+});
+
+const accountFormErrors = ref<Record<AccountFormFieldKey, string>>(
+  emptyAccountFormErrors(),
+);
+
+const accountRequiredFields: Array<{
+  key: AccountFormFieldKey;
+  id: string;
+  label: string;
+  type?: "number";
+  allowZero?: boolean;
+}> = [
+  { key: "kode", id: "acc-form-code", label: "Kode akun" },
+  { key: "nama", id: "acc-form-name", label: "Nama akun buku besar" },
+  { key: "tipe", id: "acc-form-type", label: "Tipe klasifikasi akun" },
+  { key: "status", id: "acc-form-status", label: "Status" },
+  {
+    key: "saldo",
+    id: "acc-form-val",
+    label: "Saldo awal",
+    type: "number",
+    allowZero: true,
+  },
+];
+
+const accountFormErrorMessages = computed(() =>
+  Object.values(accountFormErrors.value).filter(Boolean),
+);
+
+function resetAccountFormErrors() {
+  accountFormErrors.value = emptyAccountFormErrors();
+}
+
+function clearAccountFormError(key: AccountFormFieldKey) {
+  if (!accountFormErrors.value[key]) return;
+  accountFormErrors.value = {
+    ...accountFormErrors.value,
+    [key]: "",
+  };
+}
+
+function setAccountField(key: keyof typeof newAccount.value, value: any) {
+  updateNewAccount({
+    ...newAccount.value,
+    [key]: value,
+  });
+  if (key in accountFormErrors.value)
+    clearAccountFormError(key as AccountFormFieldKey);
+}
+
+function accountRawInputValue(id: string) {
+  return (
+    (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null)
+      ?.value ?? ""
+  )
+    .toString()
+    .trim();
+}
+
+function validateAccountForm() {
+  const nextErrors = emptyAccountFormErrors();
+
+  for (const field of accountRequiredFields) {
+    const rawValue = accountRawInputValue(field.id);
+    const value = newAccount.value[field.key];
+
+    if (!rawValue) {
+      nextErrors[field.key] = `${field.label} wajib diisi.`;
+      continue;
+    }
+
+    if (field.type === "number") {
+      const numericValue = Number(value);
+      const minimum = field.allowZero ? 0 : 1;
+      if (!Number.isFinite(numericValue) || numericValue < minimum) {
+        nextErrors[field.key] = field.allowZero
+          ? `${field.label} harus berupa angka 0 atau lebih.`
+          : `${field.label} harus lebih dari 0.`;
+      }
+    }
+  }
+
+  accountFormErrors.value = nextErrors;
+  const firstInvalidField = accountRequiredFields.find(
+    (field) => nextErrors[field.key],
+  );
+
+  if (firstInvalidField) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField.id);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+}
+
 const editingAccount = ref<any>(null); // Add Journal Entry Form State
 const isJournalModalOpen = ref(false),
   updateIsJournalModalOpen = (next) => (isJournalModalOpen.value = next);
 const voucherNo = ref(
     `RV-${new Date().getFullYear()}${transaksi.length + 101}`,
   ),
-  updateVoucherNo = (next) => (voucherNo.value = next);
+  updateVoucherNo = (next) => {
+    voucherNo.value = next;
+    clearJournalError("voucherNo");
+  };
 const journalDateInput = ref(new Date().toISOString().split("T")[0]),
-  updateJournalDateInput = (next) => (journalDateInput.value = next);
+  updateJournalDateInput = (next) => {
+    journalDateInput.value = next;
+    clearJournalError("journalDate");
+  };
 const journalDivisionId = ref(""),
-  updateJournalDivisionId = (next) => (journalDivisionId.value = next);
+  updateJournalDivisionId = (next) => {
+    journalDivisionId.value = next;
+    clearJournalError("division");
+  };
 const memo = ref(""),
-  updateMemo = (next) => (memo.value = next);
+  updateMemo = (next) => {
+    memo.value = next;
+    clearJournalError("memo");
+  };
 const selectedTemplate = ref("Umum"),
   updateSelectedTemplate = (next) => (selectedTemplate.value = next); // Multi-row Debit & Credit lines
 const debitLines = ref([
@@ -888,8 +1142,128 @@ const creditLines = ref([
       nominal: 0,
     },
   ]),
-  updateCreditLines = (next) => (creditLines.value = next); // Handle template switch for fast entries
+  updateCreditLines = (next) => (creditLines.value = next);
+
+const journalFormErrors = ref<Record<string, string>>({});
+const journalErrorCount = computed(
+  () => Object.keys(journalFormErrors.value).length,
+);
+const clearJournalError = (...keys: string[]) => {
+  if (!keys.some((key) => journalFormErrors.value[key])) return;
+  const nextErrors = { ...journalFormErrors.value };
+  keys.forEach((key) => delete nextErrors[key]);
+  journalFormErrors.value = nextErrors;
+};
+const resetJournalFormErrors = () => {
+  journalFormErrors.value = {};
+};
+
+const closeJournalModal = () => {
+  resetJournalFormErrors();
+  updateIsJournalModalOpen(false);
+};
+
+const validateJournalForm = () => {
+  const nextErrors: Record<string, string> = {};
+  let firstInvalidId = "";
+
+  const mark = (key: string, message: string, id: string) => {
+    nextErrors[key] = message;
+    if (!firstInvalidId) firstInvalidId = id;
+  };
+
+  if (!String(voucherNo.value || "").trim()) {
+    mark("voucherNo", "Nomor voucher wajib diisi.", "journ-form-voucher");
+  }
+  if (!String(journalDateInput.value || "").trim()) {
+    mark("journalDate", "Tanggal transaksi wajib diisi.", "journ-form-date");
+  }
+  if (activeDivisions.value.length > 0 && !String(journalDivisionId.value).trim()) {
+    mark("division", "Divisi transaksi wajib dipilih.", "journ-form-division");
+  }
+  if (!String(memo.value || "").trim()) {
+    mark("memo", "Memo keterangan transaksi wajib diisi.", "journ-form-memo");
+  }
+
+  debitLines.value.forEach((line, idx) => {
+    if (!String(line.kode || "").trim()) {
+      mark(
+        `debitKode-${idx}`,
+        `Akun debit baris ${idx + 1} wajib dipilih.`,
+        `debit-line-acc-${idx}`,
+      );
+    }
+    if (!Number.isFinite(Number(line.nominal)) || Number(line.nominal) <= 0) {
+      mark(
+        `debitNominal-${idx}`,
+        `Nominal debit baris ${idx + 1} harus lebih dari 0.`,
+        `debit-line-val-${idx}`,
+      );
+    }
+  });
+
+  creditLines.value.forEach((line, idx) => {
+    if (!String(line.kode || "").trim()) {
+      mark(
+        `creditKode-${idx}`,
+        `Akun kredit baris ${idx + 1} wajib dipilih.`,
+        `credit-line-acc-${idx}`,
+      );
+    }
+    if (!Number.isFinite(Number(line.nominal)) || Number(line.nominal) <= 0) {
+      mark(
+        `creditNominal-${idx}`,
+        `Nominal kredit baris ${idx + 1} harus lebih dari 0.`,
+        `credit-line-val-${idx}`,
+      );
+    }
+  });
+
+  if (Object.keys(nextErrors).length === 0 && !isBalanced.value) {
+    mark(
+      "balance",
+      "Total debit dan kredit harus seimbang serta lebih dari 0.",
+      "btn-journal-submit",
+    );
+  }
+
+  journalFormErrors.value = nextErrors;
+
+  if (firstInvalidId) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidId);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+};
+
+const resetJournalForm = () => {
+  resetJournalFormErrors();
+  updateMemo("");
+  updateJournalDivisionId("");
+  updateDebitLines([
+    {
+      kode: "1001",
+      nominal: 0,
+    },
+  ]);
+  updateCreditLines([
+    {
+      kode: "1001",
+      nominal: 0,
+    },
+  ]);
+  updateSelectedTemplate("Umum");
+  updateVoucherNo(`RV-${new Date().getFullYear()}${transaksi.length + 102}`);
+};
+
+// Handle template switch for fast entries
 const handleTemplateChange = (tmpl: string) => {
+  resetJournalFormErrors();
   updateSelectedTemplate(tmpl);
   if (tmpl === "Pendapatan") {
     updateMemo("Penerimaan termin pembayaran proyek teknologi klien");
@@ -974,6 +1348,10 @@ const handleDebitRowChange = (
     [field]: value,
   };
   updateDebitLines(updated);
+  clearJournalError(
+    field === "kode" ? `debitKode-${idx}` : `debitNominal-${idx}`,
+    "balance",
+  );
 };
 const handleAddCreditRow = () => {
   updateCreditLines([
@@ -998,6 +1376,10 @@ const handleCreditRowChange = (
     [field]: value,
   };
   updateCreditLines(updated);
+  clearJournalError(
+    field === "kode" ? `creditKode-${idx}` : `creditNominal-${idx}`,
+    "balance",
+  );
 };
 
 // Balancing Calculation
@@ -1013,6 +1395,7 @@ const isBalanced = computed(
 
 const resetAccountForm = () => {
   editingAccount.value = null;
+  resetAccountFormErrors();
   updateNewAccount({
     kode: "",
     nama: "",
@@ -1024,6 +1407,7 @@ const resetAccountForm = () => {
 };
 
 const openAccountForm = (account: any = null) => {
+  resetAccountFormErrors();
   if (account) {
     const raw = account._raw || account;
     editingAccount.value = account;
@@ -1039,11 +1423,16 @@ const openAccountForm = (account: any = null) => {
   updateIsAccountModalOpen(true);
 };
 
+const closeAccountModal = () => {
+  resetAccountFormErrors();
+  updateIsAccountModalOpen(false);
+};
+
 // Add or edit account submission
 const handleSaveAccount = async (e: Event) => {
   e.preventDefault();
-  if (!newAccount.value.kode || !newAccount.value.nama) {
-    notify("Harap lengkapi kode akun dan nama akun.");
+  if (!validateAccountForm()) {
+    notify("Lengkapi seluruh data akun sebelum menyimpan.");
     return;
   }
   if (
@@ -1056,7 +1445,7 @@ const handleSaveAccount = async (e: Event) => {
   const item: any = { ...newAccount.value };
   if (editingAccount.value) await updateAccount(editingAccount.value, item);
   else await addAccount(item);
-  updateIsAccountModalOpen(false);
+  closeAccountModal();
   resetAccountForm();
 };
 
@@ -1072,14 +1461,8 @@ const confirmDeleteAccount = async () => {
 
 // Add Transaction Submission
 const handleSaveJournal = () => {
-  if (!memo.value) {
-    notify("Harap berikan keterangan memo jurnal.");
-    return;
-  }
-  if (!isBalanced.value) {
-    notify(
-      "Jurnal tidak seimbang! Nilai total debit harus sama dengan total kredit.",
-    );
+  if (!validateJournalForm()) {
+    notify("Lengkapi seluruh kolom jurnal sebelum menyimpan.");
     return;
   }
 
@@ -1113,22 +1496,7 @@ const handleSaveJournal = () => {
   };
   addTransaction(transactionItem);
   updateIsJournalModalOpen(false);
-  // Reset state
-  updateMemo("");
-  updateJournalDivisionId("");
-  updateDebitLines([
-    {
-      kode: "1001",
-      nominal: 0,
-    },
-  ]);
-  updateCreditLines([
-    {
-      kode: "1001",
-      nominal: 0,
-    },
-  ]);
-  updateVoucherNo(`RV-${new Date().getFullYear()}${transaksi.length + 102}`);
+  resetJournalForm();
   notify("Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.");
 };
 
@@ -1173,19 +1541,7 @@ const pagedLedgers = computed(() =>
 const pagedJournals = computed(() =>
   pageRows(filteredJournals.value, journalPage.value),
 );
-const escapeHtml = (value: any) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-const downloadTextFile = (
-  filename: string,
-  content: string,
-  type = "text/html;charset=utf-8;",
-) => {
-  const blob = new Blob([content], { type });
+const downloadBlobFile = (filename: string, blob: Blob) => {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
@@ -1194,56 +1550,132 @@ const downloadTextFile = (
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 };
-const downloadJournalVoucher = (transaction: Transaksi) => {
+
+const pdfEscape = (value: any) =>
+  String(value ?? "-")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+
+const wrapPdfText = (value: any, maxLength = 78) => {
+  const words = String(value ?? "-").replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxLength && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) lines.push(current);
+  return lines.length ? lines : ["-"];
+};
+
+const buildJournalVoucherPdf = (transaction: Transaksi) => {
   const debitAccount = akun.find((item) => item.kode === transaction.debitAkun);
   const creditAccount = akun.find(
     (item) => item.kode === transaction.kreditAkun,
   );
-  const html = `<!doctype html>
-        <html>
-          <head>
-            <meta charset="utf-8" />
-            <title>Bukti Jurnal ${escapeHtml(transaction.refVoucher)}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 32px; color: #102A56; }
-              .voucher { border: 1px solid #DCE7F4; padding: 28px; max-width: 760px; }
-              .header { border-bottom: 2px solid #0B1F4A; padding-bottom: 14px; text-align: center; }
-              h1, h2, p { margin: 0; }
-              .meta { color: #64748B; font-size: 12px; margin-top: 6px; }
-              table { border-collapse: collapse; margin-top: 22px; width: 100%; font-size: 13px; }
-              th, td { border-bottom: 1px solid #E2E8F0; padding: 11px; text-align: left; }
-              th { background: #F8FBFE; color: #53658A; font-size: 10px; text-transform: uppercase; }
-              td:last-child, th:last-child { text-align: right; }
-              .memo { margin-top: 18px; border: 1px solid #E2E8F0; padding: 12px; font-size: 13px; }
-            </style>
-          </head>
-          <body>
-            <section class="voucher">
-              <div class="header">
-                <h1>PT KEDATA INDONESIA DIGITAL</h1>
-                <p class="meta">Bukti Jurnal Umum</p>
-              </div>
-              <div class="memo">
-                <p><strong>No. Voucher:</strong> ${escapeHtml(transaction.refVoucher)}</p>
-                <p><strong>Tanggal:</strong> ${escapeHtml(transaction.tanggal)}</p>
-                <p><strong>Keterangan:</strong> ${escapeHtml(transaction.keterangan)}</p>
-              </div>
-              <table>
-                <thead><tr><th>Posisi</th><th>Akun</th><th>Nilai</th></tr></thead>
-                <tbody>
-                  <tr><td>Debit</td><td>${escapeHtml(transaction.debitAkun)} - ${escapeHtml(debitAccount?.nama || "-")}</td><td>${escapeHtml(formatRupiah(transaction.nominal))}</td></tr>
-                  <tr><td>Kredit</td><td>${escapeHtml(transaction.kreditAkun)} - ${escapeHtml(creditAccount?.nama || "-")}</td><td>${escapeHtml(formatRupiah(transaction.nominal))}</td></tr>
-                </tbody>
-              </table>
-            </section>
-          </body>
-        </html>`;
+  const content: string[] = [];
+  const drawText = (
+    text: any,
+    x: number,
+    y: number,
+    size = 11,
+    font = "F1",
+  ) => {
+    content.push(
+      `BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEscape(text)}) Tj ET`,
+    );
+  };
+  const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
+    content.push(`${x1} ${y1} m ${x2} ${y2} l S`);
+  };
 
-  downloadTextFile(
-    `bukti-jurnal-${transaction.refVoucher || transaction.id}.html`,
-    html,
+  content.push("0.05 w");
+  drawText("PT KEDATA INDONESIA DIGITAL", 52, 790, 16, "F2");
+  drawText("Bukti Jurnal Umum", 52, 768, 11);
+  drawLine(52, 752, 543, 752);
+  drawText(`No. Voucher: ${transaction.refVoucher || transaction.id}`, 52, 724, 11, "F2");
+  drawText(`Tanggal: ${transaction.tanggal || "-"}`, 52, 704, 11);
+  let memoY = 684;
+  wrapPdfText(`Keterangan: ${transaction.keterangan || "-"}`, 82).forEach(
+    (line) => {
+      drawText(line, 52, memoY, 11);
+      memoY -= 16;
+    },
   );
-  notify(`Bukti jurnal ${transaction.refVoucher} berhasil diunduh.`);
+
+  const tableTop = memoY - 18;
+  drawLine(52, tableTop, 543, tableTop);
+  drawText("POSISI", 62, tableTop - 20, 9, "F2");
+  drawText("AKUN", 170, tableTop - 20, 9, "F2");
+  drawText("NILAI", 468, tableTop - 20, 9, "F2");
+  drawLine(52, tableTop - 32, 543, tableTop - 32);
+
+  const rows = [
+    {
+      posisi: "Debit",
+      akun: `${transaction.debitAkun || "-"} - ${debitAccount?.nama || "-"}`,
+      nilai: formatRupiah(transaction.nominal || 0),
+    },
+    {
+      posisi: "Kredit",
+      akun: `${transaction.kreditAkun || "-"} - ${creditAccount?.nama || "-"}`,
+      nilai: formatRupiah(transaction.nominal || 0),
+    },
+  ];
+  let rowY = tableTop - 54;
+  rows.forEach((row) => {
+    drawText(row.posisi, 62, rowY, 10);
+    drawText(row.akun, 170, rowY, 10);
+    drawText(row.nilai, 444, rowY, 10, "F2");
+    drawLine(52, rowY - 14, 543, rowY - 14);
+    rowY -= 34;
+  });
+
+  drawText(`Status: ${transaction.status || "-"}`, 52, rowY - 12, 10);
+  drawText(`Diunduh: ${new Date().toLocaleDateString("id-ID")}`, 52, rowY - 30, 10);
+
+  const stream = content.join("\n");
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n",
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
+    `6 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object) => {
+    offsets.push(pdf.length);
+    pdf += object;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+};
+
+const downloadJournalVoucher = (transaction: Transaksi) => {
+  downloadBlobFile(
+    `bukti-jurnal-${transaction.refVoucher || transaction.id}.pdf`,
+    buildJournalVoucherPdf(transaction),
+  );
+  notify(`PDF bukti jurnal ${transaction.refVoucher} berhasil diunduh.`);
 };
 const availableParentAccounts = computed(() =>
   (props.akun || []).filter(

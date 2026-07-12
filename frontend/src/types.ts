@@ -60,6 +60,7 @@ export interface Transaksi {
   debitAkun: string; // Kode Akun
   kreditAkun: string; // Kode Akun
   isDraft?: boolean;
+  status?: string;
 }
 export interface Langganan {
   id: string;

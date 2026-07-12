@@ -1166,8 +1166,8 @@ router.post('/:id/issue', async (req, res) => {
       throw new Error('Kewajiban pajak tidak ditemukan.')
     }
 
-    if (record.status !== 'draft') {
-      throw new Error('Hanya draft pajak yang dapat diterbitkan.')
+    if (!['draft', 'unpaid', 'overdue'].includes(record.status)) {
+      throw new Error('Kewajiban pajak ini tidak dapat diterbitkan.')
     }
 
     const [payrollRows] = await connection.query(
@@ -1190,15 +1190,29 @@ router.post('/:id/issue', async (req, res) => {
       `
         SELECT id
         FROM journal_entries
-        WHERE source_type = 'tax_record'
-          AND source_id = ?
+        WHERE (source_type = 'tax_record' AND source_id = ?)
+          OR id IN (
+            SELECT journal_entry_id
+            FROM transaction_taxes
+            WHERE tax_record_id = ?
+              AND status = 'posted'
+              AND journal_entry_id IS NOT NULL
+          )
         LIMIT 1
       `,
-      [record.id],
+      [record.id, record.id],
     )
 
     if (existingJournalRows[0]) {
-      throw new Error('Jurnal kewajiban pajak sudah pernah dibuat.')
+      await connection.commit()
+      return res.json({
+        success: true,
+        message: 'Jurnal kewajiban pajak sudah tersedia.',
+        data: {
+          tax_record: await getTaxDetail(db, record.id),
+          journal_entry_id: existingJournalRows[0].id,
+        },
+      })
     }
 
     const payableAccount = await findAccountByCode(
