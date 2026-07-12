@@ -201,17 +201,60 @@
   }
 }
 
-body:has(.fixed.inset-0) #btn-sidebar-drawer,
 body:has(.confirm-overlay) #btn-sidebar-drawer,
 body:has(.modal-layer) #btn-sidebar-drawer,
 body:has(.tax-manual-modal-layer) #btn-sidebar-drawer,
 body:has(.master-data-modal-layer) #btn-sidebar-drawer,
-body:has(.fixed.inset-0) #btn-sidebar-mobile-drawer,
+body:has(.journal-modal-layer) #btn-sidebar-drawer,
+body:has(.receivable-modal-layer) #btn-sidebar-drawer,
+body:has(.payable-modal-layer) #btn-sidebar-drawer,
+body:has(.target-modal-layer) #btn-sidebar-drawer,
 body:has(.confirm-overlay) #btn-sidebar-mobile-drawer,
 body:has(.modal-layer) #btn-sidebar-mobile-drawer,
 body:has(.tax-manual-modal-layer) #btn-sidebar-mobile-drawer,
-body:has(.master-data-modal-layer) #btn-sidebar-mobile-drawer {
+body:has(.master-data-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.journal-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.receivable-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.payable-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.target-modal-layer) #btn-sidebar-mobile-drawer {
   display: none !important;
+}
+
+/* Modal lives inside the shifted desktop content area; extend it back over the
+   complete viewport and keep the existing sidebar layout underneath it. */
+body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) #desktop-sidebar {
+  z-index: 0 !important;
+}
+
+@media (min-width: 1024px) {
+  #app .app-main :where(
+      .crm-modal-layer,
+      .tax-manual-modal-layer,
+      .master-data-modal-layer,
+      .sdm-form-modal-layer,
+      .asset-modal-layer,
+      .account-modal-layer,
+      .journal-modal-layer,
+      .receivable-modal-layer,
+      .payable-modal-layer,
+      .target-modal-layer,
+      .modal-layer,
+      .confirm-overlay
+    ) {
+    left: calc(-1 * var(--sidebar-offset, 0px)) !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+}
+
+/* Keep currency prefixes separate from typed values across every modal form. */
+.app-shell .currency-input > span {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.app-shell .currency-input > input {
+  padding-left: 2.75rem !important;
 }
 
 .master-data-table {
@@ -246,4 +289,770 @@ body:has(.master-data-modal-layer) #btn-sidebar-mobile-drawer {
 .master-data-table td:last-child > div {
   flex-wrap: nowrap;
   justify-content: flex-end;
+}
+
+/* Shared page heading card for every authenticated workspace module. */
+.app-shell .workspace-page-header {
+  position: relative;
+  width: 100%;
+  min-height: 148px;
+  padding: 26px 28px 28px;
+  overflow: hidden;
+  border: 1px solid #d8e5f4;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 18px 46px rgba(11, 31, 74, 0.09);
+}
+
+.app-shell .workspace-page-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: #0b1f4a;
+}
+
+.app-shell .workspace-page-header h1 {
+  margin-top: 4px;
+  color: #0b1f4a !important;
+  font-size: clamp(24px, 2vw, 32px) !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.app-shell .workspace-page-header p:not([class*="uppercase"]) {
+  max-width: 820px;
+  margin-top: 8px;
+  color: #6b7a90 !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+}
+
+.app-shell .workspace-page-header > :last-child {
+  position: relative;
+  z-index: 1;
+}
+
+/* Keep every table action column aligned as one compact control group. */
+.app-shell table th:last-child {
+  text-align: center;
+}
+
+.app-shell table td:last-child:has(button) {
+  white-space: nowrap;
+  text-align: center !important;
+}
+
+.app-shell table td:last-child > :where(div, span):has(button) {
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: auto;
+}
+
+.app-shell table td:last-child button {
+  display: inline-flex !important;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px !important;
+  padding: 0 !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px !important;
+}
+
+.app-shell table td:last-child button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Text actions need room; the default table action rule above is icon-only. */
+.app-shell table td:last-child button.tax-payment-action {
+  width: auto !important;
+  min-width: 96px !important;
+  height: 34px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  white-space: nowrap !important;
+  color: #ffffff !important;
+  background: #1467d8 !important;
+  border-color: #1467d8 !important;
+  box-shadow: 0 8px 18px rgba(20, 103, 216, 0.28) !important;
+}
+
+.app-shell table td:last-child button.tax-payment-action:hover {
+  color: #ffffff !important;
+  background: #0b1f4a !important;
+  border-color: #0b1f4a !important;
+  box-shadow: 0 10px 22px rgba(11, 31, 74, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 767px) {
+  .app-shell .workspace-page-header {
+    min-height: 0;
+    padding: 20px 18px 22px;
+    border-radius: 18px;
+  }
+
+  .app-shell .workspace-page-header > :last-child {
+    width: 100%;
+  }
+}
+
+.form-validation-summary {
+  display: grid;
+  gap: 3px;
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid #fecdd3;
+  border-left: 4px solid #be123c;
+  border-radius: 12px;
+  color: #881337;
+  background: #fff1f2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.form-validation-summary strong {
+  font-size: 13px;
+}
+
+.form-field-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  color: #be123c !important;
+  font-size: 11px !important;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.form-field-warning::before {
+  content: "!";
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #be123c;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.app-shell .form-control-invalid,
+.form-control-invalid {
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12) !important;
+}
+
+.master-data-modal-layer :where(button) {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.master-data-modal-layer :where(input) {
+  font-size: 12px !important;
+}
+
+.master-data-modal-layer :where(h3) {
+  font-size: 18px !important;
+}
+
+.subscription-modal-card {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-width: 760px !important;
+}
+
+.employee-form-modal-card {
+  width: min(980px, calc(100vw - 32px)) !important;
+  max-width: 980px !important;
+}
+
+.payroll-form-modal-card {
+  width: min(560px, calc(100vw - 32px)) !important;
+  max-width: 560px !important;
+}
+
+.account-form-modal-card {
+  width: min(720px, calc(100vw - 32px)) !important;
+  max-width: 720px !important;
+}
+
+.receivable-invoice-modal-card {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-width: 760px !important;
+}
+
+.receivable-receipt-modal-card {
+  width: min(700px, calc(100vw - 32px)) !important;
+  max-width: 700px !important;
+}
+
+.payable-bill-modal-card,
+.payable-payment-modal-card {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-width: 760px !important;
+  max-height: calc(100dvh - 32px) !important;
+}
+
+.payable-payment-modal-card {
+  width: min(700px, calc(100vw - 32px)) !important;
+  max-width: 700px !important;
+}
+
+.payable-bill-modal-card,
+.payable-payment-modal-card {
+  border-radius: 30px !important;
+}
+
+.payable-bill-modal-card > div:first-child,
+.payable-payment-modal-card > div:first-child {
+  padding: 30px 36px !important;
+}
+
+.payable-bill-modal-card > div:first-child {
+  background: #fff7f9 !important;
+  border-color: #ffe4ea !important;
+}
+
+.payable-payment-modal-card > div:first-child {
+  background: #f7f6ff !important;
+  border-color: #ebe8ff !important;
+}
+
+.payable-bill-modal-card h3,
+.payable-payment-modal-card h3 {
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.payable-bill-modal-card form,
+.payable-payment-modal-card form {
+  padding: 34px 36px 38px !important;
+}
+
+.payable-bill-modal-card form {
+  row-gap: 22px !important;
+}
+
+.payable-payment-modal-card form {
+  row-gap: 24px !important;
+}
+
+.payable-bill-modal-card label,
+.payable-payment-modal-card label {
+  font-size: 10.5px !important;
+  letter-spacing: 0.095em !important;
+  line-height: 1.25 !important;
+}
+
+.payable-bill-modal-card input,
+.payable-bill-modal-card select,
+.payable-payment-modal-card input,
+.payable-payment-modal-card select {
+  height: 48px !important;
+  border-color: #dce7f4 !important;
+  background: #f8fbfe !important;
+  font-size: 13px !important;
+  border-radius: 16px !important;
+}
+
+.payable-bill-modal-card textarea,
+.payable-payment-modal-card textarea {
+  border-color: #dce7f4 !important;
+  background: #f8fbfe !important;
+  font-size: 13px !important;
+  border-radius: 16px !important;
+}
+
+.payable-bill-modal-card input::placeholder,
+.payable-bill-modal-card textarea::placeholder,
+.payable-payment-modal-card input::placeholder,
+.payable-payment-modal-card textarea::placeholder {
+  color: #9aa9bc !important;
+}
+
+.payable-bill-modal-card button[type="submit"],
+.payable-payment-modal-card button[type="submit"] {
+  height: 56px !important;
+  border-radius: 16px !important;
+  font-size: 14px !important;
+}
+
+.payable-bill-modal-card button[type="submit"] {
+  background: #e90046 !important;
+  box-shadow: 0 16px 28px rgba(233, 0, 70, 0.18) !important;
+}
+
+.payable-bill-modal-card button[type="submit"]:hover {
+  background: #d6003f !important;
+}
+
+.payable-payment-modal-card button[type="submit"] {
+  background: #5846ea !important;
+  box-shadow: 0 16px 28px rgba(88, 70, 234, 0.18) !important;
+}
+
+.payable-payment-modal-card button[type="submit"]:hover {
+  background: #4737d6 !important;
+}
+
+.payable-bill-modal-card .form-validation-summary,
+.payable-payment-modal-card .form-validation-summary {
+  margin-bottom: 2px;
+}
+
+.journal-entry-modal {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-width: 760px !important;
+  max-height: calc(100dvh - 32px) !important;
+}
+
+.journal-entry-modal h3 {
+  font-size: 18px !important;
+  line-height: 1.25 !important;
+}
+
+.journal-entry-modal label,
+.journal-entry-modal span,
+.journal-entry-modal button,
+.journal-entry-modal input,
+.journal-entry-modal select {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.journal-entry-modal input,
+.journal-entry-modal select {
+  height: 42px !important;
+}
+
+.journal-entry-modal :where(.text-base) {
+  font-size: 14px !important;
+}
+
+.journal-entry-modal :where(.text-sm) {
+  font-size: 12px !important;
+}
+
+.journal-entry-modal :where(.text-xl) {
+  font-size: 18px !important;
+}
+
+.journal-entry-modal :where(.p-6) {
+  padding: 18px !important;
+}
+
+.journal-entry-modal :where(.px-7) {
+  padding-left: 22px !important;
+  padding-right: 22px !important;
+}
+
+.journal-entry-modal :where(.py-4) {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+.journal-entry-modal :where(.p-4) {
+  padding: 14px !important;
+}
+
+.crm-modal-layer {
+  background-color: rgba(17, 24, 39, 0.55) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.app-shell :where(.fixed.inset-0),
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer,
+    .confirm-overlay
+  ) {
+  background-color: rgba(17, 24, 39, 0.55) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.target-modal-layer {
+  z-index: 10090 !important;
+  background-color: rgba(0, 0, 0, 0.72) !important;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  > :where(div, section, article),
+.journal-entry-modal,
+.payable-bill-modal-card,
+.payable-payment-modal-card {
+  border: 1px solid #0b1f4a !important;
+  border-radius: 28px !important;
+  background: #ffffff !important;
+  color: #0b1f4a !important;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.24) !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  > :where(div, section, article)
+  > :first-child,
+.journal-entry-modal > :first-child,
+.payable-bill-modal-card > :first-child,
+.payable-payment-modal-card > :first-child {
+  border-bottom: 1px solid #0b1f4a !important;
+  background: #ffffff !important;
+  padding: 28px 34px !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(h3, h2) {
+  color: #0b1f4a !important;
+  font-size: 22px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(form) {
+  padding: 34px 36px 38px !important;
+  font-size: 14px !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(label, label > span) {
+  color: #0b1f4a !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  line-height: 1.25 !important;
+  text-transform: uppercase !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border: 1px solid #0b1f4a !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  color: #0b1f4a !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  box-shadow: none !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: 52px !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(textarea) {
+  min-height: 108px !important;
+  padding: 18px 20px !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(input, textarea)::placeholder {
+  color: #7c8ba3 !important;
+  opacity: 1 !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(button[type="submit"], #btn-journal-submit, [id$="-submit"]) {
+  min-height: 56px !important;
+  border-radius: 16px !important;
+  background: #0b1f4a !important;
+  color: #ffffff !important;
+  border-color: #0b1f4a !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 14px 28px rgba(11, 31, 74, 0.18) !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(button[type="submit"], #btn-journal-submit, [id$="-submit"]):hover {
+  background: #102a56 !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(button[id*="close"], button[aria-label*="Tutup"], button[aria-label*="tutup"]) {
+  color: #0b1f4a !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where([class*="bg-rose"], [class*="bg-purple"], [class*="bg-emerald"], [class*="bg-indigo"]) {
+  background-color: #0b1f4a !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where(
+    label[class*="text-rose"],
+    label[class*="text-purple"],
+    label[class*="text-emerald"],
+    label[class*="text-indigo"],
+    label > span[class*="text-rose"],
+    label > span[class*="text-purple"],
+    label > span[class*="text-emerald"],
+    label > span[class*="text-indigo"]
+  ) {
+  color: #0b1f4a !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where([class*="bg-[#0B1F4A]"], [class*="bg-[#102A56]"], [class*="bg-[#0B1220]"], [class*="bg-indigo"]) {
+  color: #ffffff !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where([class*="bg-[#0B1F4A]"], [class*="bg-[#102A56]"], [class*="bg-[#0B1220]"], [class*="bg-indigo"])
+  :where(h1, h2, h3, h4, h5, h6, p, span, label, strong) {
+  color: #ffffff !important;
+}
+
+:where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer
+  )
+  :where([class*="bg-[#0B1F4A]"], [class*="bg-[#102A56]"], [class*="bg-[#0B1220]"], [class*="bg-indigo"])
+  :where(p, span:not([class*="bg-"]), label) {
+  opacity: 0.92;
+}
+
+@media (max-width: 640px) {
+  .subscription-modal-card {
+    width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 22px !important;
+  }
 }

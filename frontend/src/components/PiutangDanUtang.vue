@@ -2,7 +2,7 @@
   <div class="space-y-6 font-sans">
     <!-- Upper header switch -->
     <div
-      class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5"
+      class="workspace-page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
@@ -371,12 +371,13 @@
       </div>
     </div>
     <!-- 3. INVOICE CREATION MODAL -->
-    <div
-      v-if="isInvoiceModalOpen"
-      class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl"
+        v-if="isInvoiceModalOpen"
+        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+      <div
+        class="receivable-invoice-modal-card bg-white border border-slate-200 rounded-3xl w-full max-w-[760px] overflow-hidden shadow-2xl"
       >
         <div
           class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center"
@@ -392,21 +393,34 @@
           </div>
           <button
             id="btn-close-inv-modal"
-            class="text-slate-400 hover:text-slate-600 text-xs font-semibold"
-            @click="updateIsInvoiceModalOpen(false)"
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[#DCE7F4] bg-white text-[#8A98AB] shadow-sm transition-colors hover:border-[#C8D6EA] hover:bg-slate-50 hover:text-[#0B1F4A]"
+            aria-label="Tutup form invoice"
+            @click="closeInvoiceModal"
           >
-            Batal
+            <X class="h-5 w-5" />
           </button>
         </div>
         <form class="p-6 space-y-4 text-xs" @submit="handleSaveInvoice">
+          <div v-if="invoiceErrorCount > 0" class="form-validation-summary">
+            <strong>Form belum dapat disimpan.</strong>
+            <span>Lengkapi {{ invoiceErrorCount }} kolom yang ditandai di bawah ini.</span>
+          </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Nomor Invoice</label
             ><input
+              id="inv-form-number"
               required
               :value="newInvoice.nomor"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono"
-              @change="updateNewInvoice({ ...newInvoice, nomor: eventValue($event) })"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
+                { 'form-control-invalid': invoiceFormErrors.nomor },
+              ]"
+              @change="setInvoiceField('nomor', eventValue($event))"
             />
+            <p v-if="invoiceFormErrors.nomor" class="form-field-warning">
+              {{ invoiceFormErrors.nomor }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700"
@@ -414,13 +428,20 @@
             ><select
               id="inv-form-project"
               :value="newInvoice.proyekId"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs"
-              @change="updateNewInvoice({ ...newInvoice, proyekId: eventValue($event) })"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs',
+                { 'form-control-invalid': invoiceFormErrors.proyekId },
+              ]"
+              @change="setInvoiceField('proyekId', eventValue($event))"
             >
+              <option value="">Pilih proyek aktif</option>
               <option v-for="p in proyek" :key="p.id" :value="p.id">
                 {{ p.nama }} ({{ formatRupiah(p.nilaiKontrak) }})
               </option>
             </select>
+            <p v-if="invoiceFormErrors.proyekId" class="form-field-warning">
+              {{ invoiceFormErrors.proyekId }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700"
@@ -430,21 +451,31 @@
               type="number"
               required
               :value="newInvoice.nominal"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono"
-              @change="updateNewInvoice({
-                    ...newInvoice,
-                    nominal: Number(eventValue($event)),
-                  })"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
+                { 'form-control-invalid': invoiceFormErrors.nominal },
+              ]"
+              @change="setInvoiceField('nominal', Number(eventValue($event)))"
             />
+            <p v-if="invoiceFormErrors.nominal" class="form-field-warning">
+              {{ invoiceFormErrors.nominal }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Keterangan Termin</label
             ><input
+              id="inv-form-desc"
               :value="newInvoice.keterangan"
               placeholder="Contoh: Termin 1 implementasi"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none"
-              @change="updateNewInvoice({ ...newInvoice, keterangan: eventValue($event) })"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none',
+                { 'form-control-invalid': invoiceFormErrors.keterangan },
+              ]"
+              @change="setInvoiceField('keterangan', eventValue($event))"
             />
+            <p v-if="invoiceFormErrors.keterangan" class="form-field-warning">
+              {{ invoiceFormErrors.keterangan }}
+            </p>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-1.5">
@@ -453,12 +484,18 @@
                 id="inv-form-date"
                 type="date"
                 :value="newInvoice.tanggalKirim"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono"
-                @change="updateNewInvoice({
-                      ...newInvoice,
-                      tanggalKirim: eventValue($event),
-                    })"
+                :class="[
+                  'w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
+                  { 'form-control-invalid': invoiceFormErrors.tanggalKirim },
+                ]"
+                @change="setInvoiceField('tanggalKirim', eventValue($event))"
               />
+              <p
+                v-if="invoiceFormErrors.tanggalKirim"
+                class="form-field-warning"
+              >
+                {{ invoiceFormErrors.tanggalKirim }}
+              </p>
             </div>
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Jatuh Tempo</label
@@ -467,12 +504,15 @@
                 type="date"
                 required
                 :value="newInvoice.jatuhTempo"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono"
-                @change="updateNewInvoice({
-                      ...newInvoice,
-                      jatuhTempo: eventValue($event),
-                    })"
+                :class="[
+                  'w-full p-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
+                  { 'form-control-invalid': invoiceFormErrors.jatuhTempo },
+                ]"
+                @change="setInvoiceField('jatuhTempo', eventValue($event))"
               />
+              <p v-if="invoiceFormErrors.jatuhTempo" class="form-field-warning">
+                {{ invoiceFormErrors.jatuhTempo }}
+              </p>
             </div>
           </div>
           <button
@@ -484,14 +524,16 @@
           </button>
         </form>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <!-- 4. CLIENT PAYMENT RECEIPT RECORD MODAL -->
-    <div
-      v-if="isReceiptModalOpen"
-      class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl"
+        v-if="isReceiptModalOpen"
+        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+      <div
+        class="receivable-receipt-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl"
       >
         <div
           class="px-9 py-8 bg-emerald-50/60 border-b border-emerald-50 flex justify-between items-center"
@@ -508,8 +550,9 @@
           </div>
           <button
             id="btn-close-receipt-modal"
+            type="button"
             class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors"
-            @click="updateIsReceiptModalOpen(false)"
+            @click="closeReceiptModal"
           >
             <X class="w-5 h-5" />
           </button>
@@ -518,36 +561,55 @@
           class="px-9 py-11 space-y-9 text-sm"
           @submit="handleRecordReceipt"
         >
+          <div v-if="receiptErrorCount > 0" class="form-validation-summary">
+            <strong>Form belum dapat disimpan.</strong>
+            <span>Lengkapi {{ receiptErrorCount }} kolom yang ditandai di bawah ini.</span>
+          </div>
           <div class="space-y-3">
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
               >Invoice yang Dilunasi</label
-            ><select
+            ><div class="relative">
+            <button
               id="receipt-form-invoice"
-              required
-              :value="selectedInvoiceId"
-              class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20"
-              @change="selectInvoiceForReceipt(eventValue($event))"
+              type="button"
+              :class="[
+                'flex w-full h-12 items-center justify-between px-4 bg-white border border-[#0B1F4A] rounded-2xl text-[#0B1F4A] text-left font-semibold text-sm focus:outline-none',
+                { 'form-control-invalid': receiptFormErrors.invoice },
+              ]"
+              @click="receiptDropdownOpen = !receiptDropdownOpen"
             >
-              <option value="">Pilih invoice outstanding</option>
-              <option
+              <span>{{ selectedReceiptInvoiceLabel }}</span>
+              <ChevronDown class="h-4 w-4 shrink-0" />
+            </button>
+            <div
+              v-if="receiptDropdownOpen"
+              class="absolute bottom-[calc(100%+8px)] left-0 z-[10100] max-h-72 w-full overflow-y-auto rounded-2xl border border-[#0B1F4A] bg-white p-1.5 shadow-2xl"
+            >
+              <button
                 v-for="invoice in invoices.filter(isInvoiceOpen)"
                 :key="invoice.id"
-                :value="invoice.id"
+                type="button"
+                class="block h-auto min-h-0 w-full rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[#0B1F4A] hover:bg-[#0B1F4A] hover:text-white"
+                @click="selectReceiptInvoiceOption(invoice.id)"
               >
                 {{ invoice.nomor }} —
                 {{ invoice.klienNama || invoice.proyekNama }} ({{
                   formatRupiah(getInvoiceOutstanding(invoice))
                 }})
-              </option>
-            </select>
+              </button>
+            </div>
+            </div>
+            <p v-if="receiptFormErrors.invoice" class="form-field-warning">
+              {{ receiptFormErrors.invoice }}
+            </p>
           </div>
           <div class="space-y-3">
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
               >Jumlah Diterima</label
             >
-            <div class="relative">
+            <div class="currency-input relative">
               <span
                 class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
                 >Rp</span
@@ -556,38 +618,39 @@
                 type="number"
                 :min="0"
                 :value="receiptAmount || ''"
-                class="w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all"
-                @input="updateReceiptAmount(Number(eventValue($event)))"
+                style="padding-left: 2.75rem !important"
+                :class="[
+                  'w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all',
+                  { 'form-control-invalid': receiptFormErrors.amount },
+                ]"
+                @input="setReceiptAmount(Number(eventValue($event)))"
               />
             </div>
+            <p v-if="receiptFormErrors.amount" class="form-field-warning">
+              {{ receiptFormErrors.amount }}
+            </p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
+          <div>
             <button
-              id="btn-receipt-cancel"
-              type="button"
-              class="h-[66px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all"
-              @click="updateIsReceiptModalOpen(false)"
-            >
-              Batal</button
-            ><button
               id="btn-receipt-submit"
               type="submit"
-              :disabled="!selectedInvoiceId || !invoices.some(isInvoiceOpen)"
-              class="h-[66px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+              class="h-[66px] w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
             >
               <Save class="w-4 h-4" /> Catat Pelunasan
             </button>
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <!-- 5. VENDOR BILL CREATION MODAL -->
-    <div
-      v-if="isBillModalOpen"
-      class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl"
+        v-if="isBillModalOpen"
+        class="payable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+      <div
+        class="payable-bill-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] overflow-hidden shadow-2xl"
       >
         <div
           class="px-9 py-8 bg-rose-50/60 border-b border-rose-50 flex justify-between items-center"
@@ -604,13 +667,18 @@
           </div>
           <button
             id="btn-close-bill-modal"
+            type="button"
             class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors"
-            @click="updateIsBillModalOpen(false)"
+            @click="closeBillModal"
           >
             <X class="w-5 h-5" />
           </button>
         </div>
         <form class="px-9 py-10 space-y-7 text-sm" @submit="handleSaveBill">
+          <div v-if="billErrorCount > 0" class="form-validation-summary">
+            <strong>Form belum dapat disimpan.</strong>
+            <span>Lengkapi {{ billErrorCount }} kolom yang ditandai di bawah ini.</span>
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
               <label
@@ -622,9 +690,15 @@
                 required
                 placeholder="Nama perusahaan vendor..."
                 :value="newBill.vendor"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all"
-                @change="updateNewBill({ ...newBill, vendor: eventValue($event) })"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all',
+                  { 'form-control-invalid': billFormErrors.vendor },
+                ]"
+                @change="setBillField('vendor', eventValue($event))"
               />
+              <p v-if="billFormErrors.vendor" class="form-field-warning">
+                {{ billFormErrors.vendor }}
+              </p>
             </div>
             <div class="space-y-3">
               <label
@@ -633,14 +707,20 @@
               ><select
                 id="bill-form-project"
                 :value="newBill.alokasiProyek"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm transition-all"
-                @change="updateNewBill({ ...newBill, alokasiProyek: eventValue($event) })"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm transition-all',
+                  { 'form-control-invalid': billFormErrors.alokasiProyek },
+                ]"
+                @change="setBillField('alokasiProyek', eventValue($event))"
               >
-                <option value="">-- Operasional Umum --</option>
+                <option value="">Pilih alokasi projek</option>
                 <option v-for="p in proyek" :key="p.id" :value="p.id">
                   {{ p.nama }}
                 </option>
               </select>
+              <p v-if="billFormErrors.alokasiProyek" class="form-field-warning">
+                {{ billFormErrors.alokasiProyek }}
+              </p>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -653,9 +733,15 @@
                 type="text"
                 required
                 :value="newBill.nomorTagihan"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-mono font-bold text-sm transition-all"
-                @change="updateNewBill({ ...newBill, nomorTagihan: eventValue($event) })"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-mono font-bold text-sm transition-all',
+                  { 'form-control-invalid': billFormErrors.nomorTagihan },
+                ]"
+                @change="setBillField('nomorTagihan', eventValue($event))"
               />
+              <p v-if="billFormErrors.nomorTagihan" class="form-field-warning">
+                {{ billFormErrors.nomorTagihan }}
+              </p>
             </div>
             <div class="space-y-3">
               <label
@@ -667,12 +753,18 @@
                   id="bill-form-date"
                   type="date"
                   :value="newBill.tanggalMasuk"
-                  class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all"
-                  @change="updateNewBill({ ...newBill, tanggalMasuk: eventValue($event) })"
+                  :class="[
+                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
+                    { 'form-control-invalid': billFormErrors.tanggalMasuk },
+                  ]"
+                  @change="setBillField('tanggalMasuk', eventValue($event))"
                 /><Calendar
                   class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
+              <p v-if="billFormErrors.tanggalMasuk" class="form-field-warning">
+                {{ billFormErrors.tanggalMasuk }}
+              </p>
             </div>
             <div class="space-y-3">
               <label
@@ -685,12 +777,18 @@
                   type="date"
                   required
                   :value="newBill.jatuhTempo"
-                  class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all"
-                  @change="updateNewBill({ ...newBill, jatuhTempo: eventValue($event) })"
+                  :class="[
+                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
+                    { 'form-control-invalid': billFormErrors.jatuhTempo },
+                  ]"
+                  @change="setBillField('jatuhTempo', eventValue($event))"
                 /><Calendar
                   class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
+              <p v-if="billFormErrors.jatuhTempo" class="form-field-warning">
+                {{ billFormErrors.jatuhTempo }}
+              </p>
             </div>
           </div>
           <div class="space-y-3">
@@ -698,7 +796,7 @@
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
               >Nominal Hutang</label
             >
-            <div class="relative">
+            <div class="currency-input relative">
               <span
                 class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
                 >Rp</span
@@ -708,13 +806,17 @@
                 required
                 :min="0"
                 :value="newBill.nominal || ''"
-                class="w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all"
-                @change="updateNewBill({
-                      ...newBill,
-                      nominal: Number(eventValue($event)),
-                    })"
+                style="padding-left: 2.75rem !important"
+                :class="[
+                  'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
+                  { 'form-control-invalid': billFormErrors.nominal },
+                ]"
+                @change="setBillField('nominal', Number(eventValue($event)))"
               />
             </div>
+            <p v-if="billFormErrors.nominal" class="form-field-warning">
+              {{ billFormErrors.nominal }}
+            </p>
           </div>
           <div class="space-y-3">
             <label
@@ -725,36 +827,37 @@
               required
               placeholder="Detail pengadaan barang/jasa..."
               :value="newBill.keterangan"
-              class="w-full min-h-[88px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y"
-              @change="updateNewBill({ ...newBill, keterangan: eventValue($event) })"
+              :class="[
+                'w-full min-h-[88px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y',
+                { 'form-control-invalid': billFormErrors.keterangan },
+              ]"
+              @change="setBillField('keterangan', eventValue($event))"
             />
+            <p v-if="billFormErrors.keterangan" class="form-field-warning">
+              {{ billFormErrors.keterangan }}
+            </p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 pt-1">
+          <div class="pt-1">
             <button
-              id="btn-bill-cancel"
-              type="button"
-              class="h-[52px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all"
-              @click="updateIsBillModalOpen(false)"
-            >
-              Batal</button
-            ><button
               id="btn-bill-submit"
               type="submit"
-              class="h-[52px] bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2"
+              class="h-[52px] w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2"
             >
               <Save class="w-4 h-4" /> Simpan Tagihan
             </button>
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <!-- 6. PAY VENDOR BILL MODAL -->
-    <div
-      v-if="isPayBillModalOpen"
-      class="fixed inset-0 bg-[#0B1220]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl"
+        v-if="isPayBillModalOpen"
+        class="payable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+      <div
+        class="payable-payment-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] overflow-hidden shadow-2xl"
       >
         <div
           class="px-9 py-8 bg-indigo-50/60 border-b border-indigo-50 flex justify-between items-center"
@@ -771,13 +874,18 @@
           </div>
           <button
             id="btn-close-pay-modal"
+            type="button"
             class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors"
-            @click="updateIsPayBillModalOpen(false)"
+            @click="closePayBillModal"
           >
             <X class="w-5 h-5" />
           </button>
         </div>
         <form class="px-9 py-10 space-y-7 text-sm" @submit="handlePayBill">
+          <div v-if="paymentErrorCount > 0" class="form-validation-summary">
+            <strong>Form belum dapat disimpan.</strong>
+            <span>Lengkapi {{ paymentErrorCount }} kolom yang ditandai di bawah ini.</span>
+          </div>
           <div class="space-y-3">
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
@@ -786,7 +894,10 @@
               id="pay-form-bill"
               required
               :value="selectedBillId"
-              class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20"
+              :class="[
+                'w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20',
+                { 'form-control-invalid': paymentFormErrors.bill },
+              ]"
               @change="selectBillForPayment(eventValue($event))"
             >
               <option value="">Pilih tagihan vendor outstanding</option>
@@ -800,6 +911,9 @@
                 }})
               </option>
             </select>
+            <p v-if="paymentFormErrors.bill" class="form-field-warning">
+              {{ paymentFormErrors.bill }}
+            </p>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
@@ -811,9 +925,15 @@
                 type="text"
                 placeholder="Nama vendor..."
                 :value="paymentForm.vendor"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all"
-                @change="updatePaymentForm({ ...paymentForm, vendor: eventValue($event) })"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all',
+                  { 'form-control-invalid': paymentFormErrors.vendor },
+                ]"
+                @change="setPaymentField('vendor', eventValue($event))"
               />
+              <p v-if="paymentFormErrors.vendor" class="form-field-warning">
+                {{ paymentFormErrors.vendor }}
+              </p>
             </div>
             <div class="space-y-3">
               <label
@@ -822,8 +942,11 @@
               ><select
                 id="pay-form-bank"
                 :value="paymentAccount"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm transition-all"
-                @change="updatePaymentAccount(eventValue($event))"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm transition-all',
+                  { 'form-control-invalid': paymentFormErrors.account },
+                ]"
+                @change="setPaymentAccount(eventValue($event))"
               >
                 <option value="1001">Bank (1110)</option>
                 <option
@@ -834,6 +957,9 @@
                   {{ a.nama }} ({{ a.kode }})
                 </option>
               </select>
+              <p v-if="paymentFormErrors.account" class="form-field-warning">
+                {{ paymentFormErrors.account }}
+              </p>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -845,12 +971,15 @@
                 id="pay-form-proof"
                 type="text"
                 :value="paymentForm.buktiBayar"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-mono font-bold text-sm transition-all"
-                @change="updatePaymentForm({
-                      ...paymentForm,
-                      buktiBayar: eventValue($event),
-                    })"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-mono font-bold text-sm transition-all',
+                  { 'form-control-invalid': paymentFormErrors.buktiBayar },
+                ]"
+                @change="setPaymentField('buktiBayar', eventValue($event))"
               />
+              <p v-if="paymentFormErrors.buktiBayar" class="form-field-warning">
+                {{ paymentFormErrors.buktiBayar }}
+              </p>
             </div>
             <div class="space-y-3">
               <label
@@ -862,15 +991,18 @@
                   id="pay-form-date"
                   type="date"
                   :value="paymentForm.tanggalBayar"
-                  class="w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all"
-                  @change="updatePaymentForm({
-                        ...paymentForm,
-                        tanggalBayar: eventValue($event),
-                      })"
+                  :class="[
+                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
+                    { 'form-control-invalid': paymentFormErrors.tanggalBayar },
+                  ]"
+                  @change="setPaymentField('tanggalBayar', eventValue($event))"
                 /><Calendar
                   class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
+              <p v-if="paymentFormErrors.tanggalBayar" class="form-field-warning">
+                {{ paymentFormErrors.tanggalBayar }}
+              </p>
             </div>
           </div>
           <div class="space-y-3">
@@ -878,7 +1010,7 @@
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
               >Jumlah Dibayar (Rp)</label
             >
-            <div class="relative">
+            <div class="currency-input relative">
               <span
                 class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
                 >Rp</span
@@ -887,13 +1019,17 @@
                 type="number"
                 :min="0"
                 :value="paymentForm.jumlah || ''"
-                class="w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all"
-                @change="updatePaymentForm({
-                      ...paymentForm,
-                      jumlah: Number(eventValue($event)),
-                    })"
+                style="padding-left: 2.75rem !important"
+                :class="[
+                  'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
+                  { 'form-control-invalid': paymentFormErrors.jumlah },
+                ]"
+                @change="setPaymentField('jumlah', Number(eventValue($event)))"
               />
             </div>
+            <p v-if="paymentFormErrors.jumlah" class="form-field-warning">
+              {{ paymentFormErrors.jumlah }}
+            </p>
           </div>
           <div class="space-y-3">
             <label
@@ -903,30 +1039,29 @@
               id="pay-form-note"
               placeholder="Contoh: Pembayaran invoice bulan lalu..."
               :value="paymentForm.catatan"
-              class="w-full min-h-[86px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y"
-              @change="updatePaymentForm({ ...paymentForm, catatan: eventValue($event) })"
+              :class="[
+                'w-full min-h-[86px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y',
+                { 'form-control-invalid': paymentFormErrors.catatan },
+              ]"
+              @change="setPaymentField('catatan', eventValue($event))"
             />
+            <p v-if="paymentFormErrors.catatan" class="form-field-warning">
+              {{ paymentFormErrors.catatan }}
+            </p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 pt-1">
+          <div class="pt-1">
             <button
-              id="btn-pay-cancel"
-              type="button"
-              class="h-[52px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-2xl text-sm transition-all"
-              @click="updateIsPayBillModalOpen(false)"
-            >
-              Batal</button
-            ><button
               id="btn-pay-submit"
               type="submit"
-              :disabled="!selectedBillId"
-              class="h-[52px] bg-[#5146E8] hover:bg-[#4338CA] disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
+              class="h-[52px] w-full bg-[#5146E8] hover:bg-[#4338CA] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
             >
               <Save class="w-4 h-4" /> Selesaikan Pembayaran
             </button>
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <ConfirmDialog
       :open="!!cancelConfirm"
       eyebrow="Konfirmasi Pembatalan"
@@ -943,8 +1078,8 @@
       :reason-placeholder="
         cancelConfirm?.reasonPlaceholder || 'Tulis alasan singkat...'
       "
-      :on-cancel="closeCancelConfirm"
-      :on-confirm="confirmCancelDocument"
+      @cancel="closeCancelConfirm"
+      @confirm="confirmCancelDocument"
     />
   </div>
 </template>
@@ -967,6 +1102,7 @@ import {
   X,
   Save,
   CreditCard,
+  ChevronDown,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, AkunBukuBesar } from "../types.ts";
@@ -1080,11 +1216,58 @@ const newInvoice = ref({
     jatuhTempo: "",
   }),
   updateNewInvoice = (next) => (newInvoice.value = next); // Record Client Receipt form input
+const invoiceFormErrors = ref<Record<string, string>>({});
+const receiptFormErrors = ref<Record<string, string>>({});
+const invoiceErrorCount = computed(
+  () => Object.keys(invoiceFormErrors.value).length,
+);
+const receiptErrorCount = computed(
+  () => Object.keys(receiptFormErrors.value).length,
+);
+
+const clearInvoiceError = (...keys: string[]) => {
+  if (!keys.some((key) => invoiceFormErrors.value[key])) return;
+  const nextErrors = { ...invoiceFormErrors.value };
+  keys.forEach((key) => delete nextErrors[key]);
+  invoiceFormErrors.value = nextErrors;
+};
+const clearReceiptError = (...keys: string[]) => {
+  if (!keys.some((key) => receiptFormErrors.value[key])) return;
+  const nextErrors = { ...receiptFormErrors.value };
+  keys.forEach((key) => delete nextErrors[key]);
+  receiptFormErrors.value = nextErrors;
+};
+const resetInvoiceErrors = () => {
+  invoiceFormErrors.value = {};
+};
+const resetReceiptErrors = () => {
+  receiptFormErrors.value = {};
+};
+const setInvoiceField = (key: keyof typeof newInvoice.value, value: any) => {
+  updateNewInvoice({
+    ...newInvoice.value,
+    [key]: value,
+  });
+  clearInvoiceError(String(key));
+};
 const selectedInvoiceId = ref(""),
   updateSelectedInvoiceId = (next) => (selectedInvoiceId.value = next);
+const receiptDropdownOpen = ref(false);
+const selectedReceiptInvoiceLabel = computed(() => {
+  const invoice = invoices.value.find(
+    (item) => String(item.id) === String(selectedInvoiceId.value),
+  );
+  return invoice
+    ? `${invoice.nomor} — ${invoice.klienNama || invoice.proyekNama} (${formatRupiah(getInvoiceOutstanding(invoice))})`
+    : "Pilih invoice outstanding";
+});
 const receiptAccount = ref("1001");
 const receiptAmount = ref(0),
   updateReceiptAmount = (next) => (receiptAmount.value = next); // New Vendor Bill form input
+const setReceiptAmount = (next: number) => {
+  updateReceiptAmount(next);
+  clearReceiptError("amount");
+};
 const newBill = ref({
     vendor: "",
     nomorTagihan: newReferenceNumber("BILL"),
@@ -1095,6 +1278,38 @@ const newBill = ref({
     jatuhTempo: datePlusDays(7),
   }),
   updateNewBill = (next) => (newBill.value = next); // Pay Vendor Bill form input
+const billFormErrors = ref<Record<string, string>>({});
+const paymentFormErrors = ref<Record<string, string>>({});
+const billErrorCount = computed(() => Object.keys(billFormErrors.value).length);
+const paymentErrorCount = computed(
+  () => Object.keys(paymentFormErrors.value).length,
+);
+
+const clearBillError = (...keys: string[]) => {
+  if (!keys.some((key) => billFormErrors.value[key])) return;
+  const nextErrors = { ...billFormErrors.value };
+  keys.forEach((key) => delete nextErrors[key]);
+  billFormErrors.value = nextErrors;
+};
+const clearPaymentError = (...keys: string[]) => {
+  if (!keys.some((key) => paymentFormErrors.value[key])) return;
+  const nextErrors = { ...paymentFormErrors.value };
+  keys.forEach((key) => delete nextErrors[key]);
+  paymentFormErrors.value = nextErrors;
+};
+const resetBillErrors = () => {
+  billFormErrors.value = {};
+};
+const resetPaymentErrors = () => {
+  paymentFormErrors.value = {};
+};
+const setBillField = (key: keyof typeof newBill.value, value: any) => {
+  updateNewBill({
+    ...newBill.value,
+    [key]: value,
+  });
+  clearBillError(String(key));
+};
 const requestCancelInvoice = (invoice: any) => {
   cancelConfirm.value = {
     type: "invoice",
@@ -1153,7 +1368,185 @@ const paymentForm = ref({
     catatan: "",
   }),
   updatePaymentForm = (next) => (paymentForm.value = next); // Handle invoice submission
+
+const setPaymentAccount = (next: string) => {
+  updatePaymentAccount(next);
+  clearPaymentError("account");
+};
+const setPaymentField = (key: keyof typeof paymentForm.value, value: any) => {
+  updatePaymentForm({
+    ...paymentForm.value,
+    [key]: value,
+  });
+  clearPaymentError(String(key));
+};
+
+const focusFirstInvalid = (id: string) => {
+  if (!id) return;
+  requestAnimationFrame(() => {
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus();
+  });
+};
+
+const validateInvoiceForm = () => {
+  const nextErrors: Record<string, string> = {};
+  let firstInvalidId = "";
+  const mark = (key: string, message: string, id: string) => {
+    nextErrors[key] = message;
+    if (!firstInvalidId) firstInvalidId = id;
+  };
+
+  if (!String(newInvoice.value.nomor || "").trim()) {
+    mark("nomor", "Nomor invoice wajib diisi.", "inv-form-number");
+  }
+  if (!String(newInvoice.value.proyekId || "").trim()) {
+    mark("proyekId", "Proyek aktif wajib dipilih.", "inv-form-project");
+  }
+  if (!Number.isFinite(Number(newInvoice.value.nominal)) || Number(newInvoice.value.nominal) <= 0) {
+    mark("nominal", "Nominal penagihan harus lebih dari 0.", "inv-form-val");
+  }
+  if (!String(newInvoice.value.keterangan || "").trim()) {
+    mark("keterangan", "Keterangan termin wajib diisi.", "inv-form-desc");
+  }
+  if (!String(newInvoice.value.tanggalKirim || "").trim()) {
+    mark("tanggalKirim", "Tanggal invoice wajib diisi.", "inv-form-date");
+  }
+  if (!String(newInvoice.value.jatuhTempo || "").trim()) {
+    mark("jatuhTempo", "Tanggal jatuh tempo wajib diisi.", "inv-form-due");
+  }
+
+  invoiceFormErrors.value = nextErrors;
+  if (firstInvalidId) {
+    focusFirstInvalid(firstInvalidId);
+    return false;
+  }
+  return true;
+};
+
+const validateReceiptForm = () => {
+  const nextErrors: Record<string, string> = {};
+  let firstInvalidId = "";
+  const mark = (key: string, message: string, id: string) => {
+    nextErrors[key] = message;
+    if (!firstInvalidId) firstInvalidId = id;
+  };
+
+  if (!String(selectedInvoiceId.value || "").trim()) {
+    mark("invoice", "Invoice yang dilunasi wajib dipilih.", "receipt-form-invoice");
+  }
+  if (!Number.isFinite(Number(receiptAmount.value)) || Number(receiptAmount.value) <= 0) {
+    mark("amount", "Jumlah diterima harus lebih dari 0.", "receipt-form-amount");
+  }
+
+  receiptFormErrors.value = nextErrors;
+  if (firstInvalidId) {
+    focusFirstInvalid(firstInvalidId);
+    return false;
+  }
+  return true;
+};
+
+const validateBillForm = () => {
+  const nextErrors: Record<string, string> = {};
+  let firstInvalidId = "";
+  const mark = (key: string, message: string, id: string) => {
+    nextErrors[key] = message;
+    if (!firstInvalidId) firstInvalidId = id;
+  };
+
+  if (!String(newBill.value.vendor || "").trim()) {
+    mark("vendor", "Vendor / supplier wajib diisi.", "bill-form-vendor");
+  }
+  if (!String(newBill.value.alokasiProyek || "").trim()) {
+    mark("alokasiProyek", "Alokasi projek wajib dipilih.", "bill-form-project");
+  }
+  if (!String(newBill.value.nomorTagihan || "").trim()) {
+    mark("nomorTagihan", "No. invoice vendor wajib diisi.", "bill-form-number");
+  }
+  if (!String(newBill.value.tanggalMasuk || "").trim()) {
+    mark("tanggalMasuk", "Tanggal tagihan wajib diisi.", "bill-form-date");
+  }
+  if (!String(newBill.value.jatuhTempo || "").trim()) {
+    mark("jatuhTempo", "Batas bayar wajib diisi.", "bill-form-due");
+  }
+  if (!Number.isFinite(Number(newBill.value.nominal)) || Number(newBill.value.nominal) <= 0) {
+    mark("nominal", "Nominal hutang harus lebih dari 0.", "bill-form-val");
+  }
+  if (!String(newBill.value.keterangan || "").trim()) {
+    mark("keterangan", "Keterangan tagihan wajib diisi.", "bill-form-desc");
+  }
+
+  billFormErrors.value = nextErrors;
+  if (firstInvalidId) {
+    focusFirstInvalid(firstInvalidId);
+    return false;
+  }
+  return true;
+};
+
+const validatePaymentForm = () => {
+  const nextErrors: Record<string, string> = {};
+  let firstInvalidId = "";
+  const mark = (key: string, message: string, id: string) => {
+    nextErrors[key] = message;
+    if (!firstInvalidId) firstInvalidId = id;
+  };
+
+  if (!String(selectedBillId.value || "").trim()) {
+    mark("bill", "Tagihan yang dibayar wajib dipilih.", "pay-form-bill");
+  }
+  if (!String(paymentForm.value.vendor || "").trim()) {
+    mark("vendor", "Vendor penerima wajib diisi.", "pay-form-vendor");
+  }
+  if (!String(paymentAccount.value || "").trim()) {
+    mark("account", "Sumber kas / bank wajib dipilih.", "pay-form-bank");
+  }
+  if (!String(paymentForm.value.buktiBayar || "").trim()) {
+    mark("buktiBayar", "No. bukti bayar wajib diisi.", "pay-form-proof");
+  }
+  if (!String(paymentForm.value.tanggalBayar || "").trim()) {
+    mark("tanggalBayar", "Tanggal bayar wajib diisi.", "pay-form-date");
+  }
+  if (!Number.isFinite(Number(paymentForm.value.jumlah)) || Number(paymentForm.value.jumlah) <= 0) {
+    mark("jumlah", "Jumlah dibayar harus lebih dari 0.", "pay-form-amount");
+  }
+  if (!String(paymentForm.value.catatan || "").trim()) {
+    mark("catatan", "Catatan tambahan wajib diisi.", "pay-form-note");
+  }
+
+  paymentFormErrors.value = nextErrors;
+  if (firstInvalidId) {
+    focusFirstInvalid(firstInvalidId);
+    return false;
+  }
+  return true;
+};
+
+const closeInvoiceModal = () => {
+  resetInvoiceErrors();
+  updateIsInvoiceModalOpen(false);
+};
+
+const closeReceiptModal = () => {
+  resetReceiptErrors();
+  receiptDropdownOpen.value = false;
+  updateIsReceiptModalOpen(false);
+};
+
+const closeBillModal = () => {
+  resetBillErrors();
+  updateIsBillModalOpen(false);
+};
+
+const closePayBillModal = () => {
+  resetPaymentErrors();
+  updateIsPayBillModalOpen(false);
+};
+
 const openInvoiceForm = (invoice: any = null) => {
+  resetInvoiceErrors();
   editingInvoice.value = invoice;
   if (invoice) {
     newInvoice.value = {
@@ -1180,6 +1573,10 @@ const openInvoiceForm = (invoice: any = null) => {
 };
 const handleSaveInvoice = async (e: Event) => {
   e.preventDefault();
+  if (!validateInvoiceForm()) {
+    notify("Lengkapi seluruh kolom invoice sebelum menyimpan.");
+    return;
+  }
   const projObj = proyek.find(
     (p) => String(p.id) === String(newInvoice.value.proyekId),
   );
@@ -1191,7 +1588,7 @@ const handleSaveInvoice = async (e: Event) => {
     await updateInvoice(editingInvoice.value, { ...newInvoice.value });
   else await createInvoice({ ...newInvoice.value });
   editingInvoice.value = null;
-  updateIsInvoiceModalOpen(false);
+  closeInvoiceModal();
 };
 
 const getInvoiceOutstanding = (invoice: any) =>
@@ -1226,6 +1623,12 @@ const selectInvoiceForReceipt = (invoiceId: string) => {
   );
   updateSelectedInvoiceId(invoice?.id || "");
   updateReceiptAmount(invoice ? getInvoiceOutstanding(invoice) : 0);
+  clearReceiptError("invoice", "amount");
+};
+
+const selectReceiptInvoiceOption = (invoiceId: string | number) => {
+  selectInvoiceForReceipt(String(invoiceId));
+  receiptDropdownOpen.value = false;
 };
 
 const selectBillForPayment = (billId: string) => {
@@ -1236,10 +1639,15 @@ const selectBillForPayment = (billId: string) => {
     vendor: bill?.vendor || "",
     jumlah: bill ? getBillOutstanding(bill) : 0,
   });
+  clearPaymentError("bill", "vendor", "jumlah");
 };
 
 const handleRecordReceipt = async (e: Event) => {
   e.preventDefault();
+  if (!validateReceiptForm()) {
+    notify("Lengkapi seluruh kolom pelunasan sebelum menyimpan.");
+    return;
+  }
   const targetInv = invoices.value.find(
     (i) => String(i.id) === String(selectedInvoiceId.value),
   );
@@ -1254,10 +1662,11 @@ const handleRecordReceipt = async (e: Event) => {
     referenceNumber: "",
     notes: "",
   });
-  updateIsReceiptModalOpen(false);
+  closeReceiptModal();
 };
 
 const openBillForm = (bill: any = null) => {
+  resetBillErrors();
   editingBill.value = bill;
   if (bill) {
     newBill.value = {
@@ -1284,19 +1693,23 @@ const openBillForm = (bill: any = null) => {
 };
 const handleSaveBill = async (e: Event) => {
   e.preventDefault();
-  if (!newBill.value.vendor || !newBill.value.keterangan) {
-    notify("Harap isi nama vendor dan rincian tagihan.");
+  if (!validateBillForm()) {
+    notify("Lengkapi seluruh kolom tagihan sebelum menyimpan.");
     return;
   }
   if (editingBill.value)
     await updateBill(editingBill.value, { ...newBill.value });
   else await createBill({ ...newBill.value });
   editingBill.value = null;
-  updateIsBillModalOpen(false);
+  closeBillModal();
 };
 
 const handlePayBill = async (e: Event) => {
   e.preventDefault();
+  if (!validatePaymentForm()) {
+    notify("Lengkapi seluruh kolom pembayaran sebelum menyimpan.");
+    return;
+  }
   const targetBill = bills.value.find(
     (b) => String(b.id) === String(selectedBillId.value),
   );
@@ -1311,7 +1724,7 @@ const handlePayBill = async (e: Event) => {
     referenceNumber: paymentForm.value.buktiBayar,
     notes: paymentForm.value.catatan,
   });
-  updateIsPayBillModalOpen(false);
+  closePayBillModal();
 };
 
 // Calculations for KPI Cards
@@ -1351,12 +1764,14 @@ const pagedBills = computed(() =>
 );
 function openPaymentModal() {
   if (activeTab === "receivables") {
+    resetReceiptErrors();
     updateSelectedInvoiceId("");
     updateReceiptAmount(0);
     updateIsReceiptModalOpen(true);
     return;
   }
 
+  resetPaymentErrors();
   updateSelectedBillId("");
   updatePaymentForm({
     vendor: "",
@@ -1379,3 +1794,106 @@ function closeCancelConfirm() {
 }
 
 </script>
+
+<style>
+.receivable-receipt-modal-card,
+.payable-bill-modal-card,
+.payable-payment-modal-card {
+  --form-navy: #0b1f4a;
+  --form-white: #ffffff;
+  background: var(--form-white) !important;
+  border-color: var(--form-navy) !important;
+  color: var(--form-navy) !important;
+}
+
+.receivable-receipt-modal-card > div:first-child,
+.payable-bill-modal-card > div:first-child,
+.payable-payment-modal-card > div:first-child {
+  background: var(--form-white) !important;
+  border-color: var(--form-navy) !important;
+}
+
+.receivable-receipt-modal-card h3,
+.payable-bill-modal-card h3,
+.payable-payment-modal-card h3,
+.receivable-receipt-modal-card label,
+.payable-bill-modal-card label,
+.payable-payment-modal-card label,
+.receivable-receipt-modal-card span,
+.payable-bill-modal-card span,
+.payable-payment-modal-card span {
+  color: var(--form-navy) !important;
+}
+
+.receivable-receipt-modal-card > div:first-child > div > div,
+.payable-bill-modal-card > div:first-child > div > div,
+.payable-payment-modal-card > div:first-child > div > div,
+#btn-receipt-submit,
+#btn-bill-submit,
+#btn-pay-submit {
+  background: var(--form-navy) !important;
+  color: var(--form-white) !important;
+  box-shadow: none !important;
+}
+
+.receivable-receipt-modal-card input,
+.receivable-receipt-modal-card select,
+.receivable-receipt-modal-card textarea,
+.payable-bill-modal-card input,
+.payable-bill-modal-card select,
+.payable-bill-modal-card textarea,
+.payable-payment-modal-card input,
+.payable-payment-modal-card select,
+.payable-payment-modal-card textarea {
+  background: var(--form-white) !important;
+  border-color: var(--form-navy) !important;
+  color: var(--form-navy) !important;
+}
+
+.receivable-receipt-modal-card input::placeholder,
+.payable-bill-modal-card input::placeholder,
+.payable-bill-modal-card textarea::placeholder,
+.payable-payment-modal-card input::placeholder,
+.payable-payment-modal-card textarea::placeholder {
+  color: var(--form-navy) !important;
+  opacity: 0.55;
+}
+
+.receivable-receipt-modal-card input:focus,
+.receivable-receipt-modal-card select:focus,
+.payable-bill-modal-card input:focus,
+.payable-bill-modal-card select:focus,
+.payable-bill-modal-card textarea:focus,
+.payable-payment-modal-card input:focus,
+.payable-payment-modal-card select:focus,
+.payable-payment-modal-card textarea:focus {
+  outline: 2px solid var(--form-navy) !important;
+  box-shadow: none !important;
+}
+
+.receivable-receipt-modal-card svg,
+.payable-bill-modal-card svg,
+.payable-payment-modal-card svg {
+  color: var(--form-navy) !important;
+}
+
+.receivable-receipt-modal-card > div:first-child > div > div svg,
+.payable-bill-modal-card > div:first-child > div > div svg,
+.payable-payment-modal-card > div:first-child > div > div svg,
+#btn-receipt-submit svg,
+#btn-bill-submit svg,
+#btn-pay-submit svg {
+  color: var(--form-white) !important;
+}
+
+.receivable-receipt-modal-card .form-validation-summary,
+.payable-bill-modal-card .form-validation-summary,
+.payable-payment-modal-card .form-validation-summary,
+.receivable-receipt-modal-card .form-field-warning,
+.payable-bill-modal-card .form-field-warning,
+.payable-payment-modal-card .form-field-warning {
+  background: var(--form-white) !important;
+  border-color: var(--form-navy) !important;
+  color: var(--form-navy) !important;
+}
+</style>

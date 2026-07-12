@@ -25,11 +25,11 @@
         </span>
 
         <div
-          class="fs-logo-shell flex h-40 w-40 items-center justify-center rounded-[30px] border border-blue-100/90 bg-white/96 p-3 shadow-[0_28px_78px_rgba(0,0,0,.28)] backdrop-blur-xl sm:h-44 sm:w-44"
+          class="fs-logo-shell flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-white p-3 shadow-[0_28px_78px_rgba(0,0,0,.28)] sm:h-44 sm:w-44"
         >
           <img
             :src="FinStartSplashLogo"
-            class="fs-logo h-full w-full rounded-[24px] object-contain"
+            class="fs-logo h-full w-full rounded-full object-contain"
             alt="Logo FinStart"
           />
         </div>
@@ -87,61 +87,61 @@ import FinStartSplashLogo from "../assets/finstart-splash-logo.png";
 const emit = defineEmits(["complete"]);
 
 const menuIconItems = [
-  { label: "Proyeksi", icon: TrendingUp, x: "0px", y: "-230px", delay: ".82s" },
-  { label: "Langganan", icon: Cloud, x: "126px", y: "-196px", delay: ".88s" },
-  { label: "SDM", icon: Users, x: "224px", y: "-126px", delay: ".94s" },
-  { label: "Aset", icon: Box, x: "270px", y: "-25px", delay: "1s" },
+  { label: "Proyeksi", icon: TrendingUp, x: "0px", y: "-230px", delay: "1.23s" },
+  { label: "Langganan", icon: Cloud, x: "126px", y: "-196px", delay: "1.32s" },
+  { label: "SDM", icon: Users, x: "224px", y: "-126px", delay: "1.41s" },
+  { label: "Aset", icon: Box, x: "270px", y: "-25px", delay: "1.5s" },
   {
     label: "Pengaturan",
     icon: Settings,
     x: "238px",
     y: "101px",
-    delay: "1.06s",
+    delay: "1.59s",
   },
   {
     label: "Buku Besar",
     icon: BookOpen,
     x: "151px",
     y: "184px",
-    delay: "1.12s",
+    delay: "1.68s",
   },
-  { label: "Laporan", icon: FileText, x: "32px", y: "218px", delay: "1.18s" },
+  { label: "Laporan", icon: FileText, x: "32px", y: "218px", delay: "1.77s" },
   {
     label: "Transaksi",
     icon: ArrowLeftRight,
     x: "-96px",
     y: "205px",
-    delay: "1.24s",
+    delay: "1.86s",
   },
   {
     label: "Piutang",
     icon: ArrowDownLeft,
     x: "-203px",
     y: "146px",
-    delay: "1.3s",
+    delay: "1.95s",
   },
   {
     label: "Utang",
     icon: ArrowUpRight,
     x: "-263px",
     y: "51px",
-    delay: "1.36s",
+    delay: "2.04s",
   },
-  { label: "Pajak", icon: Percent, x: "-263px", y: "-51px", delay: "1.42s" },
+  { label: "Pajak", icon: Percent, x: "-263px", y: "-51px", delay: "2.13s" },
   {
     label: "Dashboard",
     icon: LayoutDashboard,
     x: "-203px",
     y: "-146px",
-    delay: "1.48s",
+    delay: "2.22s",
   },
-  { label: "CRM", icon: Briefcase, x: "-96px", y: "-205px", delay: "1.54s" },
+  { label: "CRM", icon: Briefcase, x: "-96px", y: "-205px", delay: "2.31s" },
 ];
 
 let completeTimer;
 
 onMounted(() => {
-  completeTimer = window.setTimeout(() => emit("complete"), 4200);
+  completeTimer = window.setTimeout(() => emit("complete"), 5000);
 });
 
 onUnmounted(() => {
@@ -225,41 +225,11 @@ onUnmounted(() => {
 }
 
 .fs-logo-shell::before {
-  content: "";
-  position: absolute;
-  inset: -18px;
-  border-radius: 38px;
-  background:
-    linear-gradient(#fff, #fff) padding-box,
-    conic-gradient(
-        from 130deg,
-        rgba(43, 167, 255, 0.06),
-        rgba(43, 167, 255, 0.95),
-        rgba(22, 160, 133, 0.62),
-        rgba(43, 167, 255, 0.06)
-      )
-      border-box;
-  border: 1px solid transparent;
-  opacity: 0;
-  animation:
-    fsRingPop 0.78s cubic-bezier(0.16, 1, 0.3, 1) 0.9s both,
-    fsRingSpin 4.2s linear 1.36s infinite;
-  z-index: -1;
+  content: none;
 }
 
 .fs-logo-shell::after {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  border-radius: 28px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.48),
-    rgba(255, 255, 255, 0)
-  );
-  opacity: 0;
-  animation: fsLogoScan 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.98s both;
-  mix-blend-mode: screen;
+  content: none;
 }
 
 .fs-logo {

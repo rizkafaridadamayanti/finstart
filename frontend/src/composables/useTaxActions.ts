@@ -49,6 +49,7 @@ export function useTaxActions({
           "Aset",
         );
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
+        await financeApi.post(`/taxes/${tax.id}/issue`, {});
         await financeApi.post(`/taxes/${tax.id}/pay`, {
           payment_date:
             payment.paymentDate || new Date().toISOString().slice(0, 10),
@@ -58,6 +59,7 @@ export function useTaxActions({
         });
         await refreshData();
         notify(`Setoran ${tax.jenis} berhasil dibukukan.`);
+        return true;
       },
       "Gagal mencatat setoran pajak.",
       notify,

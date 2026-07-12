@@ -2,7 +2,7 @@
   <div class="space-y-6 font-sans">
     <!-- Action Header bar -->
     <div
-      class="flex flex-wrap justify-between items-start gap-4 border-b border-slate-200/80 pb-5"
+      class="workspace-page-header flex flex-wrap justify-between items-start gap-4"
     >
       <div class="min-w-0">
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
@@ -35,35 +35,6 @@
             >Tambah Layanan Baru</template
           ><template v-else>Catat Aset Fisik</template>
         </button>
-        <div
-          v-if="activeTab === 'assets'"
-          class="flex w-full flex-wrap items-center gap-2 xl:justify-end"
-        >
-          <button
-            type="button"
-            :class="`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-[11px] font-bold transition ${showAssetArchive ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
-            @click="showAssetArchive = !showAssetArchive"
-          >
-            <Archive class="h-4 w-4" /> Arsip ({{ archivedAssets.length }})
-          </button>
-          <div
-            class="flex shrink-0 items-center justify-end gap-2 rounded-xl border border-[#D8E5F4] bg-white px-2 py-1"
-          >
-            <input
-              type="month"
-              :value="depreciationPeriod"
-              class="h-7 border-0 bg-transparent px-2 text-xs text-[#0B1F4A] outline-none"
-              :style="{ width: '136px' }"
-              @change="depreciationPeriod = eventValue($event)"
-            /><button
-              type="button"
-              class="h-7 rounded-lg bg-[#EEF5FC] px-3 text-[10px] font-semibold text-[#0B1F4A] whitespace-nowrap"
-              @click="processMonthlyDepreciation"
-            >
-              Proses Penyusutan
-            </button>
-          </div>
-        </div>
       </div>
     </div>
     <!-- 1. LAYANAN LANGGANA DIGITAL view -->
@@ -107,44 +78,40 @@
           </div>
         </div>
       </div>
-      <div class="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div class="currency-calculator">
         <div
-          class="rounded-[2rem] border border-[#E4EDF8] bg-white p-6 shadow-[0_24px_80px_rgba(15,43,96,0.08)]"
+          class="relative overflow-hidden rounded-[2rem] border border-[#0B1F4A] bg-[#0B1F4A] p-6 shadow-[0_30px_90px_rgba(11,31,74,0.22)]"
         >
           <div
-            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+            class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="space-y-2">
               <p
-                class="text-[10px] font-extrabold uppercase tracking-[0.32em] text-[#94A3B8]"
+                class="text-[10px] font-extrabold uppercase tracking-[0.32em] text-white opacity-70"
               >
                 Kurs &amp; Mata Uang
               </p>
-              <p class="max-w-xl text-sm leading-6 text-[#475569]">
+              <p class="max-w-xl text-sm leading-6 text-white opacity-80">
                 Desain kalkulator modern untuk memproyeksikan nilai langganan
                 secara instan dengan pilihan IDR / USD.
               </p>
             </div>
             <button
               type="button"
-              class="h-11 rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 text-[11px] font-bold text-[#0B1F4A] hover:bg-white"
+              class="h-11 rounded-2xl border border-white/35 bg-white/10 px-4 text-[11px] font-bold text-white transition hover:bg-white hover:text-[#0B1F4A]"
               @click="openExchangeRate"
             >
               Lihat Kurs Realtime di Google
             </button>
           </div>
-          <div class="mt-6 grid gap-4 md:grid-cols-3">
+          <div class="relative mt-6 grid gap-4 md:grid-cols-3">
             <div
-              class="rounded-[1.5rem] border border-[#E1E8F3] bg-[#F8FBFE] p-4 shadow-sm"
+              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
             >
               <div
-                class="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.24em] text-[#64748B] mb-3"
+                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
               >
-                <span>Kurs</span
-                ><span
-                  class="rounded-full bg-white/90 px-2 py-1 text-[10px] text-[#475569]"
-                  >{{ rateLabel }}</span
-                >
+                Kurs
               </div>
               <input
                 type="number"
@@ -153,12 +120,17 @@
                 class="h-12 w-full rounded-2xl border border-[#D8E5F4] bg-white px-4 text-sm font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A]"
                 @input="exchangeRate = Number(eventValue($event) || 0)"
               />
+              <p
+                class="mt-3 inline-flex rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white"
+              >
+                {{ rateLabel }}
+              </p>
             </div>
             <div
-              class="rounded-[1.5rem] border border-[#E1E8F3] bg-[#F8FBFE] p-4 shadow-sm"
+              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
             >
               <div
-                class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#64748B] mb-3"
+                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
               >
                 Nominal
               </div>
@@ -171,10 +143,10 @@
               />
             </div>
             <div
-              class="rounded-[1.5rem] border border-[#E1E8F3] bg-[#F8FBFE] p-4 shadow-sm"
+              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
             >
               <div
-                class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#64748B] mb-3"
+                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
               >
                 Konversi
               </div>
@@ -208,7 +180,7 @@
             </div>
           </div>
           <div
-            class="mt-6 rounded-[2rem] bg-gradient-to-r from-slate-50 via-white to-cyan-50 border border-[#E1E8F3] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
+            class="relative mt-6 rounded-[1.5rem] border border-white/20 bg-white p-5 shadow-[0_18px_44px_rgba(0,0,0,0.16)]"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span
@@ -221,19 +193,19 @@
             </div>
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
               <div
-                class="rounded-[1.5rem] bg-white p-4 shadow-sm border border-white"
+                class="rounded-[1.25rem] border border-[#D8E5F4] bg-[#F8FBFE] p-4"
               >
                 <p
                   class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]"
                 >
                   Nilai Saat Ini
                 </p>
-                <p class="mt-3 text-lg font-bold text-[#0B1F4A]">
+                <p class="mt-3 text-2xl font-black tracking-tight text-[#0B1F4A]">
                   {{ formatCurrency(convertAmount, currencyTo) }}
                 </p>
               </div>
               <div
-                class="rounded-[1.5rem] bg-white p-4 shadow-sm border border-white"
+                class="rounded-[1.25rem] border border-[#D8E5F4] bg-white p-4"
               >
                 <p
                   class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]"
@@ -251,56 +223,6 @@
                   }}</template>
                 </p>
               </div>
-            </div>
-          </div>
-        </div>
-        <div
-          class="relative overflow-hidden rounded-[2rem] border border-[#DCE7F4] bg-[#F5F9FF] p-6 shadow-[0_24px_80px_rgba(15,43,96,0.06)]"
-        >
-          <div
-            class="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#C7E7FF]/30 blur-3xl"
-          ></div>
-          <div
-            class="absolute left-4 top-10 h-16 w-16 rounded-full bg-[#EFF8FF]/80"
-          ></div>
-          <p
-            class="text-[10px] font-extrabold uppercase tracking-widest text-[#94A3B8]"
-          >
-            Hasil Kalkulator
-          </p>
-          <p class="mt-4 text-4xl font-black text-[#0B1F4A]">
-            {{ formatCurrency(convertAmount, currencyTo) }}
-          </p>
-          <p class="mt-2 text-sm text-[#64748B]">{{ journalSummary }}</p>
-          <div class="mt-6 grid gap-3">
-            <div
-              class="rounded-[1.5rem] bg-white/90 p-4 shadow-sm border border-white"
-            >
-              <p class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]">
-                Nominal Jurnal
-              </p>
-              <p class="mt-3 text-lg font-bold text-[#0B1F4A]">
-                {{ formatCurrency(convertAmount, currencyTo) }}
-              </p>
-              <p class="mt-1 text-[11px] text-[#64748B]">
-                Gunakan angka ini untuk memasukkan biaya langganan ke jurnal
-                dalam {{ currencyTo }}.
-              </p>
-            </div>
-            <div
-              class="rounded-[1.5rem] bg-white/90 p-4 shadow-sm border border-white"
-            >
-              <p class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]">
-                Detail Konversi
-              </p>
-              <p class="mt-2 text-sm text-[#0B1F4A]">{{ journalSummary }}</p>
-              <p class="mt-1 text-[11px] text-[#64748B]">
-                <template v-if="currencyFrom === currencyTo"
-                  >Sama mata uang, tidak perlu konversi.</template
-                ><template v-else>{{
-                  `Kurs: 1 ${currencyFrom} = ${formatCurrency(exchangeRate, currencyTo)}`
-                }}</template>
-              </p>
             </div>
           </div>
         </div>
@@ -487,14 +409,32 @@
               @input="updateSearchQuery(eventValue($event))"
             />
           </div>
-          <span class="text-xs text-[#6B7A90]"
-            ><template v-if="showAssetArchive"
-              >Menampilkan aset yang sudah dilepas/tidak digunakan</template
-            ><template v-else
-              >Penyusutan aset menggunakan metode garis lurus sesuai masa
-              manfaat aset</template
-            ></span
-          >
+          <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+            <button
+              type="button"
+              :class="`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-[11px] font-bold transition ${showAssetArchive ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
+              @click="showAssetArchive = !showAssetArchive"
+            >
+              <Archive class="h-4 w-4" /> Arsip ({{ archivedAssets.length }})
+            </button>
+            <div
+              class="flex shrink-0 items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white p-1"
+            >
+              <input
+                type="month"
+                :value="depreciationPeriod"
+                class="h-8 border-0 bg-transparent px-2 text-xs text-[#0B1F4A] outline-none"
+                :style="{ width: '136px' }"
+                @change="depreciationPeriod = eventValue($event)"
+              /><button
+                type="button"
+                class="h-8 rounded-lg bg-[#EEF5FC] px-3 text-[10px] font-semibold text-[#0B1F4A] whitespace-nowrap transition hover:bg-[#DCEAF8]"
+                @click="processMonthlyDepreciation"
+              >
+                Proses Penyusutan
+              </button>
+            </div>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-500">
@@ -585,9 +525,10 @@
         />
       </div>
     </div>
+    <Teleport to="body">
     <div
       v-if="assetHistory"
-      class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -659,6 +600,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
     <ConfirmDialog
       :open="!!confirmDialog"
       :eyebrow="confirmDialog?.eyebrow || 'Konfirmasi'"
@@ -673,15 +615,16 @@
         confirmDialog?.reasonPlaceholder || 'Tulis alasan singkat...'
       "
       :default-reason="confirmDialog?.defaultReason || ''"
-      :on-cancel="closeConfirmDialog"
-      :on-confirm="handleConfirmDialog"
+      @cancel="closeConfirmDialog"
+      @confirm="handleConfirmDialog"
     /><!-- 3. ADD SUBSCRIPTION MODAL -->
-    <div
-      v-if="isSubModalOpen"
-      class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
-    >
+    <Teleport to="body">
       <div
-        class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+        v-if="isSubModalOpen"
+        class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      >
+      <div
+        class="subscription-modal-card my-4 flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
       >
         <div
           class="px-9 py-8 border-b border-slate-100 flex justify-between items-center"
@@ -712,7 +655,7 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Nama Layanan</label
+                >Nama Layanan *</label
               ><input
                 id="sub-form-name"
                 type="text"
@@ -726,7 +669,7 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Provider</label
+                >Provider *</label
               ><input
                 id="sub-form-provider"
                 type="text"
@@ -742,11 +685,12 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Mata Uang</label
+                >Mata Uang *</label
               >
               <div class="relative">
                 <select
                   id="sub-form-currency"
+                  required
                   :value="newSub.mataUang"
                   class="w-full h-11 px-5 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-sm appearance-none transition-all"
                   @change="updateNewSub({
@@ -766,11 +710,12 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Siklus</label
+                >Siklus *</label
               >
               <div class="relative">
                 <select
                   id="sub-form-cycle"
+                  required
                   :value="newSub.siklus"
                   class="w-full h-11 px-5 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-sm appearance-none transition-all"
                   @change="updateNewSub({ ...newSub, siklus: eventValue($event) })"
@@ -785,11 +730,12 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Kategori</label
+                >Kategori *</label
               >
               <div class="relative">
                 <select
                   id="sub-form-category"
+                  required
                   :value="newSub.kategori"
                   class="w-full h-11 px-5 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-sm appearance-none transition-all"
                   @change="updateNewSub({ ...newSub, kategori: eventValue($event) })"
@@ -807,10 +753,12 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Biaya Langganan</label
+                >Biaya Langganan *</label
               ><input
                 id="sub-form-cost"
                 type="number"
+                required
+                min="1"
                 :value="newSub.biaya || ''"
                 placeholder="0"
                 class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#0B1F4A] font-bold text-sm transition-all"
@@ -824,7 +772,7 @@
             <div class="space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Tgl Tagihan Berikutnya</label
+                >Tgl Tagihan Berikutnya *</label
               >
               <div class="relative">
                 <input
@@ -857,8 +805,9 @@
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
     <div
       v-if="showExpiredSubscriptions"
       class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
@@ -1137,9 +1086,10 @@
       </div>
     </div>
     <!-- 4. ADD HARDWARE ASSET MODAL -->
+    <Teleport to="body">
     <div
       v-if="isAssetModalOpen"
-      class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1163,16 +1113,27 @@
           </div>
           <button
             id="btn-close-asset-modal"
+            type="button"
             class="w-10 h-10 flex items-center justify-center rounded-2xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors"
-            @click="updateIsAssetModalOpen(false)"
+            @click="closeAssetModal"
           >
             <X class="w-5 h-5" />
           </button>
         </div>
         <form
+          novalidate
+          data-manual-validation="true"
           class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6 text-xs"
           @submit="handleSaveAsset"
         >
+          <div
+            v-if="assetFormErrorMessages.length"
+            class="form-validation-summary"
+            role="alert"
+          >
+            <strong>Lengkapi seluruh data aset.</strong>
+            <span>Semua kolom wajib diisi sebelum aset didaftarkan.</span>
+          </div>
           <section class="space-y-3">
             <div class="flex items-center gap-2 text-[#0B1F4A]">
               <Info class="w-3.5 h-3.5" />
@@ -1190,9 +1151,15 @@
                   type="text"
                   required
                   :value="newAsset.nama"
-                  class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                  @change="updateNewAsset({ ...newAsset, nama: eventValue($event) })"
+                  :class="[
+                    assetInputClass,
+                    { 'form-control-invalid': assetFormErrors.nama },
+                  ]"
+                  @input="setAssetField('nama', eventValue($event))"
                 />
+                <p v-if="assetFormErrors.nama" class="form-field-warning">
+                  {{ assetFormErrors.nama }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1202,20 +1169,38 @@
                 <div class="relative">
                   <select
                     id="asset-form-category"
+                    required
                     :value="newAsset.kategori"
-                    class="w-full h-10 px-4 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-xs appearance-none transition-all"
-                    @change="updateNewAsset({ ...newAsset, kategori: eventValue($event) })"
+                    :class="[
+                      assetInputClass,
+                      'pr-10 appearance-none font-semibold',
+                      { 'form-control-invalid': assetFormErrors.kategori },
+                    ]"
+                    @change="setAssetField('kategori', eventValue($event))"
                   >
-                    <option value="Elektronik / IT">Elektronik / IT</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Kendaraan">Kendaraan</option>
-                    <option value="Gedung &amp; Kantor">
-                      Gedung &amp; Kantor
+                    <option
+                      v-if="
+                        newAsset.kategori &&
+                        !assetCategoryOptions.includes(newAsset.kategori)
+                      "
+                      :value="newAsset.kategori"
+                    >
+                      {{ newAsset.kategori }}
+                    </option>
+                    <option
+                      v-for="category in assetCategoryOptions"
+                      :key="category"
+                      :value="category"
+                    >
+                      {{ category }}
                     </option></select
                   ><ChevronDown
                     class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                   />
                 </div>
+                <p v-if="assetFormErrors.kategori" class="form-field-warning">
+                  {{ assetFormErrors.kategori }}
+                </p>
               </div>
             </div>
             <div class="space-y-2">
@@ -1227,12 +1212,18 @@
                 required
                 :value="newAsset.penanggungJawab"
                 placeholder="Contoh: Tim IT / Nama pegawai"
-                class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                @input="updateNewAsset({
-                      ...newAsset,
-                      penanggungJawab: eventValue($event),
-                    })"
+                :class="[
+                  assetInputClass,
+                  { 'form-control-invalid': assetFormErrors.penanggungJawab },
+                ]"
+                @input="setAssetField('penanggungJawab', eventValue($event))"
               />
+              <p
+                v-if="assetFormErrors.penanggungJawab"
+                class="form-field-warning"
+              >
+                {{ assetFormErrors.penanggungJawab }}
+              </p>
             </div>
           </section>
           <section class="space-y-3">
@@ -1255,15 +1246,25 @@
                     required
                     :disabled="!!editingAsset"
                     :value="newAsset.tanggalBeli"
-                    class="w-full h-10 px-4 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                    @change="updateNewAsset({
-                          ...newAsset,
-                          tanggalBeli: eventValue($event),
-                        })"
+                    :class="[
+                      assetInputClass,
+                      'pr-10',
+                      {
+                        'form-control-invalid':
+                          assetFormErrors.tanggalBeli,
+                      },
+                    ]"
+                    @change="setAssetField('tanggalBeli', eventValue($event))"
                   /><Calendar
                     class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                   />
                 </div>
+                <p
+                  v-if="assetFormErrors.tanggalBeli"
+                  class="form-field-warning"
+                >
+                  {{ assetFormErrors.tanggalBeli }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1277,12 +1278,20 @@
                   :disabled="!!editingAsset"
                   :value="newAsset.hargaBeli || ''"
                   placeholder="0"
-                  class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                  @change="updateNewAsset({
-                        ...newAsset,
-                        hargaBeli: Number(eventValue($event)),
-                      })"
+                  :class="[
+                    assetInputClass,
+                    { 'form-control-invalid': assetFormErrors.hargaBeli },
+                  ]"
+                  @input="
+                    setAssetField('hargaBeli', Number(eventValue($event)))
+                  "
                 />
+                <p
+                  v-if="assetFormErrors.hargaBeli"
+                  class="form-field-warning"
+                >
+                  {{ assetFormErrors.hargaBeli }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1291,14 +1300,23 @@
                 ><input
                   id="asset-form-life"
                   type="number"
+                  required
                   :min="1"
                   :value="newAsset.masaManfaat"
-                  class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                  @change="updateNewAsset({
-                        ...newAsset,
-                        masaManfaat: Number(eventValue($event)),
-                      })"
+                  :class="[
+                    assetInputClass,
+                    { 'form-control-invalid': assetFormErrors.masaManfaat },
+                  ]"
+                  @input="
+                    setAssetField('masaManfaat', Number(eventValue($event)))
+                  "
                 />
+                <p
+                  v-if="assetFormErrors.masaManfaat"
+                  class="form-field-warning"
+                >
+                  {{ assetFormErrors.masaManfaat }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1307,15 +1325,24 @@
                 ><input
                   id="asset-form-salvage"
                   type="number"
+                  required
                   :min="0"
-                  :value="newAsset.nilaiSisa || ''"
+                  :value="newAsset.nilaiSisa"
                   placeholder="0"
-                  class="w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all"
-                  @change="updateNewAsset({
-                        ...newAsset,
-                        nilaiSisa: Number(eventValue($event)),
-                      })"
+                  :class="[
+                    assetInputClass,
+                    { 'form-control-invalid': assetFormErrors.nilaiSisa },
+                  ]"
+                  @input="
+                    setAssetField('nilaiSisa', Number(eventValue($event)))
+                  "
                 />
+                <p
+                  v-if="assetFormErrors.nilaiSisa"
+                  class="form-field-warning"
+                >
+                  {{ assetFormErrors.nilaiSisa }}
+                </p>
               </div>
             </div>
           </section>
@@ -1338,7 +1365,7 @@
               id="btn-asset-cancel"
               type="button"
               class="h-[38px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-xl text-sm transition-all"
-              @click="updateIsAssetModalOpen(false)"
+              @click="closeAssetModal"
             >
               Batal</button
             ><button
@@ -1354,6 +1381,7 @@
         </form>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1534,10 +1562,16 @@ const newSub = ref({
     tanggalTagihan: new Date().toISOString().slice(0, 10),
   }),
   updateNewSub = (next) => (newSub.value = next);
+const assetCategoryOptions = [
+  "Elektronik / IT",
+  "Furniture",
+  "Kendaraan",
+  "Gedung & Kantor",
+];
+
 const newAsset = ref({
     nama: "",
-    kategori: "Elektronik / IT" as
-      "Elektronik / IT" | "Furniture" | "Kendaraan" | "Gedung & Kantor",
+    kategori: "Elektronik / IT",
     tanggalBeli: new Date().toISOString().slice(0, 10),
     hargaBeli: 0,
     masaManfaat: 4,
@@ -1545,14 +1579,159 @@ const newAsset = ref({
     penanggungJawab: "",
   }),
   updateNewAsset = (next) => (newAsset.value = next); // Submit new subscription
+
+const assetInputClass =
+  "w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all";
+
+type AssetFormFieldKey =
+  | "nama"
+  | "kategori"
+  | "penanggungJawab"
+  | "tanggalBeli"
+  | "hargaBeli"
+  | "masaManfaat"
+  | "nilaiSisa";
+
+const emptyAssetFormErrors = (): Record<AssetFormFieldKey, string> => ({
+  nama: "",
+  kategori: "",
+  penanggungJawab: "",
+  tanggalBeli: "",
+  hargaBeli: "",
+  masaManfaat: "",
+  nilaiSisa: "",
+});
+
+const assetFormErrors = ref<Record<AssetFormFieldKey, string>>(
+  emptyAssetFormErrors(),
+);
+
+const assetRequiredFields: Array<{
+  key: AssetFormFieldKey;
+  id: string;
+  label: string;
+  type?: "number";
+  allowZero?: boolean;
+}> = [
+  { key: "nama", id: "asset-form-name", label: "Nama barang / aset" },
+  { key: "kategori", id: "asset-form-category", label: "Kategori" },
+  {
+    key: "penanggungJawab",
+    id: "asset-form-pic",
+    label: "Penanggung jawab / PIC aset",
+  },
+  {
+    key: "tanggalBeli",
+    id: "asset-form-date",
+    label: "Tanggal pembelian",
+  },
+  {
+    key: "hargaBeli",
+    id: "asset-form-cost",
+    label: "Harga perolehan",
+    type: "number",
+  },
+  {
+    key: "masaManfaat",
+    id: "asset-form-life",
+    label: "Masa manfaat",
+    type: "number",
+  },
+  {
+    key: "nilaiSisa",
+    id: "asset-form-salvage",
+    label: "Nilai sisa / salvage",
+    type: "number",
+    allowZero: true,
+  },
+];
+
+const assetFormErrorMessages = computed(() =>
+  Object.values(assetFormErrors.value).filter(Boolean),
+);
+
+function resetAssetFormErrors() {
+  assetFormErrors.value = emptyAssetFormErrors();
+}
+
+function clearAssetFormError(key: AssetFormFieldKey) {
+  if (!assetFormErrors.value[key]) return;
+  assetFormErrors.value = {
+    ...assetFormErrors.value,
+    [key]: "",
+  };
+}
+
+function setAssetField(key: keyof typeof newAsset.value, value: any) {
+  updateNewAsset({
+    ...newAsset.value,
+    [key]: value,
+  });
+  if (key in assetFormErrors.value)
+    clearAssetFormError(key as AssetFormFieldKey);
+}
+
+function assetRawInputValue(id: string) {
+  return (
+    (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null)
+      ?.value ?? ""
+  )
+    .toString()
+    .trim();
+}
+
+function validateAssetForm() {
+  const nextErrors = emptyAssetFormErrors();
+
+  for (const field of assetRequiredFields) {
+    const rawValue = assetRawInputValue(field.id);
+    const value = newAsset.value[field.key];
+
+    if (!rawValue) {
+      nextErrors[field.key] = `${field.label} wajib diisi.`;
+      continue;
+    }
+
+    if (field.type === "number") {
+      const numericValue = Number(value);
+      const minimum = field.allowZero ? 0 : 1;
+      if (!Number.isFinite(numericValue) || numericValue < minimum) {
+        nextErrors[field.key] = field.allowZero
+          ? `${field.label} harus berupa angka 0 atau lebih.`
+          : `${field.label} harus lebih dari 0.`;
+      }
+    }
+  }
+
+  assetFormErrors.value = nextErrors;
+  const firstInvalidField = assetRequiredFields.find(
+    (field) => nextErrors[field.key],
+  );
+
+  if (firstInvalidField) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField.id);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+}
+
 const handleSaveSub = async (e: Event) => {
   e.preventDefault();
   if (
     !newSub.value.nama ||
     !newSub.value.tanggalTagihan ||
-    !newSub.value.provider
+    !newSub.value.provider ||
+    !newSub.value.mataUang ||
+    !newSub.value.siklus ||
+    !newSub.value.kategori ||
+    Number(newSub.value.biaya) <= 0
   ) {
-    notify("Harap isi nama layanan, nama provider, dan tanggal tagihan.");
+    notify("Seluruh data layanan wajib diisi dan biaya harus lebih dari nol.");
     return;
   }
   const item: Langganan = {
@@ -1577,6 +1756,7 @@ const handleSaveSub = async (e: Event) => {
 
 const resetAssetForm = () => {
   editingAsset.value = null;
+  resetAssetFormErrors();
   updateNewAsset({
     nama: "",
     kategori: "Elektronik / IT",
@@ -1589,6 +1769,7 @@ const resetAssetForm = () => {
 };
 
 const openAssetForm = (asset: any = null) => {
+  resetAssetFormErrors();
   if (asset) {
     editingAsset.value = asset;
     const raw = asset._raw || asset;
@@ -1612,14 +1793,15 @@ const openAssetForm = (asset: any = null) => {
   updateIsAssetModalOpen(true);
 };
 
+const closeAssetModal = () => {
+  resetAssetFormErrors();
+  updateIsAssetModalOpen(false);
+};
+
 const handleSaveAsset = async (e: Event) => {
   e.preventDefault();
-  if (
-    !newAsset.value.nama ||
-    !newAsset.value.tanggalBeli ||
-    !newAsset.value.penanggungJawab
-  ) {
-    notify("Harap lengkapi nama aset, tanggal beli, dan penanggung jawab.");
+  if (!validateAssetForm()) {
+    notify("Lengkapi seluruh data aset sebelum menyimpan.");
     return;
   }
   if (editingAsset.value) {
@@ -1627,7 +1809,7 @@ const handleSaveAsset = async (e: Event) => {
   } else {
     await addAsset({ ...newAsset.value });
   }
-  updateIsAssetModalOpen(false);
+  closeAssetModal();
   resetAssetForm();
 };
 

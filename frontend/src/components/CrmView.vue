@@ -2,7 +2,7 @@
   <div class="crm-workspace space-y-6">
     <!-- Upper header action controls -->
     <div
-      class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200/80 pb-5"
+      class="workspace-page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
     >
       <div>
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
@@ -294,10 +294,11 @@
     <Teleport to="body"
       ><div
         v-if="renderContext.selectedProject || renderContext.selectedClient"
-        class="crm-modal-layer fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+        class="crm-modal-layer fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 overflow-y-auto"
       >
         <div
           class="crm-detail-modal bg-white border border-slate-100 rounded-3xl w-full overflow-hidden shadow-2xl"
+          style="width: min(1080px, calc(100vw - 40px)) !important; max-width: min(1080px, calc(100vw - 40px)) !important; height: auto !important; max-height: min(82vh, 680px) !important"
         >
           <div
             class="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100"
@@ -334,7 +335,10 @@
               <X class="w-5 h-5" />
             </button>
           </div>
-          <div class="crm-detail-body overflow-y-auto p-5">
+          <div
+            class="crm-detail-body overflow-y-auto p-5"
+            style="max-height: calc(min(82vh, 680px) - 112px)"
+          >
             <div class="space-y-5">
               <div
                 v-if="renderContext.selectedProject"
@@ -461,7 +465,7 @@
                       </div>
                     </div>
                     <div
-                      class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4"
+                      class="crm-project-profit-card rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4"
                     >
                       <p
                         class="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700"
@@ -514,7 +518,7 @@
                     </div>
                   </div>
                   <div
-                    class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4"
+                    class="crm-project-milestone-card rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4"
                   >
                     <div class="flex items-center justify-between gap-3">
                       <p
@@ -696,83 +700,59 @@
                       </div>
                     </div>
                   </div>
-                  <div
-                    class="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <p
-                      class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400"
-                    >
-                      Aksi Cepat
-                    </p>
-                    <div class="mt-3 grid gap-2">
-                      <button
-                        type="button"
-                        class="crm-modal-button primary"
-                        @click="editSelectedProject"
-                      >
-                        <Edit3 class="h-4 w-4" /> Edit Proyek</button
-                      ><button
-                        type="button"
-                        class="crm-modal-button danger"
-                        @click="deleteSelectedProject"
-                      >
-                        <Trash2 class="h-4 w-4" /> Hapus Proyek
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
               <div
                 v-else
-                class="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]"
+                class="crm-client-detail-grid grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]"
               >
-                <div class="space-y-5">
+                <div class="grid gap-4">
                   <div
-                    class="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                    class="rounded-[22px] border border-[#D8E5F4] bg-[#F8FBFE] p-5"
                   >
                     <p
-                      class="text-[10px] uppercase text-slate-400 tracking-[0.2em]"
+                      class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#7C8BA3]"
                     >
                       Bidang Industri
                     </p>
-                    <h4 class="mt-3 text-xl font-extrabold text-slate-900">
+                    <h4 class="mt-3 text-xl font-extrabold text-[#0B1F4A]">
                       {{ renderContext.selectedClient?.bidang }}
                     </h4>
-                    <p class="mt-4 text-sm text-slate-600">
+                    <p class="mt-3 text-sm font-medium text-[#52647E]">
                       {{ renderContext.selectedClient?.lokasi }}
                     </p>
                   </div>
-                  <div class="rounded-3xl border border-slate-200 p-5 bg-white">
+                  <div class="rounded-[22px] border border-[#D8E5F4] bg-white p-5">
                     <p
-                      class="text-[10px] uppercase text-slate-400 tracking-[0.2em]"
+                      class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#7C8BA3]"
                     >
                       Detail Kontak PIC
                     </p>
-                    <p class="mt-3 font-bold text-slate-900">
+                    <p class="mt-3 text-base font-extrabold text-[#0B1F4A]">
                       {{ renderContext.selectedClient?.pic }}
                     </p>
-                    <p class="text-sm text-slate-600 mt-2">
-                      <Mail class="inline w-3 h-3 mr-1" />{{
-                        renderContext.selectedClient?.email
+                    <p class="mt-3 flex items-center gap-2 text-sm font-medium text-[#52647E]">
+                      <Mail class="h-4 w-4 shrink-0 text-[#0B1F4A]" />{{
+                        renderContext.selectedClient?.email || "-"
                       }}
                     </p>
-                    <p class="text-sm text-slate-600">
-                      <Phone class="inline w-3 h-3 mr-1" />{{
-                        renderContext.selectedClient?.telepon
+                    <p class="mt-1.5 flex items-center gap-2 text-sm font-medium text-[#52647E]">
+                      <Phone class="h-4 w-4 shrink-0 text-[#0B1F4A]" />{{
+                        renderContext.selectedClient?.telepon || "-"
                       }}
                     </p>
                   </div>
                 </div>
-                <div class="space-y-5">
-                  <div class="rounded-3xl border border-slate-200 p-5 bg-white">
+                <div class="grid gap-4">
+                  <div class="rounded-[22px] border border-[#D8E5F4] bg-white p-5">
                     <p
-                      class="text-[10px] uppercase text-slate-400 tracking-[0.2em]"
+                      class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#7C8BA3]"
                     >
                       Proyek Terhubung
                     </p>
                     <p
                       v-if="selectedClientProjects.length === 0"
-                      class="mt-4 text-sm text-slate-500 italic"
+                      class="mt-4 rounded-2xl border border-dashed border-[#D8E5F4] bg-[#F8FBFE] px-4 py-5 text-sm italic leading-6 text-[#52647E]"
                     >
                       Belum ada proyek yang terkait dengan klien ini.
                     </p>
@@ -780,12 +760,12 @@
                       <div
                         v-for="project in selectedClientProjects"
                         :key="project.id"
-                        class="rounded-3xl bg-slate-50 p-4 border border-slate-100"
+                        class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-4"
                       >
-                        <p class="font-bold text-slate-900">
+                        <p class="font-bold text-[#0B1F4A]">
                           {{ project.nama }}
                         </p>
-                        <p class="text-[10px] text-slate-500 mt-2">
+                        <p class="mt-2 text-[11px] font-medium text-[#52647E]">
                           {{ project.status }} · {{ project.tanggalMulai }} s/d
                           {{ project.tanggalSelesai }}
                         </p>
@@ -793,20 +773,26 @@
                     </div>
                   </div>
                   <div
-                    class="rounded-3xl border border-slate-200 p-5 bg-slate-50"
+                    class="rounded-[22px] border border-[#D8E5F4] bg-[#F8FBFE] p-5"
                   >
                     <button
                       type="button"
-                      class="crm-modal-button primary"
+                      class="crm-client-action-button primary"
                       @click="editSelectedClient"
                     >
-                      <Edit3 class="h-4 w-4" /> Edit Klien</button
+                      <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#0B1F4A]">
+                        <Edit3 class="h-4 w-4" />
+                      </span>
+                      <span>Edit Klien</span></button
                     ><button
                       type="button"
-                      class="crm-modal-button danger mt-3"
+                      class="crm-client-action-button danger mt-3"
                       @click="deleteSelectedClient"
                     >
-                      <Trash2 class="h-4 w-4" /> Hapus Klien
+                      <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#0B1F4A]">
+                        <Trash2 class="h-4 w-4" />
+                      </span>
+                      <span>Hapus Klien</span>
                     </button>
                   </div>
                 </div>
@@ -818,11 +804,12 @@
       <!-- 3. CRM PROJECT INITIATION MODAL -->
       <div
         v-if="isFormOpen"
-        class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-3 backdrop-blur-sm sm:p-6"
+        class="crm-modal-layer fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-3 backdrop-blur-sm sm:p-6"
         @click.self="closeProjectModal"
       >
         <div
           class="crm-project-modal flex w-full flex-col overflow-hidden rounded-[30px] border border-[#DCE7F4] bg-white shadow-2xl"
+          style="width: min(960px, calc(100vw - 48px)) !important; max-width: min(960px, calc(100vw - 48px)) !important; max-height: min(88vh, 720px) !important"
         >
           <!-- Modal Header -->
           <div
@@ -848,9 +835,10 @@
             </button>
           </div>
           <!-- Form body -->
-          <div
-            class="crm-project-body grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8 lg:grid-cols-2 lg:p-8 2xl:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)_minmax(360px,0.9fr)]"
-          >
+          <form class="flex min-h-0 flex-1 flex-col" @submit="handleSaveProject">
+            <div
+              class="crm-project-body grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8 lg:grid-cols-2 lg:p-8 2xl:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)_minmax(360px,0.9fr)]"
+            >
             <!-- SECTION 1: DETAIL IDENTITAS PROJEK -->
             <div
               class="min-w-0 space-y-5 rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm"
@@ -877,6 +865,7 @@
                   ><input
                     id="proj-form-name"
                     type="text"
+                    required
                     placeholder="Contoh: Pengembangan App E-Procurement"
                     v-model.trim="newProj.nama"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
@@ -887,15 +876,18 @@
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >NILAI KONTRAK</label
                   >
-                  <div class="relative flex items-center">
+                  <div class="currency-input relative flex items-center">
                     <span
                       class="absolute left-4 text-[#637083] font-bold text-xs select-none"
                       >Rp</span
                     ><input
                       id="proj-form-val"
                       type="number"
+                      required
+                      min="1"
                       placeholder="0"
                       :value="newProj.nilaiKontrak || ''"
+                      style="padding-left: 2.75rem !important"
                       class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                       @change="handleContractValueChange"
                     />
@@ -907,16 +899,18 @@
                   class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                   >ANGGARAN BIAYA PROYEK</label
                 >
-                <div class="relative flex items-center">
+                <div class="currency-input relative flex items-center">
                   <span
                     class="absolute left-4 text-[#637083] font-bold text-xs select-none"
                     >Rp</span
                   ><input
                     id="proj-form-budget"
                     type="number"
+                    required
                     min="0"
                     placeholder="0"
                     :value="newProj.anggaran || ''"
+                    style="padding-left: 2.75rem !important"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                     @change="handleBudgetValueChange"
                   />
@@ -937,6 +931,7 @@
                   <div class="relative">
                     <select
                       id="proj-form-tender"
+                      required
                       :title="newProj.tipeTender"
                       v-model="newProj.tipeTender"
                       class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-8 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
@@ -965,6 +960,7 @@
                   <div class="relative">
                     <select
                       id="proj-form-status"
+                      required
                       :title="newProj.status"
                       v-model="newProj.status"
                       class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-3 pr-8 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
@@ -987,6 +983,7 @@
                   ><input
                     id="proj-form-start"
                     type="date"
+                    required
                     v-model="newProj.tanggalMulai"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
@@ -998,6 +995,7 @@
                   ><input
                     id="proj-form-end"
                     type="date"
+                    required
                     :min="newProj.tanggalMulai || undefined"
                     v-model="newProj.tanggalSelesai"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
@@ -1115,14 +1113,13 @@
                   <p
                     class="mt-1 text-[11px] font-medium leading-relaxed text-amber-700/80"
                   >
-                    Opsional untuk catatan internal: siapa saja tim yang ikut
-                    proyek, role, alokasi waktu, dan estimasi biaya. Data ini
-                    tidak perlu diisi untuk klien baru.
+                    Wajib diisi minimal satu anggota tim beserta posisi atau
+                    perannya dalam proyek.
                   </p>
                 </div>
               </div>
               <div
-                class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_148px] xl:items-end"
+                class="crm-project-team-inputs grid grid-cols-1 gap-4 md:grid-cols-2"
               >
                 <div class="space-y-2">
                   <label
@@ -1134,6 +1131,7 @@
                     v-model.trim="manualStaffName"
                     placeholder="Contoh: Arif Prasetyo"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                    @keydown.enter.prevent="handleAddManualStaff"
                   />
                 </div>
                 <div class="space-y-2">
@@ -1146,37 +1144,55 @@
                     v-model.trim="manualStaffPosition"
                     placeholder="Contoh: Project Manager"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                    @keydown.enter.prevent="handleAddManualStaff"
                   />
                 </div>
                 <button
                   id="btn-add-project-team"
                   type="button"
-                  class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-bold text-white shadow-lg shadow-amber-500/15 transition-colors hover:bg-amber-600 sm:col-span-2 xl:col-span-1"
+                  class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-bold text-white shadow-lg shadow-amber-500/15 transition-colors hover:bg-amber-600 md:col-span-2"
                   @click="handleAddManualStaff"
                 >
-                  <Plus class="w-4 h-4" /> Tambah
+                  <Plus class="w-4 h-4" /> Tambah Anggota
                 </button>
               </div>
               <div
                 class="min-h-[54px] rounded-2xl border border-dashed border-amber-200 bg-amber-50/40 p-3"
               >
+                <p
+                  v-if="projectTeamError"
+                  class="form-field-warning mb-2"
+                  role="alert"
+                >
+                  {{ projectTeamError }}
+                </p>
                 <span
                   v-if="newProj.tim.length === 0"
                   class="text-[11px] text-slate-400 font-semibold"
                   >Belum ada anggota tim yang dialokasikan.</span
                 >
-                <div v-else class="flex flex-wrap gap-2">
+                <div v-else class="space-y-2">
+                  <div
+                    class="crm-project-team-list-head grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_34px] gap-3 px-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#102A56]"
+                  >
+                    <span>Nama Anggota</span>
+                    <span>Posisi / Role</span>
+                    <span></span>
+                  </div>
                   <div
                     v-for="member in newProj.tim"
                     :key="member.nama"
-                    class="flex items-center gap-2 rounded-xl bg-white border border-amber-100 px-3 py-2 shadow-sm"
+                    class="crm-project-team-chip grid min-w-0 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_34px] items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-3 shadow-sm"
                   >
-                    <div>
+                    <div class="min-w-0 flex-1">
                       <span
-                        class="block text-xs font-extrabold text-[#102A56]"
+                        class="block break-words text-sm font-extrabold leading-snug text-[#102A56]"
                         >{{ member.nama }}</span
-                      ><span
-                        class="block text-[10px] font-bold text-amber-600 uppercase tracking-wide"
+                      >
+                    </div>
+                    <div class="min-w-0">
+                      <span
+                        class="block break-words text-[11px] font-bold uppercase tracking-wide text-amber-600"
                         >{{ member.jabatan }}</span
                       >
                     </div>
@@ -1225,6 +1241,7 @@
                 <div class="relative">
                   <select
                     id="proj-form-klien"
+                    required
                     v-model="newProj.klienId"
                     class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   >
@@ -1241,11 +1258,11 @@
                 </div>
               </div>
             </div>
-          </div>
-          <!-- Modal footer controls -->
-          <div
-            class="flex shrink-0 flex-col-reverse gap-3 border-t border-[#E8EEF7] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5"
-          >
+            </div>
+            <!-- Modal footer controls -->
+            <div
+              class="flex shrink-0 flex-col-reverse gap-3 border-t border-[#E8EEF7] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5"
+            >
             <button
               id="btn-project-cancel"
               type="button"
@@ -1255,151 +1272,157 @@
               BATAL</button
             ><button
               id="btn-project-save"
-              type="button"
+              type="submit"
               class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] sm:w-auto"
-              @click="handleSaveProject"
             >
               <CheckCircle2 class="w-4 h-4" /> SELESAIKAN INISIASI PROJEK
             </button>
-          </div>
-        </div>
-      </div>
-      <!-- 4. REGISTRASI KLIEN BARU STANDALONE MODAL -->
-      <div
-        v-if="isClientFormOpen"
-        class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-        @click.self="closeClientModal"
-      >
-        <div
-          class="crm-client-modal bg-white border border-slate-100 rounded-[36px] w-full max-w-2xl overflow-hidden shadow-2xl"
-        >
-          <div
-            class="px-8 py-6 border-b border-slate-100 flex justify-between items-start"
-          >
-            <div>
-              <h3
-                class="font-extrabold text-xl text-[#102A56] tracking-tight uppercase"
-              >
-                <template v-if="editingClientId">Edit Mitra Klien</template
-                ><template v-else>Registrasi Mitra Klien Baru</template>
-              </h3>
-              <span
-                class="text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest block mt-1"
-                >CRM &amp; Lifecycle Management System</span
-              >
             </div>
-            <button
-              id="btn-close-client-modal"
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#94A3B8] transition-colors hover:bg-[#F8FBFE] hover:text-slate-600"
-              @click="closeClientModal"
-            >
-              <X class="w-6 h-6" />
-            </button>
-          </div>
-          <form class="p-8 space-y-6 text-xs" @submit="handleSaveClient">
-            <div
-              class="flex items-center gap-2.5 pb-3 border-b border-[#D8E5F4]"
-            >
-              <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
-                <Building class="w-4 h-4" />
-              </div>
-              <h4
-                class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase"
-              >
-                Informasi Klien Partner
-              </h4>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="space-y-1.5 md:col-span-2">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Nama Perusahaan / Kementerian *</label
-                ><input
-                  id="client-form-company"
-                  type="text"
-                  required
-                  placeholder="Contoh: PT Kereta Api Indonesia (Persero)"
-                  v-model.trim="newClient.namaPerusahaan"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Bidang &amp; Kategori</label
-                ><input
-                  id="client-form-category"
-                  type="text"
-                  placeholder="Contoh: BUMN / Transportasi"
-                  v-model.trim="newClient.bidang"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Lokasi Kantor Cabang</label
-                ><input
-                  id="client-form-location"
-                  type="text"
-                  placeholder="Contoh: Bandung, Jawa Barat"
-                  v-model.trim="newClient.lokasi"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Nama PIC Utama *</label
-                ><input
-                  id="client-form-pic"
-                  type="text"
-                  required
-                  placeholder="Contoh: Dr. Ir. Heru Wibowo, M.T."
-                  v-model.trim="newClient.pic"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Email Kerja PIC</label
-                ><input
-                  id="client-form-email"
-                  type="email"
-                  placeholder="Contoh: pic.proyek@kai.id"
-                  v-model.trim="newClient.email"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-              <div class="space-y-1.5 md:col-span-2">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >Nomor Telepon PIC</label
-                ><input
-                  id="client-form-phone"
-                  type="text"
-                  placeholder="Contoh: +62 811-2345-678"
-                  v-model.trim="newClient.telepon"
-                  class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                />
-              </div>
-            </div>
-            <button
-              id="btn-client-submit"
-              type="submit"
-              class="w-full bg-[#102A56] hover:bg-[#0B1F42] text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
-            >
-              <CheckCircle2 class="w-4 h-4" /><template v-if="editingClientId"
-                >Simpan Perubahan Klien</template
-              ><template v-else>Daftarkan Klien Baru</template>
-            </button>
           </form>
         </div>
       </div>
+      <!-- 4. REGISTRASI KLIEN BARU STANDALONE MODAL -->
+      <Teleport to="body">
+        <div
+          v-if="isClientFormOpen"
+          class="crm-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+          @click.self="closeClientModal"
+        >
+          <div
+            class="crm-client-modal bg-white border border-slate-100 rounded-[36px] w-full max-w-2xl overflow-hidden shadow-2xl"
+          >
+            <div
+              class="px-8 py-6 border-b border-slate-100 flex justify-between items-start"
+            >
+              <div>
+                <h3
+                  class="font-extrabold text-xl text-[#102A56] tracking-tight uppercase"
+                >
+                  <template v-if="editingClientId">Edit Mitra Klien</template
+                  ><template v-else>Registrasi Mitra Klien Baru</template>
+                </h3>
+                <span
+                  class="text-[10px] text-[#94A3B8] font-bold uppercase tracking-widest block mt-1"
+                  >CRM &amp; Lifecycle Management System</span
+                >
+              </div>
+              <button
+                id="btn-close-client-modal"
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#94A3B8] transition-colors hover:bg-[#F8FBFE] hover:text-slate-600"
+                @click="closeClientModal"
+              >
+                <X class="w-6 h-6" />
+              </button>
+            </div>
+            <form class="p-8 space-y-6 text-xs" @submit="handleSaveClient">
+              <div
+                class="flex items-center gap-2.5 pb-3 border-b border-[#D8E5F4]"
+              >
+                <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
+                  <Building class="w-4 h-4" />
+                </div>
+                <h4
+                  class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase"
+                >
+                  Informasi Klien Partner
+                </h4>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1.5 md:col-span-2">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Nama Perusahaan / Kementerian *</label
+                  ><input
+                    id="client-form-company"
+                    type="text"
+                    required
+                    placeholder="Contoh: PT Kereta Api Indonesia (Persero)"
+                    v-model.trim="newClient.namaPerusahaan"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+                <div class="space-y-1.5">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Bidang &amp; Kategori *</label
+                  ><input
+                    id="client-form-category"
+                    type="text"
+                    required
+                    placeholder="Contoh: BUMN / Transportasi"
+                    v-model.trim="newClient.bidang"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+                <div class="space-y-1.5">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Lokasi Kantor Cabang *</label
+                  ><input
+                    id="client-form-location"
+                    type="text"
+                    required
+                    placeholder="Contoh: Bandung, Jawa Barat"
+                    v-model.trim="newClient.lokasi"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+                <div class="space-y-1.5">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Nama PIC Utama *</label
+                  ><input
+                    id="client-form-pic"
+                    type="text"
+                    required
+                    placeholder="Contoh: Dr. Ir. Heru Wibowo, M.T."
+                    v-model.trim="newClient.pic"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+                <div class="space-y-1.5">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Email Kerja PIC *</label
+                  ><input
+                    id="client-form-email"
+                    type="email"
+                    required
+                    placeholder="Contoh: pic.proyek@kai.id"
+                    v-model.trim="newClient.email"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+                <div class="space-y-1.5 md:col-span-2">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Nomor Telepon PIC *</label
+                  ><input
+                    id="client-form-phone"
+                    type="tel"
+                    required
+                    placeholder="Contoh: +62 811-2345-678"
+                    v-model.trim="newClient.telepon"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                </div>
+              </div>
+              <button
+                id="btn-client-submit"
+                type="submit"
+                class="w-full bg-[#102A56] hover:bg-[#0B1F42] text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+              >
+                <CheckCircle2 class="w-4 h-4" /><template v-if="editingClientId"
+                  >Simpan Perubahan Klien</template
+                ><template v-else>Daftarkan Klien Baru</template>
+              </button>
+            </form>
+          </div>
+        </div>
+      </Teleport>
       <div
         v-if="deleteConfirm"
-        class="crm-modal-layer fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="crm-modal-layer fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
         @click.self="closeDeleteConfirm"
       >
         <div
@@ -1747,6 +1770,7 @@ const manualStaffPosition = ref("");
 const milestoneTitle = ref("");
 const milestoneDate = ref("");
 const milestoneStatus = ref<"planned" | "in_progress" | "completed">("planned");
+const projectTeamError = ref("");
 
 function setActiveSubTab(next: CrmSubTab) {
   activeSubTab.value = next;
@@ -1763,6 +1787,7 @@ function resetProjectForm() {
   milestoneTitle.value = "";
   milestoneDate.value = "";
   milestoneStatus.value = "planned";
+  projectTeamError.value = "";
 }
 
 function resetClientForm() {
@@ -1801,6 +1826,7 @@ function handleAddManualStaff() {
       },
     ],
   };
+  projectTeamError.value = "";
   manualStaffName.value = "";
   manualStaffPosition.value = "";
 }
@@ -1835,7 +1861,8 @@ function handleRemoveMilestone(index: number) {
 }
 
 // Submit complete single-page project form
-async function handleSaveProject() {
+async function handleSaveProject(event?: Event) {
+  event?.preventDefault();
   if (
     !newProj.value.nama ||
     !newProj.value.tanggalMulai ||
@@ -1846,6 +1873,18 @@ async function handleSaveProject() {
   }
   if (!newProj.value.klienId) {
     notify("Harap pilih perusahaan klien dari database Klien Partner.");
+    return;
+  }
+  if (newProj.value.tim.length === 0) {
+    projectTeamError.value =
+      "Tambahkan minimal satu anggota tim beserta posisi atau perannya.";
+    notify("Alokasi tim SDM wajib diisi sebelum proyek disimpan.");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("proj-team-name")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("proj-team-name")?.focus();
+    });
     return;
   }
   const selectedClient = klien.find((k) => k.id === newProj.value.klienId);
@@ -1873,8 +1912,15 @@ async function handleSaveProject() {
 // Submit client form
 async function handleSaveClient(e: Event) {
   e.preventDefault();
-  if (!newClient.value.namaPerusahaan || !newClient.value.pic) {
-    notify("Harap lengkapi nama perusahaan dan kontak PIC.");
+  if (
+    !newClient.value.namaPerusahaan ||
+    !newClient.value.bidang ||
+    !newClient.value.lokasi ||
+    !newClient.value.pic ||
+    !newClient.value.email ||
+    !newClient.value.telepon
+  ) {
+    notify("Seluruh informasi mitra klien wajib diisi.");
     return;
   }
   const clientItem: Klien = {
@@ -1999,16 +2045,6 @@ function openClientDeleteConfirm(client: Klien) {
   };
 }
 
-function editSelectedProject() {
-  const project = renderContext.value.selectedProject;
-  if (project) openEditProjectModal(project);
-}
-
-function deleteSelectedProject() {
-  const project = renderContext.value.selectedProject;
-  if (project) openProjectDeleteConfirm(project);
-}
-
 function editSelectedClient() {
   const client = renderContext.value.selectedClient;
   if (client) openEditClientModal(client);
@@ -2114,3 +2150,218 @@ const selectedClientProjects = computed(() => {
 });
 
 </script>
+
+<style>
+.crm-detail-modal .crm-client-detail-grid {
+  align-items: stretch;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div > div {
+  box-shadow: 0 8px 18px rgba(11, 31, 74, 0.035);
+}
+
+.crm-client-action-button {
+  display: flex;
+  min-height: 58px;
+  width: 100%;
+  align-items: center;
+  gap: 14px;
+  border-radius: 16px;
+  border: 1px solid #d8e5f4;
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0b1f4a;
+  transition: background-color 160ms ease, border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.crm-client-action-button.primary {
+  background: #ffffff;
+}
+
+.crm-client-action-button.danger {
+  background: #ffffff;
+}
+
+.crm-client-action-button:hover {
+  border-color: #0b1f4a;
+  background: #eef5fc;
+  transform: translateY(-1px);
+}
+
+.crm-detail-modal .crm-project-profit-card,
+.crm-detail-modal .crm-project-milestone-card {
+  background: #0b1f4a !important;
+  border-color: #0b1f4a !important;
+}
+
+.crm-detail-modal .crm-project-profit-card :where(p, span, h4, strong),
+.crm-detail-modal .crm-project-milestone-card :where(p, span, h4, strong) {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.crm-detail-modal .crm-project-profit-card :where(.text-slate-500, .text-slate-400),
+.crm-detail-modal .crm-project-milestone-card :where(.text-slate-500, .text-slate-400) {
+  color: #cbd5e1 !important;
+}
+
+.crm-detail-modal .crm-project-profit-card :where([class*="text-emerald"], [class*="text-rose"]) {
+  color: #ffffff !important;
+}
+
+.crm-project-modal {
+  font-size: 12px;
+}
+
+.crm-project-modal > div:first-child {
+  padding: 16px 22px !important;
+}
+
+.crm-project-modal > div:first-child h3 {
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+}
+
+.crm-project-modal #btn-close-project-modal {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.crm-project-modal .crm-project-body {
+  gap: 14px !important;
+  padding: 18px !important;
+}
+
+.crm-project-modal .crm-project-body > div {
+  border-radius: 18px !important;
+  padding: 16px !important;
+}
+
+.crm-project-modal .crm-project-body > div[class*="space-y-5"],
+.crm-project-modal .crm-project-body > div[class*="space-y-6"] {
+  row-gap: 14px !important;
+}
+
+.crm-project-modal .crm-project-body h4 {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+
+.crm-project-modal .crm-project-body label {
+  font-size: 9px !important;
+}
+
+.crm-project-modal .crm-project-body input,
+.crm-project-modal .crm-project-body select {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+}
+
+.crm-project-modal .crm-project-body button {
+  min-height: 38px !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+}
+
+.crm-project-modal .crm-project-body p,
+.crm-project-modal .crm-project-body span {
+  font-size: 10px !important;
+}
+
+.crm-project-modal .crm-project-team-inputs {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+.crm-project-modal .crm-project-team-inputs input {
+  height: 46px !important;
+  min-height: 46px !important;
+  font-size: 13px !important;
+}
+
+.crm-project-modal #btn-add-project-team {
+  grid-column: 1 / -1 !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  width: 100% !important;
+  font-size: 13px !important;
+}
+
+.crm-project-modal .crm-project-team-list-head {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 34px !important;
+}
+
+.crm-project-modal .crm-project-team-chip {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 34px !important;
+  min-height: 64px !important;
+  width: 100% !important;
+}
+
+.crm-project-modal .crm-project-team-chip span:first-child {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+.crm-project-modal .crm-project-team-chip span:nth-child(2) {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+
+.crm-project-modal .crm-project-team-chip button {
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  flex-shrink: 0;
+}
+
+.crm-project-modal .crm-project-body svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.crm-project-modal form > div:last-child {
+  padding: 12px 18px !important;
+}
+
+.crm-project-modal form > div:last-child button {
+  min-height: 40px !important;
+  padding: 8px 18px !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 639px) {
+  .crm-project-modal .crm-project-body {
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .crm-project-modal .crm-project-team-inputs {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .crm-project-modal .crm-project-team-list-head {
+    display: none !important;
+  }
+
+  .crm-project-modal .crm-project-team-chip {
+    grid-template-columns: minmax(0, 1fr) 34px !important;
+  }
+
+  .crm-project-modal .crm-project-team-chip > div:nth-child(2) {
+    grid-column: 1 / 2;
+  }
+
+  .crm-project-modal .crm-project-team-chip > button {
+    grid-column: 2 / 3;
+    grid-row: 1 / span 2;
+  }
+}
+</style>

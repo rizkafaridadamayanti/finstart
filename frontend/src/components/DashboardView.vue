@@ -301,7 +301,7 @@
           </div>
         </article>
       </div>
-      <aside class="min-w-0">
+      <aside class="cfo-column min-h-0 min-w-0">
         <section
           id="ai-cfo-card"
           ref="aiCardRef"
@@ -316,7 +316,7 @@
                   class="cfo-hero-icon relative flex h-11 w-11 items-center justify-center rounded-2xl"
                 >
                   <span
-                    class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-[#16A085]"
+                    class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-[#0B1F4A]"
                     ><span class="h-1.5 w-1.5 rounded-full bg-white" /></span
                   ><Bot class="h-5 w-5" />
                 </div>
@@ -482,9 +482,17 @@
                       type="submit"
                       :disabled="isAiLoading || !inputMessage.trim()"
                       class="cfo-send-button flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-45"
-                      aria-label="Kirim pertanyaan"
+                      :aria-label="
+                        isAiLoading
+                          ? 'AI sedang menyiapkan jawaban'
+                          : 'Kirim pertanyaan'
+                      "
                     >
-                      <Send class="h-4 w-4" />
+                      <DashboardLoaderSpinner
+                        v-if="isAiLoading"
+                        class="h-4 w-4 animate-spin"
+                      />
+                      <Send v-else class="h-4 w-4" />
                     </button>
                   </div>
                 </form>
@@ -1329,3 +1337,317 @@ function handleDeleteChatClick(chatId: string, event: MouseEvent) {
 }
 
 </script>
+
+<style scoped>
+#ai-cfo-card {
+  --cfo-navy: #0b1f4a;
+  --cfo-white: #ffffff;
+  border-color: var(--cfo-navy);
+  background: var(--cfo-white);
+  box-shadow: 0 24px 64px rgba(11, 31, 74, 0.22);
+  color: var(--cfo-navy);
+  isolation: isolate;
+}
+
+@media (min-width: 1280px) {
+  .cfo-column {
+    position: relative;
+    height: 100%;
+  }
+
+  #ai-cfo-card {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
+}
+
+.cfo-bg-gradient {
+  background: linear-gradient(145deg, rgba(11, 31, 74, 0.08), transparent 42%);
+}
+
+.cfo-bg-grid {
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(11, 31, 74, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 31, 74, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(to bottom, black, transparent 42%);
+}
+
+.cfo-hero {
+  color: var(--cfo-white);
+  background: var(--cfo-navy);
+  border-bottom: 1px solid var(--cfo-navy);
+}
+
+.cfo-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 20px 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.cfo-hero-icon {
+  color: var(--cfo-navy);
+  background: var(--cfo-white);
+  box-shadow: 0 10px 24px rgba(255, 255, 255, 0.16);
+}
+
+.cfo-hero .cfo-eyebrow,
+.cfo-hero h2,
+.cfo-hero p {
+  color: var(--cfo-white) !important;
+}
+
+.cfo-history-toggle,
+.cfo-new-chat {
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  color: var(--cfo-white);
+  background: transparent;
+}
+
+.cfo-history-toggle:hover,
+.cfo-history-toggle.active,
+.cfo-new-chat:hover {
+  color: var(--cfo-navy);
+  background: var(--cfo-white);
+  border-color: var(--cfo-white);
+}
+
+.cfo-count-badge {
+  color: var(--cfo-navy);
+  background: var(--cfo-white);
+}
+
+.cfo-history-toggle:hover .cfo-count-badge,
+.cfo-history-toggle.active .cfo-count-badge {
+  color: var(--cfo-white);
+  background: var(--cfo-navy);
+}
+
+.cfo-sidebar,
+.cfo-chat-top,
+.cfo-composer {
+  border-color: rgba(11, 31, 74, 0.22);
+}
+
+.cfo-sidebar {
+  background: rgba(11, 31, 74, 0.045);
+  padding: 18px 20px;
+}
+
+.cfo-sidebar > div {
+  gap: 10px;
+}
+
+.cfo-section-label,
+.cfo-message-label {
+  color: var(--cfo-navy);
+  font-weight: 800;
+}
+
+.cfo-template-button {
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: var(--cfo-navy);
+  border-color: rgba(11, 31, 74, 0.38);
+  background: var(--cfo-white);
+  line-height: 1.35;
+  box-shadow: 0 5px 14px rgba(11, 31, 74, 0.06);
+}
+
+.cfo-template-button span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.cfo-template-button:hover {
+  color: var(--cfo-white);
+  border-color: var(--cfo-navy);
+  background: var(--cfo-navy);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(11, 31, 74, 0.15);
+}
+
+.cfo-ai-workspace,
+.cfo-chat-scroll {
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(11, 31, 74, 0.45) transparent;
+  scrollbar-width: thin;
+  background: var(--cfo-white);
+}
+
+.cfo-chat-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.cfo-chat-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid var(--cfo-white);
+  border-radius: 999px;
+  background: rgba(11, 31, 74, 0.45);
+}
+
+.cfo-chat-top {
+  background: var(--cfo-white);
+  min-height: 76px;
+  padding: 16px 20px;
+}
+
+.cfo-chat-top p,
+.cfo-clear-button {
+  color: var(--cfo-navy) !important;
+}
+
+.cfo-clear-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cfo-focus-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  color: var(--cfo-white);
+  border-color: var(--cfo-navy);
+  background: var(--cfo-navy);
+  box-shadow: 0 14px 30px rgba(11, 31, 74, 0.16);
+}
+
+.cfo-focus-card p,
+.cfo-focus-icon {
+  color: var(--cfo-white) !important;
+}
+
+.cfo-focus-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cfo-message.ai {
+  margin-right: 0;
+  padding: 18px 20px;
+  border-radius: 16px;
+  color: var(--cfo-navy);
+  border: 1px solid rgba(11, 31, 74, 0.24);
+  background: rgba(11, 31, 74, 0.05);
+}
+
+.cfo-message.user {
+  padding: 14px 16px;
+  color: var(--cfo-white);
+  background: var(--cfo-navy);
+  box-shadow: 0 10px 22px rgba(11, 31, 74, 0.14);
+}
+
+.cfo-message.user :deep(*) {
+  color: var(--cfo-white) !important;
+}
+
+.cfo-loading-message {
+  color: var(--cfo-navy);
+  border: 1px solid rgba(11, 31, 74, 0.22);
+  background: rgba(11, 31, 74, 0.05);
+}
+
+.cfo-composer {
+  background: var(--cfo-white);
+  padding: 16px 18px;
+}
+
+.cfo-input-shell {
+  min-height: 58px;
+  padding: 6px;
+  border-radius: 16px;
+  border-color: var(--cfo-navy);
+  background: var(--cfo-white);
+  box-shadow: 0 10px 28px rgba(11, 31, 74, 0.1);
+}
+
+#ai-chat-input {
+  color: var(--cfo-navy) !important;
+  background: var(--cfo-white) !important;
+}
+
+#ai-chat-input::placeholder {
+  color: rgba(11, 31, 74, 0.48) !important;
+}
+
+.cfo-send-button {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  color: var(--cfo-white);
+  background: #1e5aa8;
+}
+
+.cfo-send-button:not(:disabled):hover {
+  background: var(--cfo-navy);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(11, 31, 74, 0.24);
+}
+
+.cfo-send-button:disabled {
+  color: var(--cfo-white);
+  background: rgba(30, 90, 168, 0.68);
+  opacity: 1;
+}
+
+.cfo-send-button:disabled:has(.animate-spin) {
+  background: #1e5aa8;
+}
+
+.cfo-inline-history {
+  color: var(--cfo-navy);
+  border-left: 1px solid rgba(11, 31, 74, 0.25);
+  background: var(--cfo-white);
+}
+
+.cfo-inline-history-close,
+.cfo-inline-new-chat,
+.cfo-inline-session {
+  color: var(--cfo-navy);
+  border-color: rgba(11, 31, 74, 0.25);
+  background: var(--cfo-white);
+}
+
+.cfo-inline-new-chat:hover,
+.cfo-inline-session.active {
+  color: var(--cfo-white);
+  background: var(--cfo-navy);
+}
+
+@media (max-width: 640px) {
+  .cfo-hero {
+    padding: 1rem;
+  }
+
+  .cfo-new-chat-label,
+  .cfo-history-label {
+    display: none;
+  }
+
+  .cfo-sidebar > div {
+    grid-template-columns: 1fr;
+  }
+
+  .cfo-sidebar,
+  .cfo-chat-top,
+  .cfo-composer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .cfo-focus-card,
+  .cfo-message.ai {
+    padding: 14px;
+  }
+}
+</style>

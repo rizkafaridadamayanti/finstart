@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-7 font-sans">
     <header
-      class="flex flex-col gap-4 border-b border-[#DCE7F4] pb-6 lg:flex-row lg:items-end lg:justify-between"
+      class="workspace-page-header flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
     >
       <div>
         <p

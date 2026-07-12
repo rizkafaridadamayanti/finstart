@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-[#F3F7FC] font-sans text-[#182338]">
+  <div class="h-screen overflow-hidden bg-[#F3F7FC] font-sans text-[#182338]">
     <div
-      class="mx-auto grid min-h-screen max-w-[1760px] grid-cols-1 lg:grid-cols-[1.02fr_0.98fr]"
+      class="mx-auto grid h-full max-w-[1760px] grid-cols-1 lg:grid-cols-[1.02fr_0.98fr]"
     >
       <section
-        class="relative hidden overflow-hidden bg-[#0B1F4A] px-10 py-9 text-white lg:flex lg:flex-col xl:px-14 xl:py-12"
+        class="relative hidden h-full overflow-hidden bg-[#0B1F4A] px-8 py-7 text-white lg:flex lg:flex-col xl:px-14 xl:py-8"
       >
         <div class="pointer-events-none absolute inset-0" aria-hidden="true">
           <div
@@ -13,76 +13,76 @@
           <div
             class="absolute bottom-[-8rem] right-[-8rem] h-96 w-96 rounded-full bg-[#1E5AA8]/16 blur-3xl"
           />
-          <div class="absolute inset-x-10 top-[23%] h-px bg-white/8" />
-          <div class="absolute inset-x-14 bottom-[17%] h-px bg-white/8" />
-          <div class="absolute left-[13%] top-[12%] h-[65%] w-px bg-white/5" />
-          <div class="absolute right-[12%] top-[10%] h-[70%] w-px bg-white/5" />
         </div>
 
-        <div class="relative z-10 flex items-center justify-between gap-4">
+        <div
+          class="relative z-10 flex shrink-0 flex-wrap items-center justify-between gap-4"
+        >
           <button
             id="login-back-to-landing"
             type="button"
-            class="inline-flex h-11 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-4 text-sm font-semibold text-blue-50 transition hover:bg-white/[0.12]"
+            class="inline-flex h-12 shrink-0 items-center gap-2.5 rounded-2xl border border-white/12 bg-white/[0.06] px-5 text-base font-semibold text-blue-50 transition hover:bg-white/[0.12]"
             @click="goBack"
           >
             <ArrowLeft class="h-4 w-4" />
             Kembali ke Landing Page
           </button>
           <span
-            class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/85"
+            class="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-blue-100/85"
           >
             Internal Workspace
           </span>
         </div>
 
-        <div class="relative z-10 my-auto max-w-2xl py-12">
+        <div class="relative z-10 my-auto max-w-3xl py-6 xl:py-8">
           <div
-            class="inline-flex items-center gap-4 rounded-[26px] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.20)] backdrop-blur-sm"
+            class="inline-flex max-w-full items-center gap-5 rounded-[28px] bg-white/[0.06] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.20)] backdrop-blur-sm"
           >
             <div
-              class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-[0_16px_34px_rgba(255,255,255,0.12)]"
+              class="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-white shadow-[0_16px_34px_rgba(255,255,255,0.12)]"
             >
-              <KedataLogo :size="40" />
+              <KedataLogo :size="48" />
             </div>
-            <div>
+            <div class="min-w-0">
               <p
-                class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9BC6F7]"
+                class="text-xs font-bold uppercase tracking-[0.18em] text-[#9BC6F7]"
               >
                 PT Kedata Indonesia Digital
               </p>
               <h1
-                class="mt-1 text-3xl font-extrabold tracking-[0.16em] text-white"
+                class="mt-1 text-[40px] font-extrabold leading-none tracking-[0.12em] text-white"
               >
                 FINSTART
               </h1>
               <p
-                class="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-300/80"
+                class="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-300/80"
               >
                 Financial Operations Workspace
               </p>
             </div>
           </div>
 
-          <div class="mt-10 max-w-xl">
+          <div class="mt-12 max-w-2xl xl:mt-14">
             <p
-              class="text-[11px] font-bold uppercase tracking-[0.22em] text-[#9BC6F7]"
+              class="text-sm font-bold uppercase tracking-[0.18em] text-[#9BC6F7]"
             >
               Sistem internal PT Kedata
             </p>
             <h2
-              class="mt-4 text-[42px] font-extrabold leading-[1.13] tracking-tight text-white xl:text-[52px]"
+              class="mt-6 text-[54px] font-extrabold leading-[1.12] text-white xl:text-[64px]"
             >
               Kontrol finansial yang rapi untuk pertumbuhan bisnis.
             </h2>
-            <p class="mt-5 max-w-lg text-[15px] leading-7 text-slate-300/85">
+            <p
+              class="login-side-copy mt-7 max-w-2xl text-lg leading-8 text-slate-300/90"
+            >
               Finstart menyatukan aktivitas finansial, proyek, transaksi, aset,
               pajak, dan laporan dalam lingkungan kerja yang profesional dan
               mudah dipahami.
             </p>
           </div>
 
-          <div class="mt-10 grid gap-3 sm:grid-cols-3">
+          <div class="login-trust-grid mt-8 grid gap-3 sm:grid-cols-3">
             <div
               v-for="point in trustPoints"
               :key="point.title"
@@ -102,7 +102,7 @@
         </div>
 
         <div
-          class="relative z-10 flex items-center justify-between border-t border-white/10 pt-6 text-xs text-blue-100/75"
+          class="relative z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5 text-sm text-blue-100/75"
         >
           <span>PT Kedata Indonesia Digital © 2026</span>
           <span class="inline-flex items-center gap-2">
@@ -115,7 +115,7 @@
       </section>
 
       <section
-        class="relative flex items-center justify-center overflow-hidden px-5 py-10 sm:px-8 lg:px-12"
+        class="relative flex h-full items-center justify-center overflow-hidden px-5 py-5 sm:px-8 lg:px-12 xl:px-16"
       >
         <div
           class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(30,90,168,0.09),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(11,31,74,0.06),transparent_42%)]"
@@ -134,18 +134,18 @@
         </div>
 
         <div
-          class="login-panel-enter relative z-10 w-full max-w-[540px] rounded-[30px] border border-[#DCE7F4] bg-white p-7 shadow-[0_24px_70px_rgba(16,42,86,0.10)] sm:p-9"
+          class="login-panel-enter relative z-10 w-full max-w-[760px]"
           role="region"
           aria-label="Form masuk Finstart"
         >
           <div
-            class="flex items-start justify-between gap-3 border-b border-[#E8EEF7] pb-6"
+            class="flex items-start justify-between gap-3 border-b border-[#E8EEF7] pb-4"
           >
             <div class="flex items-center gap-4">
               <div
-                class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_26px_rgba(16,42,86,0.08)]"
+                class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white shadow-[0_12px_26px_rgba(16,42,86,0.08)]"
               >
-                <KedataLogo :size="40" />
+                <KedataLogo :size="34" />
               </div>
               <div>
                 <p
@@ -154,7 +154,7 @@
                   PT Kedata Indonesia Digital
                 </p>
                 <h3
-                  class="mt-1 text-[28px] font-extrabold tracking-[0.10em] text-[#0B1F4A]"
+                  class="mt-1 text-[26px] font-extrabold tracking-[0.10em] text-[#0B1F4A]"
                 >
                   FINSTART
                 </h3>
@@ -166,31 +166,31 @@
               </div>
             </div>
             <div
-              class="hidden rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] px-2.5 py-2 text-right text-[9px] font-bold uppercase tracking-[0.14em] text-[#6B7A90] sm:block"
+              class="hidden rounded-xl bg-[#F8FBFE] px-2.5 py-2 text-right text-[9px] font-bold uppercase tracking-[0.14em] text-[#6B7A90] sm:block"
             >
               Secure<br /><span class="text-[#1E5AA8]">Access</span>
             </div>
           </div>
 
-          <div class="mt-7">
+          <div class="mt-5">
             <p
               class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
             >
               Akses workspace
             </p>
             <h2
-              class="mt-2 text-[30px] font-extrabold tracking-tight text-[#0B1F4A]"
+              class="mt-2 text-[28px] font-extrabold tracking-tight text-[#0B1F4A]"
             >
               Selamat Datang Kembali
             </h2>
-            <p class="mt-2 text-sm leading-6 text-[#6B7A90]">
+            <p class="mt-2 text-sm leading-5 text-[#6B7A90]">
               Masuk untuk melanjutkan operasional finansial PT Kedata Indonesia
               Digital.
             </p>
           </div>
 
           <div
-            class="mt-6 flex gap-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4 text-sm text-[#53658A]"
+            class="login-info-card mt-4 flex gap-3 rounded-2xl bg-[#F8FBFE] p-3 text-sm text-[#53658A]"
           >
             <Info class="mt-0.5 h-5 w-5 shrink-0 text-[#1E5AA8]" />
             <div>
@@ -285,7 +285,7 @@
           </form>
 
           <form
-            class="mt-6 space-y-5"
+            class="mt-4 space-y-3"
             novalidate
             @submit.prevent="handleSubmit"
           >
@@ -305,7 +305,7 @@
                   name="email"
                   type="email"
                   placeholder="nama@kedata.id"
-                  class="h-12 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
+                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
                   required
                 />
               </div>
@@ -337,7 +337,7 @@
                   name="password"
                   :type="showPassword ? 'text' : 'password'"
                   placeholder="Masukkan kata sandi"
-                  class="h-12 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-12 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
+                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-12 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
                   required
                 />
                 <button
@@ -379,23 +379,23 @@
                   inputmode="numeric"
                   maxlength="6"
                   placeholder="6 digit dari authenticator"
-                  class="h-12 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium tracking-[0.22em] text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
+                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium tracking-[0.22em] text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
                   @input="handleMfaInput"
                 />
               </div>
-              <p class="text-[11px] leading-5 text-[#8A9AB0]">
+              <p class="login-security-note text-[11px] leading-5 text-[#8A9AB0]">
                 Abaikan bila autentikasi dua langkah belum diaktifkan untuk akun
                 Anda.
               </p>
             </div>
 
-            <p class="text-xs leading-5 text-[#637083]">
+            <p class="login-session-copy text-xs leading-5 text-[#637083]">
               Sesi disimpan sementara pada browser dan dapat dicabut dari
               halaman Pengaturan.
             </p>
 
             <label
-              class="flex cursor-pointer items-start gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-3 text-xs leading-5 text-[#53658A]"
+              class="flex cursor-pointer items-start gap-3 rounded-xl bg-[#F8FBFE] px-3 py-2.5 text-xs leading-5 text-[#53658A]"
             >
               <input
                 id="login-remember-browser"
@@ -419,7 +419,7 @@
               id="btn-submit-login"
               type="submit"
               :disabled="isLoading"
-              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-sm font-bold text-white shadow-[0_12px_22px_rgba(11,31,74,0.18)] transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-75"
+              class="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-sm font-bold text-white shadow-[0_12px_22px_rgba(11,31,74,0.18)] transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-75"
             >
               <template v-if="isLoading">
                 <ShieldCheck class="h-4 w-4 animate-pulse text-blue-200" />
@@ -429,7 +429,7 @@
             </button>
           </form>
 
-          <div class="mt-6 border-t border-[#E8EEF7] pt-4 text-center">
+          <div class="mt-4 border-t border-[#E8EEF7] pt-3 text-center">
             <p class="text-[10px] font-medium text-[#94A3B8]">
               Sistem operasional internal PT Kedata Indonesia Digital
             </p>
@@ -604,6 +604,21 @@ function handleMfaInput(event) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-height: 880px) {
+  .login-info-card,
+  .login-security-note,
+  .login-session-copy,
+  .login-trust-grid {
+    display: none;
+  }
+}
+
+@media (max-height: 760px) {
+  .login-side-copy {
+    display: none;
   }
 }
 </style>

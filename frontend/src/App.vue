@@ -83,8 +83,7 @@
             <Transition name="tab" mode="out-in">
               <section
                 :key="activeTab"
-                class="mx-auto min-h-full w-full"
-                :class="activeTab === 'crm' ? 'max-w-[1760px]' : 'max-w-7xl'"
+                class="mx-auto min-h-full w-full max-w-7xl"
               >
                 <DashboardView
                   v-if="activeTab === 'dashboard'"

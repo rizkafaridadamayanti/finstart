@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-7 font-sans">
     <header
-      class="flex flex-col gap-4 border-b border-[#DCE7F4] pb-6 lg:flex-row lg:items-end lg:justify-between"
+      class="workspace-page-header flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
     >
       <div class="flex items-start gap-4">
         <span
@@ -294,19 +294,31 @@
               Realisasi kumulatif dibanding target tahunan perusahaan.
             </p>
           </div>
-          <div
-            class="inline-flex w-fit items-center gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-2.5"
-          >
-            <Target class="h-4 w-4 text-[#1E5AA8]" /><span
-              class="text-xs text-[#6B7A90]"
-              >Rata-rata capaian</span
-            ><span class="text-sm font-semibold text-[#0B1F4A]"
-              >{{ achievementAverage }}%</span
+          <div class="flex flex-wrap items-center gap-3">
+            <select
+              :value="targetProgressFilter"
+              class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A]"
+              @change="updateTargetProgressFilter(eventValue($event))"
             >
+              <option value="all">Semua Progress</option>
+              <option value="complete">Tercapai 100%</option>
+              <option value="on_track">Progress 75-99%</option>
+              <option value="at_risk">Di bawah 75%</option>
+            </select>
+            <div
+              class="inline-flex w-fit items-center gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-2.5"
+            >
+              <Target class="h-4 w-4 text-[#1E5AA8]" /><span
+                class="text-xs text-[#6B7A90]"
+                >Rata-rata capaian</span
+              ><span class="text-sm font-semibold text-[#0B1F4A]"
+                >{{ achievementAverage }}%</span
+              >
+            </div>
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[820px] text-left text-sm">
+          <table class="w-full min-w-[900px] text-left text-sm">
             <thead
               class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
@@ -315,11 +327,20 @@
                 <th class="px-6 py-4 text-right">Target Tahunan</th>
                 <th class="px-6 py-4 text-right">Realisasi</th>
                 <th class="px-6 py-4">Progress</th>
-                <th class="px-6 py-4 text-right">Status</th>
+                <th class="px-6 py-4 text-center">Status</th>
                 <th class="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
+              <tr v-if="filteredTargets.length === 0">
+                <td
+                  colspan="6"
+                  class="px-6 py-10 text-center text-sm text-[#8A98AB]"
+                >
+                  Tidak ada target yang sesuai dengan filter progress.
+                </td>
+              </tr>
+              <template v-else>
               <tr
                 v-for="target in pagedTargets"
                 :key="target.id"
@@ -345,29 +366,22 @@
                       <div
                         class="h-full rounded-full bg-[#1E5AA8]"
                         :style="{
-                          width: `${Math.min(100, Math.round((target.nilaiRealisasi / Math.max(target.nilaiTarget, 1)) * 100))}%`,
+                          width: `${targetAchievementPercent(target)}%`,
                         }"
                       />
                     </div>
                     <span
                       class="w-10 text-right text-xs font-semibold text-[#0B1F4A]"
                       >{{
-                        Math.min(
-                          100,
-                          Math.round(
-                            (target.nilaiRealisasi /
-                              Math.max(target.nilaiTarget, 1)) *
-                              100,
-                          ),
-                        )
+                        targetAchievementPercent(target)
                       }}%</span
                     >
                   </div>
                 </td>
-                <td class="px-6 py-5 text-right">
+                <td class="px-6 py-5 text-center">
                   <span
-                    class="inline-flex rounded-full border border-[#CFE0F4] bg-[#EEF5FC] px-3 py-1 text-[10px] font-semibold text-[#0B1F4A]"
-                    >On track</span
+                    :class="targetStatusBadgeClass(target)"
+                    >{{ targetStatusLabel(target) }}</span
                   >
                 </td>
                 <td class="px-6 py-5 text-center">
@@ -381,13 +395,14 @@
                   </button>
                 </td>
               </tr>
+              </template>
             </tbody>
           </table>
         </div>
         <TablePagination
           :page="targetPage"
-          :total="orderedTargets.length"
-          @page-change="targetPage = safePage($event, orderedTargets.length)"
+          :total="filteredTargets.length"
+          @page-change="targetPage = safePage($event, filteredTargets.length)"
         />
       </div>
       <div
@@ -1125,19 +1140,22 @@
         />
       </div>
     </section>
+    <Teleport to="body">
     <div
       v-if="isTargetModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="target-modal-layer fixed inset-0 z-[10090] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
     >
       <div
-        class="flex max-h-[92vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,31,74,0.22)]"
+        class="flex max-h-[92vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[28px] border border-[#D8E5F4] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
       >
         <div
           class="flex items-start justify-between border-b border-[#E8EEF7] px-7 py-6"
         >
           <div class="flex items-start gap-3">
             <span
-              class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#EEF5FC] text-[#0B1F4A]"
+              class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0B1F4A] text-white shadow-[0_10px_22px_rgba(11,31,74,0.18)]"
               ><Target class="h-5 w-5"
             /></span>
             <div>
@@ -1166,6 +1184,13 @@
           class="flex-1 overflow-y-auto px-7 py-6"
           @submit="handleSaveTarget"
         >
+          <div
+            class="mb-5 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-3 text-xs font-semibold text-[#0B1F4A]"
+            role="alert"
+            aria-live="polite"
+          >
+            Semua kolom wajib diisi sebelum target proyeksi disimpan.
+          </div>
           <div class="grid gap-5 md:grid-cols-2">
             <label class="space-y-2 md:col-span-2"
               ><span
@@ -1188,7 +1213,7 @@
                 >Target Nilai</span
               ><input
                 type="number"
-                min="0"
+                min="1"
                 required
                 :value="newTarget.nilaiTarget || ''"
                 placeholder="0"
@@ -1202,6 +1227,7 @@
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
                 >Satuan</span
               ><select
+                required
                 :value="newTarget.satuan"
                 class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
                 @change="updateNewTarget({ ...newTarget, satuan: eventValue($event) })"
@@ -1217,7 +1243,8 @@
               ><input
                 type="number"
                 min="0"
-                :value="newTarget.nilaiRealisasi || ''"
+                required
+                :value="newTarget.nilaiRealisasi"
                 placeholder="0"
                 class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
                 @change="updateNewTarget({
@@ -1230,6 +1257,7 @@
                 >Bulan Proyeksi</span
               ><input
                 type="month"
+                required
                 :value="newTarget.bulanProyeksi"
                 class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
                 @change="updateNewTarget({
@@ -1242,12 +1270,6 @@
             class="mt-7 flex flex-col-reverse gap-3 border-t border-[#E8EEF7] pt-5 sm:flex-row sm:justify-end"
           >
             <button
-              type="button"
-              class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-medium text-[#53658A]"
-              @click="closeTargetModal"
-            >
-              Batal</button
-            ><button
               type="submit"
               class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]"
             >
@@ -1259,6 +1281,7 @@
         </form>
       </div>
     </div>
+    </Teleport>
     <div
       v-if="isPrintModalOpen"
       class="fixed inset-0 z-50 flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
@@ -1371,8 +1394,8 @@
         'Catatan budget terkait juga ikut dihapus.',
       ]"
       confirm-label="Hapus Budget"
-      :on-cancel="closeDeleteBudgetConfirm"
-      :on-confirm="confirmDeleteBudget"
+      @cancel="closeDeleteBudgetConfirm"
+      @confirm="confirmDeleteBudget"
     />
   </div>
 </template>
@@ -1522,6 +1545,11 @@ const budgetForm = ref({
   updateBudgetForm = (next) => (budgetForm.value = next);
 const deleteBudgetConfirm = ref<any>(null);
 const targetPage = ref(1);
+const targetProgressFilter = ref("all"),
+  updateTargetProgressFilter = (next) => {
+    targetProgressFilter.value = next || "all";
+    targetPage.value = 1;
+  };
 const budgetPage = ref(1);
 const targetDetailPage = ref(1);
 const reportPage = ref(1);
@@ -1571,6 +1599,30 @@ const achievementAverage = computed(() => {
     ) / targets.value.length,
   );
 });
+const targetAchievementRawPercent = (target: AnnualTarget) =>
+  Math.round(
+    (Number(target.nilaiRealisasi || 0) /
+      Math.max(Number(target.nilaiTarget || 0), 1)) *
+      100,
+  );
+const targetAchievementPercent = (target: AnnualTarget) =>
+  Math.min(100, Math.max(0, targetAchievementRawPercent(target)));
+const targetStatusLabel = (target: AnnualTarget) => {
+  const progress = targetAchievementRawPercent(target);
+  if (progress >= 100) return "Tercapai";
+  if (progress >= 75) return "On track";
+  return "Di bawah target";
+};
+const targetStatusBadgeClass = (target: AnnualTarget) => {
+  const progress = targetAchievementRawPercent(target);
+  if (progress >= 100) {
+    return "inline-flex rounded-full border border-[#CFE0F4] bg-[#EEF5FC] px-3 py-1 text-[10px] font-semibold text-[#0B1F4A]";
+  }
+  if (progress >= 75) {
+    return "inline-flex rounded-full border border-[#CFE0F4] bg-white px-3 py-1 text-[10px] font-semibold text-[#1E5AA8]";
+  }
+  return "inline-flex rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-semibold text-[#53658A]";
+};
 
 const projectionMonths = Array.isArray(projectionData?.months)
   ? projectionData.months
@@ -1582,9 +1634,20 @@ const budgetAllocations = Array.isArray(projectionData?.budget_allocations)
   ? projectionData.budget_allocations
   : [];
 const orderedTargets = computed(() => latestFirst(targets.value));
+const filteredTargets = computed(() =>
+  orderedTargets.value.filter((target) => {
+    const progress = targetAchievementRawPercent(target);
+    if (targetProgressFilter.value === "complete") return progress >= 100;
+    if (targetProgressFilter.value === "on_track") {
+      return progress >= 75 && progress < 100;
+    }
+    if (targetProgressFilter.value === "at_risk") return progress < 75;
+    return true;
+  }),
+);
 const orderedBudgetAllocations = computed(() => latestFirst(budgetAllocations));
 const pagedTargets = computed(() =>
-  pageRows(orderedTargets.value, targetPage.value),
+  pageRows(filteredTargets.value, targetPage.value),
 );
 const pagedBudgetAllocations = computed(() =>
   pageRows(orderedBudgetAllocations.value, budgetPage.value),
@@ -1816,7 +1879,19 @@ const handleSaveTarget = async (event: Event) => {
     (item) => String(item.id) === String(newTarget.value.akunId),
   );
   if (!selected) {
-    notify("Pilih akun buku besar terlebih dahulu.");
+    notify("Semua kolom wajib diisi. Pilih akun buku besar terlebih dahulu.");
+    return;
+  }
+  if (Number(newTarget.value.nilaiTarget) <= 0) {
+    notify("Semua kolom wajib diisi. Target nilai harus lebih dari 0.");
+    return;
+  }
+  if (
+    Number(newTarget.value.nilaiRealisasi) < 0 ||
+    !newTarget.value.satuan ||
+    !newTarget.value.bulanProyeksi
+  ) {
+    notify("Semua kolom wajib diisi dengan nilai yang valid.");
     return;
   }
   if (newTarget.value.satuan !== "Rupiah") {

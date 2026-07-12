@@ -5,20 +5,20 @@
     <!-- HEADER & NAVBAR -->
     <nav
       id="navbar"
-      class="sticky top-0 bg-[#0B1F4A]/95 backdrop-blur-md border-b border-white/10 py-4 px-6 md:px-12 flex items-center justify-between z-40 transition-all duration-300"
+      class="sticky top-0 bg-[#0B1F4A]/95 backdrop-blur-md border-b border-white/10 py-5 px-6 md:px-12 flex items-center justify-between z-40 transition-all duration-300"
     >
       <!-- Kedata Logo - Clean blue & white -->
       <div
         class="flex items-center gap-2.5 cursor-pointer"
         @click="scrollToSection('beranda')"
       >
-        <KedataLogo :size="30" class="shrink-0" />
+        <KedataLogo :size="36" class="shrink-0" />
         <div class="flex flex-col text-left">
           <span
-            class="font-black text-lg text-white tracking-wider leading-none"
+            class="font-black text-xl text-white tracking-wider leading-none"
             >KEDATA</span
           ><span
-            class="text-[7.5px] text-blue-400 font-extrabold uppercase tracking-widest leading-none mt-1"
+            class="text-[8.5px] text-blue-400 font-extrabold uppercase tracking-widest leading-none mt-1.5"
             >Indonesia Digital</span
           >
         </div>
@@ -27,7 +27,7 @@
     <!-- HERO SECTION - Matching clean alignment & exact visual hierarchy of reference image 2 -->
     <section
       id="beranda"
-      class="relative pt-28 pb-28 md:pt-32 md:pb-32 lg:pt-36 lg:pb-36 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center"
+      class="relative pt-32 pb-28 md:pt-36 md:pb-32 lg:pt-40 lg:pb-36 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center"
     >
       <!-- Soft elegant blue radial grid and glow backdrops -->
       <div
@@ -42,7 +42,7 @@
       <div class="max-w-6xl mx-auto space-y-8 relative z-10">
         <!-- Centered headline -->
         <h1
-          class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] max-w-4xl mx-auto text-white"
+          class="mt-6 md:mt-8 text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] max-w-4xl mx-auto text-white"
         >
           Satu Sistem untuk
           <span

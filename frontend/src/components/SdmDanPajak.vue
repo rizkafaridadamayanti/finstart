@@ -3,7 +3,7 @@
     <!-- Header switches -->
     <div
       v-if="activeTab === 'sdm'"
-      class="flex flex-col lg:flex-row lg:items-end justify-between gap-5"
+      class="workspace-page-header flex flex-col lg:flex-row lg:items-end justify-between gap-5"
     >
       <div>
         <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
@@ -238,6 +238,37 @@
           @page-change="employeePage = safePage($event, filteredEmployees.length)"
         />
       </div>
+      <div class="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-6 py-5">
+          <h2 class="text-base font-extrabold text-[#102A56]">Riwayat Penggajian</h2>
+          <p class="mt-1 text-[11px] text-[#6B7A90]">Payroll yang sudah diproses dan diposting ke jurnal.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr>
+                <th class="px-6 py-4">Periode</th>
+                <th class="px-6 py-4">Pegawai</th>
+                <th class="px-6 py-4">Tanggal Bayar</th>
+                <th class="px-6 py-4 text-right">Gaji Bersih</th>
+                <th class="px-6 py-4">Voucher</th>
+                <th class="px-6 py-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in payrollHistory" :key="record.id">
+                <td class="px-6 py-4 font-semibold text-[#102A56]">{{ formatPeriodLabel(record.payroll_period) }}</td>
+                <td class="px-6 py-4"><span class="block font-semibold text-[#182338]">{{ record.employee_name }}</span><span class="text-[10px] text-slate-400">{{ record.employee_code || '—' }}</span></td>
+                <td class="px-6 py-4 text-[#64748B]">{{ record.payment_date || '—' }}</td>
+                <td class="px-6 py-4 text-right font-mono font-bold text-[#0B1F4A]">{{ formatRupiah(asNumber(record.net_pay)) }}</td>
+                <td class="px-6 py-4 text-[#64748B]">{{ record.voucher_number || '—' }}</td>
+                <td class="px-6 py-4 text-center"><span class="inline-flex rounded-full bg-[#EEF5FC] px-3 py-1 text-[10px] font-bold text-[#1E5AA8]">{{ record.status === 'posted' ? 'Diposting' : record.status }}</span></td>
+              </tr>
+              <tr v-if="payrollHistory.length === 0"><td colspan="6" class="px-6 py-10 text-center text-sm text-[#7A8CA8]">Belum ada riwayat penggajian.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <Teleport v-if="isMasterDataModalOpen" to="body"
         ><div
           class="master-data-modal-layer bg-[#0B1220]/60 backdrop-blur-sm"
@@ -271,11 +302,11 @@
                   Master Data SDM
                 </p>
                 <h3
-                  class="mt-1 text-xl font-extrabold tracking-tight text-[#102A56]"
+                  class="mt-1 text-lg font-extrabold tracking-tight text-[#102A56]"
                 >
                   Kelola Divisi &amp; Jabatan
                 </h3>
-                <p class="mt-1 max-w-2xl text-xs leading-5 text-[#6B7A90]">
+                <p class="mt-1 max-w-2xl text-[12px] leading-5 text-[#6B7A90]">
                   Tambahkan, ubah, atau hapus master data. Data yang masih
                   digunakan pegawai tidak dapat dihapus secara langsung.
                 </p>
@@ -295,22 +326,22 @@
             >
               <button
                 type="button"
-                :class="`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition ${masterDataTab === 'division' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
+                :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'division' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
                 @click="changeMasterTab('division')"
               >
-                <Building2 class="h-4 w-4" /> Divisi
+                <Building2 class="h-3.5 w-3.5" /> Divisi
                 <span
-                  :class="`rounded-full px-1.5 py-0.5 text-[10px] ${masterDataTab === 'division' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
+                  :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'division' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
                   >{{ divisions.length }}</span
                 ></button
               ><button
                 type="button"
-                :class="`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition ${masterDataTab === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
+                :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
                 @click="changeMasterTab('position')"
               >
-                <BriefcaseBusiness class="h-4 w-4" /> Jabatan
+                <BriefcaseBusiness class="h-3.5 w-3.5" /> Jabatan
                 <span
-                  :class="`rounded-full px-1.5 py-0.5 text-[10px] ${masterDataTab === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
+                  :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
                   >{{ positions.length }}</span
                 >
               </button>
@@ -321,7 +352,7 @@
                   class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p class="text-sm font-extrabold text-[#102A56]">
+                    <p class="text-[13px] font-extrabold text-[#102A56]">
                       Daftar {{ masterLabel() }}
                     </p>
                     <p class="mt-1 text-[11px] text-[#7A8CA8]">
@@ -331,10 +362,10 @@
                   <button
                     id="btn-add-master-data"
                     type="button"
-                    class="inline-flex h-10 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
+                    class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
                     @click="resetMasterDataForm(masterDataTab, true)"
                   >
-                    <Plus class="h-4 w-4" /> Tambah {{ masterLabel() }}
+                    <Plus class="h-3.5 w-3.5" /> Tambah {{ masterLabel() }}
                   </button>
                 </div>
                 <div class="relative mb-4">
@@ -344,7 +375,7 @@
                     id="master-data-search"
                     :value="masterSearch"
                     :placeholder="`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`"
-                    class="h-11 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-xs font-medium text-[#243650] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-[12px] font-medium text-[#243650] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
                     @input="masterSearch = eventValue($event)"
                   />
                 </div>
@@ -661,7 +692,7 @@
         v-if="isEmployeeDetailOpen &amp;&amp; selectedEmployeeDetail"
         to="body"
         ><div
-          class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#000]/60 p-4 backdrop-blur-sm"
+          class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
         >
           <div
             class="w-full max-w-2xl rounded-[28px] border border-slate-100 bg-white shadow-2xl overflow-hidden"
@@ -811,7 +842,7 @@
     <!-- 2. KEPATUHAN PERPAJAKAN view -->
     <div v-if="activeTab === 'pajak'" class="space-y-5">
       <header
-        class="flex flex-col gap-4 border-b border-[#DCE7F4] pb-5 xl:flex-row xl:items-end xl:justify-between"
+        class="workspace-page-header flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
       >
         <div>
           <p
@@ -1164,9 +1195,9 @@
                   <th class="px-3 py-3">Keterangan</th>
                   <th class="px-3 py-3 text-right">Nominal</th>
                   <th class="px-3 py-3">Jatuh Tempo</th>
-                  <th class="px-3 py-3">Status</th>
+                  <th class="px-3 py-3 text-center">Status</th>
                   <th class="px-3 py-3">NTPN</th>
-                  <th class="px-3 py-3 text-right">Aksi</th>
+                  <th class="w-[120px] px-3 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[#EDF2F8]">
@@ -1211,9 +1242,9 @@
                     <td class="px-3 py-3.5 text-[11px] text-[#64748B]">
                       {{ formatTaxDate(tax.jatuhTempo) }}
                     </td>
-                    <td class="px-3 py-3.5">
+                    <td class="px-3 py-3.5 text-center">
                       <span
-                        :class="`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${tax.status === 'Belum Setor' ? 'bg-[#EEF5FC] text-[#0B1F4A]' : 'bg-[#EEF5FC] text-[#0B1F4A]'}`"
+                        :class="`mx-auto inline-flex min-w-[104px] items-center justify-center whitespace-nowrap rounded-full px-3 py-1.5 text-center text-[10px] font-semibold leading-none ${tax.status === 'Belum Setor' ? 'bg-[#EEF5FC] text-[#0B1F4A]' : 'bg-[#EEF5FC] text-[#0B1F4A]'}`"
                         ><template v-if="tax.status === 'Belum Setor'"
                           >Belum Dibayar</template
                         ><template v-else>Sudah Disetor</template></span
@@ -1222,15 +1253,17 @@
                     <td class="px-3 py-3.5 text-[10px] text-[#64748B]">
                       {{ tax.ntpn || "—" }}
                     </td>
-                    <td class="px-3 py-3.5 text-right">
+                    <td class="w-[120px] px-3 py-3.5 text-center">
                       <button
                         v-if="tax.status === 'Belum Setor'"
                         type="button"
-                        class="text-[11px] font-medium text-[#1E5AA8] transition hover:text-[#102A56]"
+                        class="tax-payment-action inline-flex h-8 min-w-[92px] items-center justify-center whitespace-nowrap rounded-lg border border-[#C9DCF3] bg-[#EEF5FF] px-3 text-[11px] font-semibold text-[#1E5AA8] transition hover:border-[#1E5AA8] hover:bg-[#102A56] hover:text-white"
                         @click="openTaxPaymentModal(tax.id)"
                       >
                         Setor Pajak</button
-                      ><span v-else class="text-[10px] text-[#7A8CA8]"
+                      ><span
+                        v-else
+                        class="inline-flex min-h-8 min-w-[96px] items-center justify-center whitespace-nowrap rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[10px] font-semibold text-[#7A8CA8]"
                         >Sudah disetor</span
                       >
                     </td>
@@ -1248,13 +1281,14 @@
       </section>
     </div>
     <!-- 3. SET RATE BPJS MODAL -->
-    <div
-      v-if="isBpjsModalOpen"
-      class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
-    >
+    <Teleport to="body">
       <div
-        class="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-[560px] overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+        v-if="isBpjsModalOpen"
+        class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
+        <div
+          class="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-[560px] overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+        >
         <div
           class="px-8 py-7 border-b border-slate-100 flex justify-between items-center"
         >
@@ -1281,7 +1315,19 @@
             <X class="w-5 h-5" />
           </button>
         </div>
-        <div class="px-8 py-8 space-y-7 text-xs">
+        <form
+          class="space-y-7 px-8 py-8 text-xs"
+          novalidate
+          @submit="handleSaveBpjs"
+        >
+          <div
+            v-if="bpjsRateErrorMessages.length"
+            class="form-validation-summary"
+            role="alert"
+          >
+            <strong>Lengkapi seluruh tarif BPJS.</strong>
+            <span>Semua kolom wajib diisi dengan angka 0 sampai 100.</span>
+          </div>
           <div class="space-y-5">
             <h4
               class="text-[10px] text-[#1E5AA8] font-extrabold uppercase tracking-widest flex items-center gap-2"
@@ -1295,12 +1341,27 @@
                   >Porsi Perusahaan</label
                 ><input
                   id="bpjs-kes-employer"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsKesEmployer)"
                   class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid':
+                      bpjsRateErrors.healthCompany,
+                  }"
+                  @input="clearBpjsRateError('healthCompany')"
                   @change="updateBpjsKesEmployer(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.healthCompany"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.healthCompany }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1308,12 +1369,27 @@
                   >Porsi Pegawai</label
                 ><input
                   id="bpjs-kes-employee"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsKesEmployee)"
                   class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid':
+                      bpjsRateErrors.healthEmployee,
+                  }"
+                  @input="clearBpjsRateError('healthEmployee')"
                   @change="updateBpjsKesEmployee(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.healthEmployee"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.healthEmployee }}
+                </p>
               </div>
             </div>
           </div>
@@ -1330,12 +1406,26 @@
                   >JHT Perus.</label
                 ><input
                   id="bpjs-jht-employer"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJhtEmployer)"
                   class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid': bpjsRateErrors.jhtCompany,
+                  }"
+                  @input="clearBpjsRateError('jhtCompany')"
                   @change="updateBpjsJhtEmployer(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.jhtCompany"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.jhtCompany }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1343,12 +1433,26 @@
                   >JHT Pegawai</label
                 ><input
                   id="bpjs-jht-employee"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJhtEmployee)"
                   class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid': bpjsRateErrors.jhtEmployee,
+                  }"
+                  @input="clearBpjsRateError('jhtEmployee')"
                   @change="updateBpjsJhtEmployee(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.jhtEmployee"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.jhtEmployee }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1356,12 +1460,26 @@
                   >JP Perus.</label
                 ><input
                   id="bpjs-jp-employer"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJpEmployer)"
                   class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid': bpjsRateErrors.jpCompany,
+                  }"
+                  @input="clearBpjsRateError('jpCompany')"
                   @change="updateBpjsJpEmployer(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.jpCompany"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.jpCompany }}
+                </p>
               </div>
               <div class="space-y-2">
                 <label
@@ -1369,35 +1487,51 @@
                   >JP Pegawai</label
                 ><input
                   id="bpjs-jp-employee"
-                  type="text"
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJpEmployee)"
                   class="w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20 font-bold text-[#111827]"
+                  :class="{
+                    'form-control-invalid': bpjsRateErrors.jpEmployee,
+                  }"
+                  @input="clearBpjsRateError('jpEmployee')"
                   @change="updateBpjsJpEmployee(parsePercentInput(eventValue($event)))"
                 />
+                <p
+                  v-if="bpjsRateErrors.jpEmployee"
+                  class="form-field-warning"
+                >
+                  {{ bpjsRateErrors.jpEmployee }}
+                </p>
               </div>
             </div>
           </div>
           <button
             id="btn-save-bpjs-rates"
+            type="submit"
             class="w-full h-12 bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold rounded-2xl transition-all uppercase tracking-widest text-xs"
-            @click="handleSaveBpjs"
           >
             Simpan Tarif BPJS
           </button>
+        </form>
         </div>
       </div>
-    </div>
+    </Teleport>
     <!-- 4. EMPLOYEE REGISTRATION MODAL -->
+    <Teleport to="body">
     <div
       v-if="isEmployeeModalOpen"
-      class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-3 backdrop-blur-sm"
+      class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-start justify-center overflow-y-auto bg-[#111827]/55 px-4 py-6 backdrop-blur-sm"
     >
       <div
-        class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[860px] flex-col overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-2xl"
+        class="employee-form-modal-card flex w-full max-w-[980px] flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl"
       >
         <div
-          class="flex items-start justify-between border-b border-slate-100 px-7 py-6"
+          class="sticky top-0 z-20 flex items-start justify-between border-b border-slate-100 bg-white px-6 py-5"
         >
           <div>
             <p
@@ -1412,8 +1546,7 @@
               ><template v-else>Tambah Pegawai</template>
             </h3>
             <p class="mt-1 text-xs leading-5 text-[#64748B]">
-              Isi data wajib terlebih dahulu. Data tambahan dapat dilengkapi
-              kemudian.
+              Lengkapi seluruh kolom sebelum menyimpan data pegawai.
             </p>
           </div>
           <button
@@ -1426,9 +1559,19 @@
           </button>
         </div>
         <form
-          class="min-h-0 flex-1 space-y-6 overflow-y-auto px-7 py-6 text-xs"
-          @submit="handleCreateEmployee"
+          novalidate
+          data-manual-validation="true"
+          class="space-y-5 px-6 py-5 text-xs"
+          @submit.prevent
         >
+          <div
+            v-if="employeeFormErrorMessages.length"
+            class="form-validation-summary"
+            role="alert"
+          >
+            <strong>Lengkapi seluruh data pegawai.</strong>
+            <span>Semua kolom wajib diisi sebelum pegawai disimpan.</span>
+          </div>
           <section class="space-y-4">
             <div class="flex items-center gap-2 border-b border-[#D8E5F4] pb-3">
               <UserCircle class="w-4 h-4 text-[#0B1F4A]" />
@@ -1441,53 +1584,74 @@
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <SdmField label="Nama Lengkap"
                 ><input
+                  id="employee-name"
                   required
                   :value="employeeForm.nama"
-                  :class="inputClass"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.nama },
+                  ]"
                   placeholder="Contoh: Rizka Farida Damayanti"
-                  @input="updateEmployeeForm({
-                        ...employeeForm,
-                        nama: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('nama', eventValue($event))" />
+                <p v-if="employeeFormErrors.nama" class="form-field-warning">
+                  {{ employeeFormErrors.nama }}
+                </p></SdmField
               ><SdmField label="NIK"
                 ><input
+                  id="employee-nik"
                   required
                   :value="employeeForm.nik"
-                  :class="inputClass"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.nik },
+                  ]"
                   placeholder="Nomor identitas pegawai"
-                  @input="updateEmployeeForm({
-                        ...employeeForm,
-                        nik: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('nik', eventValue($event))" />
+                <p v-if="employeeFormErrors.nik" class="form-field-warning">
+                  {{ employeeFormErrors.nik }}
+                </p></SdmField
               ><SdmField label="Email"
                 ><input
+                  id="employee-email"
+                  required
                   type="email"
                   :value="employeeForm.email"
-                  :class="inputClass"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.email },
+                  ]"
                   placeholder="nama@perusahaan.com"
-                  @input="updateEmployeeForm({
-                        ...employeeForm,
-                        email: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('email', eventValue($event))" />
+                <p v-if="employeeFormErrors.email" class="form-field-warning">
+                  {{ employeeFormErrors.email }}
+                </p></SdmField
               ><SdmField label="No. WhatsApp"
                 ><input
+                  id="employee-whatsapp"
+                  required
                   :value="employeeForm.whatsapp"
-                  :class="inputClass"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.whatsapp },
+                  ]"
                   placeholder="08xxxxxxxxxx"
-                  @input="updateEmployeeForm({
-                        ...employeeForm,
-                        whatsapp: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('whatsapp', eventValue($event))" />
+                <p
+                  v-if="employeeFormErrors.whatsapp"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.whatsapp }}
+                </p></SdmField
               ><SdmField label="Divisi"
                 ><select
+                  id="employee-division"
                   required
                   :value="employeeForm.divisionId"
-                  :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        divisionId: eventValue($event),
-                        positionId: '',
-                      })"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.divisionId },
+                  ]"
+                  @change="setEmployeeDivision(eventValue($event))"
                 >
                   <option value="">Pilih divisi</option>
                   <option
@@ -1497,16 +1661,23 @@
                   >
                     {{ division.name }}
                   </option>
-                </select></SdmField
+                </select>
+                <p
+                  v-if="employeeFormErrors.divisionId"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.divisionId }}
+                </p></SdmField
               ><SdmField label="Jabatan"
                 ><select
+                  id="employee-position"
                   required
                   :value="employeeForm.positionId"
-                  :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        positionId: eventValue($event),
-                      })"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.positionId },
+                  ]"
+                  @change="setEmployeeField('positionId', eventValue($event))"
                 >
                   <option value="">Pilih jabatan</option>
                   <option
@@ -1516,20 +1687,37 @@
                   >
                     {{ position.name }}
                   </option>
-                </select></SdmField
+                </select>
+                <p
+                  v-if="employeeFormErrors.positionId"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.positionId }}
+                </p></SdmField
               ><SdmField label="Status Kerja"
                 ><select
+                  id="employee-contract-status"
+                  required
                   :value="employeeForm.statusKontrak"
-                  :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        statusKontrak: eventValue($event),
-                      })"
+                  :class="[
+                    inputClass,
+                    {
+                      'form-control-invalid':
+                        employeeFormErrors.statusKontrak,
+                    },
+                  ]"
+                  @change="setEmployeeField('statusKontrak', eventValue($event))"
                 >
                   <option>Karyawan Tetap</option>
                   <option>Kontrak</option>
                   <option>Probation</option>
-                </select></SdmField
+                </select>
+                <p
+                  v-if="employeeFormErrors.statusKontrak"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.statusKontrak }}
+                </p></SdmField
               >
               <div
                 v-if="editingEmployee"
@@ -1546,26 +1734,41 @@
                     </p>
                   </div>
                   <select
+                    id="employee-employment-status"
+                    required
                     :value="employeeForm.employmentStatus"
-                    :class="inputClass"
-                    @change="updateEmployeeForm({
-                          ...employeeForm,
-                          employmentStatus: eventValue($event),
-                        })"
+                    :class="[
+                      inputClass,
+                      {
+                        'form-control-invalid':
+                          employeeFormErrors.employmentStatus,
+                      },
+                    ]"
+                    @change="
+                      setEmployeeField('employmentStatus', eventValue($event))
+                    "
                   >
                     <option value="active">Aktif</option>
                     <option value="inactive">Nonaktif</option>
                   </select>
+                  <p
+                    v-if="employeeFormErrors.employmentStatus"
+                    class="form-field-warning"
+                  >
+                    {{ employeeFormErrors.employmentStatus }}
+                  </p>
                 </div>
               </div>
               <SdmField label="Status PTKP"
                 ><select
+                  id="employee-ptkp-status"
+                  required
                   :value="employeeForm.ptkpStatus"
-                  :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        ptkpStatus: eventValue($event),
-                      })"
+                  :class="[
+                    inputClass,
+                    { 'form-control-invalid': employeeFormErrors.ptkpStatus },
+                  ]"
+                  @change="setEmployeeField('ptkpStatus', eventValue($event))"
                 >
                   <option>TK/0</option>
                   <option>TK/1</option>
@@ -1575,104 +1778,141 @@
                   <option>K/1</option>
                   <option>K/2</option>
                   <option>K/3</option>
-                </select></SdmField
+                </select>
+                <p
+                  v-if="employeeFormErrors.ptkpStatus"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.ptkpStatus }}
+                </p></SdmField
               ><SdmField label="Tanggal Bergabung"
                 ><input
+                  id="employee-join-date"
                   required
                   type="date"
                   :value="employeeForm.tanggalBergabung"
-                  :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        tanggalBergabung: eventValue($event),
-                      })"
-              /></SdmField>
+                  :class="[
+                    inputClass,
+                    {
+                      'form-control-invalid':
+                        employeeFormErrors.tanggalBergabung,
+                    },
+                  ]"
+                  @change="
+                    setEmployeeField('tanggalBergabung', eventValue($event))
+                  "
+              />
+                <p
+                  v-if="employeeFormErrors.tanggalBergabung"
+                  class="form-field-warning"
+                >
+                  {{ employeeFormErrors.tanggalBergabung }}
+                </p></SdmField>
               <div class="md:col-span-2">
                 <SdmField label="Gaji Pokok"
-                  ><div class="relative">
+                  ><div class="currency-input relative">
                     <span
                       class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[#1E5AA8]"
                       >Rp</span
                     ><input
+                      id="employee-base-salary"
                       required
                       type="number"
-                      min="0"
+                      min="1"
                       :value="employeeForm.gajiPokok || ''"
-                      :class="`${inputClass} pl-12`"
+                      style="padding-left: 2.75rem !important"
+                      :class="[
+                        inputClass,
+                        'pl-12',
+                        {
+                          'form-control-invalid':
+                            employeeFormErrors.gajiPokok,
+                        },
+                      ]"
                       placeholder="0"
-                      @input="updateEmployeeForm({
-                            ...employeeForm,
-                            gajiPokok: Number(eventValue($event)),
-                          })"
+                      @input="
+                        setEmployeeField(
+                          'gajiPokok',
+                          Number(eventValue($event)),
+                        )
+                      "
                     /></div
-                ></SdmField>
+                  ><p
+                    v-if="employeeFormErrors.gajiPokok"
+                    class="form-field-warning"
+                  >
+                    {{ employeeFormErrors.gajiPokok }}
+                  </p></SdmField
+                >
               </div>
             </div>
           </section>
           <details
+            id="employee-extra-details"
             class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] px-5 py-4"
           >
             <summary
               class="cursor-pointer list-none font-extrabold text-[#0B1F4A]"
             >
-              + Data tambahan (opsional)
+              + Data administrasi pegawai
             </summary>
             <p class="mt-2 text-[11px] leading-5 text-[#6B7A90]">
-              Nomor BPJS, bank, dan NIP dapat dilengkapi nanti. Data ini belum
-              diperlukan untuk membuat payroll dasar.
+              NIP, nomor BPJS, bank, dan NPWP bersifat opsional dan dapat
+              dilengkapi kemudian.
             </p>
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <SdmField label="NIP Sistem"
                 ><input
+                  id="employee-code"
                   :value="employeeForm.nip"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        nip: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('nip', eventValue($event))" /></SdmField
               ><SdmField label="Nomor BPJS Kesehatan"
                 ><input
+                  id="employee-bpjs-health"
                   :value="employeeForm.bpjsKesehatanNo"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        bpjsKesehatanNo: eventValue($event),
-                      })" /></SdmField
+                  @input="
+                    setEmployeeField('bpjsKesehatanNo', eventValue($event))
+                  " /></SdmField
               ><SdmField label="Nomor KPJ"
                 ><input
+                  id="employee-bpjs-employment"
                   :value="employeeForm.bpjsKetenagakerjaanNo"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        bpjsKetenagakerjaanNo: eventValue($event),
-                      })" /></SdmField
+                  @input="
+                    setEmployeeField(
+                      'bpjsKetenagakerjaanNo',
+                      eventValue($event),
+                    )
+                  " /></SdmField
               ><SdmField label="Nama Bank"
                 ><input
+                  id="employee-bank-name"
                   :value="employeeForm.bankNama"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        bankNama: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('bankNama', eventValue($event))" /></SdmField
               ><SdmField label="Nomor Rekening"
                 ><input
+                  id="employee-bank-account"
                   :value="employeeForm.noRekening"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        noRekening: eventValue($event),
-                      })" /></SdmField
+                  @input="setEmployeeField('noRekening', eventValue($event))" /></SdmField
               ><SdmField label="NPWP"
                 ><input
+                  id="employee-npwp"
                   :value="employeeForm.npwp"
                   :class="inputClass"
-                  @change="updateEmployeeForm({
-                        ...employeeForm,
-                        npwp: eventValue($event),
-                      })"
+                  @input="setEmployeeField('npwp', eventValue($event))"
               /></SdmField>
             </div>
           </details>
+          <p
+            v-if="employeeSaveError"
+            class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] font-semibold text-rose-700"
+          >
+            {{ employeeSaveError }}
+          </p>
           <div
             class="flex flex-col-reverse gap-3 border-t border-[#E8EEF7] pt-5 sm:flex-row sm:justify-end"
           >
@@ -1684,10 +1924,14 @@
               Batal</button
             ><button
               id="btn-submit-employee"
-              type="submit"
+              type="button"
+              :disabled="isEmployeeSaving"
               class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#10182C] px-6 font-extrabold text-white shadow-lg shadow-[#10182C]/20"
+              @click="handleCreateEmployee"
             >
-              <CheckCircle2 class="w-4 h-4" /><template v-if="editingEmployee"
+              <CheckCircle2 class="w-4 h-4" /><template v-if="isEmployeeSaving"
+                >Menyimpan...</template
+              ><template v-else-if="editingEmployee"
                 >Simpan Perubahan</template
               ><template v-else>Simpan Pegawai</template>
             </button>
@@ -1695,13 +1939,15 @@
         </form>
       </div>
     </div>
+    </Teleport>
     <!-- 5. PROCESS PAYROLL MODAL -->
+    <Teleport to="body">
     <div
       v-if="isPayrollModalOpen"
-      class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#000]/60 p-4 backdrop-blur-sm"
+      class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-start justify-center overflow-y-auto bg-[#111827]/55 px-4 py-6 backdrop-blur-sm"
     >
       <div
-        class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+        class="payroll-form-modal-card w-full max-w-[560px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
       >
         <div
           class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center"
@@ -1721,20 +1967,39 @@
           </div>
           <button
             id="btn-close-payroll"
-            class="text-slate-400 hover:text-slate-600 text-xs font-semibold"
-            @click="updateIsPayrollModalOpen(false)"
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white hover:text-slate-600"
+            @click="closePayrollModal"
+            aria-label="Tutup modal payroll"
           >
-            Batal
+            <X class="h-5 w-5" />
           </button>
         </div>
-        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs">
+        <form
+          novalidate
+          data-manual-validation="true"
+          class="space-y-4 p-6 text-xs"
+          @submit.prevent="handleProcessPayroll"
+        >
+          <div
+            v-if="payrollFormErrorMessages.length"
+            class="form-validation-summary"
+            role="alert"
+          >
+            <strong>Lengkapi seluruh data payroll.</strong>
+            <span>Semua kolom wajib diisi sebelum payroll diproses.</span>
+          </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Pegawai yang Diproses</label
             ><select
               id="payroll-employee"
+              required
               :value="payrollForm.employeeId"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs"
-              @change="payrollForm.employeeId = eventValue($event)"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs',
+                { 'form-control-invalid': payrollFormErrors.employeeId },
+              ]"
+              @change="setPayrollField('employeeId', eventValue($event))"
             >
               <option value="">-- Pilih pegawai --</option>
               <option
@@ -1745,27 +2010,53 @@
                 {{ employee.nama }} · {{ employee.id }}
               </option>
             </select>
+            <p
+              v-if="payrollFormErrors.employeeId"
+              class="form-field-warning"
+            >
+              {{ payrollFormErrors.employeeId }}
+            </p>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Periode Payroll</label
               ><input
                 id="payroll-period"
                 type="month"
+                required
                 :value="payrollForm.payrollPeriod"
-                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs"
-                @change="payrollForm.payrollPeriod = eventValue($event)"
+                :class="[
+                  'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs',
+                  { 'form-control-invalid': payrollFormErrors.payrollPeriod },
+                ]"
+                @change="setPayrollField('payrollPeriod', eventValue($event))"
               />
+              <p
+                v-if="payrollFormErrors.payrollPeriod"
+                class="form-field-warning"
+              >
+                {{ payrollFormErrors.payrollPeriod }}
+              </p>
             </div>
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Tanggal Bayar</label
               ><input
                 id="payroll-payment-date"
                 type="date"
+                required
                 :value="payrollForm.paymentDate"
-                class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs"
-                @change="payrollForm.paymentDate = eventValue($event)"
+                :class="[
+                  'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs',
+                  { 'form-control-invalid': payrollFormErrors.paymentDate },
+                ]"
+                @change="setPayrollField('paymentDate', eventValue($event))"
               />
+              <p
+                v-if="payrollFormErrors.paymentDate"
+                class="form-field-warning"
+              >
+                {{ payrollFormErrors.paymentDate }}
+              </p>
             </div>
           </div>
           <div
@@ -1810,54 +2101,149 @@
             >
               Komponen Payroll &amp; Potongan
             </p>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <label class="text-[10px] text-[#53658A]"
                 >Lembur<input
+                  id="payroll-overtime"
                   type="number"
                   min="0"
-                  :value="payrollForm.overtimeAmount || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.overtimeAmount = asNumber(eventValue($event))" /></label
+                  required
+                  :value="payrollForm.overtimeAmount"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    { 'form-control-invalid': payrollFormErrors.overtimeAmount },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'overtimeAmount',
+                      asNumber(eventValue($event)),
+                    )
+                  " />
+                <p
+                  v-if="payrollFormErrors.overtimeAmount"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.overtimeAmount }}
+                </p></label
               ><label class="text-[10px] text-[#53658A]"
                 >Tunjangan<input
+                  id="payroll-allowance"
                   type="number"
                   min="0"
-                  :value="payrollForm.allowanceAmount || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.allowanceAmount = asNumber(
-                        eventValue($event),
-                      )" /></label
+                  required
+                  :value="payrollForm.allowanceAmount"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    { 'form-control-invalid': payrollFormErrors.allowanceAmount },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'allowanceAmount',
+                      asNumber(eventValue($event)),
+                    )
+                  " />
+                <p
+                  v-if="payrollFormErrors.allowanceAmount"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.allowanceAmount }}
+                </p></label
               ><label class="text-[10px] text-[#53658A]"
                 >Bonus<input
+                  id="payroll-bonus"
                   type="number"
                   min="0"
-                  :value="payrollForm.bonusAmount || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.bonusAmount = asNumber(eventValue($event))" /></label
+                  required
+                  :value="payrollForm.bonusAmount"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    { 'form-control-invalid': payrollFormErrors.bonusAmount },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'bonusAmount',
+                      asNumber(eventValue($event)),
+                    )
+                  " />
+                <p
+                  v-if="payrollFormErrors.bonusAmount"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.bonusAmount }}
+                </p></label
               ><label class="text-[10px] text-[#53658A]"
                 >Kasbon<input
+                  id="payroll-loan-deduction"
                   type="number"
                   min="0"
-                  :value="payrollForm.loanDeduction || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.loanDeduction = asNumber(eventValue($event))" /></label
+                  required
+                  :value="payrollForm.loanDeduction"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    { 'form-control-invalid': payrollFormErrors.loanDeduction },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'loanDeduction',
+                      asNumber(eventValue($event)),
+                    )
+                  " />
+                <p
+                  v-if="payrollFormErrors.loanDeduction"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.loanDeduction }}
+                </p></label
               ><label class="text-[10px] text-[#53658A]"
                 >Potongan lain<input
+                  id="payroll-other-deduction"
                   type="number"
                   min="0"
-                  :value="payrollForm.otherDeduction || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.otherDeduction = asNumber(eventValue($event))" /></label
+                  required
+                  :value="payrollForm.otherDeduction"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    { 'form-control-invalid': payrollFormErrors.otherDeduction },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'otherDeduction',
+                      asNumber(eventValue($event)),
+                    )
+                  " />
+                <p
+                  v-if="payrollFormErrors.otherDeduction"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.otherDeduction }}
+                </p></label
               ><label class="text-[10px] text-[#53658A]"
                 >PPh 21 manual (Desember)<input
+                  id="payroll-pph21-manual"
                   type="number"
                   min="0"
-                  :value="payrollForm.pph21ManualAmount || ''"
-                  class="mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs"
-                  @change="payrollForm.pph21ManualAmount = asNumber(
-                        eventValue($event),
-                      )"
-              /></label>
+                  required
+                  :value="payrollForm.pph21ManualAmount"
+                  :class="[
+                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
+                    {
+                      'form-control-invalid':
+                        payrollFormErrors.pph21ManualAmount,
+                    },
+                  ]"
+                  @input="
+                    setPayrollField(
+                      'pph21ManualAmount',
+                      asNumber(eventValue($event)),
+                    )
+                  "
+              />
+                <p
+                  v-if="payrollFormErrors.pph21ManualAmount"
+                  class="form-field-warning"
+                >
+                  {{ payrollFormErrors.pph21ManualAmount }}
+                </p></label>
             </div>
           </div>
           <div class="space-y-1.5">
@@ -1865,9 +2251,13 @@
               >Sumber Rekening Dana Payout</label
             ><select
               id="payroll-source-bank"
+              required
               :value="payrollForm.cashAccountId"
-              class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs"
-              @change="payrollForm.cashAccountId = eventValue($event)"
+              :class="[
+                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none text-slate-800 text-xs',
+                { 'form-control-invalid': payrollFormErrors.cashAccountId },
+              ]"
+              @change="setPayrollField('cashAccountId', eventValue($event))"
             >
               <option value="">-- Pilih Kas/Bank --</option>
               <option
@@ -1878,6 +2268,12 @@
                 {{ account.code }} - {{ account.name }}
               </option>
             </select>
+            <p
+              v-if="payrollFormErrors.cashAccountId"
+              class="form-field-warning"
+            >
+              {{ payrollFormErrors.cashAccountId }}
+            </p>
           </div>
           <div
             class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-3 text-[10px] text-[#53658A]"
@@ -1905,35 +2301,38 @@
               }}
             </p>
           </div>
-          <button
-            type="button"
-            class="w-full border border-[#BFD5EE] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
-            @click="calculatePayrollPph21"
-          >
-            Hitung Estimasi PPh 21 Pegawai</button
-          ><button
-            id="btn-confirm-payout"
-            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
-            @click="handleProcessPayroll"
-          >
-            <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Proses Payroll
-            Pegawai Ini</button
-          ><button
-            type="button"
-            class="w-full border border-[#0B1F4A] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
-            @click="handleProcessPayrollBulk"
-          >
-            Proses Semua Pegawai Aktif</button
-          ><button
-            type="button"
-            class="w-full text-[#1E5AA8] font-semibold py-1.5 text-xs"
-            @click="downloadPayrollBankTransfer"
-          >
-            Unduh File Transfer Bank Periode Ini
-          </button>
-        </div>
+          <div class="grid gap-3">
+            <button
+              type="button"
+              class="w-full border border-[#BFD5EE] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
+              @click="calculatePayrollPph21"
+            >
+              Hitung Estimasi PPh 21 Pegawai</button
+            ><button
+              id="btn-confirm-payout"
+              type="submit"
+              class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Proses Payroll
+              Pegawai Ini</button
+            ><button
+              type="button"
+              class="w-full border border-[#0B1F4A] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
+              @click="handleProcessPayrollBulk"
+            >
+              Proses Semua Pegawai Aktif</button
+            ><button
+              type="button"
+              class="w-full text-[#1E5AA8] font-semibold py-2.5 text-xs"
+              @click="downloadPayrollBankTransfer"
+            >
+              Unduh File Transfer Bank Periode Ini
+            </button>
+          </div>
+        </form>
       </div>
     </div>
+    </Teleport>
     <div
       v-if="payslipPreview"
       class="fixed inset-0 z-[9998] flex items-center justify-center bg-[#000]/60 p-4 backdrop-blur-sm"
@@ -2037,6 +2436,7 @@
       >
         <div
           class="tax-manual-card my-3 flex w-full max-w-[840px] flex-col overflow-hidden rounded-[24px] border border-[#DCE7F4] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.38)] sm:my-4"
+          style="width: min(760px, calc(100vw - 48px)) !important; max-width: min(760px, calc(100vw - 48px)) !important; max-height: min(88vh, 760px) !important"
         >
           <div
             class="sticky top-0 z-20 flex shrink-0 items-start justify-between gap-4 border-b border-[#E8EEF7] bg-white px-5 py-4 sm:px-6"
@@ -2252,18 +2652,24 @@
                 <div class="space-y-1.5">
                   <label class="text-[10px] font-medium text-[#7A8CA8]"
                     >Dasar Pengenaan (opsional)</label
-                  ><input
-                    type="number"
-                    min="0"
-                    :value="manualTaxForm.taxBase || ''"
-                    :readonly="Boolean(manualTaxForm.sourceId)"
-                    placeholder="0"
-                    :class="`h-11 w-full rounded-lg border border-[#DCE7F4] px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10 ${manualTaxForm.sourceId ? 'bg-[#F8FBFE]' : 'bg-white'}`"
-                    @change="updateManualTaxForm({
-                          ...manualTaxForm,
-                          taxBase: Number(eventValue($event)),
-                        })"
-                  />
+                  ><div class="currency-input relative">
+                    <span
+                      class="absolute left-4 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#64748B]"
+                      >Rp</span
+                    ><input
+                      type="number"
+                      min="0"
+                      :value="manualTaxForm.taxBase || ''"
+                      :readonly="Boolean(manualTaxForm.sourceId)"
+                      placeholder="0"
+                      style="padding-left: 2.75rem !important"
+                      :class="`h-11 w-full rounded-lg border border-[#DCE7F4] px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10 ${manualTaxForm.sourceId ? 'bg-[#F8FBFE]' : 'bg-white'}`"
+                      @change="updateManualTaxForm({
+                            ...manualTaxForm,
+                            taxBase: Number(eventValue($event)),
+                          })"
+                    />
+                  </div>
                 </div>
                 <div class="space-y-1.5">
                   <label class="text-[10px] font-medium text-[#7A8CA8]"
@@ -2285,19 +2691,25 @@
                 <div class="space-y-1.5">
                   <label class="text-[10px] font-medium text-[#7A8CA8]"
                     >Nominal Pajak</label
-                  ><input
-                    type="number"
-                    min="1"
-                    :value="manualTaxForm.nominal || ''"
-                    :readonly="isExistingTaxSourceSelected()"
-                    placeholder="Wajib diisi"
-                    class="h-11 w-full rounded-lg border border-[#1E5AA8] bg-[#F7FBFF] px-3 text-[12px] font-semibold text-[#102A56] outline-none placeholder:text-[#8EA7C3] focus:ring-4 focus:ring-[#1E5AA8]/10"
-                    required
-                    @change="updateManualTaxForm({
-                          ...manualTaxForm,
-                          nominal: Number(eventValue($event)),
-                        })"
-                  />
+                  ><div class="currency-input relative">
+                    <span
+                      class="absolute left-4 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#1E5AA8]"
+                      >Rp</span
+                    ><input
+                      type="number"
+                      min="1"
+                      :value="manualTaxForm.nominal || ''"
+                      :readonly="isExistingTaxSourceSelected()"
+                      placeholder="Wajib diisi"
+                      style="padding-left: 2.75rem !important"
+                      class="h-11 w-full rounded-lg border border-[#1E5AA8] bg-[#F7FBFF] px-3 text-[12px] font-semibold text-[#102A56] outline-none placeholder:text-[#8EA7C3] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                      required
+                      @change="updateManualTaxForm({
+                            ...manualTaxForm,
+                            nominal: Number(eventValue($event)),
+                          })"
+                    />
+                  </div>
                 </div>
               </div>
               <div
@@ -2371,9 +2783,10 @@
         </div>
       </div></Teleport
     ><!-- 5. TAX SSP SETTLEMENT MODAL -->
+    <Teleport v-if="isTaxPayModalOpen" to="body">
     <div
-      v-if="isTaxPayModalOpen"
-      class="fixed inset-0 bg-[#000]/50 flex items-center justify-center z-50 p-4"
+      class="tax-payment-modal-layer fixed inset-0 flex items-center justify-center bg-[#000]/50 p-4"
+      :style="{ zIndex: 2147483000 }"
     >
       <div
         class="bg-white border border-slate-200 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl"
@@ -2397,7 +2810,7 @@
             Batal
           </button>
         </div>
-        <form class="p-6 space-y-4 text-xs" @submit="handlePayTax">
+        <form class="p-6 space-y-4 text-xs" @submit.prevent>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700"
               >Pilih Kewajiban Pajak Outstanding</label
@@ -2447,24 +2860,32 @@
               bukti setoran pada data pajak bila tersedia.
             </p>
           </div>
+          <p
+            v-if="taxPaymentError"
+            class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] font-semibold text-rose-700"
+          >
+            {{ taxPaymentError }}
+          </p>
           <button
             id="btn-tax-submit"
-            type="submit"
-            :disabled="!selectedTaxId"
+            type="button"
+            :disabled="!selectedTaxId || isTaxPaymentSubmitting"
             class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+            @click="handlePayTax"
           >
-            <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Catat Pembayaran
-            Pajak
+            <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" />
+            {{ isTaxPaymentSubmitting ? "Mencatat Pembayaran..." : "Catat Pembayaran Pajak" }}
           </button>
         </form>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   Users,
   ShieldCheck,
@@ -2595,10 +3016,15 @@ const taxSearchQuery = ref(""),
 const employeePage = ref(1);
 const masterPage = ref(1);
 const taxPage = ref(1);
-const isBpjsModalOpen = ref(false),
-  updateIsBpjsModalOpen = (next) => (isBpjsModalOpen.value = next);
+const isBpjsModalOpen = ref(false);
+function updateIsBpjsModalOpen(next: boolean) {
+  isBpjsModalOpen.value = next;
+  if (!next) resetBpjsRateErrors();
+}
 const isEmployeeModalOpen = ref(false),
   updateIsEmployeeModalOpen = (next) => (isEmployeeModalOpen.value = next);
+const isEmployeeSaving = ref(false);
+const employeeSaveError = ref("");
 const isEmployeeDetailOpen = ref(false),
   updateIsEmployeeDetailOpen = (next) => (isEmployeeDetailOpen.value = next);
 const selectedEmployeeDetail = ref<any>(null);
@@ -2625,6 +3051,29 @@ const isTaxPayModalOpen = ref(false),
 const isTaxManualModalOpen = ref(false),
   updateIsTaxManualModalOpen = (next) => (isTaxManualModalOpen.value = next);
 const payslipPreview = ref<any>(null);
+
+const isAnySdmModalOpen = computed(
+  () =>
+    isBpjsModalOpen.value ||
+    isEmployeeModalOpen.value ||
+    isMasterDataModalOpen.value ||
+    isPayrollModalOpen.value ||
+    isTaxPayModalOpen.value ||
+    isTaxManualModalOpen.value ||
+    Boolean(payslipPreview.value),
+);
+
+watch(
+  isAnySdmModalOpen,
+  (isOpen) => {
+    document.documentElement.classList.toggle("sdm-modal-open", isOpen);
+  },
+  { flush: "sync" },
+);
+
+onUnmounted(() => {
+  document.documentElement.classList.remove("sdm-modal-open");
+});
 const pph21Estimate = ref<any>(null);
 
 function openEmployeeDetail(employee: any) {
@@ -2970,6 +3419,68 @@ const bpjsJpEmployer = ref(0),
 const bpjsJpEmployee = ref(0),
   updateBpjsJpEmployee = (next) => (bpjsJpEmployee.value = next);
 
+type BpjsRateFieldKey =
+  | "healthCompany"
+  | "healthEmployee"
+  | "jhtCompany"
+  | "jhtEmployee"
+  | "jpCompany"
+  | "jpEmployee";
+
+const emptyBpjsRateErrors = (): Record<BpjsRateFieldKey, string> => ({
+  healthCompany: "",
+  healthEmployee: "",
+  jhtCompany: "",
+  jhtEmployee: "",
+  jpCompany: "",
+  jpEmployee: "",
+});
+
+const bpjsRateErrors = ref<Record<BpjsRateFieldKey, string>>(
+  emptyBpjsRateErrors(),
+);
+
+const bpjsRateFields: Array<{
+  key: BpjsRateFieldKey;
+  id: string;
+  label: string;
+}> = [
+  {
+    key: "healthCompany",
+    id: "bpjs-kes-employer",
+    label: "Porsi perusahaan BPJS Kesehatan",
+  },
+  {
+    key: "healthEmployee",
+    id: "bpjs-kes-employee",
+    label: "Porsi pegawai BPJS Kesehatan",
+  },
+  {
+    key: "jhtCompany",
+    id: "bpjs-jht-employer",
+    label: "JHT perusahaan",
+  },
+  {
+    key: "jhtEmployee",
+    id: "bpjs-jht-employee",
+    label: "JHT pegawai",
+  },
+  {
+    key: "jpCompany",
+    id: "bpjs-jp-employer",
+    label: "JP perusahaan",
+  },
+  {
+    key: "jpEmployee",
+    id: "bpjs-jp-employee",
+    label: "JP pegawai",
+  },
+];
+
+const bpjsRateErrorMessages = computed(() =>
+  Object.values(bpjsRateErrors.value).filter(Boolean),
+);
+
 const divisions = ref<any[]>([]);
 const positions = ref<any[]>([]);
 const payrollAccounts = ref<any[]>([]);
@@ -2980,6 +3491,7 @@ const payrollSummary = ref<any>({
   total_employer_bpjs_contribution: 0,
   total_net_pay: 0,
 });
+const payrollHistory = ref<any[]>([]);
 const employeeForm = ref({
     nama: "",
     nip: "",
@@ -3005,6 +3517,177 @@ const employeeForm = ref({
   }),
   updateEmployeeForm = (next) => (employeeForm.value = next);
 
+type EmployeeFormFieldKey =
+  | "nama"
+  | "nip"
+  | "nik"
+  | "email"
+  | "whatsapp"
+  | "npwp"
+  | "divisionId"
+  | "positionId"
+  | "statusKontrak"
+  | "employmentStatus"
+  | "tanggalBergabung"
+  | "bpjsKesehatanNo"
+  | "bpjsKetenagakerjaanNo"
+  | "ptkpStatus"
+  | "gajiPokok"
+  | "bankNama"
+  | "noRekening";
+
+const emptyEmployeeFormErrors = (): Record<EmployeeFormFieldKey, string> => ({
+  nama: "",
+  nip: "",
+  nik: "",
+  email: "",
+  whatsapp: "",
+  npwp: "",
+  divisionId: "",
+  positionId: "",
+  statusKontrak: "",
+  employmentStatus: "",
+  tanggalBergabung: "",
+  bpjsKesehatanNo: "",
+  bpjsKetenagakerjaanNo: "",
+  ptkpStatus: "",
+  gajiPokok: "",
+  bankNama: "",
+  noRekening: "",
+});
+
+const employeeFormErrors = ref<Record<EmployeeFormFieldKey, string>>(
+  emptyEmployeeFormErrors(),
+);
+
+const employeeRequiredFields: Array<{
+  key: EmployeeFormFieldKey;
+  id: string;
+  label: string;
+  type?: "text" | "number" | "email";
+  inDetails?: boolean;
+}> = [
+  { key: "nama", id: "employee-name", label: "Nama lengkap" },
+  { key: "nik", id: "employee-nik", label: "NIK" },
+  { key: "divisionId", id: "employee-division", label: "Divisi" },
+  { key: "positionId", id: "employee-position", label: "Jabatan" },
+  {
+    key: "statusKontrak",
+    id: "employee-contract-status",
+    label: "Status kerja",
+  },
+  {
+    key: "employmentStatus",
+    id: "employee-employment-status",
+    label: "Status pegawai",
+  },
+  { key: "ptkpStatus", id: "employee-ptkp-status", label: "Status PTKP" },
+  {
+    key: "tanggalBergabung",
+    id: "employee-join-date",
+    label: "Tanggal bergabung",
+  },
+  {
+    key: "gajiPokok",
+    id: "employee-base-salary",
+    label: "Gaji pokok",
+    type: "number",
+  },
+];
+
+const employeeFormErrorMessages = computed(() =>
+  Object.values(employeeFormErrors.value).filter(Boolean),
+);
+
+function resetEmployeeFormErrors() {
+  employeeFormErrors.value = emptyEmployeeFormErrors();
+}
+
+function clearEmployeeFormError(key: EmployeeFormFieldKey) {
+  if (!employeeFormErrors.value[key]) return;
+  employeeFormErrors.value = {
+    ...employeeFormErrors.value,
+    [key]: "",
+  };
+}
+
+function setEmployeeField(
+  key: keyof typeof employeeForm.value,
+  value: string | number,
+) {
+  updateEmployeeForm({
+    ...employeeForm.value,
+    [key]: value,
+  });
+  if (key in employeeFormErrors.value)
+    clearEmployeeFormError(key as EmployeeFormFieldKey);
+}
+
+function setEmployeeDivision(value: string) {
+  updateEmployeeForm({
+    ...employeeForm.value,
+    divisionId: value,
+    positionId: "",
+  });
+  clearEmployeeFormError("divisionId");
+}
+
+function employeeFormValue(key: EmployeeFormFieldKey) {
+  return employeeForm.value[key];
+}
+
+function validateEmployeeForm() {
+  const nextErrors = emptyEmployeeFormErrors();
+
+  for (const field of employeeRequiredFields) {
+    if (field.key === "employmentStatus" && !editingEmployee.value) continue;
+
+    const value = employeeFormValue(field.key);
+    const normalizedValue = String(value ?? "").trim();
+
+    if (!normalizedValue) {
+      nextErrors[field.key] = `${field.label} wajib diisi.`;
+      continue;
+    }
+
+    if (
+      field.type === "number" &&
+      (!Number.isFinite(Number(value)) || Number(value) <= 0)
+    ) {
+      nextErrors[field.key] = `${field.label} harus lebih dari 0.`;
+    }
+
+    if (
+      field.type === "email" &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedValue)
+    ) {
+      nextErrors[field.key] = `${field.label} harus valid.`;
+    }
+  }
+
+  employeeFormErrors.value = nextErrors;
+  const firstInvalidField = employeeRequiredFields.find(
+    (field) => nextErrors[field.key],
+  );
+
+  if (firstInvalidField) {
+    if (firstInvalidField.inDetails) {
+      const details = document.getElementById(
+        "employee-extra-details",
+      ) as HTMLDetailsElement | null;
+      if (details) details.open = true;
+    }
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField.id);
+      target?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+}
+
 const payrollForm = ref({
   employeeId: "",
   payrollPeriod: currentPayrollPeriod(),
@@ -3017,6 +3700,148 @@ const payrollForm = ref({
   otherDeduction: 0,
   pph21ManualAmount: 0,
 });
+
+type PayrollFormFieldKey =
+  | "employeeId"
+  | "payrollPeriod"
+  | "paymentDate"
+  | "cashAccountId"
+  | "overtimeAmount"
+  | "allowanceAmount"
+  | "bonusAmount"
+  | "loanDeduction"
+  | "otherDeduction"
+  | "pph21ManualAmount";
+
+const emptyPayrollFormErrors = (): Record<PayrollFormFieldKey, string> => ({
+  employeeId: "",
+  payrollPeriod: "",
+  paymentDate: "",
+  cashAccountId: "",
+  overtimeAmount: "",
+  allowanceAmount: "",
+  bonusAmount: "",
+  loanDeduction: "",
+  otherDeduction: "",
+  pph21ManualAmount: "",
+});
+
+const payrollFormErrors = ref<Record<PayrollFormFieldKey, string>>(
+  emptyPayrollFormErrors(),
+);
+
+const payrollRequiredFields: Array<{
+  key: PayrollFormFieldKey;
+  id: string;
+  label: string;
+  type?: "number";
+}> = [
+  { key: "employeeId", id: "payroll-employee", label: "Pegawai" },
+  { key: "payrollPeriod", id: "payroll-period", label: "Periode payroll" },
+  {
+    key: "paymentDate",
+    id: "payroll-payment-date",
+    label: "Tanggal bayar",
+  },
+  { key: "overtimeAmount", id: "payroll-overtime", label: "Lembur", type: "number" },
+  {
+    key: "allowanceAmount",
+    id: "payroll-allowance",
+    label: "Tunjangan",
+    type: "number",
+  },
+  { key: "bonusAmount", id: "payroll-bonus", label: "Bonus", type: "number" },
+  {
+    key: "loanDeduction",
+    id: "payroll-loan-deduction",
+    label: "Kasbon",
+    type: "number",
+  },
+  {
+    key: "otherDeduction",
+    id: "payroll-other-deduction",
+    label: "Potongan lain",
+    type: "number",
+  },
+  {
+    key: "pph21ManualAmount",
+    id: "payroll-pph21-manual",
+    label: "PPh 21 manual",
+    type: "number",
+  },
+  {
+    key: "cashAccountId",
+    id: "payroll-source-bank",
+    label: "Sumber rekening dana payout",
+  },
+];
+
+const payrollFormErrorMessages = computed(() =>
+  Object.values(payrollFormErrors.value).filter(Boolean),
+);
+
+function resetPayrollFormErrors() {
+  payrollFormErrors.value = emptyPayrollFormErrors();
+}
+
+function clearPayrollFormError(key: PayrollFormFieldKey) {
+  if (!payrollFormErrors.value[key]) return;
+  payrollFormErrors.value = {
+    ...payrollFormErrors.value,
+    [key]: "",
+  };
+}
+
+function setPayrollField(
+  key: keyof typeof payrollForm.value,
+  value: string | number,
+) {
+  payrollForm.value = {
+    ...payrollForm.value,
+    [key]: value,
+  };
+  if (key in payrollFormErrors.value)
+    clearPayrollFormError(key as PayrollFormFieldKey);
+}
+
+function validatePayrollForm(includeEmployee = true) {
+  const nextErrors = emptyPayrollFormErrors();
+
+  for (const field of payrollRequiredFields) {
+    if (field.key === "employeeId" && !includeEmployee) continue;
+
+    const value = payrollForm.value[field.key];
+    const normalizedValue = String(value ?? "").trim();
+
+    if (!normalizedValue) {
+      nextErrors[field.key] = `${field.label} wajib diisi.`;
+      continue;
+    }
+
+    if (
+      field.type === "number" &&
+      (!Number.isFinite(Number(value)) || Number(value) < 0)
+    ) {
+      nextErrors[field.key] = `${field.label} harus berupa angka 0 atau lebih.`;
+    }
+  }
+
+  payrollFormErrors.value = nextErrors;
+  const firstInvalidField = payrollRequiredFields.find(
+    (field) => nextErrors[field.key],
+  );
+
+  if (firstInvalidField) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField.id);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+}
 
 // Kewajiban pajak berasal dari database melalui API.
 const taxes = ref<any[]>(props.taxes || []);
@@ -3031,17 +3856,34 @@ const selectedTaxId = ref(""),
   updateSelectedTaxId = (next) => (selectedTaxId.value = next);
 const taxPaymentAccount = ref("1001"),
   updateTaxPaymentAccount = (next) => (taxPaymentAccount.value = next); // Submit tax settlement
-const handlePayTax = async (e: Event) => {
-  e.preventDefault();
+const isTaxPaymentSubmitting = ref(false);
+const taxPaymentError = ref("");
+const handlePayTax = async () => {
+  if (isTaxPaymentSubmitting.value) return;
   const targetTax = taxes.value.find((t) => t.id === selectedTaxId.value);
-  if (!targetTax) return;
-  await payTax(targetTax, {
-    accountCode: taxPaymentAccount.value,
-    paymentDate: new Date().toISOString().split("T")[0],
-    taxNumber: targetTax.ntpn || "",
-    notes: "",
-  });
-  updateIsTaxPayModalOpen(false);
+  if (!targetTax) {
+    taxPaymentError.value = "Kewajiban pajak yang dipilih tidak ditemukan.";
+    return;
+  }
+  taxPaymentError.value = "";
+  isTaxPaymentSubmitting.value = true;
+  try {
+    const paid = await payTax(targetTax, {
+      accountCode: taxPaymentAccount.value,
+      paymentDate: new Date().toISOString().split("T")[0],
+      taxNumber: targetTax.ntpn || "",
+      notes: "",
+    });
+    if (paid) {
+      updateSelectedTaxId("");
+      updateIsTaxPayModalOpen(false);
+    } else {
+      taxPaymentError.value =
+        "Setoran belum tersimpan. Periksa pesan sistem, akun bank, dan jurnal kewajiban pajak.";
+    }
+  } finally {
+    isTaxPaymentSubmitting.value = false;
+  }
 };
 
 const handleSaveManualTax = async (event: Event) => {
@@ -3125,6 +3967,7 @@ async function refreshMasterData() {
     financeApi.get("/bpjs-config"),
     financeApi.get("/payroll/summary", { period }),
     financeApi.get("/payroll/accounts"),
+    financeApi.get("/payroll"),
   ]);
 
   const value = (index: number, fallback: any) =>
@@ -3145,6 +3988,7 @@ async function refreshMasterData() {
 
   Object.assign(payrollSummary.value, value(3, {}));
   payrollAccounts.value = Array.isArray(value(4, [])) ? value(4, []) : [];
+  payrollHistory.value = Array.isArray(value(5, [])) ? value(5, []) : [];
 
   if (!payrollForm.value.employeeId && pegawai.length) {
     payrollForm.value.employeeId = String(pegawai[0]?._raw?.id || "");
@@ -3365,7 +4209,66 @@ async function deleteMasterData(
   }
 }
 
-async function handleSaveBpjs() {
+function resetBpjsRateErrors() {
+  bpjsRateErrors.value = emptyBpjsRateErrors();
+}
+
+function clearBpjsRateError(key: BpjsRateFieldKey) {
+  if (!bpjsRateErrors.value[key]) return;
+  bpjsRateErrors.value = {
+    ...bpjsRateErrors.value,
+    [key]: "",
+  };
+}
+
+function getBpjsRateInputValue(id: string) {
+  return (
+    (document.getElementById(id) as HTMLInputElement | null)?.value.trim() || ""
+  );
+}
+
+function validateBpjsRates() {
+  const nextErrors = emptyBpjsRateErrors();
+
+  for (const field of bpjsRateFields) {
+    const rawValue = getBpjsRateInputValue(field.id);
+    const numericValue = Number(rawValue.replace(",", "."));
+
+    if (!rawValue) {
+      nextErrors[field.key] = `${field.label} wajib diisi.`;
+    } else if (
+      !Number.isFinite(numericValue) ||
+      numericValue < 0 ||
+      numericValue > 100
+    ) {
+      nextErrors[field.key] = `${field.label} harus berupa angka 0 sampai 100.`;
+    }
+  }
+
+  bpjsRateErrors.value = nextErrors;
+  const firstInvalidField = bpjsRateFields.find(
+    (field) => nextErrors[field.key],
+  );
+
+  if (firstInvalidField) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField.id);
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus();
+    });
+    return false;
+  }
+
+  return true;
+}
+
+async function handleSaveBpjs(event?: Event) {
+  event?.preventDefault();
+  if (!validateBpjsRates()) {
+    notify("Lengkapi seluruh tarif BPJS sebelum menyimpan.");
+    return;
+  }
+
   try {
     await financeApi.put("/bpjs-config", {
       health_company_rate: asNumber(bpjsKesEmployer.value),
@@ -3394,6 +4297,7 @@ function employeeDatabaseId(employee: any) {
 
 function resetEmployeeForm() {
   editingEmployee.value = null;
+  resetEmployeeFormErrors();
   const defaultDivision =
     divisions.value.find(
       (item: any) => String(item.status || "active").toLowerCase() === "active",
@@ -3435,8 +4339,10 @@ function resetEmployeeForm() {
 }
 
 async function openEmployeeForm(employee: any = null) {
+  employeeSaveError.value = "";
   if (!divisions.value.length || !positions.value.length)
     await refreshMasterData();
+  resetEmployeeFormErrors();
   if (!employee) {
     resetEmployeeForm();
     updateIsEmployeeModalOpen(true);
@@ -3479,18 +4385,19 @@ async function openEmployeeForm(employee: any = null) {
   updateIsEmployeeModalOpen(true);
 }
 
-async function handleCreateEmployee(event: Event) {
-  event.preventDefault();
+async function handleCreateEmployee() {
+  if (isEmployeeSaving.value) return;
+  employeeSaveError.value = "";
+
+  if (!validateEmployeeForm()) {
+    employeeSaveError.value = "Lengkapi kolom wajib yang masih ditandai.";
+    return;
+  }
 
   const divisionId = Number(employeeForm.value.divisionId);
   const positionId = Number(employeeForm.value.positionId);
-  if (
-    !employeeForm.value.nama ||
-    !employeeForm.value.nik ||
-    !divisionId ||
-    !positionId
-  ) {
-    notify("Nama, NIK, divisi, dan jabatan wajib diisi.");
+  if (!divisionId || !positionId) {
+    employeeSaveError.value = "Divisi dan jabatan wajib dipilih.";
     return;
   }
 
@@ -3501,6 +4408,7 @@ async function handleCreateEmployee(event: Event) {
         ? "contract"
         : "intern";
 
+  isEmployeeSaving.value = true;
   try {
     const payload = {
       employee_code: employeeForm.value.nip || undefined,
@@ -3543,7 +4451,13 @@ async function handleCreateEmployee(event: Event) {
     );
   } catch (error) {
     console.error(error);
-    notify(getApiErrorMessage(error, "Gagal menyimpan pegawai."));
+    employeeSaveError.value = getApiErrorMessage(
+      error,
+      "Gagal menyimpan pegawai.",
+    );
+    notify(employeeSaveError.value);
+  } finally {
+    isEmployeeSaving.value = false;
   }
 }
 
@@ -3654,7 +4568,15 @@ function openPayslipPrint() {
   popup.print();
 }
 
+function validatePayrollFields(includeEmployee = true) {
+  return validatePayrollForm(includeEmployee);
+}
+
 async function handleProcessPayroll() {
+  if (!validatePayrollFields(true)) {
+    notify("Lengkapi seluruh data payroll sebelum memproses.");
+    return;
+  }
   const employeeId = Number(payrollForm.value.employeeId);
   const cashAccountId = Number(payrollForm.value.cashAccountId);
   if (!employeeId || !cashAccountId) {
@@ -3696,6 +4618,10 @@ async function handleProcessPayroll() {
 }
 
 async function handleProcessPayrollBulk() {
+  if (!validatePayrollFields(false)) {
+    notify("Lengkapi seluruh data payroll sebelum memproses massal.");
+    return;
+  }
   const cashAccountId = Number(payrollForm.value.cashAccountId);
   if (!cashAccountId)
     return notify("Pilih akun Kas/Bank sebelum memproses payroll massal.");
@@ -4073,7 +4999,13 @@ function openPayrollModal() {
     return;
   }
   refreshMasterData();
+  resetPayrollFormErrors();
   updateIsPayrollModalOpen(true);
+}
+
+function closePayrollModal() {
+  resetPayrollFormErrors();
+  updateIsPayrollModalOpen(false);
 }
 
 function closeMasterDataModal() {
@@ -4087,11 +5019,13 @@ function openManualTaxModal() {
 }
 
 function openTaxPaymentModal(taxId: string) {
+  taxPaymentError.value = "";
   updateSelectedTaxId(taxId);
   updateIsTaxPayModalOpen(true);
 }
 
 function closeEmployeeModal() {
+  employeeSaveError.value = "";
   updateIsEmployeeModalOpen(false);
   resetEmployeeForm();
 }
@@ -4118,3 +5052,80 @@ const assetAccounts = computed(() =>
 );
 
 </script>
+
+<style>
+.tax-manual-card {
+  font-size: 12px;
+}
+
+.tax-manual-card > div:first-child {
+  padding: 14px 18px !important;
+}
+
+.tax-manual-card > div:first-child h3 {
+  font-size: 15px !important;
+  line-height: 1.3 !important;
+}
+
+.tax-manual-card > div:first-child p:first-child {
+  font-size: 9px !important;
+}
+
+.tax-manual-card > div:first-child p:last-child {
+  font-size: 10px !important;
+  line-height: 1.5 !important;
+}
+
+.tax-manual-form {
+  padding: 14px 18px !important;
+}
+
+.tax-manual-form > section {
+  border-radius: 14px !important;
+}
+
+.tax-manual-form > section[class*="rounded"] {
+  padding: 12px !important;
+}
+
+.tax-manual-form section > div:first-child p:first-child {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.tax-manual-form p {
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+}
+
+.tax-manual-form label {
+  font-size: 9px !important;
+  line-height: 1.3 !important;
+}
+
+.tax-manual-form input,
+.tax-manual-form select {
+  height: 38px !important;
+  min-height: 38px !important;
+  border-radius: 9px !important;
+  padding-inline: 10px !important;
+  font-size: 11px !important;
+}
+
+.tax-manual-form button {
+  min-height: 36px !important;
+  height: 36px !important;
+  font-size: 10px !important;
+}
+
+.tax-manual-form .grid {
+  gap: 10px !important;
+}
+
+@media (max-width: 639px) {
+  .tax-manual-card > div:first-child,
+  .tax-manual-form {
+    padding-inline: 14px !important;
+  }
+}
+</style>

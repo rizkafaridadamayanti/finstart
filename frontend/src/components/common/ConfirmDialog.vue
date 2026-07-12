@@ -44,14 +44,15 @@ function confirmDialog() {
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="confirm-overlay"
-    role="dialog"
-    aria-modal="true"
-    @click.self="closeDialog"
-  >
-    <section class="confirm-card">
+  <Teleport to="body">
+    <div
+      v-if="open"
+      class="confirm-overlay"
+      role="dialog"
+      aria-modal="true"
+      @click.self="closeDialog"
+    >
+      <section class="confirm-card">
       <header class="confirm-header">
         <div class="confirm-icon" :class="variant">
           <AlertTriangle :size="20" />
@@ -116,21 +117,22 @@ function confirmDialog() {
           {{ confirmLabel }}
         </button>
       </footer>
-    </section>
-  </div>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 10080;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow-y: auto;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.58);
+  background: rgba(17, 24, 39, 0.55);
   backdrop-filter: blur(8px);
 }
 
