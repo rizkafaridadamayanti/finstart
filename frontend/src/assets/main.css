@@ -1056,3 +1056,57 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
     border-radius: 22px !important;
   }
 }
+
+/* Mobile workspace layout: preserve desktop cards in a compact two-column
+   canvas and let users pan horizontally instead of stacking every card. */
+@media (max-width: 767px) {
+  .app-shell .app-main {
+    overflow-x: hidden;
+  }
+
+  .app-shell
+    .app-main
+    :where(.grid.grid-cols-1):has(
+      > :where(
+          [class*="rounded-2xl"],
+          [class*="rounded-3xl"],
+          [class*="rounded-["],
+          [class*="border"]
+        )
+    ) {
+    grid-template-columns: repeat(2, minmax(240px, 1fr)) !important;
+    width: 100%;
+    max-width: none;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell .app-main :where(.overflow-x-auto) {
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell .app-main :where(.overflow-x-auto > table) {
+    min-width: 760px;
+  }
+
+  .app-shell
+    .app-main
+    :where(.grid.grid-cols-1):has(
+      > :where(
+          [class*="rounded-2xl"],
+          [class*="rounded-3xl"],
+          [class*="rounded-["],
+          [class*="border"]
+        )
+    )
+    > * {
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+}
