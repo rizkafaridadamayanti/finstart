@@ -192,6 +192,7 @@ function enforceApiAuthorization(req, res, next) {
 const TAB_PERMISSIONS = {
   dashboard: ['dashboard:read'],
   crm: ['projects:read'],
+  'master-klien': ['projects:read'],
   bukubesar: ['accounts:read'],
   transaksi: ['journals:read'],
   langganan: ['subscriptions:read'],

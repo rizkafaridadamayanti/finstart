@@ -111,6 +111,15 @@
                   :pegawai="pegawai"
                 />
 
+                <CrmView
+                  v-else-if="activeTab === 'master-klien'"
+                  :key="`master-klien-${dataVersion}`"
+                  :proyek="proyek"
+                  :klien="klien"
+                  :pegawai="pegawai"
+                  view-mode="client-master"
+                />
+
                 <BukuBesarDanTransaksi
                   v-else-if="
                     activeTab === 'bukubesar' || activeTab === 'transaksi'

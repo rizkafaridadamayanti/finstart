@@ -78,155 +78,6 @@
           </div>
         </div>
       </div>
-      <div class="currency-calculator">
-        <div
-          class="relative overflow-hidden rounded-[2rem] border border-[#0B1F4A] bg-[#0B1F4A] p-6 shadow-[0_30px_90px_rgba(11,31,74,0.22)]"
-        >
-          <div
-            class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div class="space-y-2">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[0.32em] text-white opacity-70"
-              >
-                Kurs &amp; Mata Uang
-              </p>
-              <p class="max-w-xl text-sm leading-6 text-white opacity-80">
-                Desain kalkulator modern untuk memproyeksikan nilai langganan
-                secara instan dengan pilihan IDR / USD.
-              </p>
-            </div>
-            <button
-              type="button"
-              class="h-11 rounded-2xl border border-white/35 bg-white/10 px-4 text-[11px] font-bold text-white transition hover:bg-white hover:text-[#0B1F4A]"
-              @click="openExchangeRate"
-            >
-              Lihat Kurs Realtime di Google
-            </button>
-          </div>
-          <div class="relative mt-6 grid gap-4 md:grid-cols-3">
-            <div
-              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
-            >
-              <div
-                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
-              >
-                Kurs
-              </div>
-              <input
-                type="number"
-                :min="0"
-                :value="exchangeRate"
-                class="h-12 w-full rounded-2xl border border-[#D8E5F4] bg-white px-4 text-sm font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A]"
-                @input="exchangeRate = Number(eventValue($event) || 0)"
-              />
-              <p
-                class="mt-3 inline-flex rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white"
-              >
-                {{ rateLabel }}
-              </p>
-            </div>
-            <div
-              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
-            >
-              <div
-                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
-              >
-                Nominal
-              </div>
-              <input
-                type="number"
-                :min="0"
-                :value="calculatorAmount"
-                class="h-12 w-full rounded-2xl border border-[#D8E5F4] bg-white px-4 text-sm font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A]"
-                @input="calculatorAmount = Number(eventValue($event) || 0)"
-              />
-            </div>
-            <div
-              class="rounded-[1.5rem] border border-white/20 bg-white/10 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.12)] backdrop-blur"
-            >
-              <div
-                class="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-white"
-              >
-                Konversi
-              </div>
-              <div class="grid gap-3">
-                <select
-                  :value="currencyFrom"
-                  class="h-12 w-full rounded-2xl border border-[#D8E5F4] bg-white px-4 text-sm font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A]"
-                  @change="updateCurrencyFrom(eventValue($event))"
-                >
-                  <option
-                    v-for="option in currencyOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option></select
-                ><select
-                  :value="currencyTo"
-                  class="h-12 w-full rounded-2xl border border-[#D8E5F4] bg-white px-4 text-sm font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A]"
-                  @change="updateCurrencyTo(eventValue($event))"
-                >
-                  <option
-                    v-for="option in currencyOptions"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div
-            class="relative mt-6 rounded-[1.5rem] border border-white/20 bg-white p-5 shadow-[0_18px_44px_rgba(0,0,0,0.16)]"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <span
-                class="text-[11px] font-bold uppercase tracking-[0.24em] text-[#0B2F56]"
-                >Estimasi Cepat</span
-              ><span
-                class="rounded-full bg-[#0B1F4A] px-3 py-1.5 text-[11px] font-semibold text-white"
-                >Realtime</span
-              >
-            </div>
-            <div class="mt-5 grid gap-3 sm:grid-cols-2">
-              <div
-                class="rounded-[1.25rem] border border-[#D8E5F4] bg-[#F8FBFE] p-4"
-              >
-                <p
-                  class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]"
-                >
-                  Nilai Saat Ini
-                </p>
-                <p class="mt-3 text-2xl font-black tracking-tight text-[#0B1F4A]">
-                  {{ formatCurrency(convertAmount, currencyTo) }}
-                </p>
-              </div>
-              <div
-                class="rounded-[1.25rem] border border-[#D8E5F4] bg-white p-4"
-              >
-                <p
-                  class="text-[10px] uppercase tracking-[0.24em] text-[#94A3B8]"
-                >
-                  Rincian Konversi
-                </p>
-                <p class="mt-3 text-sm font-semibold text-[#0B1F4A]">
-                  {{ journalSummary }}
-                </p>
-                <p class="mt-1 text-[11px] text-[#64748B]">
-                  <template v-if="currencyFrom === currencyTo"
-                    >Sama mata uang, tidak perlu konversi.</template
-                  ><template v-else>{{
-                    `Kurs yang digunakan: 1 ${currencyFrom} = ${formatCurrency(exchangeRate, currencyTo)}`
-                  }}</template>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       <!-- Subs Log Table -->
       <div
         class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
@@ -693,15 +544,15 @@
                   required
                   :value="newSub.mataUang"
                   class="w-full h-11 px-5 pr-10 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-semibold text-sm appearance-none transition-all"
-                  @change="updateNewSub({
-                        ...newSub,
-                        mataUang: eventValue($event),
-                        biayaIDR: convertToIdr(newSub.biaya, eventValue($event)),
-                        kurs: usdToIdrRate,
-                      })"
+                  @change="handleSubscriptionCurrencyChange"
                 >
-                  <option value="IDR">IDR (Rupiah)</option>
-                  <option value="USD">USD (Dolar AS)</option></select
+                  <option
+                    v-for="option in currencyOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option></select
                 ><ChevronDown
                   class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0F172A]"
                 />
@@ -749,27 +600,96 @@
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-3">
+          <div class="subscription-billing-grid grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="subscription-billing-column space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
                 >Biaya Langganan *</label
-              ><input
-                id="sub-form-cost"
-                type="number"
-                required
-                min="1"
-                :value="newSub.biaya || ''"
-                placeholder="0"
-                class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#0B1F4A] font-bold text-sm transition-all"
-                @input="handleSubscriptionCostInput"
-              />
-              <p class="text-[10px] font-semibold text-[#64748B]">
-                Estimasi rupiah:
-                {{ formatRupiah(convertToIdr(newSub.biaya, newSub.mataUang)) }}
-              </p>
+              ><div class="subscription-cost-input relative">
+                <span
+                  class="subscription-currency-prefix pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm font-extrabold text-[#64748B]"
+                  >{{ newSub.mataUang }}</span
+                >
+                <input
+                  :key="newSub.mataUang"
+                  id="sub-form-cost"
+                  type="text"
+                  inputmode="numeric"
+                  required
+                  :value="subscriptionCostInputValue"
+                  placeholder="0"
+                  class="subscription-cost-field w-full h-12 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl py-0 pl-20 pr-5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#0B1F4A] font-bold text-sm transition-all"
+                  @input="handleSubscriptionCostInput"
+                />
+              </div>
+              <div
+                v-if="newSub.mataUang !== 'IDR'"
+                class="subscription-rate-card rounded-2xl border border-[#D8E5F4] bg-white px-4 py-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#94A3B8]">
+                      Kurs ke IDR
+                    </p>
+                    <p class="mt-1 text-[11px] font-semibold text-[#64748B]">
+                      Masukkan kurs hari ini setelah dicek dari Google.
+                    </p>
+                  </div>
+                  <span
+                    :class="[
+                      'rounded-full px-2.5 py-1 text-[10px] font-extrabold',
+                      subscriptionRateConfirmed
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-amber-50 text-amber-700',
+                    ]"
+                  >
+                    {{ subscriptionRateConfirmed ? "OK" : "Belum OK" }}
+                  </span>
+                </div>
+                <div class="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <div class="relative">
+                    <span
+                      class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-extrabold text-[#64748B]"
+                      >Rp</span
+                    >
+                    <input
+                      id="sub-form-rate"
+                      type="text"
+                      inputmode="numeric"
+                      :value="subscriptionRateInputValue"
+                      placeholder="Contoh: 18.000"
+                      class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#F8FAFC] py-0 pl-11 pr-3 text-sm font-extrabold text-[#102A56] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                      @input="handleSubscriptionRateInput"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#071735]"
+                    @click="confirmSubscriptionRate"
+                  >
+                    OK
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="mt-2 inline-flex min-h-8 items-center rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-3 text-[11px] font-extrabold text-[#1E5AA8] transition-colors hover:bg-[#EEF5FC]"
+                  @click="openSubscriptionExchangeRate"
+                >
+                  Lihat kurs {{ newSub.mataUang }} ke IDR di Google
+                </button>
+              </div>
+              <div
+                class="subscription-estimate-card rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-3 text-xs font-semibold text-[#52647E]"
+              >
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#94A3B8]">
+                  Estimasi rupiah
+                </p>
+                <p class="mt-1 text-[13px] font-extrabold text-[#102A56]">
+                  {{ subscriptionEstimateLabel }}
+                </p>
+              </div>
             </div>
-            <div class="space-y-3">
+            <div class="subscription-billing-column space-y-3">
               <label
                 class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
                 >Tgl Tagihan Berikutnya *</label
@@ -785,6 +705,53 @@
                 /><Calendar
                   class="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
+              </div>
+              <div
+                class="subscription-summary-card rounded-2xl border border-[#D8E5F4] bg-white px-4 py-3"
+              >
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#94A3B8]">
+                  Ringkasan tagihan
+                </p>
+                <div class="subscription-summary-grid mt-2 grid grid-cols-2 gap-3 text-[11px] font-bold text-[#52647E]">
+                  <div>
+                    <span class="block text-[#94A3B8]">Biaya asal</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">{{ subscriptionOriginalCostSummary }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Mata uang</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">{{ newSub.mataUang }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Siklus</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">{{ newSub.siklus }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Kurs</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">
+                      {{ subscriptionRateSummary }}
+                    </strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Status kurs</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">
+                      {{ newSub.mataUang === "IDR" || subscriptionRateConfirmed ? "Siap dihitung" : "Perlu OK" }}
+                    </strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Kategori</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">{{ newSub.kategori }}</strong>
+                  </div>
+                  <div>
+                    <span class="block text-[#94A3B8]">Tagihan</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">{{ newSub.tanggalTagihan || "-" }}</strong>
+                  </div>
+                  <div class="col-span-2 rounded-xl bg-[#F8FBFE] px-3 py-2">
+                    <span class="block text-[#94A3B8]">Estimasi IDR</span>
+                    <strong class="mt-0.5 block text-[13px] text-[#102A56]">
+                      {{ subscriptionIdrSummary }}
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1387,6 +1354,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, ref } from "vue";
 import {
   Cloud,
@@ -1471,31 +1439,18 @@ const currencyOptions: { value: CurrencyCode; label: string }[] = [
   { value: "AUD", label: "AUD - Dolar Australia" },
   { value: "GBP", label: "GBP - Pound Inggris" },
 ];
-const calculatorAmount = ref(1);
-const currencyFrom = ref<CurrencyCode>("USD");
-const currencyTo = ref<CurrencyCode>("IDR");
-const updateCurrencyFrom = (value: string) => {
-  if (currencyOptions.some((option) => option.value === value)) {
-    currencyFrom.value = value as CurrencyCode;
-  }
-};
-const updateCurrencyTo = (value: string) => {
-  if (currencyOptions.some((option) => option.value === value)) {
-    currencyTo.value = value as CurrencyCode;
-  }
-};
-const exchangeRate = ref(16000);
 const subscriptionHistory = ref<any>(null);
 const showSubscriptionTransactions = ref(false);
 const showExpiredSubscriptions = ref(false);
 const showAssetArchive = ref(false);
 const assetHistory = ref<any>(null);
-const usdToIdrRate = ref(16000);
+const subscriptionRateConfirmed = ref(true);
+const isCurrencyCode = (value: string): value is CurrencyCode =>
+  currencyOptions.some((option) => option.value === value);
 
-const convertToIdr = (amount: number, currency: string) => {
+const convertToIdr = (amount: number, currency: string, rate = 1) => {
   if (currency === "IDR") return amount;
-  if (currency === "USD") return amount * usdToIdrRate.value;
-  return amount;
+  return amount * Number(rate || 0);
 };
 const formatCurrency = (amount: number, currency: CurrencyCode) => {
   if (currency === "IDR") return formatRupiah(amount);
@@ -1505,23 +1460,16 @@ const formatCurrency = (amount: number, currency: CurrencyCode) => {
     maximumFractionDigits: 2,
   }).format(amount);
 };
-const convertAmount = computed(
-  () => Number(calculatorAmount.value || 0) * Number(exchangeRate.value || 0),
-);
-const rateLabel = computed(() =>
-  currencyFrom.value === currencyTo.value
-    ? `1 ${currencyFrom.value} = 1 ${currencyTo.value}`
-    : `1 ${currencyFrom.value} = ${formatCurrency(exchangeRate.value, currencyTo.value)}`,
-);
-const journalSummary = computed(() => {
-  if (currencyFrom.value === currencyTo.value) {
-    return `${formatCurrency(calculatorAmount.value, currencyFrom.value)}`;
-  }
-  return `${formatCurrency(calculatorAmount.value, currencyFrom.value)} x ${formatCurrency(exchangeRate.value, currencyTo.value)} = ${formatCurrency(convertAmount.value, currencyTo.value)}`;
-});
-const openExchangeRate = () =>
+const formatSubscriptionCostInput = (amount: number) => {
+  const numericAmount = Number(amount || 0);
+  if (!numericAmount) return "";
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(numericAmount);
+};
+const openSubscriptionExchangeRate = () =>
   window.open(
-    `https://www.google.com/search?q=kurs+${currencyFrom.value}+ke+${currencyTo.value}+hari+ini`,
+    `https://www.google.com/search?q=kurs+${newSub.value.mataUang}+ke+IDR+hari+ini`,
     "_blank",
     "noopener,noreferrer",
   );
@@ -1553,15 +1501,55 @@ const confirmDialog = ref<any>(null);
 const newSub = ref({
     nama: "",
     provider: "",
-    mataUang: "IDR" as "IDR" | "USD",
+    mataUang: "IDR" as CurrencyCode,
     siklus: "Bulanan" as "Bulanan" | "Tahunan",
     kategori: "Software" as "Infrastruktur" | "Software" | "Marketing",
     biaya: 0,
     biayaIDR: 0,
-    kurs: 16000,
+    kurs: 1,
     tanggalTagihan: new Date().toISOString().slice(0, 10),
   }),
   updateNewSub = (next) => (newSub.value = next);
+const subscriptionEstimateLabel = computed(() => {
+  const amount = Number(newSub.value.biaya || 0);
+  const currency = newSub.value.mataUang;
+  if (!amount) return "Masukkan nominal biaya terlebih dahulu.";
+  if (currency === "IDR") return formatRupiah(amount);
+  const rate = Number(newSub.value.kurs || 0);
+  if (!rate) return "Masukkan kurs hari ini terlebih dahulu.";
+  if (!subscriptionRateConfirmed.value) {
+    return "Tekan OK setelah memastikan kurs hari ini dari Google.";
+  }
+  return `1 ${currency} = ${formatRupiah(rate)}; ${formatCurrency(amount, currency)} x ${formatRupiah(rate)} = ${formatRupiah(convertToIdr(amount, currency, rate))}`;
+});
+const subscriptionCostInputValue = computed(() =>
+  formatSubscriptionCostInput(newSub.value.biaya),
+);
+const subscriptionRateInputValue = computed(() =>
+  newSub.value.mataUang === "IDR"
+    ? ""
+    : formatSubscriptionCostInput(newSub.value.kurs),
+);
+const subscriptionRateSummary = computed(() => {
+  if (newSub.value.mataUang === "IDR") return "1:1";
+  if (!newSub.value.kurs) return "Belum diisi";
+  if (!subscriptionRateConfirmed.value) return "Belum OK";
+  return formatRupiah(newSub.value.kurs);
+});
+const subscriptionOriginalCostSummary = computed(() => {
+  const amount = Number(newSub.value.biaya || 0);
+  if (!amount) return "-";
+  return `${newSub.value.mataUang} ${formatSubscriptionCostInput(amount)}`;
+});
+const subscriptionIdrSummary = computed(() => {
+  const amount = Number(newSub.value.biaya || 0);
+  if (!amount) return "-";
+  if (newSub.value.mataUang === "IDR") return formatRupiah(amount);
+  if (!newSub.value.kurs || !subscriptionRateConfirmed.value) return "Menunggu OK kurs";
+  return formatRupiah(
+    convertToIdr(amount, newSub.value.mataUang, newSub.value.kurs),
+  );
+});
 const assetCategoryOptions = [
   "Elektronik / IT",
   "Furniture",
@@ -1734,10 +1722,21 @@ const handleSaveSub = async (e: Event) => {
     notify("Seluruh data layanan wajib diisi dan biaya harus lebih dari nol.");
     return;
   }
+  if (
+    newSub.value.mataUang !== "IDR" &&
+    (!Number(newSub.value.kurs || 0) || !subscriptionRateConfirmed.value)
+  ) {
+    notify("Isi kurs hari ini dan tekan OK sebelum menyimpan layanan.");
+    return;
+  }
   const item: Langganan = {
     id: `SUB-${Date.now()}`,
     ...newSub.value,
-    biayaIDR: convertToIdr(newSub.value.biaya, newSub.value.mataUang),
+    biayaIDR: convertToIdr(
+      newSub.value.biaya,
+      newSub.value.mataUang,
+      newSub.value.kurs,
+    ),
   };
   await addSubscription(item);
   updateIsSubModalOpen(false);
@@ -1749,9 +1748,10 @@ const handleSaveSub = async (e: Event) => {
     kategori: "Software",
     biaya: 0,
     biayaIDR: 0,
-    kurs: usdToIdrRate.value,
+    kurs: 1,
     tanggalTagihan: new Date().toISOString().slice(0, 10),
   });
+  subscriptionRateConfirmed.value = true;
 };
 
 const resetAssetForm = () => {
@@ -2000,12 +2000,55 @@ const totalNetBookValue = computed(() =>
   ),
 );
 function handleSubscriptionCostInput(event: Event) {
-  const biaya = Number(eventValue(event));
+  const biaya = parseRupiahInput(eventValue(event));
+  const canCalculate =
+    newSub.value.mataUang === "IDR" || subscriptionRateConfirmed.value;
   updateNewSub({
     ...newSub.value,
     biaya,
-    biayaIDR: convertToIdr(biaya, newSub.value.mataUang),
-    kurs: usdToIdrRate.value,
+    biayaIDR: canCalculate
+      ? convertToIdr(biaya, newSub.value.mataUang, newSub.value.kurs)
+      : 0,
+  });
+}
+function handleSubscriptionCurrencyChange(event: Event) {
+  const mataUang = eventValue(event);
+  if (!isCurrencyCode(mataUang)) return;
+  subscriptionRateConfirmed.value = mataUang === "IDR";
+  updateNewSub({
+    ...newSub.value,
+    mataUang,
+    biayaIDR: mataUang === "IDR" ? newSub.value.biaya : 0,
+    kurs: mataUang === "IDR" ? 1 : 0,
+  });
+}
+function handleSubscriptionRateInput(event: Event) {
+  const kurs = parseRupiahInput(eventValue(event));
+  subscriptionRateConfirmed.value = false;
+  updateNewSub({
+    ...newSub.value,
+    kurs,
+    biayaIDR: 0,
+  });
+}
+function confirmSubscriptionRate() {
+  const kurs = Number(newSub.value.kurs || 0);
+  if (!kurs) {
+    notify("Isi nominal kurs terlebih dahulu.");
+    return;
+  }
+  const checked = window.confirm(
+    "Apakah sudah melihat kurs hari ini di Google? Jika sudah, tekan OK untuk memakai kurs ini dalam perhitungan.",
+  );
+  if (!checked) return;
+  subscriptionRateConfirmed.value = true;
+  updateNewSub({
+    ...newSub.value,
+    biayaIDR: convertToIdr(
+      newSub.value.biaya,
+      newSub.value.mataUang,
+      kurs,
+    ),
   });
 }
 
@@ -2024,3 +2067,135 @@ function closeConfirmDialog() {
 }
 
 </script>
+
+<style scoped>
+.subscription-modal-card :deep(form) {
+  gap: 18px;
+}
+
+.subscription-modal-card :deep(label) {
+  color: #8a99ad !important;
+  font-size: 10px !important;
+  letter-spacing: 0.13em !important;
+}
+
+.subscription-modal-card :deep(input),
+.subscription-modal-card :deep(select) {
+  height: 44px !important;
+  border-radius: 14px !important;
+  font-size: 13px !important;
+}
+
+.subscription-billing-grid {
+  align-items: stretch;
+}
+
+.subscription-billing-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.subscription-cost-input {
+  min-height: 44px;
+}
+
+.subscription-currency-prefix {
+  width: 42px;
+  text-align: left;
+  color: #52647e !important;
+  font-size: 12.5px !important;
+  letter-spacing: 0.02em;
+}
+
+.subscription-cost-field {
+  padding-left: 74px !important;
+  color: #102a56 !important;
+  font-size: 13.5px !important;
+  line-height: 1 !important;
+}
+
+.subscription-cost-field::placeholder {
+  color: #94a3b8;
+}
+
+.subscription-rate-card,
+.subscription-estimate-card,
+.subscription-summary-card {
+  border-radius: 16px !important;
+}
+
+.subscription-rate-card {
+  min-height: 140px;
+}
+
+.subscription-estimate-card {
+  min-height: 92px;
+}
+
+.subscription-summary-card {
+  flex: 1;
+  min-height: 246px;
+}
+
+.subscription-rate-card p,
+.subscription-estimate-card p,
+.subscription-summary-card p {
+  line-height: 1.35;
+}
+
+.subscription-rate-card input {
+  height: 38px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+}
+
+.subscription-rate-card button {
+  min-height: 32px;
+  border-radius: 12px;
+  line-height: 1.2;
+}
+
+.subscription-estimate-card button {
+  border-color: #b8cbe2 !important;
+  color: #1e5aa8 !important;
+  line-height: 1.2;
+}
+
+.subscription-estimate-card p:last-child {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.subscription-summary-grid > div {
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.subscription-summary-grid span {
+  color: #8a99ad !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.25;
+}
+
+.subscription-summary-grid strong {
+  overflow-wrap: anywhere;
+  color: #102a56 !important;
+  font-size: 12.5px !important;
+  font-weight: 850 !important;
+  line-height: 1.25;
+}
+
+@media (max-width: 767px) {
+  .subscription-rate-card,
+  .subscription-estimate-card,
+  .subscription-summary-card {
+    min-height: auto;
+  }
+
+  .subscription-summary-card > div {
+    grid-template-columns: 1fr !important;
+  }
+}
+</style>

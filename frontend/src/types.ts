@@ -66,7 +66,7 @@ export interface Langganan {
   id: string;
   nama: string;
   provider: string;
-  mataUang: "IDR" | "USD";
+  mataUang: "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
   siklus: "Bulanan" | "Tahunan";
   kategori: "Infrastruktur" | "Software" | "Marketing";
   biaya: number; // in original currency or IDR

@@ -6,35 +6,27 @@
     >
       <div>
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
-          Manajemen CRM &amp; Proyek
+          <template v-if="isClientMasterView">Master Data Klien Partner</template>
+          <template v-else>Manajemen CRM &amp; Proyek</template>
         </h1>
         <p class="text-xs text-slate-400 font-light mt-1">
-          Inisiasi proyek digital baru, alokasi pegawai SDM, serta registrasi
-          mitra klien PT Kedata Indonesia Digital.
+          <template v-if="isClientMasterView">
+            Kelola data perusahaan klien yang digunakan dalam proyek, invoice,
+            dan laporan operasional.
+          </template>
+          <template v-else>
+            Inisiasi proyek digital baru, alokasi pegawai SDM, dan lifecycle
+            pekerjaan klien.
+          </template>
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <div class="bg-slate-100 border border-slate-200 rounded-xl p-1 flex">
-          <button
-            id="subtab-proyek"
-            :class="`text-xs px-4 py-2 font-semibold rounded-lg transition-all ${activeSubTab === 'proyek' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`"
-            @click="showProjectsTab"
-          >
-            Proyek</button
-          ><button
-            id="subtab-klien"
-            :class="`text-xs px-4 py-2 font-semibold rounded-lg transition-all ${activeSubTab === 'klien' ? 'bg-white text-[#0B1F4A] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`"
-            @click="showClientsTab"
-          >
-            Klien Partner
-          </button>
-        </div>
         <button
           id="btn-tambah-crm"
           class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all"
           @click="openCreateModal"
         >
-          <Plus class="w-4 h-4" /><template v-if="activeSubTab === 'proyek'"
+          <Plus class="w-4 h-4" /><template v-if="!isClientMasterView && activeSubTab === 'proyek'"
             >Inisiasi Proyek Baru</template
           ><template v-else>Registrasi Klien Baru</template>
         </button>
@@ -342,9 +334,9 @@
             <div class="space-y-5">
               <div
                 v-if="renderContext.selectedProject"
-                class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_220px]"
+                class="crm-project-detail-grid grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]"
               >
-                <div class="space-y-4">
+                <div class="crm-project-detail-main space-y-3">
                   <div
                     class="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                   >
@@ -548,7 +540,7 @@
                         v-for="(milestone, index) in renderContext
                           .selectedProject.milestones || []"
                         :key="`${milestone.title}-${index}`"
-                        class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2"
+                        class="crm-detail-milestone-row flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-white px-3 py-2"
                       >
                         <div>
                           <p class="text-xs font-bold text-slate-800">
@@ -559,7 +551,7 @@
                           </p>
                         </div>
                         <span
-                          :class="`rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${milestone.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : milestone.status === 'in_progress' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`"
+                          :class="`crm-detail-milestone-status rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${milestone.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : milestone.status === 'in_progress' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`"
                           ><template v-if="milestone.status === 'completed'"
                             >Selesai</template
                           ><template v-else
@@ -660,45 +652,93 @@
                     </div>
                   </div>
                 </div>
-                <div class="space-y-4">
-                  <div class="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p
-                      class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400"
-                    >
-                      Ringkasan
-                    </p>
-                    <div class="mt-4 space-y-3 text-[13px]">
+                <div class="crm-detail-sidebar space-y-3">
+                  <div class="crm-detail-side-card">
+                    <div class="flex items-start justify-between gap-3">
                       <div>
-                        <p
-                          class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                        >
-                          Tender
-                        </p>
-                        <p class="mt-1 font-semibold text-slate-800">
-                          {{ renderContext.selectedProject.tipeTender }}
-                        </p>
+                        <p class="crm-detail-side-eyebrow">Ringkasan</p>
+                        <h4 class="crm-detail-side-title">Snapshot Proyek</h4>
+                      </div>
+                      <span
+                        :class="`crm-detail-status-pill ${renderContext.selectedProject.status === 'Completed' ? 'done' : renderContext.selectedProject.status === 'Ongoing' ? 'live' : 'plan'}`"
+                        >{{ renderContext.selectedProject.status }}</span
+                      >
+                    </div>
+                    <dl class="crm-detail-side-list">
+                      <div>
+                        <dt>Nilai kontrak</dt>
+                        <dd>
+                          {{ formatRupiah(renderContext.selectedProject.nilaiKontrak) }}
+                        </dd>
                       </div>
                       <div>
-                        <p
-                          class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                        >
-                          Status
-                        </p>
-                        <p class="mt-1 font-semibold text-slate-800">
-                          {{ renderContext.selectedProject.status }}
-                        </p>
+                        <dt>Klien</dt>
+                        <dd>
+                          {{
+                            renderContext.selectedProjectClient
+                              ?.namaPerusahaan || "Klien tidak ditemukan"
+                          }}
+                        </dd>
                       </div>
                       <div>
-                        <p
-                          class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                        >
-                          Jumlah Tim
-                        </p>
-                        <p class="mt-1 font-semibold text-slate-800">
-                          {{ renderContext.selectedProject.tim.length }} orang
-                        </p>
+                        <dt>Periode</dt>
+                        <dd>
+                          {{ renderContext.selectedProject.tanggalMulai }} s/d
+                          {{ renderContext.selectedProject.tanggalSelesai }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div class="crm-detail-side-card">
+                    <p class="crm-detail-side-eyebrow">Kapasitas</p>
+                    <div class="crm-detail-side-stats">
+                      <div>
+                        <span>{{
+                          (renderContext.selectedProject.milestones || [])
+                            .length
+                        }}</span>
+                        <p>Milestone</p>
+                      </div>
+                      <div>
+                        <span>{{ renderContext.selectedProject.tim.length }}</span>
+                        <p>Anggota tim</p>
                       </div>
                     </div>
+                    <dl class="crm-detail-side-list compact">
+                      <div>
+                        <dt>Tender</dt>
+                        <dd>{{ renderContext.selectedProject.tipeTender }}</dd>
+                      </div>
+                      <div>
+                        <dt>Anggaran</dt>
+                        <dd>
+                          {{ formatRupiah(renderContext.selectedProject.anggaran || 0) }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Sisa anggaran</dt>
+                        <dd>
+                          {{
+                            formatRupiah(
+                              renderContext.selectedProject.selisihAnggaran || 0,
+                            )
+                          }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div
+                    v-if="renderContext.selectedProjectClient"
+                    class="crm-detail-side-card muted"
+                  >
+                    <p class="crm-detail-side-eyebrow">Klien terkait</p>
+                    <button
+                      type="button"
+                      class="crm-detail-side-action secondary"
+                      @click="showClientDetails(renderContext.selectedProjectClient)"
+                    >
+                      <Building class="h-4 w-4" /> Lihat klien partner
+                    </button>
                   </div>
                 </div>
               </div>
@@ -772,29 +812,6 @@
                       </div>
                     </div>
                   </div>
-                  <div
-                    class="rounded-[22px] border border-[#D8E5F4] bg-[#F8FBFE] p-5"
-                  >
-                    <button
-                      type="button"
-                      class="crm-client-action-button primary"
-                      @click="editSelectedClient"
-                    >
-                      <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#0B1F4A]">
-                        <Edit3 class="h-4 w-4" />
-                      </span>
-                      <span>Edit Klien</span></button
-                    ><button
-                      type="button"
-                      class="crm-client-action-button danger mt-3"
-                      @click="deleteSelectedClient"
-                    >
-                      <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#0B1F4A]">
-                        <Trash2 class="h-4 w-4" />
-                      </span>
-                      <span>Hapus Klien</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -809,7 +826,7 @@
       >
         <div
           class="crm-project-modal flex w-full flex-col overflow-hidden rounded-[30px] border border-[#DCE7F4] bg-white shadow-2xl"
-          style="width: min(960px, calc(100vw - 48px)) !important; max-width: min(960px, calc(100vw - 48px)) !important; max-height: min(88vh, 720px) !important"
+          style="width: min(880px, calc(100vw - 32px)) !important; max-width: min(880px, calc(100vw - 32px)) !important; max-height: min(86vh, 680px) !important"
         >
           <!-- Modal Header -->
           <div
@@ -836,12 +853,24 @@
           </div>
           <!-- Form body -->
           <form class="flex min-h-0 flex-1 flex-col" @submit="handleSaveProject">
+            <nav class="crm-project-steps shrink-0 border-b border-[#E8EEF7]" aria-label="Tahapan inisiasi proyek">
+              <ol class="grid grid-cols-5 gap-2">
+                <li v-for="(label, index) in projectFormSteps" :key="label" :class="['crm-project-step', { active: projectFormStep === index + 1, complete: projectFormStep > index + 1 }]">
+                  <span>{{ index + 1 }}</span><strong>{{ label }}</strong>
+                </li>
+              </ol>
+            </nav>
             <div
-              class="crm-project-body grid flex-1 gap-6 overflow-y-auto p-6 sm:p-8 lg:grid-cols-2 lg:p-8 2xl:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)_minmax(360px,0.9fr)]"
+              class="crm-project-body flex-1 overflow-y-auto p-6 sm:p-8"
             >
+            <div v-if="projectStepWarning" class="crm-project-step-warning" role="alert">
+              <CircleAlert class="h-4 w-4 shrink-0" />
+              <span>{{ projectStepWarning }}</span>
+            </div>
             <!-- SECTION 1: DETAIL IDENTITAS PROJEK -->
             <div
-              class="min-w-0 space-y-5 rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm"
+              v-show="projectFormStep === 1"
+              class="crm-project-detail-step min-w-0 space-y-5 rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm"
             >
               <div
                 class="flex items-center gap-3 border-b border-[#D8E5F4] pb-3"
@@ -868,8 +897,10 @@
                     required
                     placeholder="Contoh: Pengembangan App E-Procurement"
                     v-model.trim="newProj.nama"
+                    :aria-invalid="Boolean(projectStepErrors.nama)"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
+                  <p v-if="projectStepErrors.nama" class="form-field-warning">{{ projectStepErrors.nama }}</p>
                 </div>
                 <div class="space-y-2">
                   <label
@@ -887,11 +918,13 @@
                       min="1"
                       placeholder="0"
                       :value="newProj.nilaiKontrak || ''"
+                      :aria-invalid="Boolean(projectStepErrors.nilaiKontrak)"
                       style="padding-left: 2.75rem !important"
                       class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                       @change="handleContractValueChange"
                     />
                   </div>
+                  <p v-if="projectStepErrors.nilaiKontrak" class="form-field-warning">{{ projectStepErrors.nilaiKontrak }}</p>
                 </div>
               </div>
               <div class="space-y-2">
@@ -985,8 +1018,10 @@
                     type="date"
                     required
                     v-model="newProj.tanggalMulai"
+                    :aria-invalid="Boolean(projectStepErrors.tanggalMulai)"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
+                  <p v-if="projectStepErrors.tanggalMulai" class="form-field-warning">{{ projectStepErrors.tanggalMulai }}</p>
                 </div>
                 <div class="min-w-0 space-y-2">
                   <label
@@ -998,13 +1033,16 @@
                     required
                     :min="newProj.tanggalMulai || undefined"
                     v-model="newProj.tanggalSelesai"
+                    :aria-invalid="Boolean(projectStepErrors.tanggalSelesai)"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
+                  <p v-if="projectStepErrors.tanggalSelesai" class="form-field-warning">{{ projectStepErrors.tanggalSelesai }}</p>
                 </div>
               </div>
             </div>
             <!-- SECTION: MILESTONE & DEADLINE -->
             <div
+              v-show="projectFormStep === 2"
               class="min-w-0 space-y-4 rounded-[24px] border border-indigo-200 bg-indigo-50/30 p-5 shadow-sm"
             >
               <div
@@ -1062,10 +1100,10 @@
                   ><div
                     v-for="(milestone, index) in newProj.milestones || []"
                     :key="`${milestone.title}-${index}`"
-                    class="grid gap-2 rounded-xl border border-indigo-100 bg-white p-2.5 sm:grid-cols-[minmax(0,1fr)_132px_118px_32px] sm:items-center"
+                    class="crm-milestone-form-item rounded-xl border border-indigo-100 bg-white p-2.5"
                   >
                     <p
-                      class="truncate text-xs font-bold text-slate-800"
+                      class="crm-milestone-item-title truncate text-xs font-bold"
                       :title="milestone.title"
                     >
                       {{ milestone.title }}
@@ -1094,6 +1132,7 @@
             </div>
             <!-- SECTION: ALOKASI TIM SDM TERLIBAT -->
             <div
+              v-show="projectFormStep === 3"
               class="min-w-0 space-y-5 rounded-[24px] border border-amber-200 bg-amber-50/35 p-5 shadow-sm"
             >
               <div
@@ -1125,14 +1164,17 @@
                   <label
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >NAMA ANGGOTA TIM</label
-                  ><input
+                  ><select
                     id="proj-team-name"
-                    type="text"
-                    v-model.trim="manualStaffName"
-                    placeholder="Contoh: Arif Prasetyo"
-                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                    @keydown.enter.prevent="handleAddManualStaff"
-                  />
+                    v-model="selectedStaffId"
+                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                    @change="handleStaffSelectionChange"
+                  >
+                    <option value="">-- Pilih karyawan dari master SDM --</option>
+                    <option v-for="staff in availableProjectStaff" :key="staff.id" :value="staff.id">
+                      {{ staff.nama }}
+                    </option>
+                  </select>
                 </div>
                 <div class="space-y-2">
                   <label
@@ -1141,10 +1183,10 @@
                   ><input
                     id="proj-team-position"
                     type="text"
-                    v-model.trim="manualStaffPosition"
-                    placeholder="Contoh: Project Manager"
-                    class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                    @keydown.enter.prevent="handleAddManualStaff"
+                    :value="manualStaffPosition"
+                    readonly
+                    placeholder="Terisi otomatis dari data karyawan"
+                    class="h-12 w-full min-w-0 cursor-not-allowed rounded-xl border border-[#D8E5F4] bg-slate-100 px-4 text-sm font-semibold text-[#52647E]"
                   />
                 </div>
                 <button
@@ -1210,6 +1252,7 @@
             </div>
             <!-- SECTION 2: INFORMASI KLIEN PARTNER -->
             <div
+              v-show="projectFormStep === 4"
               class="min-w-0 space-y-6 rounded-[22px] border border-[#D8E5F4] bg-[#FBFDFF] p-5 shadow-sm sm:p-6 lg:col-span-2 2xl:col-span-1"
             >
               <!-- Section header inside the box -->
@@ -1243,6 +1286,7 @@
                     id="proj-form-klien"
                     required
                     v-model="newProj.klienId"
+                    :aria-invalid="Boolean(projectStepErrors.klienId)"
                     class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   >
                     <option value="">-- Pilih Perusahaan Klien --</option>
@@ -1255,22 +1299,68 @@
                   >
                     <ChevronDown class="w-4 h-4" />
                   </div>
+                  <p v-if="projectStepErrors.klienId" class="form-field-warning">{{ projectStepErrors.klienId }}</p>
+                </div>
+                <div
+                  class="flex flex-col gap-3 rounded-2xl border border-dashed border-[#BBD3EE] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p class="text-sm font-bold text-[#102A56]">
+                      Klien belum ada di database?
+                    </p>
+                    <p class="mt-1 text-xs leading-5 text-[#637083]">
+                      Tambahkan klien baru dari sini, lalu otomatis dipilih
+                      untuk proyek ini.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#102A56] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0B1F42]"
+                    @click="openCreateClientFromProject"
+                  >
+                    <Plus class="h-4 w-4" />
+                    Tambah Klien Baru
+                  </button>
                 </div>
               </div>
             </div>
+            <section v-show="projectFormStep === 5" class="rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm sm:p-7">
+              <div class="border-b border-[#D8E5F4] pb-4">
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1E5AA8]">Konfirmasi data</p>
+                <h4 class="mt-1 text-lg font-extrabold text-[#102A56]">Periksa sebelum proyek disimpan</h4>
+              </div>
+              <dl class="mt-5 grid gap-4 sm:grid-cols-2">
+                <div class="crm-project-review-item"><dt>Nama proyek</dt><dd>{{ newProj.nama || '-' }}</dd></div>
+                <div class="crm-project-review-item"><dt>Klien</dt><dd>{{ selectedProjectFormClient?.namaPerusahaan || '-' }}</dd></div>
+                <div class="crm-project-review-item"><dt>Nilai kontrak</dt><dd>{{ formatRupiah(newProj.nilaiKontrak) }}</dd></div>
+                <div class="crm-project-review-item"><dt>Anggaran biaya</dt><dd>{{ formatRupiah(newProj.anggaran) }}</dd></div>
+                <div class="crm-project-review-item"><dt>Tender dan status</dt><dd>{{ newProj.tipeTender }} · {{ newProj.status }}</dd></div>
+                <div class="crm-project-review-item"><dt>Periode</dt><dd>{{ newProj.tanggalMulai }} s/d {{ newProj.tanggalSelesai }}</dd></div>
+                <div class="crm-project-review-item"><dt>Tim</dt><dd>{{ newProj.tim.length }} anggota</dd></div>
+                <div class="crm-project-review-item"><dt>Milestone</dt><dd>{{ (newProj.milestones || []).length }} tahapan</dd></div>
+              </dl>
+            </section>
             </div>
             <!-- Modal footer controls -->
             <div
               class="flex shrink-0 flex-col-reverse gap-3 border-t border-[#E8EEF7] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5"
             >
-            <button
+            <div class="flex w-full gap-3 sm:w-auto"><button
               id="btn-project-cancel"
               type="button"
               class="h-12 w-full rounded-xl border border-[#D8E5F4] px-8 text-sm font-bold tracking-wide text-[#637083] transition-all hover:bg-slate-50 sm:w-auto"
-              @click="closeProjectModal"
+              @click="goToPreviousProjectStep"
             >
-              BATAL</button
+              {{ projectFormStep === 1 ? 'BATAL' : 'KEMBALI' }}
+            </button></div
             ><button
+              v-if="projectFormStep < projectFormSteps.length"
+              type="button"
+              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] sm:w-auto"
+              @click="goToNextProjectStep"
+            >LANJUTKAN <ChevronRight class="h-4 w-4" /></button
+            ><button
+              v-else
               id="btn-project-save"
               type="submit"
               class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] sm:w-auto"
@@ -1428,15 +1518,15 @@
         <div
           class="crm-delete-modal w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
         >
-          <div class="border-b border-slate-200 px-6 py-5">
+          <div class="crm-delete-header border-b border-slate-200 px-6 py-5">
             <div>
               <p
-                class="text-[11px] font-bold uppercase tracking-[0.16em] text-rose-500"
+                class="crm-delete-eyebrow text-[11px] font-bold uppercase tracking-[0.16em] text-rose-500"
               >
                 Konfirmasi Penghapusan
               </p>
               <h3
-                class="mt-1 text-lg font-extrabold leading-tight text-[#102A56]"
+                class="crm-delete-title mt-1 text-lg font-extrabold leading-tight text-[#102A56]"
               >
                 Hapus
                 <template v-if="deleteConfirm.type === 'proyek'"
@@ -1445,21 +1535,21 @@
               </h3>
             </div>
           </div>
-          <div class="space-y-4 p-6">
-            <p class="text-sm leading-6 text-slate-600">
+          <div class="crm-delete-body space-y-4 p-6">
+            <p class="crm-delete-message text-sm leading-6 text-slate-600">
               Periksa kembali data di bawah ini sebelum melanjutkan. Penghapusan
               bersifat permanen dan tidak dapat dibatalkan dari aplikasi.
             </p>
             <div
-              class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 grid-cols-1"
+              class="crm-delete-summary grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 grid-cols-1"
             >
               <div>
                 <p
-                  class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  class="crm-delete-label text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
                 >
                   Jenis Data
                 </p>
-                <p class="mt-1 text-sm font-bold text-slate-900">
+                <p class="crm-delete-value mt-1 text-sm font-bold text-slate-900">
                   <template v-if="deleteConfirm.type === 'proyek'"
                     >Proyek CRM</template
                   ><template v-else>Klien Partner</template>
@@ -1467,32 +1557,32 @@
               </div>
               <div>
                 <p
-                  class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  class="crm-delete-label text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
                 >
                   Nama
                 </p>
-                <p class="mt-1 text-sm font-bold leading-6 text-slate-900">
+                <p class="crm-delete-value mt-1 text-sm font-bold leading-6 text-slate-900">
                   {{ deleteConfirm.name }}
                 </p>
               </div>
               <div>
                 <p
-                  class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  class="crm-delete-label text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
                 >
                   ID
                 </p>
-                <p class="mt-1 font-mono text-sm font-semibold text-slate-700">
+                <p class="crm-delete-value mt-1 font-mono text-sm font-semibold text-slate-700">
                   {{ deleteConfirm.id }}
                 </p>
               </div>
             </div>
             <div
-              class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950"
+              class="crm-delete-impact rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950"
             >
-              <p class="font-bold text-rose-700">Yang akan terdampak</p>
+              <p class="crm-delete-impact-title font-bold text-rose-700">Yang akan terdampak</p>
               <ul
                 v-if="deleteConfirm.type === 'proyek'"
-                class="mt-2 list-disc space-y-1 pl-5"
+                class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5"
               >
                 <li>Proyek hilang dari daftar CRM.</li>
                 <li>
@@ -1501,7 +1591,7 @@
                 </li>
                 <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
               </ul>
-              <ul v-else class="mt-2 list-disc space-y-1 pl-5">
+              <ul v-else class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5">
                 <li>Klien hilang dari database CRM.</li>
                 <li>
                   Klien tidak lagi tersedia di pilihan proyek baru atau edit
@@ -1510,16 +1600,16 @@
                 <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
               </ul>
             </div>
-            <div class="grid grid-cols-1 gap-3 pt-2">
+            <div class="crm-delete-actions grid grid-cols-1 gap-3 pt-2">
               <button
                 type="button"
-                class="w-full rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                class="crm-delete-cancel w-full rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                 @click="closeDeleteConfirm"
               >
                 Batalkan</button
               ><button
                 type="button"
-                class="w-full rounded-2xl bg-rose-600 py-3 text-sm font-bold text-white transition-colors hover:bg-rose-700"
+                class="crm-delete-submit w-full rounded-2xl bg-rose-600 py-3 text-sm font-bold text-white transition-colors hover:bg-rose-700"
                 @click="handleConfirmDelete"
               >
                 Hapus
@@ -1537,6 +1627,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, ref } from "vue";
 import {
   Search,
@@ -1554,6 +1645,8 @@ import {
   Building,
   Briefcase,
   ChevronDown,
+  ChevronRight,
+  CircleAlert,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, Pegawai, AnggotaTim } from "../types.ts";
@@ -1567,19 +1660,19 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 const CRM_SUBTAB_KEY = "finstart-crm-active-subtab";
-function getSavedCrmSubTab(): "proyek" | "klien" {
-  if (typeof window === "undefined") return "proyek";
-  const saved = window.localStorage.getItem(CRM_SUBTAB_KEY);
-  return saved === "klien" ? "klien" : "proyek";
-}
 
 interface CrmViewProps {
   proyek: Proyek[];
   klien: Klien[];
   pegawai: Pegawai[];
+  viewMode?: "crm" | "client-master";
 }
 
-const { proyek, klien } = defineProps<CrmViewProps>();
+const props = withDefaults(defineProps<CrmViewProps>(), {
+  viewMode: "crm",
+});
+const { proyek, klien, pegawai } = props;
+const isClientMasterView = computed(() => props.viewMode === "client-master");
 
 const { notify, refreshData } = useFinStartContext();
 
@@ -1751,7 +1844,9 @@ function createEmptyClientForm() {
   };
 }
 
-const activeSubTab = ref<CrmSubTab>(getSavedCrmSubTab());
+const activeSubTab = ref<CrmSubTab>(
+  props.viewMode === "client-master" ? "klien" : "proyek",
+);
 const searchQuery = ref("");
 const statusFilter = ref<ProjectStatusFilter>("All");
 const selectedProjectDetailId = ref<string | null>(null);
@@ -1763,14 +1858,90 @@ const editingClientId = ref<string | null>(null);
 const deleteConfirm = ref<DeleteTarget | null>(null);
 const isFormOpen = ref(false);
 const isClientFormOpen = ref(false);
+const shouldAttachNewClientToProject = ref(false);
 const newProj = ref(createEmptyProjectForm());
 const newClient = ref(createEmptyClientForm());
 const manualStaffName = ref("");
 const manualStaffPosition = ref("");
+const selectedStaffId = ref("");
+const availableProjectStaff = computed(() =>
+  pegawai.filter(
+    (staff) => !newProj.value.tim.some((member) => member.nama === staff.nama),
+  ),
+);
 const milestoneTitle = ref("");
 const milestoneDate = ref("");
 const milestoneStatus = ref<"planned" | "in_progress" | "completed">("planned");
 const projectTeamError = ref("");
+const projectFormStep = ref(1);
+const projectStepWarning = ref("");
+const projectStepErrors = ref<Record<string, string>>({});
+const projectFormSteps = ["Detail", "Milestone", "Tim", "Klien", "Konfirmasi"];
+const selectedProjectFormClient = computed(() =>
+  klien.find((client) => client.id === newProj.value.klienId),
+);
+
+function goToPreviousProjectStep() {
+  projectStepWarning.value = "";
+  projectStepErrors.value = {};
+  if (projectFormStep.value === 1) {
+    closeProjectModal();
+    return;
+  }
+  projectFormStep.value -= 1;
+}
+
+function goToNextProjectStep() {
+  projectStepWarning.value = "";
+  projectStepErrors.value = {};
+  if (projectFormStep.value === 1) {
+    const errors: Record<string, string> = {};
+    if (!newProj.value.nama) errors.nama = "Nama proyek wajib diisi.";
+    if (Number(newProj.value.nilaiKontrak) <= 0) {
+      errors.nilaiKontrak = "Nilai kontrak harus lebih dari Rp 0.";
+    }
+    if (!newProj.value.tanggalMulai) {
+      errors.tanggalMulai = "Tanggal mulai wajib dipilih.";
+    }
+    if (!newProj.value.tanggalSelesai) {
+      errors.tanggalSelesai = "Estimasi selesai wajib dipilih.";
+    }
+    if (Object.keys(errors).length) {
+      projectStepErrors.value = errors;
+      projectStepWarning.value =
+        "Periksa kembali field yang ditandai sebelum melanjutkan.";
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+      );
+      return;
+    }
+    if (newProj.value.tanggalSelesai < newProj.value.tanggalMulai) {
+      projectStepErrors.value = {
+        tanggalSelesai: "Tanggal selesai tidak boleh sebelum tanggal mulai.",
+      };
+      projectStepWarning.value = "Periode proyek belum valid.";
+      return;
+    }
+  }
+  if (projectFormStep.value === 3 && newProj.value.tim.length === 0) {
+    projectTeamError.value =
+      "Tambahkan minimal satu anggota tim beserta posisi atau perannya.";
+    projectStepWarning.value = "Alokasi tim SDM wajib diisi sebelum melanjutkan.";
+    return;
+  }
+  if (projectFormStep.value === 4 && !newProj.value.klienId) {
+    projectStepErrors.value = {
+      klienId: "Perusahaan klien wajib dipilih.",
+    };
+    projectStepWarning.value = "Pilih perusahaan klien sebelum melanjutkan.";
+    return;
+  }
+  projectFormStep.value = Math.min(
+    projectFormStep.value + 1,
+    projectFormSteps.length,
+  );
+  projectStepWarning.value = "";
+}
 
 function setActiveSubTab(next: CrmSubTab) {
   activeSubTab.value = next;
@@ -1784,10 +1955,14 @@ function resetProjectForm() {
   newProj.value = createEmptyProjectForm();
   manualStaffName.value = "";
   manualStaffPosition.value = "";
+  selectedStaffId.value = "";
   milestoneTitle.value = "";
   milestoneDate.value = "";
   milestoneStatus.value = "planned";
   projectTeamError.value = "";
+  projectStepWarning.value = "";
+  projectStepErrors.value = {};
+  projectFormStep.value = 1;
 }
 
 function resetClientForm() {
@@ -1795,11 +1970,22 @@ function resetClientForm() {
   newClient.value = createEmptyClientForm();
 }
 
+function openCreateClientFromProject() {
+  resetClientForm();
+  shouldAttachNewClientToProject.value = true;
+  isClientFormOpen.value = true;
+}
+
 function handleRemoveStaff(name: string) {
   newProj.value = {
     ...newProj.value,
     tim: newProj.value.tim.filter((member) => member.nama !== name),
   };
+}
+function handleStaffSelectionChange() {
+  const staff = pegawai.find((item) => item.id === selectedStaffId.value);
+  manualStaffName.value = staff?.nama || "";
+  manualStaffPosition.value = staff?.jabatan || "";
 }
 function handleAddManualStaff() {
   const name = manualStaffName.value.trim();
@@ -1829,6 +2015,7 @@ function handleAddManualStaff() {
   projectTeamError.value = "";
   manualStaffName.value = "";
   manualStaffPosition.value = "";
+  selectedStaffId.value = "";
 }
 function handleAddMilestone() {
   const title = milestoneTitle.value.trim();
@@ -1927,7 +2114,13 @@ async function handleSaveClient(e: Event) {
     id: "",
     ...newClient.value,
   };
-  setActiveSubTab("klien");
+  const attachToProject =
+    shouldAttachNewClientToProject.value &&
+    !editingClientId.value &&
+    isFormOpen.value;
+  if (!attachToProject) {
+    setActiveSubTab("klien");
+  }
   if (editingClientId.value) {
     clientItem.id = editingClientId.value;
     const updatedClient = await updateClient(clientItem);
@@ -1937,10 +2130,24 @@ async function handleSaveClient(e: Event) {
   } else {
     const createdClient = await addClient(clientItem);
     if (!createdClient) return;
-    notify("Klien korporasi baru berhasil didaftarkan.");
+    if (attachToProject) {
+      newProj.value = {
+        ...newProj.value,
+        klienId: createdClient.id,
+      };
+      projectStepErrors.value = {
+        ...projectStepErrors.value,
+        klienId: "",
+      };
+      projectStepWarning.value = "";
+      notify("Klien baru berhasil dibuat dan dipilih untuk proyek ini.");
+    } else {
+      notify("Klien korporasi baru berhasil didaftarkan.");
+    }
     resetClientForm();
   }
   isClientFormOpen.value = false;
+  shouldAttachNewClientToProject.value = false;
 }
 
 function openCreateProjectModal() {
@@ -1952,6 +2159,7 @@ function openCreateClientModal() {
   closeDetailModal();
   setActiveSubTab("klien");
   resetClientForm();
+  shouldAttachNewClientToProject.value = false;
   isClientFormOpen.value = true;
 }
 function openEditProjectModal(project: Proyek) {
@@ -1971,6 +2179,7 @@ function openEditClientModal(client: Klien) {
   closeDetailModal();
   editingClientId.value = client.id;
   newClient.value = { ...client };
+  shouldAttachNewClientToProject.value = false;
   isClientFormOpen.value = true;
 }
 function closeProjectModal() {
@@ -1979,19 +2188,8 @@ function closeProjectModal() {
 }
 function closeClientModal() {
   isClientFormOpen.value = false;
+  shouldAttachNewClientToProject.value = false;
   resetClientForm();
-}
-
-function showProjectsTab() {
-  setActiveSubTab("proyek");
-  searchQuery.value = "";
-  projectPage.value = 1;
-}
-
-function showClientsTab() {
-  setActiveSubTab("klien");
-  searchQuery.value = "";
-  clientPage.value = 1;
 }
 
 function openCreateModal() {
@@ -2045,16 +2243,6 @@ function openClientDeleteConfirm(client: Klien) {
   };
 }
 
-function editSelectedClient() {
-  const client = renderContext.value.selectedClient;
-  if (client) openEditClientModal(client);
-}
-
-function deleteSelectedClient() {
-  const client = renderContext.value.selectedClient;
-  if (client) openClientDeleteConfirm(client);
-}
-
 function handleProjectPageChange(page: number) {
   projectPage.value = safePage(page, filteredProjectsList.value.length);
 }
@@ -2064,11 +2252,16 @@ function handleClientPageChange(page: number) {
 }
 
 function handleContractValueChange(event: Event) {
-  newProj.value.nilaiKontrak = Number(eventValue(event)) || 0;
+  newProj.value.nilaiKontrak = parseRupiahInput(eventValue(event));
+  if (newProj.value.nilaiKontrak > 0) {
+    const remainingErrors = { ...projectStepErrors.value };
+    delete remainingErrors.nilaiKontrak;
+    projectStepErrors.value = remainingErrors;
+  }
 }
 
 function handleBudgetValueChange(event: Event) {
-  newProj.value.anggaran = Number(eventValue(event)) || 0;
+  newProj.value.anggaran = parseRupiahInput(eventValue(event));
 }
 
 function closeDeleteConfirm() {
@@ -2152,41 +2345,389 @@ const selectedClientProjects = computed(() => {
 </script>
 
 <style>
+.crm-delete-modal {
+  max-width: min(560px, calc(100vw - 28px)) !important;
+  border-color: #d8e5f4 !important;
+  border-radius: 24px !important;
+}
+
+.crm-delete-modal .crm-delete-header {
+  padding: 20px 24px 18px !important;
+  background: #ffffff !important;
+}
+
+.crm-delete-modal .crm-delete-eyebrow {
+  color: #e11d48 !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.18em !important;
+}
+
+.crm-delete-modal .crm-delete-title {
+  margin-top: 7px !important;
+  color: #102a56 !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  line-height: 1.12 !important;
+}
+
+.crm-delete-modal .crm-delete-body {
+  padding: 22px 24px 24px !important;
+  row-gap: 14px !important;
+}
+
+.crm-delete-modal .crm-delete-message {
+  margin: 0 !important;
+  color: #52647e !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.65 !important;
+}
+
+.crm-delete-modal .crm-delete-summary {
+  grid-template-columns: 0.85fr minmax(0, 1.35fr) 64px !important;
+  gap: 14px !important;
+  padding: 15px 16px !important;
+  border-color: #d8e5f4 !important;
+  border-radius: 18px !important;
+  background: #f8fbfe !important;
+}
+
+.crm-delete-modal .crm-delete-label {
+  color: #8a99ad !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.15em !important;
+}
+
+.crm-delete-modal .crm-delete-value {
+  margin-top: 6px !important;
+  overflow-wrap: anywhere;
+  color: #152238 !important;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+}
+
+.crm-delete-modal .crm-delete-impact {
+  min-height: 0 !important;
+  padding: 16px !important;
+  border: 1px solid #fecdd3 !important;
+  border-radius: 18px !important;
+  background: #fff1f2 !important;
+  color: #7f1d1d !important;
+}
+
+.crm-delete-modal .crm-delete-impact-title {
+  color: #be123c !important;
+  font-size: 14px !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+}
+
+.crm-delete-modal .crm-delete-impact-list {
+  display: grid !important;
+  gap: 7px !important;
+  margin-top: 10px !important;
+  padding-left: 18px !important;
+  color: #7f1d1d !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+  line-height: 1.45 !important;
+}
+
+.crm-delete-modal .crm-delete-impact-list li::marker {
+  color: #e11d48;
+}
+
+.crm-delete-modal .crm-delete-actions {
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  padding-top: 4px !important;
+}
+
+.crm-delete-modal .crm-delete-cancel,
+.crm-delete-modal .crm-delete-submit {
+  min-height: 44px !important;
+  border-radius: 14px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 850 !important;
+}
+
+.crm-delete-modal .crm-delete-cancel {
+  color: #52647e !important;
+  border-color: #d8e5f4 !important;
+  background: #ffffff !important;
+}
+
+.crm-delete-modal .crm-delete-submit {
+  background: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 24px rgba(190, 18, 60, 0.18);
+}
+
+.crm-delete-modal .crm-delete-submit:hover {
+  background: #9f1239 !important;
+}
+
+@media (max-width: 560px) {
+  .crm-delete-modal .crm-delete-summary,
+  .crm-delete-modal .crm-delete-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .crm-delete-modal .crm-delete-title {
+    font-size: 21px !important;
+  }
+}
+
 .crm-detail-modal .crm-client-detail-grid {
-  align-items: stretch;
+  display: grid !important;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div {
+  display: contents;
 }
 
 .crm-detail-modal .crm-client-detail-grid > div > div {
-  box-shadow: 0 8px 18px rgba(11, 31, 74, 0.035);
+  min-width: 0;
+  border-radius: 16px !important;
+  padding: 16px !important;
+  box-shadow: 0 10px 24px rgba(11, 31, 74, 0.04);
 }
 
-.crm-client-action-button {
-  display: flex;
-  min-height: 58px;
-  width: 100%;
-  align-items: center;
-  gap: 14px;
-  border-radius: 16px;
+.crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div {
+  grid-column: 1 / -1;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div > div > p:first-child {
+  color: #8a99ad !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.16em !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid h4,
+.crm-detail-modal .crm-client-detail-grid > div > div > p:nth-child(2) {
+  margin-top: 10px !important;
+  color: #102a56 !important;
+  font-size: 17px !important;
+  font-weight: 850 !important;
+  line-height: 1.25 !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div > div > p:nth-child(n + 3) {
+  margin-top: 9px !important;
+  color: #52647e !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  line-height: 1.45 !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div > div {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px !important;
+  margin-top: 14px !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div > div > div {
+  border-radius: 14px !important;
+  padding: 13px 14px !important;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div > div p:first-child {
+  overflow: hidden;
+  color: #102a56 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div > div p:nth-child(2) {
+  margin-top: 7px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 900px) {
+  .crm-detail-modal .crm-client-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div {
+    grid-column: auto;
+  }
+
+  .crm-detail-modal .crm-client-detail-grid > div:nth-child(2) > div > div {
+    grid-template-columns: 1fr;
+  }
+}
+
+.crm-detail-modal .crm-project-detail-grid {
+  align-items: start;
+}
+
+.crm-detail-modal .crm-project-detail-main > div {
+  box-shadow: 0 10px 24px rgba(16, 42, 86, 0.045);
+}
+
+.crm-detail-modal :where(.crm-project-detail-main, .crm-detail-sidebar) p {
+  line-height: 1.45;
+}
+
+.crm-detail-modal .crm-detail-sidebar {
+  align-self: stretch;
+}
+
+.crm-detail-modal .crm-detail-side-card {
+  overflow: hidden;
   border: 1px solid #d8e5f4;
-  padding: 9px 12px;
-  text-align: left;
-  font-size: 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(16, 42, 86, 0.045);
+}
+
+.crm-detail-modal .crm-detail-side-card.muted {
+  background: #f8fbfe;
+}
+
+.crm-detail-modal .crm-detail-side-eyebrow {
+  color: #8a99ad;
+  font-size: 10px;
   font-weight: 800;
-  color: #0b1f4a;
-  transition: background-color 160ms ease, border-color 160ms ease,
-    transform 160ms ease;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.crm-client-action-button.primary {
+.crm-detail-modal .crm-detail-side-title {
+  margin-top: 5px;
+  color: #102a56;
+  font-size: 15px;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.crm-detail-modal .crm-detail-status-pill {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #eef5fc;
+  color: #1e5aa8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.crm-detail-modal .crm-detail-status-pill.done {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.crm-detail-modal .crm-detail-status-pill.plan {
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.crm-detail-modal .crm-detail-side-list {
+  display: grid;
+  gap: 11px;
+  margin-top: 15px;
+}
+
+.crm-detail-modal .crm-detail-side-list.compact {
+  margin-top: 13px;
+  gap: 9px;
+}
+
+.crm-detail-modal .crm-detail-side-list > div {
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid #edf2f8;
+}
+
+.crm-detail-modal .crm-detail-side-list dt {
+  color: #8a99ad;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.crm-detail-modal .crm-detail-side-list dd {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #152238;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.crm-detail-modal .crm-detail-side-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 13px;
+}
+
+.crm-detail-modal .crm-detail-side-stats > div {
+  min-height: 72px;
+  border: 1px solid #e3edf8;
+  border-radius: 14px;
+  background: #f8fbfe;
+  padding: 11px;
+}
+
+.crm-detail-modal .crm-detail-side-stats span {
+  display: block;
+  color: #102a56;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.crm-detail-modal .crm-detail-side-stats p {
+  margin-top: 7px;
+  color: #6b7a90;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.crm-detail-modal .crm-detail-side-action {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 1px solid #d8e5f4;
   background: #ffffff;
+  color: #102a56;
+  font-size: 12px;
+  font-weight: 800;
+  transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.crm-client-action-button.danger {
-  background: #ffffff;
-}
-
-.crm-client-action-button:hover {
-  border-color: #0b1f4a;
+.crm-detail-modal .crm-detail-side-action:hover {
   background: #eef5fc;
   transform: translateY(-1px);
 }
@@ -2212,66 +2753,259 @@ const selectedClientProjects = computed(() => {
   color: #ffffff !important;
 }
 
+.crm-detail-modal .crm-project-milestone-card .crm-detail-milestone-row {
+  min-height: 52px;
+}
+
+.crm-detail-modal .crm-project-milestone-card .crm-detail-milestone-row p:first-child {
+  color: #102a56 !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.crm-detail-modal .crm-project-milestone-card .crm-detail-milestone-row p:nth-child(2) {
+  color: #64748b !important;
+  font-size: 10.5px !important;
+}
+
+.crm-detail-modal .crm-project-milestone-card .crm-detail-milestone-row .crm-detail-milestone-status {
+  color: #102a56 !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+  background: #fff7ed !important;
+}
+
 .crm-project-modal {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .crm-project-modal > div:first-child {
-  padding: 16px 22px !important;
+  padding: 11px 20px !important;
 }
 
 .crm-project-modal > div:first-child h3 {
-  font-size: 18px !important;
+  font-size: 16px !important;
   line-height: 1.2 !important;
 }
 
+.crm-project-modal > div:first-child span {
+  margin-top: 4px !important;
+  color: #64748b !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.14em !important;
+}
+
 .crm-project-modal #btn-close-project-modal {
-  width: 36px !important;
-  height: 36px !important;
+  width: 34px !important;
+  height: 34px !important;
 }
 
 .crm-project-modal .crm-project-body {
-  gap: 14px !important;
-  padding: 18px !important;
+  gap: 12px !important;
+  padding: 8px 18px 12px !important;
+}
+
+.crm-project-modal .crm-project-body > div:not(.crm-project-step-warning),
+.crm-project-modal .crm-project-body > section {
+  width: min(100%, 760px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.crm-project-modal .crm-project-body > .crm-project-detail-step {
+  width: min(100%, 720px);
+  padding: 16px !important;
+  border-radius: 18px !important;
+  background: #fbfdff !important;
+}
+
+.crm-project-step-warning {
+  display: flex;
+  width: min(100%, 760px);
+  min-height: 42px;
+  margin: 0 auto 14px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  background: #fff1f2;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.crm-project-modal input[aria-invalid="true"],
+.crm-project-modal select[aria-invalid="true"] {
+  border-color: #e11d48 !important;
+  background: #fff7f8 !important;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1) !important;
+}
+
+.crm-project-modal .form-field-warning {
+  margin-top: 6px;
+  color: #be123c !important;
+  font-size: 10px !important;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .crm-project-modal .crm-project-body > div {
-  border-radius: 18px !important;
-  padding: 16px !important;
+  border-radius: 16px !important;
+  padding: 14px !important;
 }
 
 .crm-project-modal .crm-project-body > div[class*="space-y-5"],
 .crm-project-modal .crm-project-body > div[class*="space-y-6"] {
-  row-gap: 14px !important;
+  row-gap: 12px !important;
+}
+
+.crm-project-modal .crm-project-detail-step > div:first-child {
+  gap: 10px !important;
+  padding-bottom: 11px !important;
+}
+
+.crm-project-modal .crm-project-detail-step > div:first-child > div {
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.crm-project-modal .crm-project-detail-step > div:first-child svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+.crm-project-modal .crm-project-detail-step > div:not(:first-child) {
+  gap: 14px 16px !important;
 }
 
 .crm-project-modal .crm-project-body h4 {
-  font-size: 11px !important;
+  color: #102a56 !important;
+  font-size: 12.5px !important;
   line-height: 1.3 !important;
 }
 
+.crm-project-modal .crm-project-detail-step h4 {
+  font-size: 12px !important;
+  letter-spacing: 0.08em !important;
+}
+
 .crm-project-modal .crm-project-body label {
-  font-size: 9px !important;
+  color: #52647e !important;
+  font-size: 10.5px !important;
+}
+
+.crm-project-modal .crm-project-detail-step label {
+  color: #64748b !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
 }
 
 .crm-project-modal .crm-project-body input,
 .crm-project-modal .crm-project-body select {
+  height: 42px !important;
+  min-height: 42px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+.crm-project-modal .crm-project-detail-step input,
+.crm-project-modal .crm-project-detail-step select {
   height: 40px !important;
   min-height: 40px !important;
+  border-radius: 10px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+}
+
+.crm-project-modal .crm-project-detail-step .currency-input > span {
+  left: 14px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+}
+
+.crm-project-modal .crm-project-detail-step .currency-input > input {
+  padding-left: 2.55rem !important;
+}
+
+.crm-project-modal .crm-project-detail-step > .space-y-2 > p {
+  margin-top: 8px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+}
+
+.crm-project-modal .crm-project-body button {
+  min-height: 40px !important;
+  height: 40px !important;
   border-radius: 10px !important;
   font-size: 12px !important;
 }
 
-.crm-project-modal .crm-project-body button {
-  min-height: 38px !important;
-  height: 38px !important;
-  border-radius: 10px !important;
-  font-size: 12px !important;
+.crm-milestone-form-item {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 116px 116px 34px;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+}
+
+.crm-project-modal .crm-milestone-item-title {
+  display: block;
+  min-width: 0;
+  color: #102a56 !important;
+  font-size: 12.5px !important;
+  line-height: 1.35;
+}
+
+.crm-project-modal #proj-team-position:read-only {
+  color: #52647e !important;
+  border-color: #d8e5f4 !important;
+  background: #f1f5f9 !important;
+  box-shadow: none !important;
 }
 
 .crm-project-modal .crm-project-body p,
 .crm-project-modal .crm-project-body span {
-  font-size: 10px !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.crm-project-modal .crm-project-body .crm-milestone-form-item {
+  padding: 8px 10px !important;
+}
+
+.crm-project-modal .crm-project-body .crm-milestone-item-title {
+  color: #102a56 !important;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+}
+
+.crm-project-modal .crm-project-body .crm-milestone-form-item input,
+.crm-project-modal .crm-project-body .crm-milestone-form-item select {
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 9px !important;
+  padding: 0 9px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.crm-project-modal .crm-project-body .crm-milestone-form-item select {
+  padding-right: 24px !important;
+}
+
+.crm-project-modal .crm-project-body .crm-milestone-form-item button {
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
 }
 
 .crm-project-modal .crm-project-team-inputs {
@@ -2325,24 +3059,148 @@ const selectedClientProjects = computed(() => {
 }
 
 .crm-project-modal form > div:last-child {
-  padding: 12px 18px !important;
+  padding: 9px 20px !important;
 }
 
 .crm-project-modal form > div:last-child button {
   min-height: 40px !important;
+  height: 40px !important;
   padding: 8px 18px !important;
   font-size: 12px !important;
+}
+
+.crm-project-step {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #8192aa;
+}
+
+.crm-project-steps {
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.crm-project-modal .crm-project-steps {
+  display: flex !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  align-items: center !important;
+  padding: 3px 20px !important;
+}
+
+.crm-project-steps ol {
+  display: grid !important;
+  width: 100%;
+  min-width: 560px;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.crm-project-step span {
+  display: inline-flex;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8e5f4;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.crm-project-step strong {
+  overflow: hidden;
+  color: #52647e;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crm-project-step.active,
+.crm-project-step.complete {
+  color: #102a56;
+}
+
+.crm-project-step.active span {
+  color: #fff;
+  border-color: #102a56;
+  background: #102a56;
+  box-shadow: 0 5px 12px rgba(16, 42, 86, 0.18);
+}
+
+.crm-project-step.complete span {
+  color: #fff;
+  border-color: #1e5aa8;
+  background: #1e5aa8;
+}
+
+.crm-project-review-item {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #d8e5f4;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.crm-project-review-item dt {
+  color: #8192aa;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.crm-project-review-item dd {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  color: #102a56;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 @media (max-width: 639px) {
   .crm-project-modal .crm-project-body {
     padding: 14px !important;
   }
+
+  .crm-project-steps {
+    padding: 10px 14px;
+  }
+
+  .crm-project-step {
+    justify-content: center;
+  }
+
+  .crm-project-step strong {
+    display: none;
+  }
 }
 
 @media (max-width: 767px) {
   .crm-project-modal .crm-project-team-inputs {
     grid-template-columns: 1fr !important;
+  }
+
+  .crm-milestone-form-item {
+    grid-template-columns: minmax(0, 1fr) 36px;
+  }
+
+  .crm-milestone-form-item input,
+  .crm-milestone-form-item select {
+    grid-column: 1 / -1;
+  }
+
+  .crm-milestone-form-item button {
+    grid-column: 2;
   }
 }
 

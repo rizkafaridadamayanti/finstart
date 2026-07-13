@@ -366,7 +366,7 @@
             </p>
           </div>
           <div class="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div class="cfo-sidebar border-b p-3">
+            <div v-if="!isChatHistoryOpen" class="cfo-sidebar border-b p-3">
               <p
                 class="cfo-section-label mb-2 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
               >
@@ -387,7 +387,7 @@
               </div>
             </div>
             <div class="cfo-ai-workspace flex min-h-0 flex-1">
-              <div class="flex min-w-0 flex-1 flex-col">
+              <div v-if="!isChatHistoryOpen" class="flex min-w-0 flex-1 flex-col">
                 <div
                   class="cfo-chat-top flex items-center justify-between gap-3 border-b px-4 py-3"
                 >
@@ -696,6 +696,25 @@
         </div>
       </div>
     </section>
+    <ConfirmDialog
+      :open="!!chatDeleteConfirmId"
+      eyebrow="Konfirmasi Penghapusan"
+      title="Hapus room chat?"
+      message="Room chat yang dihapus tidak bisa dipulihkan dari riwayat lokal perangkat ini."
+      :details="[
+        { label: 'Room', value: chatDeleteTarget?.title || 'Chat baru' },
+        { label: 'Update', value: chatDeleteTarget?.updatedAt || '-' },
+      ]"
+      :impact-items="[
+        'Riwayat percakapan room ini hilang dari daftar chat.',
+        'Jika hanya tersisa satu room, isinya akan dikosongkan dan diganti chat baru.',
+      ]"
+      confirm-label="Hapus Room"
+      cancel-label="Batal"
+      variant="danger"
+      @cancel="closeChatDeleteConfirm"
+      @confirm="confirmDeleteChat"
+    />
   </main>
 </template>
 
@@ -731,6 +750,7 @@ import DashboardMetricCard from "./dashboard/DashboardMetricCard.vue";
 import DashboardMiniSummary from "./dashboard/DashboardMiniSummary.vue";
 import DashboardMessageText from "./dashboard/DashboardMessageText.vue";
 import DashboardLoaderSpinner from "./dashboard/DashboardLoaderSpinner.vue";
+import ConfirmDialog from "./common/ConfirmDialog.vue";
 
 const { selectWorkspace } = useFinStartContext();
 interface DashboardViewProps {
@@ -911,10 +931,17 @@ const aiCardRef = ref(null);
 const chatScrollRef = ref(null);
 const chatInputRef = ref(null);
 const pendingScrollMessageId = ref("");
+const chatDeleteConfirmId = ref("");
 const activeChat = computed(
   () =>
     chatSessions.value.find((session) => session.id === activeChatId.value) ||
     chatSessions.value[0],
+);
+const chatDeleteTarget = computed(
+  () =>
+    chatSessions.value.find(
+      (session) => session.id === chatDeleteConfirmId.value,
+    ) || null,
 );
 const messages = computed(() => activeChat.value?.messages || []);
 const scrollChatToLatestMessage = async () => {
@@ -1333,7 +1360,17 @@ const incomePath = createCurvePath(incomePoints);
 const expensePath = createCurvePath(expensePoints);
 function handleDeleteChatClick(chatId: string, event: MouseEvent) {
   event.stopPropagation();
-  deleteChat(chatId);
+  chatDeleteConfirmId.value = chatId;
+}
+
+function closeChatDeleteConfirm() {
+  chatDeleteConfirmId.value = "";
+}
+
+function confirmDeleteChat() {
+  if (!chatDeleteConfirmId.value) return;
+  deleteChat(chatDeleteConfirmId.value);
+  closeChatDeleteConfirm();
 }
 
 </script>
@@ -1605,9 +1642,171 @@ function handleDeleteChatClick(chatId: string, event: MouseEvent) {
 }
 
 .cfo-inline-history {
+  display: flex;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+  flex-direction: column;
+  gap: 12px;
   color: var(--cfo-navy);
-  border-left: 1px solid rgba(11, 31, 74, 0.25);
-  background: var(--cfo-white);
+  border-left: 0;
+  background: #f7f9fc;
+  box-shadow: none;
+}
+
+.cfo-inline-history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cfo-inline-history-close {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(11, 31, 74, 0.2);
+  border-radius: 9px;
+  transition: 160ms ease;
+}
+
+.cfo-inline-history-close:hover {
+  color: var(--cfo-white);
+  border-color: var(--cfo-navy);
+  background: var(--cfo-navy);
+}
+
+.cfo-inline-new-chat {
+  display: flex;
+  min-height: 40px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(11, 31, 74, 0.25);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: 160ms ease;
+}
+
+.cfo-inline-history-list {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 3px;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(11, 31, 74, 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+.cfo-inline-history-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.cfo-inline-session {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(11, 31, 74, 0.18);
+  border-radius: 12px;
+  transition: 160ms ease;
+}
+
+.cfo-inline-session:hover {
+  border-color: rgba(11, 31, 74, 0.5);
+  box-shadow: 0 7px 18px rgba(11, 31, 74, 0.08);
+}
+
+.cfo-inline-session-open {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 8px 12px 12px;
+  text-align: left;
+}
+
+.cfo-inline-session-title,
+.cfo-inline-session-preview {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfo-inline-session-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.cfo-inline-session-preview {
+  color: #6b7a90;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.cfo-inline-session-time {
+  color: #7a889d;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.cfo-inline-delete {
+  display: inline-flex;
+  width: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  color: #7a889d;
+  border-left: 1px solid rgba(11, 31, 74, 0.12);
+  transition: 160ms ease;
+}
+
+.cfo-inline-delete:hover {
+  color: #b42318;
+  background: #fff1f0;
+}
+
+.cfo-inline-session.active .cfo-inline-session-preview,
+.cfo-inline-session.active .cfo-inline-session-time,
+.cfo-inline-session.active .cfo-inline-delete {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.cfo-inline-session.active .cfo-inline-delete {
+  border-left-color: rgba(255, 255, 255, 0.2);
+}
+
+.cfo-inline-session.active .cfo-inline-delete:hover {
+  color: var(--cfo-white);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.cfo-inline-history-note {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #6b7a90;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .cfo-inline-history-close,
@@ -1648,6 +1847,24 @@ function handleDeleteChatClick(chatId: string, event: MouseEvent) {
   .cfo-focus-card,
   .cfo-message.ai {
     padding: 14px;
+  }
+
+  .cfo-ai-workspace {
+    position: relative;
+  }
+
+  .cfo-inline-history {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    width: 100%;
+    max-width: none;
+    border-left: 0;
+    box-shadow: none;
+  }
+
+  .cfo-inline-history-list {
+    display: flex;
   }
 }
 </style>

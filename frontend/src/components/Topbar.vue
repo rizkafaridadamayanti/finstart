@@ -1,6 +1,6 @@
 <template>
   <header
-    class="sticky top-0 z-30 grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-9 pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl sm:pl-10 md:pr-8 lg:pl-[104px]"
+    class="sticky top-0 z-[1000] grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-9 pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl sm:pl-10 md:pr-8 lg:pl-[104px]"
   >
     <div class="flex min-w-0 items-center">
       <div class="flex min-w-0 items-center gap-3">
@@ -9,26 +9,18 @@
           alt="Finstart logo"
           class="h-11 w-11 shrink-0 object-contain"
         />
-        <div class="min-w-0">
-          <div class="flex min-w-0 items-center gap-3">
+        <div class="min-w-0 space-y-0.5">
+          <div class="flex min-w-0 items-center">
             <div
               class="truncate text-[21px] font-extrabold tracking-[-0.02em] text-[#102A56]"
             >
               Finstart
             </div>
-            <span
-              class="hidden h-1.5 w-1.5 rounded-full bg-[#2BA7FF] sm:block"
-            />
-            <span
-              class="hidden rounded-full border border-[#DCE7F4] bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#52647E] shadow-[0_8px_18px_rgba(16,42,86,0.05)] md:inline-flex"
-            >
-              {{ roleLabel }}
-            </span>
           </div>
           <div
-            class="hidden truncate text-[10px] font-bold uppercase tracking-[0.24em] text-[#7A8CA8] sm:block"
+            class="hidden truncate text-[11px] font-semibold tracking-[0.04em] text-[#64748B] sm:block"
           >
-            Workspace Operasional Internal
+            Workspace: {{ roleLabel }}
           </div>
         </div>
       </div>
@@ -44,39 +36,40 @@
         <button
           id="btn-profile-dropdown"
           type="button"
-          class="grid h-12 min-w-[190px] grid-cols-[34px_minmax(0,1fr)_16px] items-center gap-3 rounded-2xl border border-[#D8E5F4] bg-white/92 px-2.5 shadow-[0_10px_24px_rgba(16,42,86,0.07)] transition-colors hover:bg-white max-sm:min-w-0 max-sm:grid-cols-[34px_16px]"
+          :class="['topbar-profile-button', { 'is-open': isProfileOpen }]"
           aria-label="Buka menu profil"
+          :aria-expanded="isProfileOpen"
           @click="isProfileOpen = !isProfileOpen"
         >
-          <div
-            class="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#0B3A78] text-xs font-extrabold text-white shadow-lg shadow-[#1E5AA8]/20"
-          >
+          <div class="topbar-profile-avatar">
             {{ userInitials }}
           </div>
-          <div class="hidden min-w-0 flex-col text-left sm:flex">
-            <span class="block truncate text-xs font-bold text-slate-700">{{
+          <div class="topbar-profile-copy">
+            <span class="topbar-profile-name">{{
               userName
             }}</span>
-            <span
-              class="block truncate text-[9px] font-semibold uppercase leading-3 text-slate-400"
-              >{{ roleLabel }}</span
-            >
+            <span class="topbar-profile-role">{{ roleLabel }}</span>
           </div>
-          <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
+          <ChevronDown
+            :class="[
+              'topbar-profile-chevron',
+              isProfileOpen ? 'is-open' : '',
+            ]"
+          />
         </button>
 
         <div
           v-if="isProfileOpen"
-          class="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur-xl"
+          class="absolute right-0 z-[10080] mt-3 w-64 overflow-hidden rounded-3xl border border-[#D8E5F4] bg-white shadow-[0_26px_70px_rgba(16,42,86,0.24)] backdrop-blur-xl"
         >
-          <div class="border-b border-slate-100 bg-slate-50 p-4">
+          <div class="border-b border-slate-100 bg-[#F8FBFE] p-4">
             <span class="block text-[10px] font-bold uppercase text-[#2563EB]"
               >Hak Akses</span
             >
-            <span class="block truncate text-xs font-bold text-slate-800">{{
+            <span class="mt-1 block truncate text-sm font-extrabold text-[#102A56]">{{
               userEmailValue
             }}</span>
-            <span class="mt-0.5 block text-[10px] text-slate-500"
+            <span class="mt-0.5 block text-[11px] font-medium text-[#64748B]"
               >{{ roleLabel }} · PT Kedata Indonesia Digital</span
             >
           </div>
@@ -84,14 +77,14 @@
             <div class="py-1">
               <button
                 type="button"
-                class="w-full rounded-lg px-3 py-2 text-left text-slate-600 transition-colors hover:bg-slate-50"
+                class="w-full rounded-xl px-3 py-2.5 text-left font-semibold text-slate-600 transition-colors hover:bg-[#EEF5FC] hover:text-[#102A56]"
                 @click="openSettings"
               >
                 Ubah Password
               </button>
               <button
                 type="button"
-                class="w-full rounded-lg px-3 py-2 text-left text-slate-600 transition-colors hover:bg-slate-50"
+                class="w-full rounded-xl px-3 py-2.5 text-left font-semibold text-slate-600 transition-colors hover:bg-[#EEF5FC] hover:text-[#102A56]"
                 @click="openSettings"
               >
                 Profil & Keamanan
@@ -100,7 +93,7 @@
             <div class="py-1">
               <button
                 type="button"
-                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left font-semibold text-rose-600 transition-colors hover:bg-rose-50"
                 @click="logout"
               >
                 <LogOut class="h-4 w-4" />
@@ -171,3 +164,104 @@ function logout() {
   emit("logout");
 }
 </script>
+
+<style scoped>
+.topbar-profile-button {
+  display: inline-flex;
+  height: 54px;
+  min-width: 216px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  padding: 6px 10px;
+  text-align: left;
+  transition: background-color 160ms ease, box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.topbar-profile-button:hover,
+.topbar-profile-button.is-open {
+  background: #f3f8fe;
+  box-shadow: 0 12px 26px rgba(16, 42, 86, 0.08);
+}
+
+.topbar-profile-button.is-open {
+  background: #eef5fc;
+}
+
+.topbar-profile-avatar {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0b3a78;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 10px 24px rgba(30, 90, 168, 0.16);
+}
+
+.topbar-profile-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.topbar-profile-name {
+  overflow: hidden;
+  color: #102a56;
+  font-size: 14px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-profile-role {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #8192aa;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.topbar-profile-chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: #64748b;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.topbar-profile-button:hover .topbar-profile-chevron,
+.topbar-profile-chevron.is-open {
+  color: #102a56;
+}
+
+.topbar-profile-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 639px) {
+  .topbar-profile-button {
+    min-width: 0;
+    gap: 9px;
+    padding: 6px 8px;
+  }
+
+  .topbar-profile-copy {
+    display: none;
+  }
+}
+</style>
