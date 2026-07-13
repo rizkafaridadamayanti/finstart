@@ -7,7 +7,6 @@ const {
   verifyPassword,
 } = require('../utils/password')
 const { safeAudit } = require('../utils/audit')
-const { generateSecret, verifyCode, verifyCodeWithCounter, buildOtpAuthUrl } = require('../utils/totp')
 const {
   getAllowedTabs,
   getRolePermissions,
@@ -101,7 +100,7 @@ async function findUserByEmail(email) {
 async function getSecuritySettings(userId) {
   await db.query('INSERT IGNORE INTO user_security_settings (user_id) VALUES (?)', [userId])
   const [rows] = await db.query(
-    `SELECT login_alerts, session_alerts, mfa_status, mfa_secret, mfa_pending_secret, updated_at
+    `SELECT login_alerts, session_alerts, updated_at
      FROM user_security_settings WHERE user_id = ? LIMIT 1`,
     [userId],
   )
@@ -109,9 +108,6 @@ async function getSecuritySettings(userId) {
   return {
     login_alerts: Boolean(settings.login_alerts),
     session_alerts: Boolean(settings.session_alerts),
-    // Tidak pernah diklaim aktif sebelum konfigurasi TOTP/identity provider tersedia.
-    mfa_status: settings.mfa_status || 'not_configured',
-    mfa_pending: Boolean(settings.mfa_pending_secret),
     updated_at: settings.updated_at || null,
   }
 }
@@ -146,63 +142,6 @@ router.post('/login', async (req, res) => {
         module: 'security',
       })
       return res.status(401).json({ success: false, message: 'Email atau kata sandi tidak sesuai.' })
-    }
-
-    const security = await getSecuritySettings(user.id)
-    if (security.mfa_status === 'enabled' || security.mfa_status === 'pending') {
-      const mfaCode = String(req.body?.mfa_code || '').replace(/\s/g, '')
-      const [securityRows] = await db.query(
-        'SELECT mfa_status, mfa_secret, mfa_pending_secret, mfa_time_offset_steps, mfa_last_counter FROM user_security_settings WHERE user_id = ? LIMIT 1',
-        [user.id],
-      )
-      const securityRow = securityRows[0] || {}
-      const mfaStatus = securityRow.mfa_status || security.mfa_status
-      const secret = mfaStatus === 'pending' ? securityRow.mfa_pending_secret : securityRow.mfa_secret
-      const hasStoredOffset = securityRow.mfa_time_offset_steps !== null && securityRow.mfa_time_offset_steps !== undefined
-      const verification = mfaCode && secret
-        ? verifyCodeWithCounter(secret, mfaCode, hasStoredOffset
-          ? { centerOffset: Number(securityRow.mfa_time_offset_steps), window: 0 }
-          : { window: 10 })
-        : { valid: false }
-      const lastCounter = Number(securityRow.mfa_last_counter || 0)
-      const hasValidMfaCode = Boolean(verification.valid && (!lastCounter || Number(verification.counter) > lastCounter))
-      if (!hasValidMfaCode) {
-        const failed = registerFailedAttempt(req, email)
-        await safeAudit(db, {
-          userId: user.id,
-          activity: 'Verifikasi MFA gagal',
-          description: `Kode MFA tidak valid untuk ${user.email} (percobaan ${failed.attempts}).`,
-          module: 'security',
-        })
-        return res.status(401).json({
-          success: false,
-          code: 'MFA_REQUIRED',
-          message: mfaStatus === 'pending'
-            ? 'Setup MFA belum selesai. Scan QR terakhir lalu masukkan kode enam digit dari aplikasi authenticator.'
-            : 'Kode MFA enam digit wajib dan harus valid.',
-        })
-      }
-      if (mfaStatus === 'pending') {
-        await db.query(
-          `UPDATE user_security_settings
-           SET mfa_status = 'enabled',
-               mfa_secret = mfa_pending_secret,
-               mfa_pending_secret = NULL,
-               mfa_setup_code = NULL,
-               mfa_time_offset_steps = ?,
-               mfa_last_counter = ?
-           WHERE user_id = ?`,
-          [verification.offset, verification.counter, user.id],
-        )
-      } else {
-        await db.query(
-          `UPDATE user_security_settings
-           SET mfa_time_offset_steps = COALESCE(mfa_time_offset_steps, ?),
-               mfa_last_counter = ?
-           WHERE user_id = ?`,
-          [verification.offset, verification.counter, user.id],
-        )
-      }
     }
 
     clearAttempts(req, email)
@@ -326,8 +265,8 @@ router.put('/security-settings', async (req, res) => {
     const loginAlerts = req.body?.login_alerts === undefined ? true : Boolean(req.body.login_alerts)
     const sessionAlerts = req.body?.session_alerts === undefined ? true : Boolean(req.body.session_alerts)
     await db.query(
-      `INSERT INTO user_security_settings (user_id, login_alerts, session_alerts, mfa_status)
-       VALUES (?, ?, ?, 'not_configured')
+      `INSERT INTO user_security_settings (user_id, login_alerts, session_alerts)
+       VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE login_alerts = VALUES(login_alerts), session_alerts = VALUES(session_alerts)`,
       [req.user.id, loginAlerts ? 1 : 0, sessionAlerts ? 1 : 0],
     )
@@ -343,113 +282,6 @@ router.put('/security-settings', async (req, res) => {
   }
 })
 
-
-router.post('/mfa/setup', async (req, res) => {
-  try {
-    const secret = generateSecret()
-    await db.query(
-      `INSERT INTO user_security_settings (user_id, mfa_status, mfa_pending_secret, mfa_setup_code)
-       VALUES (?, 'pending', ?, NULL)
-       ON DUPLICATE KEY UPDATE
-         mfa_status = 'pending',
-         mfa_pending_secret = VALUES(mfa_pending_secret),
-         mfa_setup_code = VALUES(mfa_setup_code),
-         mfa_time_offset_steps = NULL,
-         mfa_last_counter = NULL`,
-      [req.user.id, secret],
-    )
-    await safeAudit(db, {
-      userId: req.user.id,
-      activity: 'MFA disiapkan',
-      description: `${req.user.name} memulai konfigurasi autentikator MFA.`,
-      module: 'security',
-    })
-    res.json({
-      success: true,
-      message: 'Simpan secret ini di aplikasi authenticator, lalu konfirmasi dengan kode enam digit.',
-      data: {
-        secret,
-        otpauth_url: buildOtpAuthUrl({ secret, accountName: req.user.email || req.user.name }),
-      },
-    })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal menyiapkan MFA.', error)
-  }
-})
-
-router.post('/mfa/confirm', async (req, res) => {
-  try {
-    const code = String(req.body?.code || '').replace(/\D/g, '')
-    const [rows] = await db.query(
-      'SELECT mfa_pending_secret FROM user_security_settings WHERE user_id = ? LIMIT 1',
-      [req.user.id],
-    )
-    const secret = rows[0]?.mfa_pending_secret
-    const verification = secret ? verifyCodeWithCounter(secret, code, { window: 10 }) : { valid: false }
-    if (!secret || !verification.valid) {
-      return res.status(422).json({ success: false, message: 'Kode MFA tidak valid atau sesi konfigurasi sudah berakhir.' })
-    }
-    await db.query(
-      `UPDATE user_security_settings
-       SET mfa_status = 'enabled',
-           mfa_secret = mfa_pending_secret,
-           mfa_pending_secret = NULL,
-           mfa_setup_code = NULL,
-           mfa_time_offset_steps = ?,
-           mfa_last_counter = ?
-       WHERE user_id = ?`,
-      [verification.offset, verification.counter, req.user.id],
-    )
-    await safeAudit(db, {
-      userId: req.user.id,
-      activity: 'MFA diaktifkan',
-      description: `${req.user.name} mengaktifkan autentikasi dua faktor.`,
-      module: 'security',
-    })
-    res.json({ success: true, message: 'MFA berhasil diaktifkan.', data: await getSecuritySettings(req.user.id) })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal mengaktifkan MFA.', error)
-  }
-})
-
-router.post('/mfa/disable', async (req, res) => {
-  try {
-    const code = String(req.body?.code || '')
-    const password = String(req.body?.password || '')
-    const [userRows] = await db.query('SELECT password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id])
-    const [securityRows] = await db.query('SELECT mfa_status, mfa_secret, mfa_time_offset_steps FROM user_security_settings WHERE user_id = ? LIMIT 1', [req.user.id])
-    const security = securityRows[0]
-    const verification = security?.mfa_secret
-      ? verifyCodeWithCounter(security.mfa_secret, code, {
-        centerOffset: Number(security.mfa_time_offset_steps || 0),
-        window: 0,
-      })
-      : { valid: false }
-    if (!userRows[0] || !verifyPassword(password, userRows[0].password_hash) || !security || security.mfa_status !== 'enabled' || !verification.valid) {
-      return res.status(401).json({ success: false, message: 'Password atau kode MFA tidak valid.' })
-    }
-    await db.query(
-      `UPDATE user_security_settings
-       SET mfa_status = 'not_configured',
-           mfa_secret = NULL,
-           mfa_pending_secret = NULL,
-           mfa_setup_code = NULL,
-           mfa_time_offset_steps = NULL,
-           mfa_last_counter = NULL
-       WHERE user_id = ?`,
-      [req.user.id],
-    )
-    await safeAudit(db, {
-      userId: req.user.id,
-      activity: 'MFA dinonaktifkan',
-      description: `${req.user.name} menonaktifkan autentikasi dua faktor setelah verifikasi.`,
-      module: 'security',
-    })
-    res.json({ success: true, message: 'MFA dinonaktifkan.', data: await getSecuritySettings(req.user.id) })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal menonaktifkan MFA.', error)
-  }
-})
 
 router.post('/logout', async (req, res) => {
   try {

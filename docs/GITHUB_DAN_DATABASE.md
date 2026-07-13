@@ -41,4 +41,4 @@ Password plain text hanya berada di `.env` lokal. Seeder meng-hash password sebe
 - `.env`
 - `node_modules/` dan `dist/`
 - Folder `.git/` di dalam arsip distribusi
-- Dump database lokal, backup SQL, token, secret MFA, atau password
+- Dump database lokal, backup SQL, token sesi, atau password

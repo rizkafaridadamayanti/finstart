@@ -358,37 +358,6 @@
               </div>
             </div>
 
-            <div class="space-y-2">
-              <label
-                for="login-mfa-code"
-                class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#53658A]"
-              >
-                Kode MFA
-                <span class="normal-case font-medium text-[#8A9AB0]"
-                  >(hanya bila aktif)</span
-                >
-              </label>
-              <div class="relative">
-                <KeyRound
-                  class="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#8A9AB0]"
-                />
-                <input
-                  id="login-mfa-code"
-                  :value="mfaCode"
-                  name="mfaCode"
-                  inputmode="numeric"
-                  maxlength="6"
-                  placeholder="6 digit dari authenticator"
-                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-[#F9FBFD] pl-11 pr-4 text-sm font-medium tracking-[0.22em] text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:bg-white focus:ring-4 focus:ring-[#1E5AA8]/10"
-                  @input="handleMfaInput"
-                />
-              </div>
-              <p class="login-security-note text-[11px] leading-5 text-[#8A9AB0]">
-                Abaikan bila autentikasi dua langkah belum diaktifkan untuk akun
-                Anda.
-              </p>
-            </div>
-
             <p class="login-session-copy text-xs leading-5 text-[#637083]">
               Sesi disimpan sementara pada browser dan dapat dicabut dari
               halaman Pengaturan.
@@ -408,9 +377,8 @@
                   >Ingat sesi login</span
                 >
                 <span class="mt-0.5 block"
-                  >Sesi tetap tersimpan selama token belum kedaluwarsa. Setelah
-                  Keluar Sistem, akun dengan MFA aktif tetap wajib memasukkan
-                  token saat login lagi.</span
+                  >Sesi tetap tersimpan selama token belum kedaluwarsa atau
+                  sampai Anda keluar dari sistem.</span
                 >
               </span>
             </label>
@@ -446,7 +414,6 @@
 </template>
 
 <script setup>
-import { eventValue } from "../utils/domEvents";
 import { ref } from "vue";
 import {
   ArrowLeft,
@@ -456,7 +423,6 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  KeyRound,
 } from "lucide-vue-next";
 import KedataLogo from "./KedataLogo.vue";
 import {
@@ -470,7 +436,6 @@ const emit = defineEmits(["login-success", "back"]);
 const email = ref("");
 const password = ref("");
 const showPassword = ref(false);
-const mfaCode = ref("");
 const rememberBrowser = ref(true);
 const isLoading = ref(false);
 const error = ref("");
@@ -546,7 +511,6 @@ async function handleResetPassword() {
     resetPassword.value = "";
     resetPasswordConfirm.value = "";
     password.value = "";
-    mfaCode.value = "";
     resetNotice.value =
       "Kata sandi berhasil direset. Silakan login memakai kata sandi baru.";
   } catch (resetError) {
@@ -569,7 +533,6 @@ async function handleSubmit() {
     const session = await financeApi.login(
       email.value.trim().toLowerCase(),
       password.value,
-      mfaCode.value.trim(),
       rememberBrowser.value,
     );
     saveAuthSession(session, rememberBrowser.value);
@@ -585,9 +548,6 @@ async function handleSubmit() {
   }
 }
 
-function handleMfaInput(event) {
-  mfaCode.value = eventValue(event).replace(/\D/g, "").slice(0, 6);
-}
 </script>
 
 <style scoped>
