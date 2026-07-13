@@ -286,7 +286,7 @@
           }"
         >
           <div
-            class="flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]"
+            class="relative flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]"
             :style="{
               width: 'min(92vw, 1180px)',
               maxHeight: 'calc(100dvh - 48px)',
@@ -368,14 +368,15 @@
                     <Plus class="h-3.5 w-3.5" /> Tambah {{ masterLabel() }}
                   </button>
                 </div>
-                <div class="relative mb-4">
+                <div class="master-search-field relative mb-4">
                   <Search
-                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8FA0B8]"
-                  /><input
+                    class="master-search-icon pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B1F4A]"
+                  />
+                  <input
                     id="master-data-search"
                     :value="masterSearch"
                     :placeholder="`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`"
-                    class="h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-[12px] font-medium text-[#243650] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-search-input h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pr-3 text-[12px] font-medium text-[#243650] outline-none transition placeholder:text-[#8FA0B8] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
                     @input="masterSearch = eventValue($event)"
                   />
                 </div>
@@ -531,41 +532,118 @@
                 />
               </section>
             </div>
+          <div
+            v-if="masterDeleteConfirm"
+            class="master-confirm-layer"
+            role="dialog"
+            aria-modal="true"
+            @click.self="closeMasterDeleteConfirm"
+          >
+            <section class="master-confirm-card">
+              <header class="master-confirm-header">
+                <div>
+                  <p class="master-confirm-eyebrow">Konfirmasi Penghapusan</p>
+                  <h3>Hapus {{ masterLabel(masterDeleteConfirm.type) }}?</h3>
+                  <p>{{ masterDeleteWarningMessage(masterDeleteConfirm) }}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Tutup konfirmasi hapus"
+                  class="master-confirm-close"
+                  @click="closeMasterDeleteConfirm"
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </header>
+              <div class="master-confirm-body">
+                <dl>
+                  <div>
+                    <dt>Nama</dt>
+                    <dd>{{ masterDeleteConfirm.item.name }}</dd>
+                  </div>
+                  <div>
+                    <dt>Kode</dt>
+                    <dd>{{ masterDeleteConfirm.item.code || "Kode otomatis" }}</dd>
+                  </div>
+                  <div v-if="masterDeleteConfirm.type === 'division'">
+                    <dt>Jabatan</dt>
+                    <dd>{{ masterDeletePositionCount(masterDeleteConfirm.item) }} jabatan</dd>
+                  </div>
+                  <div>
+                    <dt>Pegawai</dt>
+                    <dd>{{ masterDeleteEmployeeCount(masterDeleteConfirm) }} pegawai</dd>
+                  </div>
+                </dl>
+                <div class="master-confirm-impact">
+                  <p>Yang akan terdampak</p>
+                  <ul v-if="masterDeleteConfirm.type === 'division'">
+                    <li>Divisi tidak bisa dihapus selama masih memiliki jabatan.</li>
+                    <li>Pegawai yang memakai jabatan di divisi ini harus dipindahkan atau dinonaktifkan lebih dulu.</li>
+                    <li>Hapus atau pindahkan semua jabatan dari divisi ini sebelum menghapus divisi.</li>
+                  </ul>
+                  <ul v-else>
+                    <li>Jabatan tidak bisa dihapus jika masih dipakai pegawai.</li>
+                    <li>Pegawai terkait harus dipindahkan ke jabatan lain atau dinonaktifkan lebih dulu.</li>
+                    <li>Jika masih dipakai, backend akan menolak penghapusan.</li>
+                  </ul>
+                </div>
+              </div>
+              <footer class="master-confirm-actions">
+                <button type="button" class="secondary" @click="closeMasterDeleteConfirm">
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  class="danger"
+                  :disabled="masterDeleteHasBlocker(masterDeleteConfirm)"
+                  @click="confirmMasterDelete"
+                >
+                  <template v-if="masterDeleteHasBlocker(masterDeleteConfirm)">
+                    Tidak Bisa Dihapus
+                  </template>
+                  <template v-else>
+                    Hapus {{ masterLabel(masterDeleteConfirm.type) }}
+                  </template>
+                </button>
+              </footer>
+            </section>
           </div>
           <div
             v-if="isMasterEditorOpen"
-            class="bg-[#0B1220]/60 backdrop-blur-sm"
+            class="master-editor-layer"
             :style="{
-              position: 'fixed',
+              position: 'absolute',
               inset: 0,
-              zIndex: 2147483200,
+              zIndex: 30,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '100vw',
-              height: '100dvh',
-              padding: '24px',
+              width: '100%',
+              height: '100%',
+              padding: '20px',
               overflowY: 'auto',
               pointerEvents: 'auto',
+              backgroundColor: 'rgba(11, 18, 32, 0.48)',
+              backdropFilter: 'blur(6px)',
             }"
           >
             <div
-              class="flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_30px_100px_rgba(8,25,60,0.48)]"
+              class="master-editor-card flex flex-col overflow-hidden rounded-[24px] border border-[#DCE7F4] bg-white shadow-[0_30px_100px_rgba(8,25,60,0.48)]"
               :style="{
-                width: 'min(92vw, 860px)',
+                width: 'min(92vw, 680px)',
                 maxHeight: 'calc(100dvh - 48px)',
               }"
             >
               <div
-                class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-6 py-5"
+                class="master-editor-header flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-6 py-5"
               >
-                <div>
+                <div class="min-w-0">
                   <p
-                    class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
+                    class="master-editor-eyebrow text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
                   >
                     Form Master Data
                   </p>
-                  <h3 class="mt-1 text-lg font-extrabold text-[#102A56]">
+                  <h3 class="master-editor-title mt-1 text-lg font-extrabold text-[#102A56]">
                     <template v-if="masterDataForm.id">{{
                       `Ubah ${masterLabel(masterDataForm.type)}`
                     }}</template
@@ -573,9 +651,9 @@
                       `Tambah ${masterLabel(masterDataForm.type)}`
                     }}</template>
                   </h3>
-                  <p class="mt-1 text-xs text-[#7A8CA8]">
-                    Form dibuat overlay agar sama seperti modal lain dan tombol
-                    aksi lebih jelas.
+                  <p class="master-editor-subtitle mt-1 text-xs text-[#7A8CA8]">
+                    Perbarui kode, nama, dan keterangan master data agar pilihan
+                    di form SDM tetap rapi.
                   </p>
                 </div>
                 <button
@@ -588,25 +666,32 @@
                 </button>
               </div>
               <form
-                class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6"
+                class="master-editor-form min-h-0 flex-1 space-y-4 overflow-y-auto p-6"
                 @submit="saveMasterData"
               >
-                <label class="block text-[11px] font-bold text-[#53658A]"
-                  >Kode<input
+                <div class="master-editor-field">
+                  <label class="master-editor-label" for="master-data-code"
+                    >Kode</label
+                  ><input
+                    id="master-data-code"
                     :value="masterDataForm.code"
                     :placeholder="
                       masterDataForm.type === 'division'
                         ? 'Contoh: FIN'
                         : 'Contoh: FIN-MGR'
                     "
-                    class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-editor-control"
                     @input="masterDataForm = {
                           ...masterDataForm,
                           code: eventValue($event),
-                        }" /></label
-                ><label class="block text-[11px] font-bold text-[#53658A]"
-                  >Nama {{ masterLabel(masterDataForm.type)
-                  }}<input
+                        }" />
+                  <p class="master-editor-help">Gunakan kode pendek yang mudah dikenali.</p>
+                </div>
+                <div class="master-editor-field">
+                  <label class="master-editor-label" for="master-data-name"
+                    >Nama {{ masterLabel(masterDataForm.type) }}</label
+                  ><input
+                    id="master-data-name"
                     required
                     :value="masterDataForm.name"
                     :placeholder="
@@ -614,17 +699,22 @@
                         ? 'Contoh: Keuangan'
                         : 'Contoh: Finance Manager'
                     "
-                    class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-editor-control"
                     @input="masterDataForm = {
                           ...masterDataForm,
                           name: eventValue($event),
-                        }" /></label
-                ><label
+                        }" />
+                </div>
+                <div
                   v-if="masterDataForm.type === 'position'"
-                  class="block text-[11px] font-bold text-[#53658A]"
-                  >Divisi Induk<select
+                  class="master-editor-field"
+                >
+                  <label class="master-editor-label" for="master-data-division"
+                    >Divisi Induk</label
+                  ><select
+                    id="master-data-division"
                     :value="masterDataForm.divisionId"
-                    class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-editor-control"
                     @change="masterDataForm = {
                           ...masterDataForm,
                           divisionId: eventValue($event),
@@ -638,24 +728,33 @@
                     >
                       {{ item.name }}
                     </option>
-                  </select></label
-                ><label class="block text-[11px] font-bold text-[#53658A]"
-                  >Keterangan<textarea
+                  </select>
+                </div>
+                <div class="master-editor-field">
+                  <label class="master-editor-label" for="master-data-description"
+                    >Keterangan</label
+                  ><textarea
+                    id="master-data-description"
                     :value="masterDataForm.description"
-                    :rows="4"
+                    :rows="3"
                     placeholder="Keterangan singkat (opsional)"
-                    class="mt-1.5 w-full resize-none rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-editor-control min-h-[92px] resize-none py-3"
                     @input="masterDataForm = {
                           ...masterDataForm,
                           description: eventValue($event),
                         }"
-                  /></label
-                ><label
+                  />
+                </div>
+                <div
                   v-if="masterDataForm.type === 'position'"
-                  class="block text-[11px] font-bold text-[#53658A]"
-                  >Status<select
+                  class="master-editor-field"
+                >
+                  <label class="master-editor-label" for="master-data-status"
+                    >Status</label
+                  ><select
+                    id="master-data-status"
                     :value="masterDataForm.status"
-                    class="mt-1.5 h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-xs text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                    class="master-editor-control"
                     @change="masterDataForm = {
                           ...masterDataForm,
                           status: eventValue($event),
@@ -663,9 +762,24 @@
                   >
                     <option value="active">Aktif</option>
                     <option value="inactive">Nonaktif</option>
-                  </select></label
-                >
-                <div class="grid gap-3 pt-2 sm:grid-cols-2">
+                  </select>
+                </div>
+                <div class="master-editor-summary rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] px-4 py-3">
+                  <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8A99AD]">
+                    Ringkasan
+                  </p>
+                  <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span class="block text-[10px] font-bold text-[#8A99AD]">Tipe</span>
+                      <strong class="text-[#102A56]">{{ masterLabel(masterDataForm.type) }}</strong>
+                    </div>
+                    <div>
+                      <span class="block text-[10px] font-bold text-[#8A99AD]">Status</span>
+                      <strong class="text-[#102A56]">{{ masterDataForm.status === "inactive" ? "Nonaktif" : "Aktif" }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="master-editor-actions grid gap-3 pt-1 sm:grid-cols-2">
                   <button
                     id="btn-cancel-master-data"
                     type="button"
@@ -687,8 +801,79 @@
               </form>
             </div>
           </div>
+          </div>
         </div></Teleport
-      ><Teleport
+      ><Teleport v-if="employeeDeleteConfirm" to="body">
+        <div
+          class="employee-confirm-layer"
+          role="dialog"
+          aria-modal="true"
+          @click.self="closeEmployeeDeleteConfirm"
+        >
+          <section class="master-confirm-card">
+            <header class="master-confirm-header">
+              <div>
+                <p class="master-confirm-eyebrow">Konfirmasi Penghapusan</p>
+                <h3>Hapus Pegawai?</h3>
+                <p>
+                  Penghapusan hanya tersedia untuk pegawai tanpa riwayat
+                  payroll.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="master-confirm-close"
+                aria-label="Tutup konfirmasi hapus pegawai"
+                @click="closeEmployeeDeleteConfirm"
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </header>
+            <div class="master-confirm-body">
+              <dl>
+                <div>
+                  <dt>Nama</dt>
+                  <dd>{{ employeeDisplayName(employeeDeleteConfirm) }}</dd>
+                </div>
+                <div>
+                  <dt>Kode</dt>
+                  <dd>{{ employeeDisplayCode(employeeDeleteConfirm) }}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{{ employeeDisplayStatus(employeeDeleteConfirm) }}</dd>
+                </div>
+              </dl>
+              <div class="master-confirm-impact">
+                <p>Yang akan terdampak</p>
+                <ul>
+                  <li>Pegawai hilang dari master data SDM.</li>
+                  <li>
+                    Jika sudah memiliki riwayat payroll, backend akan menolak
+                    penghapusan.
+                  </li>
+                  <li>
+                    Untuk pegawai dengan riwayat, gunakan status Nonaktif pada
+                    form Ubah.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <footer class="master-confirm-actions">
+              <button
+                type="button"
+                class="secondary"
+                @click="closeEmployeeDeleteConfirm"
+              >
+                Batal
+              </button>
+              <button type="button" class="danger" @click="confirmEmployeeDelete">
+                Hapus Pegawai
+              </button>
+            </footer>
+          </section>
+        </div>
+      </Teleport><Teleport
         v-if="isEmployeeDetailOpen &amp;&amp; selectedEmployeeDetail"
         to="body"
         ><div
@@ -3029,12 +3214,17 @@ const isEmployeeDetailOpen = ref(false),
   updateIsEmployeeDetailOpen = (next) => (isEmployeeDetailOpen.value = next);
 const selectedEmployeeDetail = ref<any>(null);
 const editingEmployee = ref<any>(null);
+const employeeDeleteConfirm = ref<any>(null);
 const isMasterDataModalOpen = ref(false);
 const isMasterEditorOpen = ref(false);
 const masterDataTab = ref<"division" | "position">("division");
 const masterSearch = ref("");
 const masterBusy = ref(false);
 const editingMasterData = ref<any>(null);
+const masterDeleteConfirm = ref<{
+  item: any;
+  type: "division" | "position";
+} | null>(null);
 const masterDataForm = ref({
   id: "",
   type: "division" as "division" | "position",
@@ -4185,19 +4375,75 @@ async function deleteMasterData(
   item: any,
   type: "division" | "position" = masterDataTab.value,
 ) {
-  const label = masterLabel(type).toLowerCase();
-  const name = String(item.name || label);
-  if (
-    !window.confirm(
-      `Hapus ${label} “${name}”? Data yang masih dipakai pegawai tidak dapat dihapus.`,
-    )
-  )
-    return;
+  masterDeleteConfirm.value = { item, type };
+}
+
+function masterDeleteDivisionPositions(item: any) {
+  const divisionId = String(item?.id || "");
+  if (!divisionId) return [];
+  return positions.value.filter(
+    (position: any) => String(position?.division_id || "") === divisionId,
+  );
+}
+
+function masterDeletePositionCount(item: any) {
+  return masterDeleteDivisionPositions(item).length;
+}
+
+function masterDeleteEmployeeCount(target: {
+  item: any;
+  type: "division" | "position";
+} | null) {
+  if (!target) return 0;
+  if (target.type === "position") {
+    return Number(target.item?.employee_count || 0);
+  }
+  return masterDeleteDivisionPositions(target.item).reduce(
+    (total: number, position: any) =>
+      total + Number(position?.employee_count || 0),
+    0,
+  );
+}
+
+function masterDeleteHasBlocker(target: {
+  item: any;
+  type: "division" | "position";
+} | null) {
+  if (!target) return true;
+  if (target.type === "division") {
+    return (
+      masterDeletePositionCount(target.item) > 0 ||
+      masterDeleteEmployeeCount(target) > 0
+    );
+  }
+  return masterDeleteEmployeeCount(target) > 0;
+}
+
+function masterDeleteWarningMessage(target: {
+  item: any;
+  type: "division" | "position";
+} | null) {
+  if (!target) return "";
+  if (target.type === "division") {
+    return "Divisi tidak bisa dihapus jika masih memiliki jabatan atau ada pegawai yang memakai jabatan di divisi tersebut.";
+  }
+  return "Jabatan tidak bisa dihapus jika masih dipakai pegawai.";
+}
+
+function closeMasterDeleteConfirm() {
+  masterDeleteConfirm.value = null;
+}
+
+async function confirmMasterDelete() {
+  const target = masterDeleteConfirm.value;
+  if (!target) return;
+  const { item, type } = target;
   try {
     await financeApi.delete(`${masterEndpoint(type)}/${item.id}`);
     await refreshMasterData();
     if (String(editingMasterData.value?.id || "") === String(item.id))
       resetMasterDataForm(type, false);
+    closeMasterDeleteConfirm();
     notify(`${masterLabel(type)} berhasil dihapus.`);
   } catch (error) {
     notify(
@@ -4461,28 +4707,60 @@ async function handleCreateEmployee() {
   }
 }
 
-async function handleDeleteEmployee(employee: any) {
-  const employeeId = employeeDatabaseId(employee);
-  const employeeName = String(
+function employeeDisplayName(employee: any = employeeDeleteConfirm.value) {
+  return String(
     employee?.nama ||
       employee?._raw?.full_name ||
       employee?._raw?.name ||
-      "pegawai",
+      "Pegawai",
   );
+}
+
+function employeeDisplayCode(employee: any = employeeDeleteConfirm.value) {
+  return String(
+    employee?.id ||
+      employee?._raw?.employee_code ||
+      employee?._raw?.nik ||
+      "Kode tidak tersedia",
+  );
+}
+
+function employeeDisplayStatus(employee: any = employeeDeleteConfirm.value) {
+  const status = String(
+    employee?.status ||
+      employee?._raw?.employment_status ||
+      employee?._raw?.status ||
+      "active",
+  ).toLowerCase();
+  return status === "active" || status === "aktif" ? "Aktif" : "Nonaktif";
+}
+
+function handleDeleteEmployee(employee: any) {
+  const employeeId = employeeDatabaseId(employee);
   if (!employeeId) {
     notify("ID pegawai tidak valid. Muat ulang halaman lalu coba lagi.");
     return;
   }
-  if (
-    !window.confirm(
-      `Hapus ${employeeName}? Tindakan ini hanya tersedia untuk pegawai tanpa riwayat payroll. Jika pegawai sudah tidak bekerja tetapi memiliki riwayat, gunakan status Nonaktif pada form Ubah.`,
-    )
-  )
+  employeeDeleteConfirm.value = employee;
+}
+
+function closeEmployeeDeleteConfirm() {
+  employeeDeleteConfirm.value = null;
+}
+
+async function confirmEmployeeDelete() {
+  const employee = employeeDeleteConfirm.value;
+  const employeeId = employeeDatabaseId(employee);
+  if (!employeeId) {
+    notify("ID pegawai tidak valid. Muat ulang halaman lalu coba lagi.");
+    closeEmployeeDeleteConfirm();
     return;
+  }
   try {
     await financeApi.delete(`/employees/${employeeId}`);
     const selectedId = employeeDatabaseId(selectedEmployeeDetail.value);
     if (selectedId === employeeId) closeEmployeeDetail();
+    closeEmployeeDeleteConfirm();
     await refreshAllData();
     notify("Pegawai berhasil dihapus dari master data.");
   } catch (error) {
@@ -5054,6 +5332,333 @@ const assetAccounts = computed(() =>
 </script>
 
 <style>
+.master-search-field {
+  isolation: isolate;
+}
+
+.master-search-icon {
+  left: 18px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.master-search-input {
+  padding-left: 52px !important;
+  color: #243650 !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+}
+
+.master-search-input::placeholder {
+  color: #8a99ad !important;
+  opacity: 1 !important;
+}
+
+.master-editor-layer {
+  color: #102a56;
+}
+
+.master-editor-card {
+  font-size: 12px;
+  background: #ffffff !important;
+}
+
+.master-editor-header {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
+  padding: 18px 22px !important;
+}
+
+.master-editor-eyebrow {
+  color: #1e5aa8 !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.16em !important;
+}
+
+.master-editor-title {
+  color: #102a56 !important;
+  font-size: 17px !important;
+  line-height: 1.2 !important;
+}
+
+.master-editor-subtitle {
+  max-width: 440px;
+  color: #64748b !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.master-editor-form {
+  padding: 18px 22px 20px !important;
+}
+
+.master-editor-field {
+  min-width: 0;
+}
+
+.master-editor-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #52647e;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.master-editor-control {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #dce7f4;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0 14px;
+  color: #243650;
+  font-size: 12.5px;
+  font-weight: 700;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.master-editor-control::placeholder {
+  color: #91a0b6;
+  font-weight: 600;
+}
+
+.master-editor-control:focus {
+  border-color: #1e5aa8;
+  background: #fbfdff;
+  box-shadow: 0 0 0 4px rgba(30, 90, 168, 0.1);
+}
+
+.master-editor-help {
+  margin-top: 6px;
+  color: #7a8ca8;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.master-editor-summary strong {
+  display: block;
+  margin-top: 3px;
+  color: #102a56 !important;
+  font-size: 12.5px;
+  font-weight: 850;
+}
+
+.master-editor-summary p,
+.master-editor-summary span {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+.master-editor-actions button {
+  height: 42px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 639px) {
+  .master-editor-header,
+  .master-editor-form {
+    padding-inline: 16px !important;
+  }
+}
+
+.master-confirm-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 20px;
+  background: rgba(11, 18, 32, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.employee-confirm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10095;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(11, 18, 32, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.master-confirm-card {
+  width: min(520px, 100%);
+  overflow: hidden;
+  border: 1px solid #dce7f4;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 26px 80px rgba(8, 25, 60, 0.34);
+}
+
+.master-confirm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e8eef7;
+  padding: 20px 22px 16px;
+}
+
+.master-confirm-eyebrow {
+  margin: 0 0 6px;
+  color: #be123c;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.master-confirm-header h3 {
+  margin: 0;
+  color: #102a56;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.master-confirm-header p:last-child {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.master-confirm-close {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  color: #94a3b8;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.master-confirm-close:hover {
+  background: #f4f8fd;
+  color: #102a56;
+}
+
+.master-confirm-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 22px;
+}
+
+.master-confirm-body dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.master-confirm-body dl > div {
+  min-width: 0;
+  border: 1px solid #dce7f4;
+  border-radius: 14px;
+  background: #f8fbfe;
+  padding: 11px 12px;
+}
+
+.master-confirm-body dt {
+  color: #8a99ad;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.master-confirm-body dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  color: #102a56;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.master-confirm-impact {
+  border: 1px solid #fecdd3;
+  border-radius: 16px;
+  background: #fff1f2;
+  padding: 14px 15px;
+}
+
+.master-confirm-impact p {
+  margin: 0;
+  color: #be123c;
+  font-size: 12.5px;
+  font-weight: 850;
+}
+
+.master-confirm-impact ul {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0 0;
+  padding-left: 18px;
+  color: #7f1d1d;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.master-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  border-top: 1px solid #e8eef7;
+  padding: 16px 22px 20px;
+}
+
+.master-confirm-actions button {
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.master-confirm-actions .secondary {
+  border: 1px solid #dce7f4;
+  background: #ffffff;
+  color: #53658a;
+}
+
+.master-confirm-actions .danger {
+  background: #be123c;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(190, 18, 60, 0.18);
+}
+
+.master-confirm-actions .danger:disabled {
+  cursor: not-allowed;
+  background: #cbd5e1;
+  color: #64748b;
+  box-shadow: none;
+}
+
+@media (max-width: 639px) {
+  .master-confirm-body dl,
+  .master-confirm-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tax-manual-card {
   font-size: 12px;
 }

@@ -261,31 +261,119 @@
             >
           </div>
           <div class="px-6 py-5">
-            <div
-              class="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-5 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div class="flex min-w-0 items-center gap-3">
+            <div class="space-y-4">
+              <div
+                class="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div class="flex min-w-0 items-center gap-3">
+                  <span
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-semibold text-[#0B1F4A] shadow-sm"
+                    >FI</span
+                  >
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-[#182338]">
+                      Akses Internal FinStart
+                    </p>
+                    <p class="mt-1 text-xs leading-5 text-[#6B7A90]">
+                      Digunakan oleh tim keuangan/internal. Banyak pengguna bisa
+                      dibuat, semuanya memakai akses yang sama.
+                    </p>
+                  </div>
+                </div>
                 <span
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-semibold text-[#0B1F4A] shadow-sm"
-                  >FI</span
+                  class="w-fit rounded-full border border-[#D8E5F4] bg-white px-3 py-1 text-[10px] font-medium text-[#53658A]"
+                  >{{
+                    Number(internalFinanceRole().user_count || users.length || 0)
+                  }}
+                  pengguna</span
                 >
-                <div class="min-w-0">
-                  <p class="text-sm font-semibold text-[#182338]">
-                    Akses Internal FinStart
-                  </p>
-                  <p class="mt-1 text-xs leading-5 text-[#6B7A90]">
-                    Digunakan oleh tim keuangan/internal. Banyak pengguna bisa
-                    dibuat, semuanya memakai akses yang sama.
-                  </p>
+              </div>
+
+              <div class="rounded-2xl border border-[#DCE7F4] bg-white">
+                <div
+                  class="flex flex-col gap-1 border-b border-[#EDF2F7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p class="text-sm font-semibold text-[#0B1F4A]">
+                      Daftar Pengguna
+                    </p>
+                    <p class="text-xs text-[#6B7A90]">
+                      Akun yang bisa digunakan untuk login workspace ini.
+                    </p>
+                  </div>
+                  <span class="text-[11px] font-semibold text-[#6B7A90]">
+                    {{ users.length }} akun
+                  </span>
+                </div>
+
+                <div v-if="users.length" class="divide-y divide-[#EDF2F7]">
+                  <div
+                    v-for="user in users"
+                    :key="user.id || user.email"
+                    class="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_auto_auto_auto] md:items-center"
+                  >
+                    <div class="flex min-w-0 items-center gap-3">
+                      <span
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF5FC] text-xs font-bold text-[#0B1F4A]"
+                      >
+                        {{ String(user.name || user.email || "U").slice(0, 2).toUpperCase() }}
+                      </span>
+                      <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-[#182338]">
+                          {{ user.name || "-" }}
+                        </p>
+                        <p class="truncate text-xs text-[#6B7A90]">
+                          {{ user.email || "-" }}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span
+                        class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase"
+                        :class="user.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'"
+                      >
+                        {{ user.status === "active" ? "Aktif" : "Nonaktif" }}
+                      </span>
+                      <span
+                        class="rounded-full border border-[#D8E5F4] px-2.5 py-1 text-[10px] font-semibold text-[#53658A]"
+                      >
+                        {{ Number(user.active_session_count || 0) }} sesi
+                      </span>
+                    </div>
+                    <p class="text-xs text-[#6B7A90] md:text-right">
+                      Login terakhir:
+                      <span class="font-semibold text-[#182338]">
+                        {{ formatTime(user.last_login_at) }}
+                      </span>
+                    </p>
+                    <div class="flex flex-wrap gap-2 md:justify-end">
+                      <button
+                        type="button"
+                        class="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] px-3 text-[11px] font-semibold text-[#0B1F4A] transition hover:border-[#1E5AA8] hover:bg-[#EEF5FC]"
+                        @click="openUserPasswordReset(user)"
+                      >
+                        <KeyRound class="h-3.5 w-3.5" />
+                        Reset Password
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-xl border border-rose-200 px-3 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="isCurrentUser(user)"
+                        @click="openUserDelete(user)"
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="px-4 py-6 text-sm text-[#6B7A90]">
+                  Belum ada pengguna dari server.
                 </div>
               </div>
-              <span
-                class="w-fit rounded-full border border-[#D8E5F4] bg-white px-3 py-1 text-[10px] font-medium text-[#53658A]"
-                >{{
-                  Number(internalFinanceRole().user_count || users.length || 0)
-                }}
-                pengguna</span
-              >
             </div>
           </div>
         </section>
@@ -538,9 +626,10 @@
         </section>
       </div>
     </div>
+    <Teleport to="body">
     <div
       v-if="mfaSetup.open"
-      class="fixed inset-0 z-[110] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -651,9 +740,11 @@
         </form>
       </div>
     </div>
+    </Teleport>
+    <Teleport to="body">
     <div
       v-if="mfaDisable.open"
-      class="fixed inset-0 z-[110] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -720,9 +811,11 @@
         </form>
       </div>
     </div>
+    </Teleport>
+    <Teleport to="body">
     <div
       v-if="isUserModalOpen"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -748,59 +841,209 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <form class="space-y-4 p-6" @submit="createUser">
+        <form class="space-y-4 p-6" @submit.prevent="createUser">
           <input
             required
-            :value="newUser.name"
+            v-model.trim="newUser.name"
             placeholder="Nama pengguna"
             :class="inputClass"
-            @change="newUser = { ...newUser, name: eventValue($event) }"
           /><input
             required
             type="email"
-            :value="newUser.email"
+            v-model.trim="newUser.email"
             placeholder="Email"
             :class="inputClass"
-            @change="newUser = { ...newUser, email: eventValue($event) }"
           /><input
-            :value="newUser.phone"
+            v-model.trim="newUser.phone"
             placeholder="Nomor telepon (opsional)"
             :class="inputClass"
-            @change="newUser = { ...newUser, phone: eventValue($event) }"
           /><select
-            :value="newUser.role_id || internalFinanceRoleId()"
+            v-model="newUser.role_id"
             :class="inputClass"
-            @change="newUser = { ...newUser, role_id: eventValue($event) }"
           >
             <option :value="internalFinanceRoleId()">
               Keuangan Internal
             </option></select
           ><input
             required
-            :min-length="8"
+            minlength="8"
             type="password"
-            :value="newUser.password"
+            v-model="newUser.password"
             placeholder="Password awal (minimal 8 karakter)"
             :class="inputClass"
-            @change="newUser = { ...newUser, password: eventValue($event) }"
           />
           <div class="flex justify-end gap-3 pt-2">
             <button
               type="button"
               class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
+              :disabled="isCreatingUser"
               @click="isUserModalOpen = false"
             >
               Batal</button
             ><button
               type="submit"
-              class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
+              class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="isCreatingUser"
             >
-              <Plus class="h-4 w-4" /> Buat Pengguna
+              <Plus class="h-4 w-4" />
+              {{ isCreatingUser ? "Menyimpan..." : "Buat Pengguna" }}
             </button>
           </div>
         </form>
       </div>
     </div>
+    </Teleport>
+    <Teleport to="body">
+    <div
+      v-if="passwordReset.open"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+    >
+      <div
+        class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
+      >
+        <div
+          class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"
+        >
+          <div>
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
+            >
+              Administrator
+            </p>
+            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
+              Reset Password
+            </h3>
+          </div>
+          <button
+            type="button"
+            class="rounded-xl p-2 text-[#6B7A90]"
+            :disabled="isResettingUserPassword"
+            @click="closeUserPasswordReset"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <form class="space-y-4 p-6" @submit.prevent="resetUserPassword">
+          <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+            <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A9BB4]">
+              Akun
+            </p>
+            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
+              {{ passwordReset.user?.name || "-" }}
+            </p>
+            <p class="mt-0.5 text-xs text-[#6B7A90]">
+              {{ passwordReset.user?.email || "-" }}
+            </p>
+          </div>
+          <input
+            required
+            minlength="8"
+            type="password"
+            v-model="passwordReset.password"
+            placeholder="Password baru (minimal 8 karakter)"
+            :class="inputClass"
+          />
+          <input
+            required
+            minlength="8"
+            type="password"
+            v-model="passwordReset.confirm"
+            placeholder="Konfirmasi password baru"
+            :class="inputClass"
+          />
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
+              :disabled="isResettingUserPassword"
+              @click="closeUserPasswordReset"
+            >
+              Batal</button
+            ><button
+              type="submit"
+              class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="isResettingUserPassword"
+            >
+              <Save class="h-4 w-4" />
+              {{
+                isResettingUserPassword
+                  ? "Menyimpan..."
+                  : "Simpan Password"
+              }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    </Teleport>
+    <Teleport to="body">
+    <div
+      v-if="userDelete.open"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+    >
+      <div
+        class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
+      >
+        <div
+          class="flex items-center justify-between border-b border-[#F8D7DF] px-6 py-5"
+        >
+          <div>
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600"
+            >
+              Konfirmasi Penghapusan
+            </p>
+            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
+              Hapus Akun?
+            </h3>
+          </div>
+          <button
+            type="button"
+            class="rounded-xl p-2 text-[#6B7A90]"
+            :disabled="isDeletingUser"
+            @click="closeUserDelete"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="space-y-4 p-6">
+          <p class="text-sm leading-6 text-[#53658A]">
+            Akun ini akan dihapus dari daftar pengguna dan tidak bisa dipakai
+            login lagi.
+          </p>
+          <div class="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+            <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-600">
+              Akun terdampak
+            </p>
+            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
+              {{ userDelete.user?.name || "-" }}
+            </p>
+            <p class="mt-0.5 text-xs text-[#6B7A90]">
+              {{ userDelete.user?.email || "-" }}
+            </p>
+          </div>
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
+              :disabled="isDeletingUser"
+              @click="closeUserDelete"
+            >
+              Batal</button
+            ><button
+              type="button"
+              class="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="isDeletingUser"
+              @click="deleteUser"
+            >
+              <Trash2 class="h-4 w-4" />
+              {{ isDeletingUser ? "Menghapus..." : "Hapus Akun" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -822,6 +1065,7 @@ import {
   Save,
   Shield,
   Smartphone,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -860,6 +1104,10 @@ function roleLabel(role: string) {
   );
 }
 
+function sameEmail(left: any, right: any) {
+  return String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+}
+
 const props = defineProps<PengaturanViewProps>();
 const { userEmail, userRole }: PengaturanViewProps = props;
 
@@ -887,10 +1135,23 @@ const isSavingProfile = ref(false);
 const isSavingSecurity = ref(false);
 const isPasswordOpen = ref(false);
 const isUserModalOpen = ref(false);
+const isCreatingUser = ref(false);
+const isResettingUserPassword = ref(false);
+const isDeletingUser = ref(false);
 const passwordForm = ref({
   current_password: "",
   new_password: "",
   confirm_password: "",
+});
+const passwordReset = ref({
+  open: false,
+  user: null as any,
+  password: "",
+  confirm: "",
+});
+const userDelete = ref({
+  open: false,
+  user: null as any,
 });
 const newUser = ref({
   name: "",
@@ -1130,11 +1391,21 @@ async function changePassword(event: Event) {
   }
 }
 
-async function createUser(event: Event) {
-  event.preventDefault();
+async function createUser() {
+  if (isCreatingUser.value) return;
+  const name = newUser.value.name.trim();
+  const email = newUser.value.email.trim();
+  const password = newUser.value.password;
+  if (!name || !email || password.length < 8) {
+    notify("Nama, email, dan password minimal 8 karakter wajib diisi.");
+    return;
+  }
+  isCreatingUser.value = true;
   try {
     await financeApi.post("/users", {
       ...newUser.value,
+      name,
+      email,
       role_id: Number(internalFinanceRoleId()),
       status: "active",
     });
@@ -1150,6 +1421,107 @@ async function createUser(event: Event) {
     notify("Pengguna baru berhasil dibuat.");
   } catch (error) {
     notify(getApiErrorMessage(error, "Gagal membuat pengguna baru."));
+  } finally {
+    isCreatingUser.value = false;
+  }
+}
+
+function openUserPasswordReset(user: any) {
+  passwordReset.value = {
+    open: true,
+    user,
+    password: "",
+    confirm: "",
+  };
+}
+
+function closeUserPasswordReset() {
+  if (isResettingUserPassword.value) return;
+  passwordReset.value = {
+    open: false,
+    user: null,
+    password: "",
+    confirm: "",
+  };
+}
+
+async function resetUserPassword() {
+  if (isResettingUserPassword.value) return;
+  const target = passwordReset.value.user;
+  const password = passwordReset.value.password;
+  if (!target?.id) {
+    notify("Pengguna tidak valid.");
+    return;
+  }
+  if (password.length < 8) {
+    notify("Password baru minimal 8 karakter.");
+    return;
+  }
+  if (password !== passwordReset.value.confirm) {
+    notify("Konfirmasi password belum sama.");
+    return;
+  }
+  isResettingUserPassword.value = true;
+  try {
+    await financeApi.patch(`/users/${target.id}/password`, { password });
+    notify(`Password ${target.name || target.email} berhasil direset.`);
+    passwordReset.value = {
+      open: false,
+      user: null,
+      password: "",
+      confirm: "",
+    };
+    await loadSecurityData();
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal reset password pengguna."));
+  } finally {
+    isResettingUserPassword.value = false;
+  }
+}
+
+function isCurrentUser(user: any) {
+  return sameEmail(user?.email, userEmail);
+}
+
+function openUserDelete(user: any) {
+  if (isCurrentUser(user)) {
+    notify("Akun yang sedang digunakan tidak bisa dihapus.");
+    return;
+  }
+  userDelete.value = {
+    open: true,
+    user,
+  };
+}
+
+function closeUserDelete() {
+  if (isDeletingUser.value) return;
+  userDelete.value = {
+    open: false,
+    user: null,
+  };
+}
+
+async function deleteUser() {
+  if (isDeletingUser.value) return;
+  const target = userDelete.value.user;
+  if (!target?.id) {
+    notify("Pengguna tidak valid.");
+    return;
+  }
+  isDeletingUser.value = true;
+  try {
+    await financeApi.delete(`/users/${target.id}`);
+    notify(`Akun ${target.name || target.email} berhasil dihapus.`);
+    userDelete.value = {
+      open: false,
+      user: null,
+    };
+    await loadSecurityData();
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal menghapus pengguna."));
+  } finally {
+    isDeletingUser.value = false;
   }
 }
 

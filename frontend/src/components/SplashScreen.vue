@@ -1,6 +1,6 @@
 <template>
   <div
-    class="finstart-splash fixed inset-0 z-[100] flex items-center justify-center overflow-hidden px-6 text-white"
+    class="finstart-splash fixed inset-0 z-[100] flex items-center justify-center overflow-hidden text-white"
   >
     <div
       class="fs-stage relative z-10 flex w-full max-w-4xl flex-col items-center text-center"
@@ -14,8 +14,8 @@
           :key="item.label"
           class="fs-menu-orbit"
           :style="{
-            '--fs-x': item.x,
-            '--fs-y': item.y,
+            left: `calc(50% + ${(item.x / 780) * 100}%)`,
+            top: `calc(50% + ${(item.y / 610) * 100}%)`,
             '--fs-delay': item.delay,
           }"
           :title="item.label"
@@ -25,7 +25,7 @@
         </span>
 
         <div
-          class="fs-logo-shell flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-white p-3 shadow-[0_28px_78px_rgba(0,0,0,.28)] sm:h-44 sm:w-44"
+          class="fs-logo-shell flex items-center justify-center overflow-hidden rounded-full bg-white shadow-[0_28px_78px_rgba(0,0,0,.28)]"
         >
           <img
             :src="FinStartSplashLogo"
@@ -35,8 +35,8 @@
         </div>
       </div>
 
-      <div class="fs-word-wrap mt-2 overflow-hidden">
-        <p class="fs-word text-[2.55rem] font-black sm:text-[3.25rem]">
+      <div class="fs-word-wrap overflow-hidden">
+        <p class="fs-word font-black">
           FINSTART
         </p>
       </div>
@@ -54,9 +54,7 @@
         </p>
       </div>
 
-      <div
-        class="fs-loader-wrap mt-6 w-72 overflow-hidden rounded-full border border-white/18 bg-white/12 p-[4px] shadow-[0_18px_44px_rgba(0,0,0,.22)] backdrop-blur-xl sm:w-80"
-      >
+      <div class="fs-loader-wrap overflow-hidden rounded-full border border-white/18 bg-white/12 p-[4px] shadow-[0_18px_44px_rgba(0,0,0,.22)] backdrop-blur-xl">
         <span
           class="fs-loader relative block h-2 overflow-hidden rounded-full bg-gradient-to-r from-[#ffffff] via-[#2BA7FF] to-[#16A085]"
         />
@@ -87,55 +85,55 @@ import FinStartSplashLogo from "../assets/finstart-splash-logo.png";
 const emit = defineEmits(["complete"]);
 
 const menuIconItems = [
-  { label: "Proyeksi", icon: TrendingUp, x: "0px", y: "-230px", delay: "1.23s" },
-  { label: "Langganan", icon: Cloud, x: "126px", y: "-196px", delay: "1.32s" },
-  { label: "SDM", icon: Users, x: "224px", y: "-126px", delay: "1.41s" },
-  { label: "Aset", icon: Box, x: "270px", y: "-25px", delay: "1.5s" },
+  { label: "Proyeksi", icon: TrendingUp, x: 0, y: -230, delay: "1.23s" },
+  { label: "Langganan", icon: Cloud, x: 126, y: -196, delay: "1.32s" },
+  { label: "SDM", icon: Users, x: 224, y: -126, delay: "1.41s" },
+  { label: "Aset", icon: Box, x: 270, y: -25, delay: "1.5s" },
   {
     label: "Pengaturan",
     icon: Settings,
-    x: "238px",
-    y: "101px",
+    x: 238,
+    y: 101,
     delay: "1.59s",
   },
   {
     label: "Buku Besar",
     icon: BookOpen,
-    x: "151px",
-    y: "184px",
+    x: 151,
+    y: 184,
     delay: "1.68s",
   },
-  { label: "Laporan", icon: FileText, x: "32px", y: "218px", delay: "1.77s" },
+  { label: "Laporan", icon: FileText, x: 32, y: 218, delay: "1.77s" },
   {
     label: "Transaksi",
     icon: ArrowLeftRight,
-    x: "-96px",
-    y: "205px",
+    x: -96,
+    y: 205,
     delay: "1.86s",
   },
   {
     label: "Piutang",
     icon: ArrowDownLeft,
-    x: "-203px",
-    y: "146px",
+    x: -203,
+    y: 146,
     delay: "1.95s",
   },
   {
     label: "Utang",
     icon: ArrowUpRight,
-    x: "-263px",
-    y: "51px",
+    x: -263,
+    y: 51,
     delay: "2.04s",
   },
-  { label: "Pajak", icon: Percent, x: "-263px", y: "-51px", delay: "2.13s" },
+  { label: "Pajak", icon: Percent, x: -263, y: -51, delay: "2.13s" },
   {
     label: "Dashboard",
     icon: LayoutDashboard,
-    x: "-203px",
-    y: "-146px",
+    x: -203,
+    y: -146,
     delay: "2.22s",
   },
-  { label: "CRM", icon: Briefcase, x: "-96px", y: "-205px", delay: "2.31s" },
+  { label: "CRM", icon: Briefcase, x: -96, y: -205, delay: "2.31s" },
 ];
 
 let completeTimer;
@@ -151,6 +149,13 @@ onUnmounted(() => {
 
 <style scoped>
 .finstart-splash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   background:
     radial-gradient(
       circle at 50% 42%,
@@ -201,14 +206,16 @@ onUnmounted(() => {
 }
 
 .fs-stage {
+  --fs-size: min(620px, calc(100vw - 56px), calc((100dvh - 230px) * 1.1));
   animation: fsStageIn 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
-  transform: translateY(36px);
 }
 
 .fs-logo-cluster {
   position: relative;
-  width: min(780px, 94vw);
-  height: min(610px, 68vh);
+  width: var(--fs-size);
+  height: calc(var(--fs-size) * 0.782);
+  max-width: 100%;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,6 +225,9 @@ onUnmounted(() => {
   position: relative;
   z-index: 3;
   isolation: isolate;
+  width: clamp(88px, calc(var(--fs-size) * 0.225), 176px);
+  height: clamp(88px, calc(var(--fs-size) * 0.225), 176px);
+  padding: clamp(7px, calc(var(--fs-size) * 0.015), 12px);
   animation:
     fsLogoFirst 0.78s cubic-bezier(0.16, 1, 0.3, 1) both,
     fsLogoShake 0.62s cubic-bezier(0.2, 0.9, 0.18, 1) 1s both,
@@ -253,16 +263,14 @@ onUnmounted(() => {
 
 .fs-menu-orbit {
   position: absolute;
-  left: 50%;
-  top: 50%;
   z-index: 2;
   display: flex;
-  width: 54px;
-  height: 54px;
+  width: clamp(34px, calc(var(--fs-size) * 0.069), 54px);
+  height: clamp(34px, calc(var(--fs-size) * 0.069), 54px);
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(199, 226, 255, 0.96);
-  border-radius: 18px;
+  border-radius: clamp(12px, calc(var(--fs-size) * 0.023), 18px);
   background: rgba(255, 255, 255, 0.96);
   color: #1e5aa8;
   box-shadow:
@@ -276,18 +284,20 @@ onUnmounted(() => {
 }
 
 .fs-menu-orbit svg {
-  width: 22px;
-  height: 22px;
+  width: clamp(15px, calc(var(--fs-size) * 0.028), 22px);
+  height: clamp(15px, calc(var(--fs-size) * 0.028), 22px);
   stroke-width: 2.2;
 }
 
 .fs-word-wrap {
+  margin-top: clamp(2px, 1vh, 8px);
   opacity: 0;
   transform: translateY(16px);
   animation: fsTextRise 0.83s cubic-bezier(0.16, 1, 0.3, 1) 2.58s both;
 }
 
 .fs-word {
+  font-size: clamp(1.8rem, calc(var(--fs-size) * 0.067), 3.25rem);
   letter-spacing: 0.23em;
   color: #ffffff;
   text-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
@@ -299,7 +309,14 @@ onUnmounted(() => {
   animation: fsTextRise 0.72s cubic-bezier(0.16, 1, 0.3, 1) 2.85s both;
 }
 
+.fs-company p {
+  max-width: calc(100vw - 32px);
+  overflow-wrap: anywhere;
+}
+
 .fs-loader-wrap {
+  width: min(320px, calc(100vw - 48px));
+  margin-top: clamp(12px, 2.5vh, 24px);
   opacity: 0;
   transform: translateY(10px);
   animation: fsTextRise 0.63s cubic-bezier(0.16, 1, 0.3, 1) 3.06s both;
@@ -331,7 +348,7 @@ onUnmounted(() => {
   }
   to {
     opacity: 1;
-    transform: translateY(36px) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -468,14 +485,12 @@ onUnmounted(() => {
   }
   72% {
     opacity: 1;
-    transform: translate(-50%, -50%) translate(var(--fs-x), var(--fs-y))
-      scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1);
     filter: blur(0);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, -50%) translate(var(--fs-x), var(--fs-y))
-      scale(1);
+    transform: translate(-50%, -50%) scale(1);
     filter: blur(0);
   }
 }
@@ -515,22 +530,17 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 640px) {
-  .fs-logo-cluster {
-    width: 360px;
-    height: 440px;
+@media (max-height: 540px) {
+  .fs-stage {
+    --fs-size: min(440px, calc(100vw - 56px), calc((100dvh - 124px) * 1.1));
   }
 
-  .fs-menu-orbit {
-    width: 42px;
-    height: 42px;
-    border-radius: 15px;
-    transform: translate(-50%, -50%) translate(0, 0) scale(0.34);
+  .fs-company {
+    display: none;
   }
 
-  .fs-menu-orbit svg {
-    width: 18px;
-    height: 18px;
+  .fs-loader-wrap {
+    margin-top: 8px;
   }
 }
 

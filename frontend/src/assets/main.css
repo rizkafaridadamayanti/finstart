@@ -1,7 +1,7 @@
 @import './finstart-ui.css';
 
 :root {
-  --finstart-overlay-z: 10000;
+  --finstart-overlay-z: 120000;
 }
 
 #app .fixed.inset-0 {
@@ -21,6 +21,9 @@
 }
 
 .dashboard-topbar-enter {
+  position: relative;
+  z-index: 2000;
+  overflow: visible;
   animation: dashboard-topbar-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -190,6 +193,7 @@
 
 #app .app-main {
   margin-left: 0;
+  z-index: 0;
   width: 100%;
   transition: margin-left 260ms ease, width 260ms ease;
 }
@@ -203,6 +207,8 @@
 
 body:has(.confirm-overlay) #btn-sidebar-drawer,
 body:has(.modal-layer) #btn-sidebar-drawer,
+body:has(.settings-modal-layer) #btn-sidebar-drawer,
+body:has(.employee-confirm-layer) #btn-sidebar-drawer,
 body:has(.tax-manual-modal-layer) #btn-sidebar-drawer,
 body:has(.master-data-modal-layer) #btn-sidebar-drawer,
 body:has(.journal-modal-layer) #btn-sidebar-drawer,
@@ -211,6 +217,8 @@ body:has(.payable-modal-layer) #btn-sidebar-drawer,
 body:has(.target-modal-layer) #btn-sidebar-drawer,
 body:has(.confirm-overlay) #btn-sidebar-mobile-drawer,
 body:has(.modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.settings-modal-layer) #btn-sidebar-mobile-drawer,
+body:has(.employee-confirm-layer) #btn-sidebar-mobile-drawer,
 body:has(.tax-manual-modal-layer) #btn-sidebar-mobile-drawer,
 body:has(.master-data-modal-layer) #btn-sidebar-mobile-drawer,
 body:has(.journal-modal-layer) #btn-sidebar-mobile-drawer,
@@ -221,8 +229,9 @@ body:has(.target-modal-layer) #btn-sidebar-mobile-drawer {
 }
 
 /* Modal lives inside the shifted desktop content area; extend it back over the
-   complete viewport and keep the existing sidebar layout underneath it. */
-body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) #desktop-sidebar {
+   complete viewport and keep the existing sidebar/topbar layout underneath it. */
+body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .settings-modal-layer, .employee-confirm-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) #desktop-sidebar,
+body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .settings-modal-layer, .employee-confirm-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) .dashboard-topbar-enter {
   z-index: 0 !important;
 }
 
@@ -232,6 +241,7 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
       .tax-manual-modal-layer,
       .master-data-modal-layer,
       .sdm-form-modal-layer,
+      .employee-confirm-layer,
       .asset-modal-layer,
       .account-modal-layer,
       .journal-modal-layer,
@@ -255,6 +265,19 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
 
 .app-shell .currency-input > input {
   padding-left: 2.75rem !important;
+}
+
+/* Hide Chrome's native date icon so it does not stack with our UI icon. */
+.app-shell input[type="date"] {
+  color-scheme: light;
+}
+
+.app-shell input[type="date"]::-webkit-calendar-picker-indicator {
+  width: 36px;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
 }
 
 .master-data-table {
@@ -681,6 +704,7 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
 .app-shell :where(.fixed.inset-0),
 :where(
     .crm-modal-layer,
+    .settings-modal-layer,
     .tax-manual-modal-layer,
     .master-data-modal-layer,
     .sdm-form-modal-layer,
@@ -707,6 +731,7 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
 
 :where(
     .crm-modal-layer,
+    .settings-modal-layer,
     .tax-manual-modal-layer,
     .master-data-modal-layer,
     .sdm-form-modal-layer,
@@ -731,6 +756,7 @@ body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .s
 
 :where(
     .crm-modal-layer,
+    .settings-modal-layer,
     .tax-manual-modal-layer,
     .master-data-modal-layer,
     .sdm-form-modal-layer,

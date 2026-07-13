@@ -754,12 +754,10 @@
                   type="date"
                   :value="newBill.tanggalMasuk"
                   :class="[
-                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
+                    'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
                     { 'form-control-invalid': billFormErrors.tanggalMasuk },
                   ]"
                   @change="setBillField('tanggalMasuk', eventValue($event))"
-                /><Calendar
-                  class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
               <p v-if="billFormErrors.tanggalMasuk" class="form-field-warning">
@@ -778,12 +776,10 @@
                   required
                   :value="newBill.jatuhTempo"
                   :class="[
-                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
+                    'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
                     { 'form-control-invalid': billFormErrors.jatuhTempo },
                   ]"
                   @change="setBillField('jatuhTempo', eventValue($event))"
-                /><Calendar
-                  class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
               <p v-if="billFormErrors.jatuhTempo" class="form-field-warning">
@@ -992,12 +988,10 @@
                   type="date"
                   :value="paymentForm.tanggalBayar"
                   :class="[
-                    'w-full h-12 px-5 pr-11 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
+                    'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
                     { 'form-control-invalid': paymentFormErrors.tanggalBayar },
                   ]"
                   @change="setPaymentField('tanggalBayar', eventValue($event))"
-                /><Calendar
-                  class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                 />
               </div>
               <p v-if="paymentFormErrors.tanggalBayar" class="form-field-warning">
@@ -1097,7 +1091,6 @@ import {
   Trash2,
   Pencil,
   Send,
-  Calendar,
   FilePlus,
   X,
   Save,
@@ -1196,11 +1189,10 @@ const isPayBillModalOpen = ref(false),
 const editingInvoice = ref<any>(null);
 const editingBill = ref<any>(null);
 const cancelConfirm = ref<any>(null); // New Invoice form input
-const statusFilter = ref("open");
+const statusFilter = ref("all");
 const invoicePage = ref(1);
 const billPage = ref(1);
 const statusOptions = [
-  { value: "open", label: "Outstanding" },
   { value: "overdue", label: "Overdue" },
   { value: "paid", label: "Paid / Lunas" },
   { value: "draft", label: "Draft" },

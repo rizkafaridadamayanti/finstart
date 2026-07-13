@@ -112,4 +112,27 @@ router.patch('/:id/password', async (req, res) => {
   }
 })
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const existing = await getUser(req.params.id)
+    if (!existing) return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' })
+    if (Number(existing.id) === Number(req.user.id)) {
+      return res.status(422).json({ success: false, message: 'Anda tidak dapat menghapus akun yang sedang digunakan.' })
+    }
+
+    const [activeRows] = await db.query(
+      'SELECT COUNT(*) AS total FROM users WHERE status = ? AND id <> ?',
+      ['active', req.params.id],
+    )
+    if (existing.status === 'active' && Number(activeRows[0]?.total || 0) < 1) {
+      return res.status(422).json({ success: false, message: 'Minimal harus ada satu akun aktif untuk login.' })
+    }
+
+    await db.query('DELETE FROM users WHERE id = ?', [req.params.id])
+    res.json({ success: true, message: 'Pengguna dihapus.' })
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Gagal menghapus pengguna.'})
+  }
+})
+
 module.exports = router

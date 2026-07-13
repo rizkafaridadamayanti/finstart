@@ -28,6 +28,7 @@ const VALID_TABS = [
   "utang",
   "langganan",
   "aset",
+  "master-klien",
   "sdm",
   "perpajakan",
   "proyeksi",
@@ -99,6 +100,14 @@ function getSavedActiveTab() {
   return VALID_TABS.includes(saved) ? saved : "dashboard";
 }
 
+function normalizeAllowedTabs(tabs: string[]) {
+  const allowed = tabs.filter((tab: string) => VALID_TABS.includes(tab));
+  if (allowed.includes("crm") && !allowed.includes("master-klien")) {
+    allowed.push("master-klien");
+  }
+  return allowed;
+}
+
 function clearSavedSession() {
   if (typeof window === "undefined") return;
   clearAuthSession();
@@ -123,7 +132,7 @@ export function useFinStartApp() {
   const allowedTabs = ref<string[]>(
     Array.isArray(getStoredAuthUser()?.allowed_tabs) &&
       getStoredAuthUser()?.allowed_tabs?.length
-      ? getStoredAuthUser()?.allowed_tabs
+      ? normalizeAllowedTabs(getStoredAuthUser()?.allowed_tabs)
       : VALID_TABS,
   );
   const applyAuthenticatedUser = (user: any = {}) => {
@@ -131,7 +140,7 @@ export function useFinStartApp() {
     userRole.value = String(user?.role_name || userRole.value || "auditor");
     const nextAllowedTabs =
       Array.isArray(user?.allowed_tabs) && user.allowed_tabs.length
-        ? user.allowed_tabs.filter((tab: string) => VALID_TABS.includes(tab))
+        ? normalizeAllowedTabs(user.allowed_tabs)
         : VALID_TABS;
     allowedTabs.value = nextAllowedTabs.length
       ? nextAllowedTabs

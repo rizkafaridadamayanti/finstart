@@ -234,6 +234,7 @@ import {
   BookOpen,
   ArrowLeftRight,
   Cloud,
+  Building2,
   ArrowDownLeft,
   ArrowUpRight,
   TrendingUp,
@@ -266,6 +267,7 @@ const menuGroups = [
     title: "OPERASIONAL",
     items: [
       { id: "crm", label: "CRM & Proyek", icon: Briefcase },
+      { id: "master-klien", label: "Klien Partner", icon: Building2 },
       { id: "langganan", label: "Langganan", icon: Cloud },
       { id: "sdm", label: "SDM & Payroll", icon: Users },
       { id: "aset", label: "Aset Tetap", icon: Box },
