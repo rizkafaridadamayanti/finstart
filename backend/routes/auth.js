@@ -160,6 +160,7 @@ router.post('/login', async (req, res) => {
     )
 
     await db.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id])
+    const security = await getSecuritySettings(user.id)
     await safeAudit(db, {
       userId: user.id,
       activity: 'Login berhasil',
