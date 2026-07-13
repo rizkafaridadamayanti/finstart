@@ -27,4 +27,4 @@ cd ../frontend
 npm run build
 ```
 
-Tes backend memeriksa hash password, MFA TOTP, jurnal seimbang, pembayaran parsial, PPN/PPh 23, PPh 21, dan RBAC. Uji manual tetap diperlukan untuk memeriksa integrasi API, database, tampilan, serta alur role pada browser.
+Tes backend memeriksa hash password, jurnal seimbang, pembayaran parsial, PPN/PPh 23, PPh 21, dan RBAC. Uji manual tetap diperlukan untuk memeriksa integrasi API, database, tampilan, serta alur role pada browser.

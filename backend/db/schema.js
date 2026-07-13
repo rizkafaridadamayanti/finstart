@@ -625,12 +625,6 @@ const userSecuritySettings = mysqlTable("user_security_settings", {
   userId: bigint("user_id", { mode: "number", unsigned: true }).primaryKey().notNull(),
   loginAlerts: tinyint("login_alerts").notNull().default(1),
   sessionAlerts: tinyint("session_alerts").notNull().default(1),
-  mfaStatus: mysqlEnum("mfa_status", ["not_configured", "pending", "enabled"]).notNull().default("not_configured"),
-  mfaSecret: varchar("mfa_secret", { length: 128 }),
-  mfaPendingSecret: varchar("mfa_pending_secret", { length: 128 }),
-  mfaSetupCode: varchar("mfa_setup_code", { length: 16 }),
-  mfaTimeOffsetSteps: int("mfa_time_offset_steps"),
-  mfaLastCounter: bigint("mfa_last_counter", { mode: "number" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 }, (table) => [

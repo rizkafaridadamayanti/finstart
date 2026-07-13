@@ -17,7 +17,7 @@ Authorization: Bearer <token-sesi>
 
 | Method | Endpoint | Keterangan |
 |---|---|---|
-| POST | `/auth/login` | Login email/password; menerima `mfa_code` enam digit jika MFA TOTP pengguna sudah aktif; menghasilkan token sesi server |
+| POST | `/auth/login` | Login email/password dan menghasilkan token sesi server |
 | GET | `/auth/me` | Profil, role, dan tab yang diizinkan |
 | POST | `/auth/logout` | Mencabut sesi aktif saat ini |
 | GET | `/auth/sessions` | Daftar sesi pengguna saat ini |
@@ -25,10 +25,7 @@ Authorization: Bearer <token-sesi>
 | POST | `/auth/password/change` | Ganti password pengguna login |
 | POST | `/auth/password/request-reset` | Membuat token reset (untuk alur internal/development) |
 | POST | `/auth/password/reset` | Menggunakan token reset untuk menetapkan password baru |
-| GET/PUT | `/auth/security-settings` | Preferensi alert keamanan dan status MFA |
-| POST | `/auth/mfa/setup` | Membuat secret setup TOTP untuk pengguna login |
-| POST | `/auth/mfa/confirm` | Mengaktifkan MFA setelah kode authenticator valid |
-| POST | `/auth/mfa/disable` | Menonaktifkan MFA dengan password dan kode TOTP valid |
+| GET/PUT | `/auth/security-settings` | Preferensi alert keamanan |
 
 ## Role, pengguna, audit
 

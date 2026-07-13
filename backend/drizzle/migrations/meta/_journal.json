@@ -267,6 +267,13 @@
       "when": 1783674000037,
       "tag": "0101_add_mfa_setup_code",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783933200000,
+      "tag": "0102_remove_mfa",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,5 @@
 const assert = require('node:assert/strict')
 const { hashPassword, verifyPassword } = require('../utils/password')
-const { generateSecret, generateCode, verifyCode } = require('../utils/totp')
 const { hasPermission, getAllowedTabs } = require('../middleware/authorization')
 const journalsRouter = require('../routes/journals')
 const invoicesRouter = require('../routes/invoices')
@@ -24,15 +23,6 @@ test('password disimpan dalam hash dan hanya password benar yang lolos', () => {
   assert.notEqual(hash, 'PasswordAman123!')
   assert.equal(verifyPassword('PasswordAman123!', hash), true)
   assert.equal(verifyPassword('password-salah', hash), false)
-})
-
-test('kode MFA TOTP enam digit dibuat dan diverifikasi untuk secret pengguna', () => {
-  const secret = generateSecret()
-  const code = generateCode(secret, Date.now())
-  assert.match(secret, /^[A-Z2-7]+$/)
-  assert.match(code, /^\d{6}$/)
-  assert.equal(verifyCode(secret, code), true)
-  assert.equal(verifyCode(secret, '000000'), false)
 })
 
 test('jurnal seimbang dapat divalidasi', () => {

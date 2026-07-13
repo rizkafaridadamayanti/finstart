@@ -122,13 +122,12 @@ async function request(path, options = {}) {
 
 export const financeApi = {
   health: () => request("/health"),
-  login: (email, password, mfaCode = "", rememberDevice = false) =>
+  login: (email, password, rememberDevice = false) =>
     request("/auth/login", {
       method: "POST",
       body: {
         email,
         password,
-        mfa_code: mfaCode,
         remember_device: Boolean(rememberDevice),
       },
     }),

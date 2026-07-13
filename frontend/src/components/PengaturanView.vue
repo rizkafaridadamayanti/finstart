@@ -202,27 +202,6 @@
           <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-5">
             <span
               class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#1E5AA8] shadow-sm"
-              ><BadgeCheck class="h-4 w-4"
-            /></span>
-            <p class="mt-4 text-lg font-semibold text-[#0B1F4A]">
-              <template v-if="securitySettings.mfa_status === 'enabled'"
-                >Aktif</template
-              ><template v-else
-                ><template v-if="securitySettings.mfa_status === 'pending'"
-                  >Menunggu konfirmasi</template
-                ><template v-else>Belum aktif</template></template
-              >
-            </p>
-            <p class="mt-1 text-sm font-medium text-[#53658A]">
-              Autentikasi dua langkah
-            </p>
-            <p class="mt-1 text-xs leading-5 text-[#8A98AB]">
-              MFA TOTP dapat diaktifkan dari Kontrol Keamanan di bawah.
-            </p>
-          </div>
-          <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-5">
-            <span
-              class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#1E5AA8] shadow-sm"
               ><Clock3 class="h-4 w-4"
             /></span>
             <p class="mt-4 text-2xl font-semibold text-[#0B1F4A]">
@@ -389,40 +368,6 @@
             </p>
           </div>
           <div class="divide-y divide-[#EDF2F7] px-6">
-            <div class="flex items-center justify-between gap-4 py-5">
-              <div class="flex gap-3">
-                <span
-                  class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEF5FC] text-[#1E5AA8]"
-                  ><KeyRound class="h-4 w-4"
-                /></span>
-                <div>
-                  <p class="text-sm font-medium text-[#182338]">
-                    Autentikasi dua langkah
-                  </p>
-                  <p class="mt-1 text-xs leading-5 text-[#6B7A90]">
-                    Gunakan aplikasi authenticator berbasis TOTP untuk
-                    melindungi login akun Anda.
-                  </p>
-                </div>
-              </div>
-              <button
-                v-if="securitySettings.mfa_status === 'enabled'"
-                type="button"
-                class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700"
-                @click="mfaDisable = { open: true, code: '', password: '' }"
-              >
-                Nonaktifkan</button
-              ><button
-                v-else
-                type="button"
-                class="rounded-xl bg-[#0B1F4A] px-3 py-2 text-[10px] font-semibold text-white"
-                @click="beginMfaSetup"
-              >
-                <template v-if="securitySettings.mfa_status === 'pending'"
-                  >Atur ulang</template
-                ><template v-else>Aktifkan MFA</template>
-              </button>
-            </div>
             <div class="flex items-center justify-between gap-4 py-5">
               <div class="flex gap-3">
                 <span
@@ -626,192 +571,6 @@
         </section>
       </div>
     </div>
-    <Teleport to="body">
-    <div
-      v-if="mfaSetup.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
-    >
-      <div
-        class="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[24px] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Keamanan Akun
-            </p>
-            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Aktifkan MFA TOTP
-            </h3>
-          </div>
-          <button
-            type="button"
-            class="rounded-xl p-2 text-[#6B7A90]"
-            @click="closeMfaSetup"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form
-          class="max-h-[calc(92vh-90px)] space-y-4 overflow-y-auto p-6"
-          @submit="confirmMfa"
-        >
-          <p class="text-sm leading-6 text-[#53658A]">
-            Scan QR ini memakai Google Authenticator, Microsoft Authenticator,
-            2FAS, atau aplikasi TOTP lain. Setelah akun tersimpan, masukkan kode
-            enam digit yang sedang tampil di aplikasi.
-          </p>
-          <div class="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
-            <div
-              class="flex flex-col items-center rounded-2xl border border-[#D8E5F4] bg-white p-4 text-center shadow-sm"
-            >
-              <p :class="labelClass">Scan QR MFA</p>
-              <img
-                v-if="mfaQrCode"
-                :src="mfaQrCode"
-                alt="QR setup MFA FinStart"
-                class="mt-3 h-[220px] w-[220px] rounded-xl border border-[#E8EEF7] bg-white p-2"
-              />
-              <div
-                v-else
-                class="mt-3 flex h-[220px] w-[220px] items-center justify-center rounded-xl border border-dashed border-[#C9D8E8] bg-[#F8FBFE] px-4 text-xs font-semibold leading-5 text-[#70819B]"
-              >
-                QR belum tersedia. Gunakan secret manual.
-              </div>
-              <p class="mt-3 text-[11px] leading-5 text-[#70819B]">
-                QR dibuat lokal di browser dari secret akun ini.
-              </p>
-            </div>
-            <div class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-4">
-              <p :class="labelClass">Secret Manual</p>
-              <code
-                class="mt-2 block break-all rounded-xl border border-[#D8E5F4] bg-white p-3 text-sm font-bold tracking-[0.12em] text-[#0B1F4A]"
-                >{{ mfaSetup.secret }}</code
-              >
-              <p class="mt-3 text-[11px] leading-5 text-[#70819B]">
-                Kalau tidak bisa scan QR, pilih tambah akun manual di aplikasi
-                authenticator, lalu masukkan secret ini.
-              </p>
-              <p class="mt-3 break-all text-[11px] leading-5 text-[#70819B]">
-                URI impor: {{ mfaSetup.otpauth_url }}
-              </p>
-              <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3">
-                <p
-                  class="text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700"
-                >
-                  Konfirmasi scan
-                </p>
-                <p class="mt-1 text-[11px] leading-5 text-sky-700">
-                  Kode yang dimasukkan di bawah harus berasal dari aplikasi
-                  authenticator setelah QR discan, bukan dari FinStart.
-                </p>
-              </div>
-            </div>
-          </div>
-          <input
-            required
-            inputmode="numeric"
-            maxlength="6"
-            :value="mfaSetup.code"
-            placeholder="Kode 6 digit dari authenticator"
-            :class="inputClass"
-            @change="mfaSetup = {
-                  ...mfaSetup,
-                  code: eventValue($event).replace(/\D/g, '').slice(0, 6),
-                }"
-          />
-          <div class="flex justify-end gap-3">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-              @click="closeMfaSetup"
-            >
-              Batal</button
-            ><button
-              type="submit"
-              class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
-            >
-              Konfirmasi MFA
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    </Teleport>
-    <Teleport to="body">
-    <div
-      v-if="mfaDisable.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
-    >
-      <div
-        class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600"
-            >
-              Keamanan Akun
-            </p>
-            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Nonaktifkan MFA
-            </h3>
-          </div>
-          <button
-            type="button"
-            class="rounded-xl p-2 text-[#6B7A90]"
-            @click="mfaDisable = { open: false, code: '', password: '' }"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form class="space-y-4 p-6" @submit="disableMfa">
-          <p class="text-sm leading-6 text-[#53658A]">
-            Masukkan password dan kode authenticator saat ini untuk
-            menonaktifkan MFA.
-          </p>
-          <input
-            required
-            type="password"
-            :value="mfaDisable.password"
-            placeholder="Password saat ini"
-            :class="inputClass"
-            @change="mfaDisable = { ...mfaDisable, password: eventValue($event) }"
-          /><input
-            required
-            inputmode="numeric"
-            maxlength="6"
-            :value="mfaDisable.code"
-            placeholder="Kode MFA 6 digit"
-            :class="inputClass"
-            @change="mfaDisable = {
-                  ...mfaDisable,
-                  code: eventValue($event).replace(/\D/g, '').slice(0, 6),
-                }"
-          />
-          <div class="flex justify-end gap-3">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-              @click="mfaDisable = { open: false, code: '', password: '' }"
-            >
-              Batal</button
-            ><button
-              type="submit"
-              class="h-10 rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white"
-            >
-              Nonaktifkan
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    </Teleport>
     <Teleport to="body">
     <div
       v-if="isUserModalOpen"
@@ -1050,15 +809,12 @@
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
 import { onMounted, ref } from "vue";
-import QRCode from "qrcode";
 import {
-  BadgeCheck,
   Building2,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
   Clock3,
-  KeyRound,
   LockKeyhole,
   Monitor,
   Plus,
@@ -1124,8 +880,6 @@ const companySettings = ref<any>({});
 const securitySettings = ref<any>({
   login_alerts: true,
   session_alerts: true,
-  mfa_status: "not_configured",
-  mfa_pending: false,
 });
 const roles = ref<any[]>([]);
 const users = ref<any[]>([]);
@@ -1160,15 +914,6 @@ const newUser = ref({
   role_id: "",
   password: "",
 });
-const mfaSetup = ref({
-  open: false,
-  secret: "",
-  otpauth_url: "",
-  setup_code: "",
-  code: "",
-});
-const mfaQrCode = ref("");
-const mfaDisable = ref({ open: false, code: "", password: "" });
 const monthNames = [
   "Januari",
   "Februari",
@@ -1281,76 +1026,6 @@ async function saveSecurity(next: any) {
     notify(getApiErrorMessage(error, "Gagal menyimpan preferensi keamanan."));
   } finally {
     isSavingSecurity.value = false;
-  }
-}
-
-async function beginMfaSetup() {
-  try {
-    const data = await financeApi.post("/auth/mfa/setup", {});
-    const otpauthUrl = data?.otpauth_url || "";
-    mfaSetup.value = {
-      open: true,
-      secret: data?.secret || "",
-      otpauth_url: data?.otpauth_url || "",
-      setup_code: data?.setup_code || "",
-      code: "",
-    };
-    mfaQrCode.value = otpauthUrl
-      ? await QRCode.toDataURL(otpauthUrl, {
-          errorCorrectionLevel: "M",
-          margin: 2,
-          width: 220,
-          color: { dark: "#0B1F4A", light: "#FFFFFF" },
-        })
-      : "";
-    await loadSecurityData();
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal menyiapkan MFA."));
-  }
-}
-
-function closeMfaSetup() {
-  mfaSetup.value = {
-    open: false,
-    secret: "",
-    otpauth_url: "",
-    setup_code: "",
-    code: "",
-  };
-  mfaQrCode.value = "";
-}
-
-async function confirmMfa(event: Event) {
-  event.preventDefault();
-  try {
-    const code = String(mfaSetup.value.code || "")
-      .replace(/\D/g, "")
-      .slice(0, 6);
-    if (code.length !== 6) {
-      notify("Kode MFA harus 6 digit.");
-      return;
-    }
-    await financeApi.post("/auth/mfa/confirm", { code });
-    closeMfaSetup();
-    await loadSecurityData();
-    notify("Autentikasi dua langkah berhasil diaktifkan.");
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Kode MFA tidak valid."));
-  }
-}
-
-async function disableMfa(event: Event) {
-  event.preventDefault();
-  try {
-    await financeApi.post("/auth/mfa/disable", {
-      code: mfaDisable.value.code,
-      password: mfaDisable.value.password,
-    });
-    mfaDisable.value = { open: false, code: "", password: "" };
-    await loadSecurityData();
-    notify("Autentikasi dua langkah dinonaktifkan.");
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Password atau kode MFA tidak valid."));
   }
 }
 
