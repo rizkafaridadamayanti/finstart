@@ -118,7 +118,7 @@ export function useReceivableActions({
           "Aset",
         );
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
-        await financeApi.post(`/invoices/${invoice.id}/payments`, {
+        const result = await financeApi.post(`/invoices/${invoice.id}/payments`, {
           payment_date:
             payment.paymentDate || new Date().toISOString().slice(0, 10),
           payment_method: "transfer",
@@ -131,6 +131,7 @@ export function useReceivableActions({
         });
         await refreshData();
         notify(`Pelunasan invoice ${invoice.nomor} berhasil dibukukan.`);
+        return result;
       },
       "Gagal mencatat pelunasan invoice.",
       notify,
@@ -241,7 +242,7 @@ export function useReceivableActions({
           "Aset",
         );
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
-        await financeApi.post(`/bills/${bill.id}/payments`, {
+        const result = await financeApi.post(`/bills/${bill.id}/payments`, {
           payment_date:
             payment.paymentDate || new Date().toISOString().slice(0, 10),
           payment_method: "transfer",
@@ -254,6 +255,7 @@ export function useReceivableActions({
         });
         await refreshData();
         notify(`Pembayaran tagihan ${bill.vendor} berhasil dibukukan.`);
+        return result;
       },
       "Gagal mencatat pembayaran tagihan vendor.",
       notify,

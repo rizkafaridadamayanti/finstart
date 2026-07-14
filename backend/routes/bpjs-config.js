@@ -4,6 +4,14 @@ const { safePublicMessage } = require('../utils/api-errors')
 
 const router = express.Router()
 const CONFIG_ID = 1
+const OFFICIAL_RATES = Object.freeze({
+  health_company_rate: 4,
+  health_employee_rate: 1,
+  jht_company_rate: 3.7,
+  jht_employee_rate: 2,
+  jp_company_rate: 2,
+  jp_employee_rate: 1,
+})
 
 function numberValue(value) {
   const number = Number(value ?? 0)
@@ -25,8 +33,8 @@ function cleanText(value, maxLength = 5000) {
 
 function normalizeRate(value, label) {
   const rate = numberValue(value)
-  if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-    throw new Error(`${label} harus bernilai antara 0 sampai 100.`)
+  if (!Number.isFinite(rate) || rate < 0 || rate > 20) {
+    throw new Error(`${label} harus berupa persentase iuran antara 0 sampai 20, bukan pembagian porsi.`)
   }
   return Math.round((rate + Number.EPSILON) * 10000) / 10000
 }
@@ -67,17 +75,43 @@ async function getConfig() {
   }
 }
 
+async function saveOfficialRates(notes = 'Tarif BPJS resmi dipulihkan oleh sistem.') {
+  await db.query(
+    `INSERT INTO bpjs_configurations (
+       id, health_company_rate, health_employee_rate,
+       jht_company_rate, jht_employee_rate,
+       jp_company_rate, jp_employee_rate, effective_date, notes
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       health_company_rate = VALUES(health_company_rate),
+       health_employee_rate = VALUES(health_employee_rate),
+       jht_company_rate = VALUES(jht_company_rate),
+       jht_employee_rate = VALUES(jht_employee_rate),
+       jp_company_rate = VALUES(jp_company_rate),
+       jp_employee_rate = VALUES(jp_employee_rate),
+       effective_date = VALUES(effective_date), notes = VALUES(notes),
+       updated_at = CURRENT_TIMESTAMP`,
+    [CONFIG_ID, OFFICIAL_RATES.health_company_rate, OFFICIAL_RATES.health_employee_rate,
+      OFFICIAL_RATES.jht_company_rate, OFFICIAL_RATES.jht_employee_rate,
+      OFFICIAL_RATES.jp_company_rate, OFFICIAL_RATES.jp_employee_rate,
+      today(), notes],
+  )
+}
+
 router.get('/', async (req, res) => {
   try {
     let config = await getConfig()
 
-    if (!config) {
-      await db.query(
-        `
-          INSERT INTO bpjs_configurations (id, effective_date, notes)
-          VALUES (?, ?, ?)
-        `,
-        [CONFIG_ID, today(), 'Isi tarif BPJS sesuai kebijakan perusahaan dan ketentuan yang berlaku.'],
+    const hasInvalidLegacyRate = config && [
+      config.health_company_rate, config.health_employee_rate,
+      config.jht_company_rate, config.jht_employee_rate,
+      config.jp_company_rate, config.jp_employee_rate,
+    ].some((rate) => Number(rate) > 20)
+    if (!config || hasInvalidLegacyRate) {
+      await saveOfficialRates(
+        hasInvalidLegacyRate
+          ? 'Konfigurasi lama yang tidak valid direset ke tarif resmi.'
+          : 'Tarif awal BPJS resmi.',
       )
       config = await getConfig()
     }
@@ -85,6 +119,15 @@ router.get('/', async (req, res) => {
     res.json({ success: true, message: 'Konfigurasi BPJS berhasil diambil.', data: config })
   } catch (error) {
     res.status(500).json({ success: false, message: 'Gagal mengambil konfigurasi BPJS.'})
+  }
+})
+
+router.post('/reset', async (req, res) => {
+  try {
+    await saveOfficialRates('Tarif BPJS direset ke nilai resmi oleh akuntan.')
+    res.json({ success: true, message: 'Tarif BPJS berhasil direset ke nilai resmi.', data: await getConfig() })
+  } catch (error) {
+    res.status(500).json({ success: false, message: safePublicMessage(error, 'Gagal mereset tarif BPJS.') })
   }
 })
 
