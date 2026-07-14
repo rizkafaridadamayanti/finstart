@@ -100,8 +100,6 @@ router.get('/', async (req, res) => {
         ...row,
         position_count: Number(row.position_count || 0),
         employee_count: Number(row.employee_count || 0),
-        usage_count:
-          Number(row.position_count || 0) + Number(row.employee_count || 0),
       })),
     })
   } catch (error) {

@@ -3,7 +3,7 @@
     <!-- Header switches -->
     <div
       v-if="activeTab === 'sdm'"
-      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+      class="workspace-page-header flex flex-col lg:flex-row lg:items-end justify-between gap-5"
     >
       <div>
         <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
@@ -13,38 +13,31 @@
           Integrasi HR Compliance, BPJS, dan Manajemen Dokumen Digital.
         </p>
       </div>
-      <div class="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5 2xl:w-auto">
+      <div class="flex flex-col sm:flex-row gap-3">
         <button
           id="btn-open-bpjs-rates"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-extrabold text-[#1F2A44] shadow-sm transition-all hover:bg-slate-50"
+          class="h-10 px-5 rounded-2xl bg-white border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-extrabold text-sm shadow-sm flex items-center justify-center gap-2 transition-all"
           @click="updateIsBpjsModalOpen(true)"
         >
           <Calculator class="w-4 h-4" /> Atur BPJS</button
         ><button
           id="btn-manage-master-data"
           type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#BFD7F5] bg-[#F4F9FF] px-4 text-xs font-extrabold text-[#0B3A78] shadow-sm transition-all hover:bg-[#EAF4FF]"
+          class="h-10 px-5 rounded-2xl border border-[#BFD7F5] bg-[#F4F9FF] text-[#0B3A78] font-extrabold text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:bg-[#EAF4FF]"
           @click="openMasterData('division')"
         >
           <Building2 class="w-4 h-4" /> Kelola Divisi &amp; Jabatan</button
         ><button
           id="btn-register-employee"
           type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white shadow-lg shadow-[#0B1F4A]/20 transition-all hover:bg-[#102A56]"
+          class="h-10 px-5 rounded-2xl bg-[#0B1F4A] hover:bg-[#102A56] text-white font-extrabold text-sm shadow-lg shadow-[#0B1F4A]/20 flex items-center justify-center gap-2 transition-all"
           @click="openEmployeeForm()"
         >
           <Plus class="w-4 h-4" /> Tambah Pegawai</button
         ><button
-          id="btn-open-payroll-history"
-          type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#BFD7F5] bg-[#F4F9FF] px-4 text-xs font-extrabold text-[#0B3A78] shadow-sm transition-all hover:bg-[#EAF4FF]"
-          @click="isPayrollHistoryOpen = true"
-        >
-          <History class="w-4 h-4" /> Riwayat Penggajian</button
-        ><button
           id="btn-open-payroll"
           type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#10182C] px-4 text-xs font-extrabold text-white shadow-lg shadow-[#10182C]/20 transition-all hover:bg-[#0B1120]"
+          class="h-10 px-5 rounded-2xl bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold text-sm shadow-lg shadow-[#10182C]/20 flex items-center justify-center gap-2 transition-all"
           @click="openPayrollModal"
         >
           <DollarSign class="w-4 h-4" /> Proses Payroll
@@ -245,45 +238,14 @@
           @page-change="employeePage = safePage($event, filteredEmployees.length)"
         />
       </div>
-      <Teleport to="body">
-      <div
-        v-if="isPayrollHistoryOpen"
-        class="sdm-form-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-hidden bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-      <div
-        class="flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl"
-        :style="{
-          width: 'min(1180px, calc(100vw - 32px))',
-          height: 'min(820px, calc(100dvh - 32px))',
-          maxHeight: 'calc(100dvh - 32px)',
-        }"
-      >
-        <div class="shrink-0 border-b border-slate-100 px-6 py-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-extrabold text-[#102A56]">Riwayat Penggajian</h2>
-              <p class="mt-1 text-[11px] text-[#6B7A90]">Payroll yang sudah diproses dan diposting ke jurnal.</p>
-            </div>
-            <button type="button" aria-label="Tutup riwayat penggajian" class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] hover:bg-slate-50 hover:text-slate-600" @click="isPayrollHistoryOpen = false">
-              <X class="h-5 w-5" />
-            </button>
-          </div>
+      <div class="overflow-hidden rounded-[32px] border border-slate-100 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-6 py-5">
+          <h2 class="text-base font-extrabold text-[#102A56]">Riwayat Penggajian</h2>
+          <p class="mt-1 text-[11px] text-[#6B7A90]">Payroll yang sudah diproses dan diposting ke jurnal.</p>
         </div>
-        <div
-          class="payroll-history-scroll min-h-0 flex-1"
-          tabindex="0"
-          :style="{
-            flex: '1 1 0%',
-            minHeight: 0,
-            overflowX: 'auto',
-            overflowY: 'scroll',
-            overscrollBehavior: 'contain',
-            touchAction: 'pan-x pan-y',
-            scrollbarGutter: 'stable',
-          }"
-        >
-          <table class="w-full min-w-[900px] text-left">
-            <thead class="sticky top-0 z-10 bg-[#EEF5FC] shadow-[0_1px_0_#D8E5F4]">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
               <tr>
                 <th class="px-6 py-4">Periode</th>
                 <th class="px-6 py-4">Pegawai</th>
@@ -293,7 +255,7 @@
                 <th class="px-6 py-4 text-center">Status</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody>
               <tr v-for="record in payrollHistory" :key="record.id">
                 <td class="px-6 py-4 font-semibold text-[#102A56]">{{ formatPeriodLabel(record.payroll_period) }}</td>
                 <td class="px-6 py-4"><span class="block font-semibold text-[#182338]">{{ record.employee_name }}</span><span class="text-[10px] text-slate-400">{{ record.employee_code || '—' }}</span></td>
@@ -306,13 +268,7 @@
             </tbody>
           </table>
         </div>
-        <div class="flex shrink-0 items-center justify-between border-t border-slate-100 px-6 py-4">
-          <p class="text-[11px] font-medium text-[#6B7A90]">{{ payrollHistory.length }} riwayat payroll</p>
-          <button type="button" class="h-10 rounded-xl bg-[#0B1F4A] px-5 text-xs font-semibold text-white hover:bg-[#102A56]" @click="isPayrollHistoryOpen = false">Tutup</button>
-        </div>
       </div>
-      </div>
-      </Teleport>
       <Teleport v-if="isMasterDataModalOpen" to="body"
         ><div
           class="master-data-modal-layer bg-[#0B1220]/60 backdrop-blur-sm"
@@ -511,7 +467,7 @@
                             <td
                               class="px-4 py-3 text-center font-bold text-[#53658A]"
                             >
-                              {{ masterUsageCount(item) }}
+                              {{ Number(item.employee_count || 0) }}
                             </td>
                             <td class="px-4 py-3">
                               <div class="flex justify-end gap-1.5">
@@ -3135,7 +3091,6 @@ import {
   Building2,
   BriefcaseBusiness,
   Power,
-  History,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Pegawai, AkunBukuBesar } from "../types.ts";
@@ -3281,7 +3236,6 @@ const masterDataForm = ref({
 });
 const isPayrollModalOpen = ref(false),
   updateIsPayrollModalOpen = (next) => (isPayrollModalOpen.value = next);
-const isPayrollHistoryOpen = ref(false);
 const isTaxPayModalOpen = ref(false),
   updateIsTaxPayModalOpen = (next) => (isTaxPayModalOpen.value = next);
 const isTaxManualModalOpen = ref(false),
@@ -3294,7 +3248,6 @@ const isAnySdmModalOpen = computed(
     isEmployeeModalOpen.value ||
     isMasterDataModalOpen.value ||
     isPayrollModalOpen.value ||
-    isPayrollHistoryOpen.value ||
     isTaxPayModalOpen.value ||
     isTaxManualModalOpen.value ||
     Boolean(payslipPreview.value),
@@ -4326,25 +4279,6 @@ function masterRows() {
 
 function pagedMasterRows() {
   return pageRows(masterRows(), masterPage.value);
-}
-
-function masterUsageCount(item: any) {
-  if (masterDataTab.value === "position") {
-    return Number(item?.employee_count || 0);
-  }
-
-  const linkedPositions = positions.value.filter(
-    (position: any) => String(position?.division_id || "") === String(item?.id || ""),
-  ).length;
-  const positionCount = Math.max(
-    Number(item?.position_count || 0),
-    linkedPositions,
-  );
-  const employeeCount = Number(item?.employee_count || 0);
-
-  return Number.isFinite(Number(item?.usage_count))
-    ? Math.max(Number(item.usage_count), positionCount + employeeCount)
-    : positionCount + employeeCount;
 }
 
 function editMasterData(
@@ -5798,25 +5732,5 @@ const assetAccounts = computed(() =>
   .tax-manual-form {
     padding-inline: 14px !important;
   }
-}
-
-.payroll-history-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #9fb3cc #eef5fc;
-}
-
-.payroll-history-scroll::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-.payroll-history-scroll::-webkit-scrollbar-track {
-  background: #eef5fc;
-}
-
-.payroll-history-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid #eef5fc;
-  border-radius: 999px;
-  background: #9fb3cc;
 }
 </style>
