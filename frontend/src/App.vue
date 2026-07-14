@@ -1,5 +1,8 @@
 <template>
+  <MaintenanceView v-if="maintenanceMode" />
+
   <div
+    v-else
     class="min-h-screen bg-[#F7F9FC] text-slate-800 antialiased selection:bg-blue-600 selection:text-white overflow-x-hidden relative"
   >
     <Transition name="screen" mode="out-in">
@@ -80,6 +83,54 @@
           <main
             class="app-main dashboard-content-enter flex-1 w-full overflow-y-auto px-5 py-7 md:px-10 md:py-10 xl:px-12 xl:py-12"
           >
+            <section
+              class="mx-auto mb-5 w-full max-w-7xl rounded-[24px] border border-[#DCE7F4] bg-white px-5 py-4 shadow-[0_14px_34px_rgba(11,31,74,0.05)]"
+              aria-label="Panduan halaman aktif"
+            >
+              <div
+                class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"
+              >
+                <div class="min-w-0 xl:max-w-[420px]">
+                  <p
+                    class="text-[10px] font-extrabold uppercase tracking-[0.22em] text-[#1E5AA8]"
+                  >
+                    {{ activePageGuide.eyebrow }}
+                  </p>
+                  <h2 class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
+                    {{ activePageGuide.title }}
+                  </h2>
+                  <p class="mt-1 text-sm leading-6 text-[#64748B]">
+                    {{ activePageGuide.purpose }}
+                  </p>
+                </div>
+
+                <div
+                  class="grid min-w-0 flex-1 gap-2 md:grid-cols-3 xl:max-w-[720px]"
+                >
+                  <article
+                    v-for="(step, index) in activePageGuide.steps"
+                    :key="`${activePageGuide.title}-${index}`"
+                    class="flex items-start gap-2 rounded-2xl border border-[#E8EEF7] bg-[#F8FBFE] px-3 py-2.5"
+                  >
+                    <span
+                      class="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EAF3FF] text-xs font-extrabold text-[#1E5AA8]"
+                    >
+                      {{ index + 1 }}
+                    </span>
+                    <span class="text-xs font-semibold leading-5 text-[#243B63]">
+                      {{ step }}
+                    </span>
+                  </article>
+                </div>
+              </div>
+
+              <p
+                class="mt-3 rounded-2xl bg-[#EEF5FC] px-4 py-2 text-xs font-semibold leading-5 text-[#0B1F4A]"
+              >
+                Hasil akhir: {{ activePageGuide.output }}
+              </p>
+            </section>
+
             <Transition name="tab" mode="out-in">
               <section
                 :key="activeTab"
@@ -235,6 +286,7 @@ import Login from "./components/Login.vue";
 import LoadingScreen from "./components/LoadingScreen.vue";
 import Sidebar from "./components/Sidebar.vue";
 import Topbar from "./components/Topbar.vue";
+import MaintenanceView from "./components/MaintenanceView.vue";
 import { useAssetActions } from "./composables/useAssetActions";
 import { useFinStartApp } from "./composables/useFinStartApp";
 import { provideFinStartContext } from "./composables/useFinStartContext";
@@ -242,6 +294,9 @@ import { useLedgerActions } from "./composables/useLedgerActions";
 import { usePlanningActions } from "./composables/usePlanningActions";
 import { useReceivableActions } from "./composables/useReceivableActions";
 import { useTaxActions } from "./composables/useTaxActions";
+
+const maintenanceMode =
+  import.meta.env.VITE_MAINTENANCE_MODE === "true";
 
 // Modul dashboard yang besar dimuat ketika dibutuhkan agar bundle awal tetap ringan.
 const DashboardView = defineAsyncComponent(
