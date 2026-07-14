@@ -270,6 +270,132 @@ async function postAutomaticJournal(connection, payload) {
   return journalId
 }
 
+async function ensureInvoiceIssueJournal(connection, invoice, revenueAccountId = null) {
+  const [existingJournalRows] = await connection.query(
+    `
+      SELECT id
+      FROM journal_entries
+      WHERE source_type = 'invoice'
+        AND source_id = ?
+        AND status = 'posted'
+      LIMIT 1
+    `,
+    [invoice.id],
+  )
+
+  if (existingJournalRows[0]) {
+    return existingJournalRows[0].id
+  }
+
+  const [taxRows] = await connection.query(
+    `
+      SELECT *
+      FROM transaction_taxes
+      WHERE source_type = 'invoice'
+        AND source_id = ?
+        AND tax_type = 'PPN_OUTPUT'
+      FOR UPDATE
+    `,
+    [invoice.id],
+  )
+
+  const ppnTax = taxRows[0]
+  const ppnAmount = numberValue(ppnTax?.tax_amount)
+  const dppAmount = money(numberValue(invoice.total_amount) - ppnAmount)
+
+  await ensureVatPeriodOpen(
+    connection,
+    String(invoice.issue_date).slice(0, 7),
+    ppnAmount > 0,
+  )
+
+  const receivableAccount = await findAccountByCode(
+    connection,
+    AR_ACCOUNT_CODE,
+    'asset',
+  )
+
+  const revenueAccount = revenueAccountId
+    ? await findAccountById(connection, revenueAccountId, 'revenue')
+    : await findAccountByCode(
+        connection,
+        DEFAULT_REVENUE_ACCOUNT_CODE,
+        'revenue',
+      )
+
+  const vatOutputAccount = ppnAmount > 0
+    ? await findAccountByCode(
+        connection,
+        VAT_OUTPUT_ACCOUNT_CODE,
+        'liability',
+      )
+    : null
+
+  if (!receivableAccount) {
+    throw new Error(
+      `Akun Piutang Usaha dengan kode ${AR_ACCOUNT_CODE} tidak ditemukan.`,
+    )
+  }
+
+  if (!revenueAccount) {
+    throw new Error('Akun pendapatan tidak ditemukan atau tidak aktif.')
+  }
+
+  if (ppnAmount > 0 && !vatOutputAccount) {
+    throw new Error(
+      `Akun PPN Keluaran dengan kode ${VAT_OUTPUT_ACCOUNT_CODE} tidak ditemukan. Jalankan migration pajak terlebih dahulu.`,
+    )
+  }
+
+  const lines = [
+    {
+      account_id: receivableAccount.id,
+      description: `Piutang ${invoice.invoice_number}`,
+      debit: numberValue(invoice.total_amount),
+      credit: 0,
+    },
+    {
+      account_id: revenueAccount.id,
+      description: `Pendapatan ${invoice.invoice_number}`,
+      debit: 0,
+      credit: dppAmount,
+    },
+  ]
+
+  if (ppnAmount > 0) {
+    lines.push({
+      account_id: vatOutputAccount.id,
+      description: `PPN Keluaran ${invoice.invoice_number}`,
+      debit: 0,
+      credit: ppnAmount,
+    })
+  }
+
+  const journalId = await postAutomaticJournal(connection, {
+    voucher_number: `AR-INV-${invoice.id}`,
+    transaction_date: invoice.issue_date,
+    description: `Penerbitan invoice ${invoice.invoice_number}`,
+    source_type: 'invoice',
+    source_id: invoice.id,
+    lines,
+  })
+
+  if (ppnTax) {
+    await connection.query(
+      `
+        UPDATE transaction_taxes
+        SET
+          status = 'posted',
+          journal_entry_id = ?
+        WHERE id = ?
+      `,
+      [journalId, ppnTax.id],
+    )
+  }
+
+  return journalId
+}
+
 async function generateInvoiceNumber(connection, issueDate) {
   const period = String(issueDate).slice(0, 7).replace('-', '')
 
@@ -1204,7 +1330,7 @@ router.post('/:id/payments', async (req, res) => {
     )
 
     if (!invoiceJournalRows[0]) {
-      throw new Error('Jurnal invoice belum diposting.')
+      await ensureInvoiceIssueJournal(connection, invoice)
     }
 
     const receivableAccount = await findAccountByCode(

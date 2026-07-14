@@ -16,11 +16,13 @@
       <div class="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5 2xl:w-auto">
         <button
           id="btn-open-bpjs-rates"
+          type="button"
           class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-extrabold text-[#1F2A44] shadow-sm transition-all hover:bg-slate-50"
           @click="updateIsBpjsModalOpen(true)"
         >
-          <Calculator class="w-4 h-4" /> Atur BPJS</button
-        ><button
+          <Calculator class="h-4 w-4" /> Atur BPJS
+        </button>
+        <button
           id="btn-manage-master-data"
           type="button"
           class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#BFD7F5] bg-[#F4F9FF] px-4 text-xs font-extrabold text-[#0B3A78] shadow-sm transition-all hover:bg-[#EAF4FF]"
@@ -66,13 +68,11 @@
               Alur cepat
             </p>
             <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
-              Atur tarif BPJS sekali, tambah pegawai, lalu proses payroll setiap
-              bulan.
+              Tarif awal BPJS sudah tersedia; akuntan dapat menyesuaikan bila diperlukan.
             </p>
           </div>
           <p class="text-[11px] leading-5 text-[#6B7A90]">
-            Tarif BPJS hanya berlaku untuk payroll baru; payroll yang sudah
-            diposting tidak berubah.
+            Tarif dapat direset ke nilai resmi kapan saja tanpa mengubah payroll lama.
           </p>
         </div>
       </div>
@@ -1349,22 +1349,22 @@
         <div
           class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="tax-filter-controls flex flex-wrap items-center gap-2">
             <button
               type="button"
-              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition-all ${taxTableTab === 'unpaid' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              :class="`tax-filter-control h-9 rounded-lg px-3 transition-all ${taxTableTab === 'unpaid' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
               @click="updateTaxTableTab('unpaid')"
             >
               Belum Dibayar</button
             ><button
               type="button"
-              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition-all ${taxTableTab === 'history' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              :class="`tax-filter-control h-9 rounded-lg px-3 transition-all ${taxTableTab === 'history' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
               @click="updateTaxTableTab('history')"
             >
               Riwayat Setoran</button
             ><select
               :value="taxTypeFilter"
-              class="h-9 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[11px] font-medium text-[#64748B] outline-none focus:border-[#1E5AA8]"
+              class="tax-filter-control h-9 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[#0B1F4A] outline-none focus:border-[#1E5AA8]"
               @change="updateTaxTypeFilter(eventValue($event))"
             >
               <option value="Semua">Semua Jenis Pajak</option>
@@ -1377,7 +1377,7 @@
               <option>Lainnya</option>
             </select>
           </div>
-          <div class="flex w-full items-center gap-2 lg:w-auto">
+          <div class="tax-filter-controls flex w-full items-center gap-2 lg:w-auto">
             <div class="relative min-w-0 flex-1 lg:w-72">
               <Search
                 class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#94A3B8]"
@@ -1385,13 +1385,13 @@
                 type="text"
                 :value="taxSearchQuery"
                 placeholder="Cari jenis pajak, periode, NTPN..."
-                class="h-9 w-full rounded-lg border border-[#DCE7F4] bg-[#FBFCFE] pl-9 pr-3 text-[11px] text-[#243650] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
+                class="tax-filter-control h-9 w-full rounded-lg border border-[#DCE7F4] bg-[#FBFCFE] pl-9 pr-3 text-[#243650] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
                 @change="updateTaxSearchQuery(eventValue($event))"
               />
             </div>
             <button
               type="button"
-              class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[11px] font-medium text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
+              class="tax-filter-control inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
               @click="notify('Data kewajiban pajak telah diperbarui.')"
             >
               <RefreshCw class="h-3.5 w-3.5" /> Refresh
@@ -1425,14 +1425,13 @@
                   <th class="px-3 py-3 text-right">Nominal</th>
                   <th class="px-3 py-3">Jatuh Tempo</th>
                   <th class="px-3 py-3 text-center">Status</th>
-                  <th class="px-3 py-3">NTPN</th>
-                  <th class="w-[120px] px-3 py-3 text-center">Aksi</th>
+                  <th class="px-3 py-3 text-center">NTPN</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[#EDF2F8]">
                 <tr v-if="filteredTaxRows.length === 0">
                   <td
-                    :colspan="8"
+                    :colspan="7"
                     class="px-3 py-12 text-center text-sm text-[#8A99AD]"
                   >
                     Tidak ada data pajak yang sesuai.
@@ -1479,22 +1478,10 @@
                         ><template v-else>Sudah Disetor</template></span
                       >
                     </td>
-                    <td class="px-3 py-3.5 text-[10px] text-[#64748B]">
+                    <td
+                      class="px-3 py-3.5 text-center text-[10px] text-[#64748B]"
+                    >
                       {{ tax.ntpn || "—" }}
-                    </td>
-                    <td class="w-[120px] px-3 py-3.5 text-center">
-                      <button
-                        v-if="tax.status === 'Belum Setor'"
-                        type="button"
-                        class="tax-payment-action inline-flex h-8 min-w-[92px] items-center justify-center whitespace-nowrap rounded-lg border border-[#C9DCF3] bg-[#EEF5FF] px-3 text-[11px] font-semibold text-[#1E5AA8] transition hover:border-[#1E5AA8] hover:bg-[#102A56] hover:text-white"
-                        @click="openTaxPaymentModal(tax.id)"
-                      >
-                        Setor Pajak</button
-                      ><span
-                        v-else
-                        class="inline-flex min-h-8 min-w-[96px] items-center justify-center whitespace-nowrap rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[10px] font-semibold text-[#7A8CA8]"
-                        >Sudah disetor</span
-                      >
                     </td>
                   </tr></template
                 >
@@ -1516,10 +1503,11 @@
         class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
         <div
-          class="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-[560px] overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+          class="my-4 flex w-full max-w-[560px] flex-col overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+          :style="{ maxHeight: 'calc(100dvh - 32px)' }"
         >
         <div
-          class="px-8 py-7 border-b border-slate-100 flex justify-between items-center"
+          class="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-7"
         >
           <div>
             <p
@@ -1545,7 +1533,7 @@
           </button>
         </div>
         <form
-          class="space-y-7 px-8 py-8 text-xs"
+          class="min-h-0 flex-1 space-y-7 overflow-y-auto px-8 py-8 text-xs"
           novalidate
           @submit="handleSaveBpjs"
         >
@@ -1555,7 +1543,22 @@
             role="alert"
           >
             <strong>Lengkapi seluruh tarif BPJS.</strong>
-            <span>Semua kolom wajib diisi dengan angka 0 sampai 100.</span>
+            <span>Isi persentase iuran sebenarnya dengan angka 0 sampai 20.</span>
+          </div>
+          <div class="rounded-2xl border border-[#BFD7F5] bg-[#F4F9FF] p-4 text-[#36577F]">
+            <div class="flex items-start gap-3">
+              <FileText class="mt-0.5 h-4 w-4 shrink-0 text-[#1E5AA8]" />
+              <div>
+                <p class="font-extrabold text-[#102A56]">Cara mengisi tarif</p>
+                <ul class="mt-2 list-disc space-y-1.5 pl-4 text-[11px] leading-5">
+                  <li>Masukkan angka persen langsung: <strong>4</strong> berarti 4%, bukan 0,04 atau 90.</li>
+                  <li><strong>Porsi perusahaan</strong> adalah kontribusi perusahaan dan tidak mengurangi gaji bersih pegawai.</li>
+                  <li><strong>Porsi pegawai</strong> adalah potongan yang mengurangi gaji bersih saat payroll diproses.</li>
+                  <li>JHT berarti Jaminan Hari Tua, sedangkan JP berarti Jaminan Pensiun.</li>
+                  <li>Gunakan tarif yang berlaku di perusahaan dan verifikasi kembali dengan ketentuan BPJS terbaru sebelum menyimpan.</li>
+                </ul>
+              </div>
+            </div>
           </div>
           <div class="space-y-5">
             <h4
@@ -1567,13 +1570,15 @@
               <div class="space-y-2">
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
-                  >Porsi Perusahaan</label
+                  >Tarif Perusahaan</label
                 ><input
                   id="bpjs-kes-employer"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsKesEmployer)"
@@ -1595,13 +1600,15 @@
               <div class="space-y-2">
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
-                  >Porsi Pegawai</label
+                  >Tarif Pegawai</label
                 ><input
                   id="bpjs-kes-employee"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsKesEmployee)"
@@ -1635,10 +1642,12 @@
                   >JHT Perus.</label
                 ><input
                   id="bpjs-jht-employer"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJhtEmployer)"
@@ -1662,10 +1671,12 @@
                   >JHT Pegawai</label
                 ><input
                   id="bpjs-jht-employee"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJhtEmployee)"
@@ -1689,10 +1700,12 @@
                   >JP Perus.</label
                 ><input
                   id="bpjs-jp-employer"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJpEmployer)"
@@ -1716,10 +1729,12 @@
                   >JP Pegawai</label
                 ><input
                   id="bpjs-jp-employee"
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
+                  data-rupiah="false"
                   required
                   min="0"
-                  max="100"
+                  max="20"
                   step="0.01"
                   input-mode="decimal"
                   :value="formatPercentInput(bpjsJpEmployee)"
@@ -1745,6 +1760,14 @@
             class="w-full h-12 bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold rounded-2xl transition-all uppercase tracking-widest text-xs"
           >
             Simpan Tarif BPJS
+          </button>
+          <button
+            id="btn-reset-bpjs-rates"
+            type="button"
+            class="w-full h-11 border border-[#0B1F4A] bg-white text-[#0B1F4A] font-extrabold rounded-2xl transition-all text-xs"
+            @click="handleResetBpjs"
+          >
+            Reset ke Tarif Resmi
           </button>
         </form>
         </div>
@@ -2218,6 +2241,13 @@
             <strong>Lengkapi seluruh data payroll.</strong>
             <span>Semua kolom wajib diisi sebelum payroll diproses.</span>
           </div>
+          <div
+            v-if="payrollProcessError"
+            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700"
+            role="alert"
+          >
+            <p>{{ payrollProcessError }}</p>
+          </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Pegawai yang Diproses</label
             ><select
@@ -2334,10 +2364,12 @@
               <label class="text-[10px] text-[#53658A]"
                 >Lembur<input
                   id="payroll-overtime"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="true"
                   min="0"
                   required
-                  :value="payrollForm.overtimeAmount"
+                  :value="formatRupiah(asNumber(payrollForm.overtimeAmount))"
                   :class="[
                     'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
                     { 'form-control-invalid': payrollFormErrors.overtimeAmount },
@@ -2345,7 +2377,7 @@
                   @input="
                     setPayrollField(
                       'overtimeAmount',
-                      asNumber(eventValue($event)),
+                      parseRupiahInput(eventValue($event)),
                     )
                   " />
                 <p
@@ -2357,10 +2389,12 @@
               ><label class="text-[10px] text-[#53658A]"
                 >Tunjangan<input
                   id="payroll-allowance"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="true"
                   min="0"
                   required
-                  :value="payrollForm.allowanceAmount"
+                  :value="formatRupiah(asNumber(payrollForm.allowanceAmount))"
                   :class="[
                     'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
                     { 'form-control-invalid': payrollFormErrors.allowanceAmount },
@@ -2368,7 +2402,7 @@
                   @input="
                     setPayrollField(
                       'allowanceAmount',
-                      asNumber(eventValue($event)),
+                      parseRupiahInput(eventValue($event)),
                     )
                   " />
                 <p
@@ -2380,10 +2414,12 @@
               ><label class="text-[10px] text-[#53658A]"
                 >Bonus<input
                   id="payroll-bonus"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="true"
                   min="0"
                   required
-                  :value="payrollForm.bonusAmount"
+                  :value="formatRupiah(asNumber(payrollForm.bonusAmount))"
                   :class="[
                     'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
                     { 'form-control-invalid': payrollFormErrors.bonusAmount },
@@ -2391,7 +2427,7 @@
                   @input="
                     setPayrollField(
                       'bonusAmount',
-                      asNumber(eventValue($event)),
+                      parseRupiahInput(eventValue($event)),
                     )
                   " />
                 <p
@@ -2403,10 +2439,12 @@
               ><label class="text-[10px] text-[#53658A]"
                 >Kasbon<input
                   id="payroll-loan-deduction"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="true"
                   min="0"
                   required
-                  :value="payrollForm.loanDeduction"
+                  :value="formatRupiah(asNumber(payrollForm.loanDeduction))"
                   :class="[
                     'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
                     { 'form-control-invalid': payrollFormErrors.loanDeduction },
@@ -2414,7 +2452,7 @@
                   @input="
                     setPayrollField(
                       'loanDeduction',
-                      asNumber(eventValue($event)),
+                      parseRupiahInput(eventValue($event)),
                     )
                   " />
                 <p
@@ -2426,10 +2464,12 @@
               ><label class="text-[10px] text-[#53658A]"
                 >Potongan lain<input
                   id="payroll-other-deduction"
-                  type="number"
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="true"
                   min="0"
                   required
-                  :value="payrollForm.otherDeduction"
+                  :value="formatRupiah(asNumber(payrollForm.otherDeduction))"
                   :class="[
                     'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
                     { 'form-control-invalid': payrollFormErrors.otherDeduction },
@@ -2437,7 +2477,7 @@
                   @input="
                     setPayrollField(
                       'otherDeduction',
-                      asNumber(eventValue($event)),
+                      parseRupiahInput(eventValue($event)),
                     )
                   " />
                 <p
@@ -2446,33 +2486,7 @@
                 >
                   {{ payrollFormErrors.otherDeduction }}
                 </p></label
-              ><label class="text-[10px] text-[#53658A]"
-                >PPh 21 manual (Desember)<input
-                  id="payroll-pph21-manual"
-                  type="number"
-                  min="0"
-                  required
-                  :value="payrollForm.pph21ManualAmount"
-                  :class="[
-                    'mt-1 h-9 w-full rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs',
-                    {
-                      'form-control-invalid':
-                        payrollFormErrors.pph21ManualAmount,
-                    },
-                  ]"
-                  @input="
-                    setPayrollField(
-                      'pph21ManualAmount',
-                      asNumber(eventValue($event)),
-                    )
-                  "
-              />
-                <p
-                  v-if="payrollFormErrors.pph21ManualAmount"
-                  class="form-field-warning"
-                >
-                  {{ payrollFormErrors.pph21ManualAmount }}
-                </p></label>
+              >
             </div>
           </div>
           <div class="space-y-1.5">
@@ -2507,43 +2521,21 @@
           <div
             class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-3 text-[10px] text-[#53658A]"
           >
-            PPh 21 yang dihitung akan otomatis menjadi potongan payroll dan
-            Utang Pajak pada jurnal. Untuk Desember, isi nominal final setelah
-            rekonsiliasi tahunan resmi.
-          </div>
-          <div
-            v-if="pph21Estimate"
-            class="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-[#0B1F4A]"
-          >
-            <p class="font-semibold">
-              Estimasi PPh 21:
-              <template v-if="pph21Estimate.needs_final_reconciliation"
-                >Perlu rekonsiliasi tahunan</template
-              ><template v-else>{{
-                formatRupiah(asNumber(pph21Estimate.pph21_amount))
-              }}</template>
-            </p>
-            <p class="mt-1 text-[10px]">
-              {{
-                pph21Estimate.message ||
-                `TER ${(asNumber(pph21Estimate.ter_rate) * 100).toFixed(2)}% · Take home pay ${formatRupiah(asNumber(pph21Estimate.take_home_pay))}`
-              }}
-            </p>
+            BPJS dan PPh 21 dihitung otomatis saat payroll diproses. Untuk masa
+            terakhir, sistem merekonsiliasi penghasilan dan pajak tahun berjalan,
+            lalu mencatat hasilnya sebagai potongan payroll dan utang terkait.
           </div>
           <div class="grid gap-3">
             <button
-              type="button"
-              class="w-full border border-[#BFD5EE] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
-              @click="calculatePayrollPph21"
-            >
-              Hitung Estimasi PPh 21 Pegawai</button
-            ><button
               id="btn-confirm-payout"
-              type="submit"
-              class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+              type="button"
+              :disabled="isPayrollProcessing"
+              class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-70 text-white font-semibold py-2.5 rounded-xl shadow transition-all flex items-center justify-center gap-2"
+              @click="handleProcessPayroll"
             >
-              <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" /> Proses Payroll
-              Pegawai Ini</button
+              <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" />
+              {{ isPayrollProcessing ? "Memproses Payroll..." : "Proses Payroll Pegawai Ini" }}
+            </button
             ><button
               type="button"
               class="w-full border border-[#0B1F4A] bg-white text-[#0B1F4A] font-semibold py-2.5 rounded-xl transition-all"
@@ -2562,9 +2554,47 @@
       </div>
     </div>
     </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="payrollConfirmation"
+        class="sdm-form-modal-layer fixed inset-0 z-[10095] flex items-center justify-center overflow-y-auto bg-[#111827]/70 p-4 backdrop-blur-sm"
+      >
+        <div class="my-4 w-full max-w-[560px] overflow-hidden rounded-3xl border border-[#DCE7F4] bg-white shadow-2xl">
+          <div class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5">
+            <div>
+              <p class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#1E5AA8]">Konfirmasi Payroll</p>
+              <h3 class="mt-1 text-xl font-extrabold text-[#0B1F4A]">Rincian {{ payrollConfirmation.employee_name }}</h3>
+              <p class="mt-1 text-xs text-[#64748B]">Periksa seluruh nominal sebelum payroll diposting ke jurnal.</p>
+            </div>
+            <button type="button" class="rounded-xl p-2 text-[#64748B]" @click="payrollConfirmation = null">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+          <div class="space-y-3 px-6 py-5 text-sm text-[#334155]">
+            <div class="flex justify-between gap-4"><span>Gaji pokok</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.base_salary)) }}</strong></div>
+            <div class="flex justify-between gap-4"><span>Lembur</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.overtime_amount)) }}</strong></div>
+            <div class="flex justify-between gap-4"><span>Tunjangan</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.allowance_amount)) }}</strong></div>
+            <div class="flex justify-between gap-4"><span>Bonus</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.bonus_amount)) }}</strong></div>
+            <div class="flex justify-between gap-4 border-t border-[#E8EEF7] pt-3"><span>Penghasilan bruto</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.gross_salary)) }}</strong></div>
+            <div class="flex justify-between gap-4 text-red-700"><span>BPJS pegawai</span><strong>- {{ formatRupiah(asNumber(payrollConfirmation.employee_bpjs_deduction)) }}</strong></div>
+            <div class="flex justify-between gap-4 text-red-700"><span>PPh 21 otomatis</span><strong>- {{ formatRupiah(asNumber(payrollConfirmation.pph21_amount)) }}</strong></div>
+            <div class="flex justify-between gap-4 text-red-700"><span>Kasbon</span><strong>- {{ formatRupiah(asNumber(payrollConfirmation.loan_deduction)) }}</strong></div>
+            <div class="flex justify-between gap-4 text-red-700"><span>Potongan lain</span><strong>- {{ formatRupiah(asNumber(payrollConfirmation.other_deduction)) }}</strong></div>
+            <div class="flex justify-between gap-4 border-t-2 border-[#0B1F4A] pt-4 text-base text-[#0B1F4A]"><span class="font-extrabold">Gaji bersih diterima</span><strong>{{ formatRupiah(asNumber(payrollConfirmation.net_pay)) }}</strong></div>
+          </div>
+          <div class="grid gap-3 border-t border-[#E8EEF7] px-6 py-5 sm:grid-cols-2">
+            <button type="button" class="h-11 rounded-xl border border-[#0B1F4A] font-bold text-[#0B1F4A]" :disabled="isPayrollProcessing" @click="payrollConfirmation = null">Kembali</button>
+            <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] font-bold text-white disabled:cursor-wait disabled:opacity-70" :disabled="isPayrollProcessing" @click="printAndPostPayroll">
+              <FileText class="h-4 w-4" />
+              {{ isPayrollProcessing ? "Memposting..." : "Cetak & Posting" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <div
       v-if="payslipPreview"
-      class="fixed inset-0 z-[9998] flex items-center justify-center bg-[#000]/60 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-[10100] flex items-center justify-center bg-[#000]/60 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -2588,7 +2618,7 @@
           <button
             type="button"
             class="rounded-xl p-2 text-[#6B7A90]"
-            @click="payslipPreview = null"
+            @click="closePayrollResult"
           >
             <X class="h-5 w-5" />
           </button>
@@ -2644,7 +2674,7 @@
           <button
             type="button"
             class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-            @click="payslipPreview = null"
+            @click="closePayrollResult"
           >
             Tutup</button
           ><button
@@ -2652,7 +2682,7 @@
             class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
             @click="openPayslipPrint"
           >
-            <FileText class="h-4 w-4" /> Cetak / Simpan PDF
+            <FileText class="h-4 w-4" /> Unduh PDF
           </button>
         </div>
       </div>
@@ -2906,7 +2936,7 @@
                   ><input
                     type="number"
                     min="0"
-                    max="100"
+                  max="20"
                     step="0.01"
                     :value="manualTaxForm.rate || ''"
                     placeholder="0"
@@ -3114,6 +3144,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   Users,
@@ -3311,8 +3342,6 @@ watch(
 onUnmounted(() => {
   document.documentElement.classList.remove("sdm-modal-open");
 });
-const pph21Estimate = ref<any>(null);
-
 function openEmployeeDetail(employee: any) {
   selectedEmployeeDetail.value = employee;
   updateIsEmployeeDetailOpen(true);
@@ -3935,8 +3964,10 @@ const payrollForm = ref({
   bonusAmount: 0,
   loanDeduction: 0,
   otherDeduction: 0,
-  pph21ManualAmount: 0,
 });
+const isPayrollProcessing = ref(false);
+const payrollProcessError = ref("");
+const payrollConfirmation = ref<any>(null);
 
 type PayrollFormFieldKey =
   | "employeeId"
@@ -3947,8 +3978,7 @@ type PayrollFormFieldKey =
   | "allowanceAmount"
   | "bonusAmount"
   | "loanDeduction"
-  | "otherDeduction"
-  | "pph21ManualAmount";
+  | "otherDeduction";
 
 const emptyPayrollFormErrors = (): Record<PayrollFormFieldKey, string> => ({
   employeeId: "",
@@ -3960,7 +3990,6 @@ const emptyPayrollFormErrors = (): Record<PayrollFormFieldKey, string> => ({
   bonusAmount: "",
   loanDeduction: "",
   otherDeduction: "",
-  pph21ManualAmount: "",
 });
 
 const payrollFormErrors = ref<Record<PayrollFormFieldKey, string>>(
@@ -3998,12 +4027,6 @@ const payrollRequiredFields: Array<{
     key: "otherDeduction",
     id: "payroll-other-deduction",
     label: "Potongan lain",
-    type: "number",
-  },
-  {
-    key: "pph21ManualAmount",
-    id: "payroll-pph21-manual",
-    label: "PPh 21 manual",
     type: "number",
   },
   {
@@ -4062,6 +4085,7 @@ function validatePayrollForm(includeEmployee = true) {
       nextErrors[field.key] = `${field.label} harus berupa angka 0 atau lebih.`;
     }
   }
+
 
   payrollFormErrors.value = nextErrors;
   const firstInvalidField = payrollRequiredFields.find(
@@ -4551,9 +4575,9 @@ function validateBpjsRates() {
     } else if (
       !Number.isFinite(numericValue) ||
       numericValue < 0 ||
-      numericValue > 100
+      numericValue > 20
     ) {
-      nextErrors[field.key] = `${field.label} harus berupa angka 0 sampai 100.`;
+      nextErrors[field.key] = `${field.label} harus berupa persentase iuran 0 sampai 20, bukan pembagian porsi.`;
     }
   }
 
@@ -4598,6 +4622,17 @@ async function handleSaveBpjs(event?: Event) {
   } catch (error) {
     console.error(error);
     notify(getApiErrorMessage(error, "Gagal menyimpan konfigurasi BPJS."));
+  }
+}
+
+async function handleResetBpjs() {
+  try {
+    await financeApi.post("/bpjs-config/reset", {});
+    await refreshMasterData();
+    resetBpjsRateErrors();
+    notify("Tarif BPJS berhasil direset ke nilai resmi.");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal mereset tarif BPJS."));
   }
 }
 
@@ -4847,76 +4882,129 @@ function selectedPayrollEmployee() {
   );
 }
 
-async function calculatePayrollPph21() {
-  const employee = selectedPayrollEmployee();
-  if (!employee)
-    return notify(
-      "Pilih pegawai terlebih dahulu untuk menghitung estimasi PPh 21.",
+function buildPayrollPdf(detail: any) {
+  const escapePdf = (value: any) =>
+    String(value ?? "-")
+      .replace(/\\/g, "\\\\")
+      .replace(/\(/g, "\\(")
+      .replace(/\)/g, "\\)");
+  const content: string[] = [];
+  const text = (value: any, x: number, y: number, size = 10, bold = false) => {
+    content.push(
+      `BT /${bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escapePdf(value)}) Tj ET`,
     );
-  const raw = employee._raw || {};
-  try {
-    const result = await financeApi.post("/taxes/employee-pph21/calculate", {
-      employee_name: employee.nama,
-      employee_nik: raw.nik || "",
-      employee_position: employee.jabatan || "",
-      tax_period: payrollForm.value.payrollPeriod || currentPayrollPeriod(),
-      ptkp_status: raw.ptkp_status || "TK/0",
-      base_salary:
-        asNumber(raw.base_salary ?? employee.gajiBersih) +
-        asNumber(payrollForm.value.overtimeAmount) +
-        asNumber(payrollForm.value.bonusAmount),
-      allowance_amount: asNumber(payrollForm.value.allowanceAmount),
-    });
-    pph21Estimate.value = result;
-    notify(
-      result.needs_final_reconciliation
-        ? result.message
-        : "Estimasi PPh 21 pegawai berhasil dihitung.",
-    );
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal menghitung estimasi PPh 21."));
-  }
+  };
+  const line = (y: number) => content.push(`52 ${y} m 543 ${y} l S`);
+  const gross =
+    asNumber(detail.gross_salary) ||
+    asNumber(detail.base_salary) +
+      asNumber(detail.overtime_amount) +
+      asNumber(detail.allowance_amount) +
+      asNumber(detail.bonus_amount);
+  const rows = [
+    ["Gaji pokok", formatRupiah(asNumber(detail.base_salary))],
+    ["Lembur", formatRupiah(asNumber(detail.overtime_amount))],
+    ["Tunjangan", formatRupiah(asNumber(detail.allowance_amount))],
+    ["Bonus", formatRupiah(asNumber(detail.bonus_amount))],
+    ["Penghasilan bruto", formatRupiah(gross)],
+    ["BPJS pegawai", `- ${formatRupiah(asNumber(detail.employee_bpjs_deduction))}`],
+    ["PPh 21 otomatis", `- ${formatRupiah(asNumber(detail.pph21_amount))}`],
+    ["Kasbon", `- ${formatRupiah(asNumber(detail.loan_deduction))}`],
+    ["Potongan lain", `- ${formatRupiah(asNumber(detail.other_deduction))}`],
+    ["Gaji bersih diterima", formatRupiah(asNumber(detail.net_pay))],
+  ];
+  content.push("0.05 w");
+  text("PT KEDATA INDONESIA DIGITAL", 52, 790, 16, true);
+  text("Rincian Payroll - Sudah Diposting", 52, 768, 11);
+  line(752);
+  text(`Pegawai: ${detail.employee_name || "-"}`, 52, 724, 11, true);
+  text(`Periode: ${detail.payroll_period || "-"}`, 52, 704, 10);
+  text(`Tanggal bayar: ${detail.payment_date || "-"}`, 52, 686, 10);
+  text(`Voucher: ${detail.voucher_number || "-"}`, 52, 668, 10);
+  line(650);
+  let y = 626;
+  rows.forEach((row, index) => {
+    const isTotal = index === rows.length - 1;
+    text(row[0], 62, y, isTotal ? 11 : 10, isTotal);
+    text(row[1], 390, y, isTotal ? 11 : 10, true);
+    line(y - 12);
+    y -= 34;
+  });
+  text("Dokumen dibuat otomatis oleh FinStart dan telah masuk riwayat penggajian.", 52, y - 10, 9);
+
+  const stream = content.join("\n");
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n",
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
+    `6 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object) => {
+    offsets.push(pdf.length);
+    pdf += object;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function downloadPayrollPdf(detail: any) {
+  const employee = String(detail.employee_name || "pegawai")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const url = URL.createObjectURL(buildPayrollPdf(detail));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `payroll-${employee || "pegawai"}-${detail.payroll_period || "periode"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function openPayslipPrint() {
   const slip = payslipPreview.value;
   if (!slip) return;
-  const popup = window.open("", "_blank", "width=760,height=700");
-  if (!popup)
-    return notify(
-      "Popup diblokir browser. Izinkan popup untuk mencetak payslip.",
-    );
-  const rows = [
-    ["Pegawai", slip.employee_name || "-"],
-    ["Periode", slip.payroll_period || "-"],
-    ["Tanggal Bayar", slip.payment_date || "-"],
-    ["Gaji Pokok", formatRupiah(asNumber(slip.base_salary))],
-    ["Lembur", formatRupiah(asNumber(slip.overtime_amount))],
-    ["Tunjangan", formatRupiah(asNumber(slip.allowance_amount))],
-    ["Bonus", formatRupiah(asNumber(slip.bonus_amount))],
-    [
-      "Potongan BPJS Pegawai",
-      formatRupiah(asNumber(slip.employee_bpjs_deduction)),
-    ],
-    ["Potongan PPh 21", formatRupiah(asNumber(slip.pph21_amount))],
-    ["Potongan Kasbon", formatRupiah(asNumber(slip.loan_deduction))],
-    ["Potongan Lain", formatRupiah(asNumber(slip.other_deduction))],
-    ["Gaji Bersih", formatRupiah(asNumber(slip.net_pay))],
-    ["Voucher", slip.voucher_number || "-"],
-  ];
-  popup.document.write(
-    `<!doctype html><html><head><title>Payslip ${String(slip.employee_name || "").replace(/</g, "")}</title><style>body{font-family:Arial,sans-serif;margin:32px;color:#102A56}table{border-collapse:collapse;width:100%;margin-top:22px}td{padding:10px;border-bottom:1px solid #dce7f4}td:last-child{text-align:right;font-weight:700}.head{border-bottom:2px solid #0b1f4a;padding-bottom:12px}</style></head><body><div class="head"><h2>PT KEDATA INDONESIA DIGITAL</h2><p>Payslip Payroll FinStart</p></div><table>${rows.map((row) => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join("")}</table></body></html>`,
-  );
-  popup.document.close();
-  popup.focus();
-  popup.print();
+  downloadPayrollPdf(slip);
+}
+
+function closePayrollResult() {
+  payslipPreview.value = null;
+  updateIsPayrollModalOpen(false);
 }
 
 function validatePayrollFields(includeEmployee = true) {
   return validatePayrollForm(includeEmployee);
 }
 
+function payrollRequestPayload() {
+  return {
+    employee_id: Number(payrollForm.value.employeeId),
+    payroll_period: payrollForm.value.payrollPeriod || currentPayrollPeriod(),
+    payment_date: payrollForm.value.paymentDate || todayIso(),
+    cash_account_id: Number(payrollForm.value.cashAccountId),
+    overtime_amount: asNumber(payrollForm.value.overtimeAmount),
+    allowance_amount: asNumber(payrollForm.value.allowanceAmount),
+    bonus_amount: asNumber(payrollForm.value.bonusAmount),
+    loan_deduction: asNumber(payrollForm.value.loanDeduction),
+    other_deduction: asNumber(payrollForm.value.otherDeduction),
+    pph21_amount: 0,
+    notes: "Payroll diproses dari workspace FinStart.",
+  };
+}
+
 async function handleProcessPayroll() {
+  if (isPayrollProcessing.value) return;
+  payrollProcessError.value = "";
   if (!validatePayrollFields(true)) {
     notify("Lengkapi seluruh data payroll sebelum memproses.");
     return;
@@ -4927,22 +5015,37 @@ async function handleProcessPayroll() {
     notify("Pilih pegawai dan akun Kas/Bank terlebih dahulu.");
     return;
   }
+  isPayrollProcessing.value = true;
   try {
-    const result = await financeApi.post("/payroll/process", {
-      employee_id: employeeId,
-      payroll_period: payrollForm.value.payrollPeriod || currentPayrollPeriod(),
-      payment_date: payrollForm.value.paymentDate || todayIso(),
-      cash_account_id: cashAccountId,
-      overtime_amount: asNumber(payrollForm.value.overtimeAmount),
-      allowance_amount: asNumber(payrollForm.value.allowanceAmount),
-      bonus_amount: asNumber(payrollForm.value.bonusAmount),
-      loan_deduction: asNumber(payrollForm.value.loanDeduction),
-      other_deduction: asNumber(payrollForm.value.otherDeduction),
-      pph21_amount:
-        asNumber(payrollForm.value.pph21ManualAmount) ||
-        asNumber(pph21Estimate.value?.pph21_amount),
-      notes: "Payroll diproses dari workspace FinStart.",
-    });
+    payrollConfirmation.value = await financeApi.post(
+      "/payroll/preview",
+      payrollRequestPayload(),
+    );
+  } catch (error) {
+    payrollProcessError.value = getApiErrorMessage(
+      error,
+      "Gagal menyiapkan rincian payroll.",
+    );
+    notify(payrollProcessError.value);
+  } finally {
+    isPayrollProcessing.value = false;
+  }
+}
+
+async function printAndPostPayroll() {
+  await confirmProcessPayroll(true);
+}
+
+async function confirmProcessPayroll(downloadAfterPosting = false) {
+  if (isPayrollProcessing.value) return;
+  payrollProcessError.value = "";
+  isPayrollProcessing.value = true;
+  try {
+    const result = await financeApi.post(
+      "/payroll/process",
+      payrollRequestPayload(),
+    );
+    payrollConfirmation.value = null;
     try {
       payslipPreview.value = await financeApi.get(
         `/payroll/${result.id}/payslip`,
@@ -4950,14 +5053,21 @@ async function handleProcessPayroll() {
     } catch {
       payslipPreview.value = result;
     }
-    updateIsPayrollModalOpen(false);
+    if (downloadAfterPosting) downloadPayrollPdf(payslipPreview.value);
     await refreshAllData();
     notify(
       `Payroll ${result.employee_name || "pegawai"} berhasil diposting. Payslip tersedia untuk dicetak.`,
     );
   } catch (error) {
     console.error(error);
-    notify(getApiErrorMessage(error, "Gagal memproses payroll."));
+    payrollConfirmation.value = null;
+    payrollProcessError.value = getApiErrorMessage(
+      error,
+      "Gagal memproses payroll.",
+    );
+    notify(payrollProcessError.value);
+  } finally {
+    isPayrollProcessing.value = false;
   }
 }
 
@@ -5321,10 +5431,6 @@ const currentPayrollEstimatedNet = () =>
   Math.max(
     0,
     currentPayrollAmount() -
-      asNumber(
-        pph21Estimate.value?.pph21_amount ||
-          payrollForm.value.pph21ManualAmount,
-      ) -
       asNumber(payrollForm.value.loanDeduction) -
       asNumber(payrollForm.value.otherDeduction),
   );
@@ -5344,11 +5450,15 @@ function openPayrollModal() {
   }
   refreshMasterData();
   resetPayrollFormErrors();
+  payrollProcessError.value = "";
+  payrollConfirmation.value = null;
   updateIsPayrollModalOpen(true);
 }
 
 function closePayrollModal() {
   resetPayrollFormErrors();
+  payrollProcessError.value = "";
+  payrollConfirmation.value = null;
   updateIsPayrollModalOpen(false);
 }
 
@@ -5360,12 +5470,6 @@ function closeMasterDataModal() {
 function openManualTaxModal() {
   resetManualTaxForm();
   updateIsTaxManualModalOpen(true);
-}
-
-function openTaxPaymentModal(taxId: string) {
-  taxPaymentError.value = "";
-  updateSelectedTaxId(taxId);
-  updateIsTaxPayModalOpen(true);
 }
 
 function closeEmployeeModal() {
@@ -5398,6 +5502,18 @@ const assetAccounts = computed(() =>
 </script>
 
 <style>
+.tax-filter-control {
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+
+.tax-filter-control::placeholder {
+  font: inherit !important;
+  color: #9aa9bc !important;
+}
+
 .master-search-field {
   isolation: isolate;
 }
