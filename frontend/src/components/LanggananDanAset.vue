@@ -775,10 +775,11 @@
         </div>
       </div>
     </Teleport>
-    <div
-      v-if="showExpiredSubscriptions"
-      class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
-    >
+    <Teleport to="body">
+      <div
+        v-if="showExpiredSubscriptions"
+        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      >
       <div
         class="w-full max-w-3xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
       >
@@ -867,11 +868,13 @@
           </button>
         </div>
       </div>
-    </div>
-    <div
-      v-if="showSubscriptionTransactions"
-      class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
-    >
+      </div>
+    </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="showSubscriptionTransactions"
+        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      >
       <div
         class="w-full max-w-4xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
       >
@@ -901,17 +904,24 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <div class="max-h-[60vh] overflow-y-auto p-6">
-          <table class="w-full text-left text-xs">
+        <div class="max-h-[60vh] overflow-auto p-6">
+          <table class="w-full min-w-[820px] table-fixed text-left text-xs">
+            <colgroup>
+              <col style="width: 24%" />
+              <col style="width: 12%" />
+              <col style="width: 22%" />
+              <col style="width: 22%" />
+              <col style="width: 20%" />
+            </colgroup>
             <thead
               class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
             >
               <tr>
                 <th class="pb-3">Layanan</th>
                 <th class="pb-3">Mata Uang</th>
-                <th class="pb-3 text-right">Nominal</th>
-                <th class="pb-3">Tagihan Berikutnya</th>
-                <th class="pb-3">Status Terakhir</th>
+                <th class="pb-3 pr-6 text-right">Nominal</th>
+                <th class="pb-3 pl-6">Tagihan Berikutnya</th>
+                <th class="pb-3 pl-4">Status Terakhir</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
@@ -928,11 +938,11 @@
                 <td class="py-3 font-mono">
                   {{ item.mataUang || item._raw?.currency || "IDR" }}
                 </td>
-                <td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">
+                <td class="whitespace-nowrap py-3 pr-6 text-right font-mono font-bold text-[#0B1F4A]">
                   {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
                 </td>
-                <td class="py-3 font-mono">{{ item.tanggalTagihan || "-" }}</td>
-                <td class="py-3">
+                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ item.tanggalTagihan || "-" }}</td>
+                <td class="py-3 pl-4">
                   {{
                     item._raw?.latest_bill_status ||
                     subscriptionStatusLabel(item)
@@ -957,11 +967,13 @@
           </button>
         </div>
       </div>
-    </div>
-    <div
-      v-if="subscriptionHistory"
-      class="fixed inset-0 z-[10000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
-    >
+      </div>
+    </Teleport>
+    <Teleport to="body">
+      <div
+        v-if="subscriptionHistory"
+        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+      >
       <div
         class="w-full max-w-[540px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
       >
@@ -1051,7 +1063,8 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Teleport>
     <!-- 4. ADD HARDWARE ASSET MODAL -->
     <Teleport to="body">
     <div
