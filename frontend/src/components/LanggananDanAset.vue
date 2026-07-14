@@ -1422,15 +1422,12 @@
                     :value="newAsset.tanggalBeli"
                     :class="[
                       assetInputClass,
-                      'pr-10',
                       {
                         'form-control-invalid':
                           assetFormErrors.tanggalBeli,
                       },
                     ]"
                     @input="setAssetField('tanggalBeli', eventValue($event))"
-                  /><Calendar
-                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                   />
                 </div>
                 <p

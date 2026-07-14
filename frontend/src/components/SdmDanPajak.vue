@@ -656,19 +656,19 @@
             v-if="isMasterEditorOpen"
             class="master-editor-layer"
             :style="{
-              position: 'absolute',
+              position: 'fixed',
               inset: 0,
-              zIndex: 30,
+              zIndex: 2147483100,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '100%',
-              height: '100%',
+              width: '100vw',
+              height: '100dvh',
               padding: '20px',
               overflowY: 'auto',
               pointerEvents: 'auto',
-              backgroundColor: 'rgba(11, 18, 32, 0.48)',
-              backdropFilter: 'blur(6px)',
+              backgroundColor: 'rgba(17, 24, 39, 0.58)',
+              backdropFilter: 'blur(4px)',
             }"
           >
             <div
