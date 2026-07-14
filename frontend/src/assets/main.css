@@ -228,20 +228,10 @@ body:has(.target-modal-layer) #btn-sidebar-mobile-drawer {
   display: none !important;
 }
 
-/* Every fullscreen overlay rendered by a workspace page must also cover the
-   navigation chrome. Some forms do not use one of the named *-modal-layer
-   classes, so use their shared fullscreen shape as the reliable fallback. */
-body:has(.app-main .fixed.inset-0) #btn-sidebar-drawer,
-body:has(.app-main .fixed.inset-0) #btn-sidebar-mobile-drawer {
-  display: none !important;
-}
-
 /* Modal lives inside the shifted desktop content area; extend it back over the
    complete viewport and keep the existing sidebar/topbar layout underneath it. */
 body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .settings-modal-layer, .employee-confirm-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) #desktop-sidebar,
-body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .settings-modal-layer, .employee-confirm-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) .dashboard-topbar-enter,
-body:has(.app-main .fixed.inset-0) #desktop-sidebar,
-body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
+body:has(.crm-modal-layer, .tax-manual-modal-layer, .master-data-modal-layer, .sdm-form-modal-layer, .settings-modal-layer, .employee-confirm-layer, .asset-modal-layer, .account-modal-layer, .journal-modal-layer, .receivable-modal-layer, .payable-modal-layer, .target-modal-layer, .modal-layer, .confirm-overlay) .dashboard-topbar-enter {
   z-index: 0 !important;
 }
 
@@ -260,12 +250,10 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
       .target-modal-layer,
       .modal-layer,
       .confirm-overlay
-    ),
-  #app .app-main .fixed.inset-0 {
+    ) {
     left: calc(-1 * var(--sidebar-offset, 0px)) !important;
-    right: 0 !important;
-    width: calc(100% + var(--sidebar-offset, 0px)) !important;
-    max-width: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
   }
 }
 

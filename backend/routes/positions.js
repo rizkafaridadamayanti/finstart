@@ -103,11 +103,7 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       message: 'Daftar jabatan berhasil diambil.',
-      data: rows.map((row) => ({
-        ...row,
-        employee_count: Number(row.employee_count || 0),
-        usage_count: Number(row.employee_count || 0),
-      })),
+      data: rows.map((row) => ({ ...row, employee_count: Number(row.employee_count || 0) })),
     })
   } catch (error) {
     res.status(500).json({ success: false, message: 'Gagal mengambil daftar jabatan.'})
