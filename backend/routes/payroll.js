@@ -13,18 +13,6 @@ const DEFAULT_BANK_CODE = '1120'
 const TAX_PAYABLE_CODE = '2200'
 const EMPLOYEE_RECEIVABLE_CODE = '1150'
 const OTHER_DEDUCTION_PAYABLE_CODE = '2225'
-const AUTOMATIC_BPJS_RATES = Object.freeze({
-  health_company_rate: 4,
-  health_employee_rate: 1,
-  jht_company_rate: 3.7,
-  jht_employee_rate: 2,
-  jp_company_rate: 2,
-  jp_employee_rate: 1,
-})
-const PTKP_ANNUAL = {
-  'TK/0': 54000000, 'TK/1': 58500000, 'TK/2': 63000000, 'TK/3': 67500000,
-  'K/0': 58500000, 'K/1': 63000000, 'K/2': 67500000, 'K/3': 72000000,
-}
 
 function numberValue(value) {
   const number = Number(value ?? 0)
@@ -33,61 +21,6 @@ function numberValue(value) {
 
 function money(value) {
   return Math.round((numberValue(value) + Number.EPSILON) * 100) / 100
-}
-
-function annualProgressiveTax(taxableIncome) {
-  let remaining = Math.max(0, Math.floor(numberValue(taxableIncome) / 1000) * 1000)
-  const brackets = [
-    [60000000, 0.05],
-    [190000000, 0.15],
-    [250000000, 0.25],
-    [4500000000, 0.30],
-    [Infinity, 0.35],
-  ]
-  let tax = 0
-  for (const [width, rate] of brackets) {
-    if (remaining <= 0) break
-    const portion = Math.min(remaining, width)
-    tax += portion * rate
-    remaining -= portion
-  }
-  return money(tax)
-}
-
-async function calculateDecemberPph21(executor, employeeId, payrollPeriod, employee, calculation) {
-  const year = String(payrollPeriod).slice(0, 4)
-  const [rows] = await executor.query(
-    `SELECT
-       COALESCE(SUM(base_salary + overtime_amount + allowance_amount + bonus_amount), 0) AS gross_income,
-       COALESCE(SUM(jht_employee_amount + jp_employee_amount), 0) AS pension_contribution,
-       COALESCE(SUM(pph21_amount), 0) AS pph21_withheld
-     FROM payroll_records
-     WHERE employee_id = ?
-       AND payroll_period >= ?
-       AND payroll_period < ?
-       AND status = 'posted'`,
-    [employeeId, `${year}-01`, payrollPeriod],
-  )
-  const prior = rows[0] || {}
-  const currentGross = money(
-    calculation.base_salary + calculation.overtime_amount +
-    calculation.allowance_amount + calculation.bonus_amount,
-  )
-  const annualGross = money(numberValue(prior.gross_income) + currentGross)
-  const currentPension = money(calculation.jht_employee_amount + calculation.jp_employee_amount)
-  const pensionContribution = money(numberValue(prior.pension_contribution) + currentPension)
-  const jobExpense = Math.min(6000000, money(annualGross * 0.05))
-  const ptkp = PTKP_ANNUAL[String(employee.ptkp_status || 'TK/0')] ?? PTKP_ANNUAL['TK/0']
-  const taxableIncome = Math.max(0, annualGross - jobExpense - pensionContribution - ptkp)
-  const annualTax = annualProgressiveTax(taxableIncome)
-  const priorWithheld = money(prior.pph21_withheld)
-
-  return {
-    pph21_amount: Math.max(0, money(annualTax - priorWithheld)),
-    annual_gross_income: annualGross,
-    annual_tax: annualTax,
-    prior_withheld: priorWithheld,
-  }
 }
 
 function today() {
@@ -169,13 +102,22 @@ async function findCashAccount(executor, id) {
 
 async function getBpjsConfig(executor) {
   const [rows] = await executor.query(
-    `SELECT health_company_rate, health_employee_rate,
-            jht_company_rate, jht_employee_rate,
-            jp_company_rate, jp_employee_rate
-       FROM bpjs_configurations WHERE id = 1 LIMIT 1`,
+    `
+      SELECT
+        health_company_rate,
+        health_employee_rate,
+        jht_company_rate,
+        jht_employee_rate,
+        jp_company_rate,
+        jp_employee_rate
+      FROM bpjs_configurations
+      WHERE id = 1
+      LIMIT 1
+    `,
   )
-  const config = rows[0]
-  if (!config) return { ...AUTOMATIC_BPJS_RATES }
+
+  const config = rows[0] || {}
+
   return {
     health_company_rate: numberValue(config.health_company_rate),
     health_employee_rate: numberValue(config.health_employee_rate),
@@ -226,21 +168,6 @@ function calculatePayroll(employee, bpjsConfig, adjustments = {}) {
   const jhtEmployeeRate = hasBpjs ? numberValue(bpjsConfig.jht_employee_rate) : 0
   const jpCompanyRate = hasBpjs ? numberValue(bpjsConfig.jp_company_rate) : 0
   const jpEmployeeRate = hasBpjs ? numberValue(bpjsConfig.jp_employee_rate) : 0
-
-  const configuredRates = [
-    ['BPJS Kesehatan perusahaan', healthCompanyRate],
-    ['BPJS Kesehatan pegawai', healthEmployeeRate],
-    ['JHT perusahaan', jhtCompanyRate],
-    ['JHT pegawai', jhtEmployeeRate],
-    ['JP perusahaan', jpCompanyRate],
-    ['JP pegawai', jpEmployeeRate],
-  ]
-  const invalidRate = configuredRates.find(([, rate]) => rate > 20)
-  if (invalidRate) {
-    throw new Error(
-      `Tarif ${invalidRate[0]} tersimpan ${invalidRate[1]}%. Angka ini dibaca sebagai persen dari gaji, bukan pembagian porsi. Buka Atur BPJS dan isi tarif iuran sebenarnya (contoh: 4 berarti 4%).`,
-    )
-  }
 
   const healthCompanyAmount = money(baseSalary * healthCompanyRate / 100)
   const healthEmployeeAmount = money(baseSalary * healthEmployeeRate / 100)
@@ -639,17 +566,18 @@ async function processPayrollRecord(input) {
     let pph21Amount = money(input?.pph21_amount)
     let pph21Info = null
     if (!pph21Amount && calculation.gross_salary > 0) {
-      pph21Info = payrollPeriod.endsWith('-12')
-        ? await calculateDecemberPph21(connection, employeeId, payrollPeriod, employee, calculation)
-        : buildEmployeePph21Calculation({
-          employee_name: employee.employee_name,
-          employee_nik: employee.nik,
-          employee_position: employee.position_name,
-          tax_period: payrollPeriod,
-          ptkp_status: employee.ptkp_status || 'TK/0',
-          base_salary: money(calculation.base_salary + calculation.overtime_amount + calculation.bonus_amount),
-          allowance_amount: calculation.allowance_amount,
-        })
+      pph21Info = buildEmployeePph21Calculation({
+        employee_name: employee.employee_name,
+        employee_nik: employee.nik,
+        employee_position: employee.position_name,
+        tax_period: payrollPeriod,
+        ptkp_status: employee.ptkp_status || 'TK/0',
+        base_salary: money(calculation.base_salary + calculation.overtime_amount + calculation.bonus_amount),
+        allowance_amount: calculation.allowance_amount,
+      })
+      if (pph21Info.needs_final_reconciliation) {
+        throw new Error('Payroll Desember memerlukan rekonsiliasi PPh 21 tahunan. Isi PPh 21 final secara manual setelah perhitungan resmi.')
+      }
       pph21Amount = money(pph21Info.pph21_amount)
     }
     const totalDeductions = money(calculation.employee_bpjs_deduction + pph21Amount + calculation.loan_deduction + calculation.other_deduction)
@@ -764,61 +692,6 @@ router.get('/:id/payslip', async (req, res) => {
     res.json({ success: true, message: 'Payslip berhasil diambil.', data: { ...record, employee_contact: employees[0] || null } })
   } catch (error) {
     res.status(500).json({ success: false, message: 'Gagal mengambil payslip.'})
-  }
-})
-
-router.post('/preview', async (req, res) => {
-  try {
-    const input = req.body || {}
-    const employeeId = Number(input.employee_id)
-    const payrollPeriod = String(input.payroll_period || currentPeriod())
-    if (!Number.isInteger(employeeId) || employeeId <= 0) throw new Error('Pegawai payroll wajib dipilih.')
-    if (!isValidPeriod(payrollPeriod)) throw new Error('Periode payroll harus berformat YYYY-MM.')
-
-    const employee = await getEmployeeForPayroll(db, employeeId)
-    if (!employee) throw new Error('Pegawai tidak ditemukan.')
-    if (employee.employment_status !== 'active') throw new Error('Payroll hanya dapat diproses untuk pegawai aktif.')
-    if (numberValue(employee.base_salary) <= 0) throw new Error('Gaji pokok pegawai harus lebih dari Rp0.')
-
-    const bpjsConfig = await getBpjsConfig(db)
-    const calculation = calculatePayroll(employee, bpjsConfig, input)
-    const pph21Info = payrollPeriod.endsWith('-12')
-      ? await calculateDecemberPph21(db, employeeId, payrollPeriod, employee, calculation)
-      : buildEmployeePph21Calculation({
-          employee_name: employee.employee_name,
-          employee_nik: employee.nik,
-          employee_position: employee.position_name,
-          tax_period: payrollPeriod,
-          ptkp_status: employee.ptkp_status || 'TK/0',
-          base_salary: money(calculation.base_salary + calculation.overtime_amount + calculation.bonus_amount),
-          allowance_amount: calculation.allowance_amount,
-        })
-    const pph21Amount = money(pph21Info.pph21_amount)
-    const totalDeductions = money(
-      calculation.employee_bpjs_deduction + pph21Amount +
-      calculation.loan_deduction + calculation.other_deduction,
-    )
-    const netPay = money(calculation.gross_salary - totalDeductions)
-    if (netPay < 0) throw new Error('Total potongan payroll tidak boleh melebihi penghasilan bruto.')
-
-    res.json({
-      success: true,
-      message: 'Rincian payroll siap dikonfirmasi.',
-      data: {
-        employee_id: employeeId,
-        employee_name: employee.employee_name,
-        payroll_period: payrollPeriod,
-        ...calculation,
-        pph21_amount: pph21Amount,
-        total_deductions: totalDeductions,
-        net_pay: netPay,
-      },
-    })
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: safePublicMessage(error, 'Gagal menyiapkan rincian payroll.'),
-    })
   }
 })
 

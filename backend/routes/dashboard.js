@@ -162,27 +162,9 @@ router.get('/summary', async (req, res) => {
         LEFT JOIN journal_lines
           ON journal_lines.journal_entry_id = journal_entries.id
         WHERE journal_entries.status = 'posted'
-          AND NOT (
-            journal_entries.source_type = 'invoice'
-            AND EXISTS (
-              SELECT 1
-              FROM invoice_payments
-              WHERE invoice_payments.invoice_id = journal_entries.source_id
-                AND invoice_payments.journal_entry_id IS NOT NULL
-            )
-          )
-          AND NOT (
-            journal_entries.source_type = 'bill'
-            AND EXISTS (
-              SELECT 1
-              FROM bill_payments
-              WHERE bill_payments.bill_id = journal_entries.source_id
-                AND bill_payments.journal_entry_id IS NOT NULL
-            )
-          )
         GROUP BY journal_entries.id
         ORDER BY
-          journal_entries.created_at DESC,
+          journal_entries.transaction_date DESC,
           journal_entries.id DESC
         LIMIT 5
       `),

@@ -279,13 +279,10 @@
                 @change="depreciationPeriod = eventValue($event)"
               /><button
                 type="button"
-                :disabled="isDepreciationProcessing"
-                class="h-8 rounded-lg bg-[#0B1F4A] px-3 text-[10px] font-semibold text-white whitespace-nowrap transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
-                @click.stop.prevent="openDepreciationModal"
+                class="h-8 rounded-lg bg-[#EEF5FC] px-3 text-[10px] font-semibold text-[#0B1F4A] whitespace-nowrap transition hover:bg-[#DCEAF8]"
+                @click="processMonthlyDepreciation"
               >
-                <template v-if="isDepreciationProcessing"
-                  >Memproses...</template
-                ><template v-else>Proses Penyusutan</template>
+                Proses Penyusutan
               </button>
             </div>
           </div>
@@ -379,190 +376,6 @@
         />
       </div>
     </div>
-    <Teleport to="body">
-      <div
-        v-if="isDepreciationModalOpen"
-        class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-        <div
-          class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-[#D8E5F4] bg-white shadow-2xl"
-        >
-          <div
-            class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"
-          >
-            <div class="min-w-0">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#1E5AA8]"
-              >
-                Konfirmasi Penyusutan
-              </p>
-              <h3 class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
-                Penyusutan periode {{ depreciationPeriod }}
-              </h3>
-              <p class="mt-1 text-xs leading-5 text-[#64748B]">
-                Periksa rincian dulu. Setelah diposting, jurnal masuk ke Buku
-                Besar sebagai Dr Beban Penyusutan dan Cr Akumulasi Penyusutan.
-              </p>
-            </div>
-            <button
-              type="button"
-              class="rounded-xl p-2 text-[#6B7A90] hover:bg-[#F8FBFE]"
-              @click="closeDepreciationModal"
-            >
-              <X class="h-5 w-5" />
-            </button>
-          </div>
-
-          <div
-            class="depreciation-modal-body min-h-0 flex-1 overflow-hidden px-6 py-5"
-          >
-            <div
-              v-if="depreciationResult"
-              :class="`mb-4 rounded-2xl border px-4 py-3 ${depreciationResult.processedCount > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`"
-            >
-              <div class="flex items-start gap-3">
-                <CheckCircle2
-                  v-if="depreciationResult.processedCount > 0"
-                  class="mt-0.5 h-5 w-5 shrink-0"
-                />
-                <CircleAlert v-else class="mt-0.5 h-5 w-5 shrink-0" />
-                <div class="min-w-0">
-                  <p class="text-sm font-extrabold">
-                    <template v-if="depreciationResult.processedCount > 0">
-                      Penyusutan berhasil diposting
-                    </template>
-                    <template v-else> Tidak ada aset yang diposting </template>
-                  </p>
-                  <p class="mt-1 text-xs leading-5">
-                    {{ depreciationResult.processedCount }} aset masuk jurnal,
-                    {{ depreciationResult.skippedCount }} aset dilewati.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="shrink-0 grid gap-3 md:grid-cols-3">
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
-                <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
-                >
-                  Aset Aktif
-                </p>
-                <p class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
-                  {{ depreciationPreviewRows.length }}
-                </p>
-              </div>
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
-                <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
-                >
-                  Estimasi Beban
-                </p>
-                <p class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
-                  {{ formatRupiah(depreciationPreviewTotal) }}
-                </p>
-              </div>
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
-                <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
-                >
-                  Jurnal
-                </p>
-                <p class="mt-1 text-xs font-bold leading-5 text-[#0B1F4A]">
-                  Dr Beban Penyusutan<br />Cr Akumulasi Penyusutan
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#DCE7F4]"
-            >
-              <table class="depreciation-preview-table w-full text-left text-xs">
-                <thead
-                  class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B3A78]"
-                >
-                  <tr>
-                    <th class="px-4 py-3">Aset</th>
-                    <th class="px-4 py-3">Kategori</th>
-                    <th class="px-4 py-3 text-right">Nilai Buku</th>
-                    <th class="px-4 py-3 text-right">Estimasi Penyusutan</th>
-                  </tr>
-                </thead>
-                <tbody class="depreciation-table-scroll divide-y divide-[#EDF2F7]">
-                  <tr
-                    v-for="row in depreciationPreviewRows"
-                    :key="`depreciation-preview-${row.id}`"
-                  >
-                    <td class="px-4 py-3 font-bold text-[#0B1F4A]">
-                      {{ row.nama }}
-                    </td>
-                    <td class="px-4 py-3 text-[#64748B]">
-                      {{ row.kategori }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-right font-semibold text-[#0B1F4A]"
-                    >
-                      {{ formatRupiah(row.nilaiBuku) }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-right font-extrabold text-[#0B1F4A]"
-                    >
-                      {{ formatRupiah(row.nominal) }}
-                    </td>
-                  </tr>
-                  <tr v-if="!depreciationPreviewRows.length">
-                    <td colspan="4" class="px-4 py-8 text-center text-[#8A98AB]">
-                      Belum ada aset aktif untuk diproses.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div
-              v-if="depreciationResult?.skippedReasons?.length"
-              class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4"
-            >
-              <p class="text-xs font-extrabold text-amber-800">
-                Aset yang dilewati
-              </p>
-              <ul class="mt-2 grid gap-2 md:grid-cols-2">
-                <li
-                  v-for="item in depreciationResult.skippedReasons"
-                  :key="`${item.asset_id}-${item.reason}`"
-                  class="rounded-xl bg-white px-3 py-2 text-xs"
-                >
-                  <p class="font-bold text-[#0B1F4A]">{{ item.asset_name }}</p>
-                  <p class="mt-1 text-[#64748B]">{{ item.reason }}</p>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div
-            class="flex flex-col gap-3 border-t border-[#E8EEF7] px-6 py-4 sm:flex-row sm:justify-end"
-          >
-            <button
-              type="button"
-              class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-semibold text-[#0B1F4A]"
-              @click="closeDepreciationModal"
-            >
-              Tutup
-            </button>
-            <button
-              v-if="!depreciationResult"
-              type="button"
-              :disabled="isDepreciationProcessing || !depreciationPreviewRows.length"
-              class="h-11 rounded-xl bg-[#0B1F4A] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B1F4A]/20 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
-              @click="processMonthlyDepreciation"
-            >
-              <template v-if="isDepreciationProcessing">Memposting...</template>
-              <template v-else>Posting Penyusutan ke Buku Besar</template>
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
     <Teleport to="body">
     <div
       v-if="assetHistory"
@@ -997,24 +810,17 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <div class="max-h-[60vh] overflow-auto p-6">
-          <table v-if="expiredSubs.length" class="w-full min-w-[760px] table-fixed text-left text-xs">
-            <colgroup>
-              <col style="width: 28%" />
-              <col style="width: 18%" />
-              <col style="width: 21%" />
-              <col style="width: 20%" />
-              <col style="width: 13%" />
-            </colgroup>
+        <div class="max-h-[60vh] overflow-y-auto p-6">
+          <table v-if="expiredSubs.length" class="w-full text-left text-xs">
             <thead
               class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
             >
               <tr>
                 <th class="pb-3">Layanan</th>
                 <th class="pb-3">Kategori</th>
-                <th class="pb-3 pr-8 text-right">Nominal</th>
-                <th class="pb-3 pl-8">Tanggal</th>
-                <th class="pb-3 pl-4">Status</th>
+                <th class="pb-3 text-right">Nominal</th>
+                <th class="pb-3">Tanggal</th>
+                <th class="pb-3">Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
@@ -1026,11 +832,11 @@
                   </p>
                 </td>
                 <td class="py-3">{{ item.kategori || "-" }}</td>
-                <td class="whitespace-nowrap py-3 pr-8 text-right font-mono font-bold text-[#0B1F4A]">
+                <td class="py-3 text-right font-mono font-bold text-[#0B1F4A]">
                   {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
                 </td>
-                <td class="whitespace-nowrap py-3 pl-8 font-mono">{{ item.tanggalTagihan || "-" }}</td>
-                <td class="py-3 pl-4">
+                <td class="py-3 font-mono">{{ item.tanggalTagihan || "-" }}</td>
+                <td class="py-3">
                   <span
                     class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700"
                     >{{ subscriptionStatusLabel(item) }}</span
@@ -1428,7 +1234,7 @@
                           assetFormErrors.tanggalBeli,
                       },
                     ]"
-                    @input="setAssetField('tanggalBeli', eventValue($event))"
+                    @change="setAssetField('tanggalBeli', eventValue($event))"
                   /><Calendar
                     class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
                   />
@@ -1446,9 +1252,9 @@
                   >Harga Perolehan (Rp)</label
                 ><input
                   id="asset-form-cost"
-                  type="text"
+                  type="number"
                   required
-                  inputmode="numeric"
+                  :min="0"
                   :disabled="!!editingAsset"
                   :value="newAsset.hargaBeli || ''"
                   placeholder="0"
@@ -1457,7 +1263,7 @@
                     { 'form-control-invalid': assetFormErrors.hargaBeli },
                   ]"
                   @input="
-                    setAssetField('hargaBeli', parseRupiahInput(eventValue($event)))
+                    setAssetField('hargaBeli', Number(eventValue($event)))
                   "
                 />
                 <p
@@ -1498,9 +1304,9 @@
                   >Nilai Sisa / Salvage (Rp)</label
                 ><input
                   id="asset-form-salvage"
-                  type="text"
+                  type="number"
                   required
-                  inputmode="numeric"
+                  :min="0"
                   :value="newAsset.nilaiSisa"
                   placeholder="0"
                   :class="[
@@ -1508,7 +1314,7 @@
                     { 'form-control-invalid': assetFormErrors.nilaiSisa },
                   ]"
                   @input="
-                    setAssetField('nilaiSisa', parseRupiahInput(eventValue($event)))
+                    setAssetField('nilaiSisa', Number(eventValue($event)))
                   "
                 />
                 <p
@@ -1580,8 +1386,6 @@ import {
   Pencil,
   History,
   Archive,
-  CheckCircle2,
-  CircleAlert,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Langganan } from "../types.ts";
@@ -1638,9 +1442,6 @@ const isSubModalOpen = ref(false),
 const isAssetModalOpen = ref(false),
   updateIsAssetModalOpen = (next) => (isAssetModalOpen.value = next);
 const depreciationPeriod = ref(new Date().toISOString().slice(0, 7));
-const isDepreciationModalOpen = ref(false);
-const isDepreciationProcessing = ref(false);
-const depreciationResult = ref<any>(null);
 type CurrencyCode = "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
 const currencyOptions: { value: CurrencyCode; label: string }[] = [
   { value: "IDR", label: "IDR - Rupiah" },
@@ -2087,66 +1888,16 @@ const handleConfirmDialog = async (reason = "") => {
   }
 };
 
-function openDepreciationModal() {
-  if (!depreciationPeriod.value) {
-    notify("Pilih periode penyusutan terlebih dahulu.");
-    return;
-  }
-  depreciationResult.value = null;
-  isDepreciationModalOpen.value = true;
-}
-
-function closeDepreciationModal() {
-  if (isDepreciationProcessing.value) return;
-  isDepreciationModalOpen.value = false;
-  depreciationResult.value = null;
-}
-
 async function processMonthlyDepreciation() {
-  if (isDepreciationProcessing.value) return;
-  if (!depreciationPeriod.value) {
-    notify("Pilih periode penyusutan terlebih dahulu.");
-    return;
-  }
-
-  isDepreciationProcessing.value = true;
   try {
     const result = await financeApi.post("/assets/depreciate-batch", {
       depreciation_period: depreciationPeriod.value,
       notes: "Penyusutan bulanan diproses dari workspace FinStart.",
     });
     await refreshData();
-    const processed = Array.isArray(result?.processed)
-      ? result.processed
-      : [];
-    const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
-    const processedCount = processed.length;
-    const skippedCount = skipped.length;
-    depreciationResult.value = {
-      depreciation_period: result?.depreciation_period || depreciationPeriod.value,
-      processedCount,
-      skippedCount,
-      skippedReasons: skipped,
-    };
-    notify(
-      processedCount > 0
-        ? `Penyusutan ${processedCount} aset berhasil diposting.`
-        : `Tidak ada aset yang diposting untuk periode ${depreciationPeriod.value}.`,
-    );
+    notify(result?.message || "Penyusutan bulanan berhasil diproses.");
   } catch (error) {
-    const message = getApiErrorMessage(
-      error,
-      "Gagal memproses penyusutan bulanan.",
-    );
-    depreciationResult.value = {
-      depreciation_period: depreciationPeriod.value,
-      processedCount: 0,
-      skippedCount: 0,
-      skippedReasons: [{ asset_id: "error", asset_name: "Proses gagal", reason: message }],
-    };
-    notify(message);
-  } finally {
-    isDepreciationProcessing.value = false;
+    notify(getApiErrorMessage(error, "Gagal memproses penyusutan bulanan."));
   }
 }
 
@@ -2205,34 +1956,6 @@ const activeAssets = computed(() =>
       (a: any) =>
         String(a?._raw?.status || a?.status || "").toLowerCase() !== "disposed",
     ),
-  ),
-);
-const depreciationPreviewRows = computed(() =>
-  activeAssets.value.map((asset: any) => {
-    const cost = Number(asset.hargaBeli || asset._raw?.acquisition_cost || 0);
-    const residual = Number(asset.residualValue || asset._raw?.residual_value || 0);
-    const bookValue = Number(asset.nilaiBuku || asset._raw?.book_value || 0);
-    const usefulLife = Math.max(
-      1,
-      Number(asset.usefulLifeMonths || asset._raw?.useful_life_months || 1),
-    );
-    const monthlyAmount = Math.max(
-      0,
-      Math.min((cost - residual) / usefulLife, Math.max(bookValue - residual, 0)),
-    );
-    return {
-      id: asset.id,
-      nama: asset.nama,
-      kategori: asset.kategori,
-      nilaiBuku: bookValue,
-      nominal: monthlyAmount,
-    };
-  }),
-);
-const depreciationPreviewTotal = computed(() =>
-  depreciationPreviewRows.value.reduce(
-    (total: number, row: any) => total + Number(row.nominal || 0),
-    0,
   ),
 );
 const filteredAssets = computed(() =>
@@ -2475,67 +2198,6 @@ function closeConfirmDialog() {
   font-size: 12.5px !important;
   font-weight: 850 !important;
   line-height: 1.25;
-}
-
-.depreciation-modal-card {
-  height: min(820px, calc(100dvh - 32px));
-  max-height: calc(100dvh - 32px);
-}
-
-.depreciation-modal-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.depreciation-table-panel {
-  height: min(440px, 48vh);
-  max-height: 48vh;
-}
-
-.depreciation-preview-table {
-  table-layout: fixed;
-}
-
-.depreciation-preview-table thead,
-.depreciation-preview-table tbody tr {
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.depreciation-preview-table thead {
-  width: calc(100% - 10px);
-}
-
-.depreciation-preview-table tbody {
-  display: block;
-}
-
-.depreciation-table-scroll {
-  max-height: calc(min(440px, 48vh) - 44px);
-  overflow-y: scroll;
-  scrollbar-color: #9aabc2 #eef5fc;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-}
-
-.depreciation-table-scroll::-webkit-scrollbar {
-  width: 10px;
-}
-
-.depreciation-table-scroll::-webkit-scrollbar-track {
-  border-radius: 999px;
-  background: #eef5fc;
-}
-
-.depreciation-table-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid #eef5fc;
-  border-radius: 999px;
-  background: #9aabc2;
-}
-
-.depreciation-table-scroll::-webkit-scrollbar-thumb:hover {
-  background: #6f8199;
 }
 
 @media (max-width: 767px) {
