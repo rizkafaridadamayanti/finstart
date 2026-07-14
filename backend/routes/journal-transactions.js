@@ -45,6 +45,27 @@ router.get('/', async (req, res) => {
     const conditions = ['1 = 1']
     const params = []
 
+    conditions.push(`
+      NOT (
+        je.source_type = 'invoice'
+        AND EXISTS (
+          SELECT 1
+          FROM invoice_payments ip
+          WHERE ip.invoice_id = je.source_id
+            AND ip.journal_entry_id IS NOT NULL
+        )
+      )
+      AND NOT (
+        je.source_type = 'bill'
+        AND EXISTS (
+          SELECT 1
+          FROM bill_payments bp
+          WHERE bp.bill_id = je.source_id
+            AND bp.journal_entry_id IS NOT NULL
+        )
+      )
+    `)
+
     if (transactionDate) {
       conditions.push('je.transaction_date = ?')
       params.push(transactionDate)

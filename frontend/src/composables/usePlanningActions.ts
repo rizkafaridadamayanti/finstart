@@ -29,25 +29,32 @@ export function usePlanningActions({
           (projectionData.value.months || []).find(
             (row: any) => Number(row.month) === month,
           ) || {};
+        const hasDirectTargets =
+          item.revenueTarget !== undefined || item.expenseTarget !== undefined;
         const isExpense =
-          item.akunType === "Beban" ||
-          String(item.akunName || item.nama || "")
-            .toLowerCase()
-            .includes("beban") ||
-          String(item.akunName || item.nama || "")
-            .toLowerCase()
-            .includes("expense");
+          !hasDirectTargets &&
+          (item.akunType === "Beban" ||
+            String(item.akunName || item.nama || "")
+              .toLowerCase()
+              .includes("beban") ||
+            String(item.akunName || item.nama || "")
+              .toLowerCase()
+              .includes("expense"));
         await financeApi.post("/projections", {
           projection_year: Number(
             projectionData.value.year || new Date().getFullYear(),
           ),
           projection_month: month,
-          revenue_target: isExpense
-            ? toNumber(existing.revenue_target)
-            : toNumber(item.nilaiTarget || item.nilai),
-          expense_target: isExpense
-            ? toNumber(item.nilaiTarget || item.nilai)
-            : toNumber(existing.expense_target),
+          revenue_target: hasDirectTargets
+            ? toNumber(item.revenueTarget)
+            : isExpense
+              ? toNumber(existing.revenue_target)
+              : toNumber(item.nilaiTarget || item.nilai),
+          expense_target: hasDirectTargets
+            ? toNumber(item.expenseTarget)
+            : isExpense
+              ? toNumber(item.nilaiTarget || item.nilai)
+              : toNumber(existing.expense_target),
           notes: item.catatan || "",
         });
         await refreshData();
