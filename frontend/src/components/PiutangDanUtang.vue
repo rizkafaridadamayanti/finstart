@@ -91,18 +91,8 @@
           >
             <span class="font-bold text-xs text-[#0B1F4A]"
               >Buku Subledger Piutang Usaha</span
-            ><div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label class="relative block">
-                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8AA0BE]" />
-                <input
-                  type="search"
-                  :value="searchQuery"
-                  class="h-9 w-full rounded-xl border border-[#D8E5F4] bg-white pl-9 pr-3 text-[11px] font-semibold text-[#0B1F4A] outline-none sm:w-64"
-                  placeholder="Cari invoice, klien, nominal..."
-                  @input="searchQuery = eventValue($event)"
-                />
-              </label>
-              <label class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]"
+            ><label
+              class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]"
               >Filter
               <select
                 :value="statusFilter"
@@ -116,8 +106,8 @@
                 >
                   {{ option.label }}
                 </option>
-              </select></label>
-            </div>
+              </select></label
+            >
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -267,18 +257,8 @@
           >
             <span class="font-bold text-xs text-[#0B1F4A]"
               >Buku Subledger Utang Vendor</span
-            ><div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label class="relative block">
-                <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8AA0BE]" />
-                <input
-                  type="search"
-                  :value="searchQuery"
-                  class="h-9 w-full rounded-xl border border-[#D8E5F4] bg-white pl-9 pr-3 text-[11px] font-semibold text-[#0B1F4A] outline-none sm:w-64"
-                  placeholder="Cari tagihan, vendor, nominal..."
-                  @input="searchQuery = eventValue($event)"
-                />
-              </label>
-              <label class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]"
+            ><label
+              class="flex items-center gap-2 text-[11px] font-bold text-[#53658A]"
               >Filter
               <select
                 :value="statusFilter"
@@ -292,8 +272,8 @@
                 >
                   {{ option.label }}
                 </option>
-              </select></label>
-            </div>
+              </select></label
+            >
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -579,7 +559,7 @@
         </div>
         <form
           class="px-9 py-11 space-y-9 text-sm"
-          @submit.prevent="handleRecordReceipt"
+          @submit="handleRecordReceipt"
         >
           <div v-if="receiptErrorCount > 0" class="form-validation-summary">
             <strong>Form belum dapat disimpan.</strong>
@@ -589,26 +569,7 @@
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
               >Invoice yang Dilunasi</label
-            ><select
-              id="receipt-form-invoice"
-              :value="selectedInvoiceId"
-              :class="[
-                'w-full h-12 px-4 bg-white border border-[#0B1F4A] rounded-2xl text-[#0B1F4A] font-semibold text-sm focus:outline-none',
-                { 'form-control-invalid': receiptFormErrors.invoice },
-              ]"
-              @change="selectInvoiceForReceipt(eventValue($event))"
-            >
-              <option value="">Pilih invoice outstanding</option>
-              <option
-                v-for="invoice in invoices.filter(isInvoiceOpen)"
-                :key="invoice.id"
-                :value="String(invoice.id)"
-              >
-                {{ invoice.nomor }} - {{ invoice.klienNama || invoice.proyekNama }}
-                ({{ formatRupiah(getInvoiceOutstanding(invoice)) }})
-              </option>
-            </select>
-            <div v-if="false" class="relative">
+            ><div class="relative">
             <button
               id="receipt-form-invoice"
               type="button"
@@ -672,13 +633,10 @@
           <div>
             <button
               id="btn-receipt-submit"
-              type="button"
-              :disabled="isRecordingReceipt"
-              class="h-[66px] w-full bg-emerald-600 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
-              @click.stop.prevent="handleRecordReceipt"
+              type="submit"
+              class="h-[66px] w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
             >
-              <Save class="w-4 h-4" />
-              {{ isRecordingReceipt ? "Mencatat..." : "Catat Pelunasan" }}
+              <Save class="w-4 h-4" /> Catat Pelunasan
             </button>
           </div>
         </form>
@@ -919,7 +877,7 @@
             <X class="w-5 h-5" />
           </button>
         </div>
-        <form class="px-9 py-10 space-y-7 text-sm" @submit.prevent="handlePayBill">
+        <form class="px-9 py-10 space-y-7 text-sm" @submit="handlePayBill">
           <div v-if="paymentErrorCount > 0" class="form-validation-summary">
             <strong>Form belum dapat disimpan.</strong>
             <span>Lengkapi {{ paymentErrorCount }} kolom yang ditandai di bawah ini.</span>
@@ -1088,13 +1046,10 @@
           <div class="pt-1">
             <button
               id="btn-pay-submit"
-              type="button"
-              :disabled="isPayingBill"
-              class="h-[52px] w-full bg-[#5146E8] hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
-              @click.stop.prevent="handlePayBill"
+              type="submit"
+              class="h-[52px] w-full bg-[#5146E8] hover:bg-[#4338CA] text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
             >
-              <Save class="w-4 h-4" />
-              {{ isPayingBill ? "Membayar..." : "Selesaikan Pembayaran" }}
+              <Save class="w-4 h-4" /> Selesaikan Pembayaran
             </button>
           </div>
         </form>
@@ -1141,7 +1096,6 @@ import {
   Save,
   CreditCard,
   ChevronDown,
-  Search,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, AkunBukuBesar } from "../types.ts";
@@ -1149,7 +1103,6 @@ import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
-import { mapBill, mapInvoice } from "../services/financeMappers.js";
 interface Invoice {
   id: string;
   nomor: string;
@@ -1237,7 +1190,6 @@ const editingInvoice = ref<any>(null);
 const editingBill = ref<any>(null);
 const cancelConfirm = ref<any>(null); // New Invoice form input
 const statusFilter = ref("all");
-const searchQuery = ref("");
 const invoicePage = ref(1);
 const billPage = ref(1);
 const statusOptions = [
@@ -1247,10 +1199,6 @@ const statusOptions = [
   { value: "cancelled", label: "Cancelled" },
   { value: "all", label: "Semua Status" },
 ];
-watch([searchQuery, statusFilter], () => {
-  invoicePage.value = 1;
-  billPage.value = 1;
-});
 const newInvoice = ref({
     proyekId: proyek[0]?.id || "",
     nomor: newReferenceNumber("INV"),
@@ -1297,8 +1245,6 @@ const setInvoiceField = (key: keyof typeof newInvoice.value, value: any) => {
 const selectedInvoiceId = ref(""),
   updateSelectedInvoiceId = (next) => (selectedInvoiceId.value = next);
 const receiptDropdownOpen = ref(false);
-const isRecordingReceipt = ref(false);
-const isPayingBill = ref(false);
 const selectedReceiptInvoiceLabel = computed(() => {
   const invoice = invoices.value.find(
     (item) => String(item.id) === String(selectedInvoiceId.value),
@@ -1549,11 +1495,17 @@ const validatePaymentForm = () => {
   if (!String(paymentAccount.value || "").trim()) {
     mark("account", "Sumber kas / bank wajib dipilih.", "pay-form-bank");
   }
+  if (!String(paymentForm.value.buktiBayar || "").trim()) {
+    mark("buktiBayar", "No. bukti bayar wajib diisi.", "pay-form-proof");
+  }
   if (!String(paymentForm.value.tanggalBayar || "").trim()) {
     mark("tanggalBayar", "Tanggal bayar wajib diisi.", "pay-form-date");
   }
   if (!Number.isFinite(Number(paymentForm.value.jumlah)) || Number(paymentForm.value.jumlah) <= 0) {
     mark("jumlah", "Jumlah dibayar harus lebih dari 0.", "pay-form-amount");
+  }
+  if (!String(paymentForm.value.catatan || "").trim()) {
+    mark("catatan", "Catatan tambahan wajib diisi.", "pay-form-note");
   }
 
   paymentFormErrors.value = nextErrors;
@@ -1656,11 +1608,6 @@ const matchesStatusFilter = (item: any, isOpen: (_row: any) => boolean) => {
   if (statusFilter.value === "open") return isOpen(item);
   return normalizedStatus(item) === statusFilter.value;
 };
-const matchesSearchQuery = (item: any) => {
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) return true;
-  return JSON.stringify(item).toLowerCase().includes(query);
-};
 
 const selectInvoiceForReceipt = (invoiceId: string) => {
   const invoice = invoices.value.find(
@@ -1687,18 +1634,8 @@ const selectBillForPayment = (billId: string) => {
   clearPaymentError("bill", "vendor", "jumlah");
 };
 
-const replacePaymentResult = (
-  rows: { value: any[] },
-  id: string | number,
-  updated: any,
-) => {
-  if (!updated) return;
-  const index = rows.value.findIndex((item) => String(item.id) === String(id));
-  if (index >= 0) rows.value.splice(index, 1, updated);
-};
-
-const handleRecordReceipt = async () => {
-  if (isRecordingReceipt.value) return;
+const handleRecordReceipt = async (e: Event) => {
+  e.preventDefault();
   if (!validateReceiptForm()) {
     notify("Lengkapi seluruh kolom pelunasan sebelum menyimpan.");
     return;
@@ -1710,23 +1647,14 @@ const handleRecordReceipt = async () => {
     notify("Pilih invoice yang akan dilunasi terlebih dahulu.");
     return;
   }
-  isRecordingReceipt.value = true;
-  try {
-    const result = await recordInvoicePayment(targetInv, {
-      accountCode: receiptAccount.value,
-      amount: receiptAmount.value || getInvoiceOutstanding(targetInv),
-      paymentDate: new Date().toISOString().split("T")[0],
-      referenceNumber: `AR/${targetInv.nomor || targetInv.id}`,
-      notes: `Pelunasan ${targetInv.nomor || "invoice"}`,
-    });
-    if (!result?.invoice) return;
-    replacePaymentResult(invoices, targetInv.id, mapInvoice(result.invoice));
-    updateSelectedInvoiceId("");
-    updateReceiptAmount(0);
-    closeReceiptModal();
-  } finally {
-    isRecordingReceipt.value = false;
-  }
+  await recordInvoicePayment(targetInv, {
+    accountCode: receiptAccount.value,
+    amount: receiptAmount.value || getInvoiceOutstanding(targetInv),
+    paymentDate: new Date().toISOString().split("T")[0],
+    referenceNumber: "",
+    notes: "",
+  });
+  closeReceiptModal();
 };
 
 const openBillForm = (bill: any = null) => {
@@ -1768,8 +1696,8 @@ const handleSaveBill = async (e: Event) => {
   closeBillModal();
 };
 
-const handlePayBill = async () => {
-  if (isPayingBill.value) return;
+const handlePayBill = async (e: Event) => {
+  e.preventDefault();
   if (!validatePaymentForm()) {
     notify("Lengkapi seluruh kolom pembayaran sebelum menyimpan.");
     return;
@@ -1781,31 +1709,14 @@ const handlePayBill = async () => {
     notify("Pilih tagihan vendor yang akan dibayar terlebih dahulu.");
     return;
   }
-  isPayingBill.value = true;
-  try {
-    const result = await payBill(targetBill, {
-      accountCode: paymentAccount.value,
-      amount: paymentForm.value.jumlah || getBillOutstanding(targetBill),
-      paymentDate: paymentForm.value.tanggalBayar,
-      referenceNumber:
-        paymentForm.value.buktiBayar || `AP/${targetBill.nomorTagihan || targetBill.id}`,
-      notes:
-        paymentForm.value.catatan || `Pelunasan ${targetBill.nomorTagihan || "tagihan"}`,
-    });
-    if (!result?.bill) return;
-    replacePaymentResult(bills, targetBill.id, mapBill(result.bill));
-    updateSelectedBillId("");
-    updatePaymentForm({
-      vendor: "",
-      buktiBayar: `PAY/${new Date().getFullYear()}/001`,
-      tanggalBayar: new Date().toISOString().slice(0, 10),
-      jumlah: 0,
-      catatan: "",
-    });
-    closePayBillModal();
-  } finally {
-    isPayingBill.value = false;
-  }
+  await payBill(targetBill, {
+    accountCode: paymentAccount.value,
+    amount: paymentForm.value.jumlah || getBillOutstanding(targetBill),
+    paymentDate: paymentForm.value.tanggalBayar,
+    referenceNumber: paymentForm.value.buktiBayar,
+    notes: paymentForm.value.catatan,
+  });
+  closePayBillModal();
 };
 
 // Calculations for KPI Cards
@@ -1827,19 +1738,14 @@ const totalOutstandingUtang = computed(() =>
 );
 const filteredInvoices = computed(() =>
   latestFirst(
-    invoices.value.filter(
-      (invoice) =>
-        matchesStatusFilter(invoice, isInvoiceOpen) &&
-        matchesSearchQuery(invoice),
+    invoices.value.filter((invoice) =>
+      matchesStatusFilter(invoice, isInvoiceOpen),
     ),
   ),
 );
 const filteredBills = computed(() =>
   latestFirst(
-    bills.value.filter(
-      (bill) =>
-        matchesStatusFilter(bill, isBillOpen) && matchesSearchQuery(bill),
-    ),
+    bills.value.filter((bill) => matchesStatusFilter(bill, isBillOpen)),
   ),
 );
 const pagedInvoices = computed(() =>
@@ -1890,22 +1796,6 @@ function closeCancelConfirm() {
   background: var(--form-white) !important;
   border-color: var(--form-navy) !important;
   color: var(--form-navy) !important;
-}
-
-.receivable-receipt-modal-card {
-  display: flex;
-  max-height: min(88dvh, 720px);
-  flex-direction: column;
-}
-
-.receivable-receipt-modal-card > form {
-  display: block !important;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.receivable-receipt-modal-card > form > * + * {
-  margin-top: 1.25rem !important;
 }
 
 .receivable-receipt-modal-card > div:first-child,

@@ -294,15 +294,27 @@
               Realisasi kumulatif dibanding target tahunan perusahaan.
             </p>
           </div>
-          <div
-            class="inline-flex w-fit items-center gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-2.5"
-          >
-            <Target class="h-4 w-4 text-[#1E5AA8]" /><span
-              class="text-xs text-[#6B7A90]"
-              >Rata-rata capaian</span
-            ><span class="text-sm font-semibold text-[#0B1F4A]"
-              >{{ achievementAverage }}%</span
+          <div class="flex flex-wrap items-center gap-3">
+            <select
+              :value="targetProgressFilter"
+              class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A]"
+              @change="updateTargetProgressFilter(eventValue($event))"
             >
+              <option value="all">Semua Progress</option>
+              <option value="complete">Tercapai 100%</option>
+              <option value="on_track">Progress 75-99%</option>
+              <option value="at_risk">Di bawah 75%</option>
+            </select>
+            <div
+              class="inline-flex w-fit items-center gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-2.5"
+            >
+              <Target class="h-4 w-4 text-[#1E5AA8]" /><span
+                class="text-xs text-[#6B7A90]"
+                >Rata-rata capaian</span
+              ><span class="text-sm font-semibold text-[#0B1F4A]"
+                >{{ achievementAverage }}%</span
+              >
+            </div>
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -316,15 +328,16 @@
                 <th class="px-6 py-4 text-right">Realisasi</th>
                 <th class="px-6 py-4">Progress</th>
                 <th class="px-6 py-4 text-center">Status</th>
+                <th class="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
-              <tr v-if="orderedTargets.length === 0">
+              <tr v-if="filteredTargets.length === 0">
                 <td
-                  colspan="5"
+                  colspan="6"
                   class="px-6 py-10 text-center text-sm text-[#8A98AB]"
                 >
-                  Target tahunan belum tersedia.
+                  Tidak ada target yang sesuai dengan filter progress.
                 </td>
               </tr>
               <template v-else>
@@ -371,6 +384,16 @@
                     >{{ targetStatusLabel(target) }}</span
                   >
                 </td>
+                <td class="px-6 py-5 text-center">
+                  <button
+                    type="button"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
+                    title="Edit target"
+                    @click="openTargetModal(target)"
+                  >
+                    <Pencil class="h-4 w-4" />
+                  </button>
+                </td>
               </tr>
               </template>
             </tbody>
@@ -378,8 +401,8 @@
         </div>
         <TablePagination
           :page="targetPage"
-          :total="orderedTargets.length"
-          @page-change="targetPage = safePage($event, orderedTargets.length)"
+          :total="filteredTargets.length"
+          @page-change="targetPage = safePage($event, filteredTargets.length)"
         />
       </div>
       <div
@@ -895,79 +918,56 @@
         >
           <div>
             <h2 class="text-lg font-semibold text-[#0B1F4A]">
-              Target Bulanan
+              Catatan &amp; Target Akun
             </h2>
             <p class="mt-1 text-sm text-[#6B7A90]">
-              Target pendapatan dan beban per bulan. Realisasi otomatis berasal
-              dari jurnal posted.
+              Daftar target yang terhubung dengan akun buku besar dan rencana
+              periode mendatang.
             </p>
           </div>
           <span class="text-xs font-medium text-[#6B7A90]"
-            >{{ projectionMonths.length }} bulan proyeksi ·
+            >{{ proyek.length }} proyek terhubung ·
             {{ transaksi.length }} jurnal tersedia</span
           >
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[980px] text-left text-sm">
+          <table class="w-full min-w-[720px] text-left text-sm">
             <thead
               class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
-                <th class="px-6 py-4">Bulan</th>
-                <th class="px-6 py-4 text-right">Target Pendapatan</th>
-                <th class="px-6 py-4 text-right">Target Beban</th>
-                <th class="px-6 py-4 text-right">Realisasi Pendapatan</th>
-                <th class="px-6 py-4 text-right">Realisasi Beban</th>
-                <th class="px-6 py-4 text-right">Forecast Laba</th>
-                <th class="px-6 py-4">Catatan</th>
+                <th class="px-6 py-4">Akun / Target</th>
+                <th class="px-6 py-4">Bulan Proyeksi</th>
+                <th class="px-6 py-4 text-right">Nilai Target</th>
+                <th class="px-6 py-4">Catatan Finansial</th>
                 <th class="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
-              <tr v-if="pagedProjectionMonths.length === 0">
-                <td
-                  colspan="8"
-                  class="px-6 py-10 text-center text-sm text-[#8A98AB]"
-                >
-                  Belum ada data bulan proyeksi.
-                </td>
-              </tr>
               <tr
-                v-for="month in pagedProjectionMonths"
-                v-else
-                :key="`projection-month-${month.month}`"
+                v-for="target in pagedTargetDetails"
+                :key="`${target.id}-detail`"
                 class="hover:bg-[#FBFDFF]"
               >
                 <td class="px-6 py-4">
-                  <p class="font-medium text-[#182338]">{{ month.label }}</p>
-                  <p class="mt-1 text-xs text-[#8A98AB]">
-                    {{ projectionData?.year || new Date().getFullYear() }}
-                  </p>
+                  <p class="font-medium text-[#182338]">{{ target.nama }}</p>
+                  <p class="mt-1 text-xs text-[#8A98AB]">{{ target.id }}</p>
+                </td>
+                <td class="px-6 py-4 text-[#53658A]">
+                  {{ currentMonthIso() }}
                 </td>
                 <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
-                  {{ formatRupiah(Number(month.revenue_target || 0)) }}
+                  {{ currencyOrUnit(target.nilaiTarget, target.satuan) }}
                 </td>
-                <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
-                  {{ formatRupiah(Number(month.expense_target || 0)) }}
-                </td>
-                <td class="px-6 py-4 text-right text-[#1E5AA8]">
-                  {{ formatRupiah(Number(month.revenue_actual || 0)) }}
-                </td>
-                <td class="px-6 py-4 text-right text-[#B45309]">
-                  {{ formatRupiah(Number(month.expense_actual || 0)) }}
-                </td>
-                <td class="px-6 py-4 text-right font-semibold text-[#047857]">
-                  {{ formatRupiah(Number(month.forecast_profit || 0)) }}
-                </td>
-                <td class="max-w-[220px] px-6 py-4 text-xs text-[#6B7A90]">
-                  {{ month.notes || "—" }}
+                <td class="px-6 py-4 text-[#6B7A90]">
+                  Dipantau bersama realisasi dan arus kas operasional.
                 </td>
                 <td class="px-6 py-4 text-center">
                   <button
                     type="button"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
                     title="Edit target"
-                    @click="openTargetModal(month)"
+                    @click="openTargetModal(target)"
                   >
                     <Pencil class="h-4 w-4" />
                   </button>
@@ -978,8 +978,8 @@
         </div>
         <TablePagination
           :page="targetDetailPage"
-          :total="projectionMonths.length"
-          @page-change="targetDetailPage = safePage($event, projectionMonths.length)"
+          :total="orderedTargets.length"
+          @page-change="targetDetailPage = safePage($event, orderedTargets.length)"
         />
       </div>
     </section>
@@ -1189,11 +1189,69 @@
             role="alert"
             aria-live="polite"
           >
-            Isi target pendapatan dan/atau target beban. Realisasi dihitung
-            otomatis dari jurnal posted.
+            Semua kolom wajib diisi sebelum target proyeksi disimpan.
           </div>
           <div class="grid gap-5 md:grid-cols-2">
             <label class="space-y-2 md:col-span-2"
+              ><span
+                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
+                >Akun Buku Besar</span
+              ><select
+                required
+                :value="newTarget.akunId"
+                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
+                @change="updateNewTarget({ ...newTarget, akunId: eventValue($event) })"
+              >
+                <option value="">Pilih akun buku besar</option>
+                <option v-for="item in akun" :key="item.id" :value="item.id">
+                  {{ item.kode }} · {{ item.nama }}
+                </option>
+              </select></label
+            ><label class="space-y-2"
+              ><span
+                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
+                >Target Nilai</span
+              ><input
+                type="number"
+                min="1"
+                required
+                :value="newTarget.nilaiTarget || ''"
+                placeholder="0"
+                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
+                @change="updateNewTarget({
+                      ...newTarget,
+                      nilaiTarget: Number(eventValue($event)),
+                    })" /></label
+            ><label class="space-y-2"
+              ><span
+                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
+                >Satuan</span
+              ><select
+                required
+                :value="newTarget.satuan"
+                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
+                @change="updateNewTarget({ ...newTarget, satuan: eventValue($event) })"
+              >
+                <option value="Rupiah">Rupiah</option>
+                <option value="Persen">Persen</option>
+                <option value="Klien">Klien</option>
+              </select></label
+            ><label class="space-y-2"
+              ><span
+                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
+                >Realisasi Saat Ini</span
+              ><input
+                type="number"
+                min="0"
+                required
+                :value="newTarget.nilaiRealisasi"
+                placeholder="0"
+                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
+                @change="updateNewTarget({
+                      ...newTarget,
+                      nilaiRealisasi: Number(eventValue($event)),
+                    })" /></label
+            ><label class="space-y-2"
               ><span
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
                 >Bulan Proyeksi</span
@@ -1205,48 +1263,6 @@
                 @change="updateNewTarget({
                       ...newTarget,
                       bulanProyeksi: eventValue($event),
-                    })"
-            /></label
-            ><label class="space-y-2"
-              ><span
-                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
-                >Target Pendapatan</span
-              ><input
-                type="number"
-                min="0"
-                :value="newTarget.revenueTarget || ''"
-                placeholder="0"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      revenueTarget: Number(eventValue($event)),
-                    })" /></label
-            ><label class="space-y-2"
-              ><span
-                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
-                >Target Beban</span
-              ><input
-                type="number"
-                min="0"
-                :value="newTarget.expenseTarget || ''"
-                placeholder="0"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      expenseTarget: Number(eventValue($event)),
-                    })" /></label
-            ><label class="space-y-2 md:col-span-2"
-              ><span
-                class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
-                >Catatan</span
-              ><input
-                type="text"
-                :value="newTarget.notes"
-                placeholder="Contoh: target setelah campaign Q3"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      notes: eventValue($event),
                     })"
             /></label>
           </div>
@@ -1465,7 +1481,9 @@ const reportTabs: {
 const props = defineProps<ProyeksiDanLaporanProps>();
 const {
   activeSection,
+  akun,
   transaksi,
+  proyek,
   projectionData,
   reportData,
   reportPeriod = "",
@@ -1527,6 +1545,11 @@ const budgetForm = ref({
   updateBudgetForm = (next) => (budgetForm.value = next);
 const deleteBudgetConfirm = ref<any>(null);
 const targetPage = ref(1);
+const targetProgressFilter = ref("all"),
+  updateTargetProgressFilter = (next) => {
+    targetProgressFilter.value = next || "all";
+    targetPage.value = 1;
+  };
 const budgetPage = ref(1);
 const targetDetailPage = ref(1);
 const reportPage = ref(1);
@@ -1555,9 +1578,10 @@ const targets = ref<AnnualTarget[]>([
   },
 ]);
 const newTarget = ref({
-    revenueTarget: 0,
-    expenseTarget: 0,
-    notes: "",
+    akunId: "",
+    nilaiTarget: 0,
+    nilaiRealisasi: 0,
+    satuan: "Rupiah" as AnnualTarget["satuan"],
     bulanProyeksi: currentMonthIso(),
   }),
   updateNewTarget = (next) => (newTarget.value = next);
@@ -1610,15 +1634,26 @@ const budgetAllocations = Array.isArray(projectionData?.budget_allocations)
   ? projectionData.budget_allocations
   : [];
 const orderedTargets = computed(() => latestFirst(targets.value));
+const filteredTargets = computed(() =>
+  orderedTargets.value.filter((target) => {
+    const progress = targetAchievementRawPercent(target);
+    if (targetProgressFilter.value === "complete") return progress >= 100;
+    if (targetProgressFilter.value === "on_track") {
+      return progress >= 75 && progress < 100;
+    }
+    if (targetProgressFilter.value === "at_risk") return progress < 75;
+    return true;
+  }),
+);
 const orderedBudgetAllocations = computed(() => latestFirst(budgetAllocations));
 const pagedTargets = computed(() =>
-  pageRows(orderedTargets.value, targetPage.value),
+  pageRows(filteredTargets.value, targetPage.value),
 );
 const pagedBudgetAllocations = computed(() =>
   pageRows(orderedBudgetAllocations.value, budgetPage.value),
 );
-const pagedProjectionMonths = computed(() =>
-  pageRows(projectionMonths, targetDetailPage.value),
+const pagedTargetDetails = computed(() =>
+  pageRows(orderedTargets.value, targetDetailPage.value),
 );
 const budgetSummary = projectionData?.budget_summary || {};
 const currentScenario = projectionData?.scenario || {
@@ -1810,15 +1845,27 @@ const roadmapLinePoints = (
         )
         .join(" ")
     : "";
-const openTargetModal = (target: any = null) => {
-  editingTargetId.value = target?.month ? String(target.month) : "";
-  const monthNumber = Number(target?.month || new Date().getMonth() + 1);
-  const monthIso = `${projectionData?.year || new Date().getFullYear()}-${String(monthNumber).padStart(2, "0")}`;
+const firstAccountByType = (type: string) =>
+  akun.find(
+    (item: any) => String(item.tipe || "").toLowerCase() === type.toLowerCase(),
+  ) ||
+  akun.find((item: any) =>
+    ["Pendapatan", "Beban"].includes(String(item.tipe || "")),
+  ) ||
+  akun[0];
+const openTargetModal = (target: AnnualTarget | null = null) => {
+  editingTargetId.value = target?.id || "";
+  const targetName = String(target?.nama || "").toLowerCase();
+  const selectedAccount =
+    targetName.includes("beban") || targetName.includes("expense")
+      ? firstAccountByType("Beban")
+      : firstAccountByType("Pendapatan");
   updateNewTarget({
-    revenueTarget: Number(target?.revenue_target || 0),
-    expenseTarget: Number(target?.expense_target || 0),
-    notes: String(target?.notes || ""),
-    bulanProyeksi: target?.month ? monthIso : currentMonthIso(),
+    akunId: selectedAccount ? String(selectedAccount.id) : "",
+    nilaiTarget: Number(target?.nilaiTarget || 0),
+    nilaiRealisasi: Number(target?.nilaiRealisasi || 0),
+    satuan: target?.satuan || "Rupiah",
+    bulanProyeksi: currentMonthIso(),
   });
   updateIsTargetModalOpen(true);
 };
@@ -1828,34 +1875,43 @@ const closeTargetModal = () => {
 };
 const handleSaveTarget = async (event: Event) => {
   event.preventDefault();
-  const revenueTarget = Number(newTarget.value.revenueTarget || 0);
-  const expenseTarget = Number(newTarget.value.expenseTarget || 0);
-
-  if (!newTarget.value.bulanProyeksi) {
-    notify("Pilih bulan proyeksi terlebih dahulu.");
+  const selected = akun.find(
+    (item) => String(item.id) === String(newTarget.value.akunId),
+  );
+  if (!selected) {
+    notify("Semua kolom wajib diisi. Pilih akun buku besar terlebih dahulu.");
     return;
   }
-
-  if (revenueTarget < 0 || expenseTarget < 0) {
-    notify("Target pendapatan dan beban tidak boleh negatif.");
+  if (Number(newTarget.value.nilaiTarget) <= 0) {
+    notify("Semua kolom wajib diisi. Target nilai harus lebih dari 0.");
     return;
   }
-
-  if (revenueTarget <= 0 && expenseTarget <= 0) {
-    notify("Isi minimal salah satu target: pendapatan atau beban.");
+  if (
+    Number(newTarget.value.nilaiRealisasi) < 0 ||
+    !newTarget.value.satuan ||
+    !newTarget.value.bulanProyeksi
+  ) {
+    notify("Semua kolom wajib diisi dengan nilai yang valid.");
     return;
   }
-
+  if (newTarget.value.satuan !== "Rupiah") {
+    notify(
+      "Target API saat ini mendukung nilai Rupiah untuk pendapatan dan beban.",
+    );
+    return;
+  }
   await saveProjection({
-    revenueTarget,
-    expenseTarget,
-    catatan: String(newTarget.value.notes || ""),
+    ...newTarget.value,
+    akunType: selected.tipe,
+    akunName: selected.nama,
+    nilai: Number(newTarget.value.nilaiTarget),
     month: Number(String(newTarget.value.bulanProyeksi || "").slice(-2)),
   });
   updateNewTarget({
-    revenueTarget: 0,
-    expenseTarget: 0,
-    notes: "",
+    akunId: "",
+    nilaiTarget: 0,
+    nilaiRealisasi: 0,
+    satuan: "Rupiah",
     bulanProyeksi: currentMonthIso(),
   });
   editingTargetId.value = "";

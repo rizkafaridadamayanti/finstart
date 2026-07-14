@@ -198,7 +198,7 @@
   transition: margin-left 260ms ease, width 260ms ease;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   #app .app-main {
     margin-left: var(--sidebar-offset, 0px);
     width: calc(100% - var(--sidebar-offset, 0px));
@@ -245,7 +245,7 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
   z-index: 0 !important;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   #app .app-main :where(
       .crm-modal-layer,
       .tax-manual-modal-layer,
@@ -1112,10 +1112,10 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
           [class*="border"]
         )
     ) {
-    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(240px, 1fr)) !important;
     width: 100%;
     max-width: none;
-    overflow-x: visible;
+    overflow-x: auto;
     overscroll-behavior-inline: contain;
     scroll-snap-type: x proximity;
     scrollbar-width: thin;
