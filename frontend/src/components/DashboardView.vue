@@ -1158,7 +1158,30 @@ const normalizedCashflow =
 const monthlyCashflow = normalizedCashflow.length
   ? normalizedCashflow
   : [{ month: "-", income: 0, expense: 0, incomeRaw: 0, expenseRaw: 0 }];
-const latestTransactions = transaksi.slice(0, 3);
+const latestTransactions = computed(() => {
+  const dashboardTransactions = Array.isArray(dashboardData.recent_transactions)
+    ? dashboardData.recent_transactions
+    : [];
+
+  if (dashboardTransactions.length) {
+    return dashboardTransactions.slice(0, 3).map((transaction: any) => ({
+      id: String(transaction.id ?? transaction.voucher_number ?? ""),
+      tanggal: transaction.transaction_date || transaction.tanggal || "-",
+      refVoucher:
+        transaction.voucher_number || transaction.refVoucher || "-",
+      keterangan:
+        transaction.description || transaction.keterangan || "-",
+      nominal: Number(
+        transaction.total_amount ??
+          transaction.total_debit ??
+          transaction.nominal ??
+          0,
+      ),
+    }));
+  }
+
+  return transaksi.slice(0, 3);
+});
 const ongoingProjects = proyek
   .filter((project) => project.status === "Ongoing")
   .slice(0, 3);

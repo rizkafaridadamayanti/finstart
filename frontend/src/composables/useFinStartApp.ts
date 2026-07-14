@@ -272,7 +272,9 @@ export function useFinStartApp() {
     }
   };
 
-  async function loadFinancialData(options: { silent?: boolean } = {}) {
+  async function loadFinancialData(
+    options: { silent?: boolean; bumpVersion?: boolean } = {},
+  ) {
     const period = currentPeriod();
     const year = new Date().getFullYear();
 
@@ -389,7 +391,9 @@ export function useFinStartApp() {
       time: formatNotificationTime(item.created_at),
       is_read: Boolean(item.is_read),
     }));
-    dataVersion.value += 1;
+    if (options.bumpVersion !== false) {
+      dataVersion.value += 1;
+    }
 
     const failed = jobs.filter((job) => job.status === "rejected");
     if (failed.length && !options.silent) {

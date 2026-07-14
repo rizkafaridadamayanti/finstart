@@ -3,7 +3,7 @@
     v-if="!isMobileOpen"
     id="btn-sidebar-mobile-drawer"
     type="button"
-    class="dashboard-sidebar-drawer-enter fixed left-0 top-1/2 z-40 flex h-14 w-9 -translate-y-1/2 items-center justify-center rounded-r-2xl border-y border-r border-[#D8E5F4] bg-white/95 text-[#102A56] shadow-[0_12px_28px_rgba(16,42,86,0.14)] transition hover:bg-[#0B3A78] hover:text-white lg:hidden"
+    class="dashboard-sidebar-drawer-enter fixed left-0 top-[112px] z-40 flex h-12 w-9 items-center justify-center rounded-r-2xl border-y border-r border-[#D8E5F4] bg-white/95 text-[#102A56] shadow-[0_12px_28px_rgba(16,42,86,0.14)] transition hover:bg-[#0B3A78] hover:text-white lg:hidden"
     aria-label="Buka sidebar"
     title="Buka sidebar"
     @click="isMobileOpen = true"
@@ -13,7 +13,7 @@
 
   <aside
     id="desktop-sidebar"
-    class="dashboard-sidebar-enter fixed left-0 hidden shrink-0 flex-col border-r border-[#DCE7F4] bg-white text-[#52647E] transition-[width,opacity,transform,border-color] duration-300 lg:flex"
+    class="dashboard-sidebar-enter fixed left-0 hidden shrink-0 flex-col border-r border-[#DCE7F4] bg-white text-[#52647E] transition-[width,opacity,transform,border-color] duration-300 xl:flex"
     :class="desktopSidebarClass"
     :style="desktopSidebarStyle"
     :aria-label="isCollapsed ? 'Sidebar ikon' : 'Sidebar navigasi'"
@@ -130,7 +130,7 @@
 
   <div
     v-if="isMobileOpen"
-    class="fixed inset-x-0 bottom-0 flex bg-black/60 backdrop-blur-sm lg:hidden"
+    class="fixed inset-x-0 bottom-0 flex bg-black/60 backdrop-blur-sm xl:hidden"
     :style="{ top: '88px', height: 'calc(100vh - 88px)', zIndex: 35 }"
   >
     <aside

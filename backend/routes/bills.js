@@ -298,6 +298,194 @@ async function postAutomaticJournal(connection, payload) {
   return journalId
 }
 
+async function ensureBillIssueJournal(connection, bill, expenseAccountId = null) {
+  const [existingJournalRows] = await connection.query(
+    `
+      SELECT id
+      FROM journal_entries
+      WHERE source_type = 'bill'
+        AND source_id = ?
+        AND status = 'posted'
+      LIMIT 1
+    `,
+    [bill.id],
+  )
+
+  if (existingJournalRows[0]) {
+    return existingJournalRows[0].id
+  }
+
+  const [taxRows] = await connection.query(
+    `
+      SELECT *
+      FROM transaction_taxes
+      WHERE source_type = 'bill'
+        AND source_id = ?
+      FOR UPDATE
+    `,
+    [bill.id],
+  )
+
+  const ppnTax = taxRows.find((tax) => tax.tax_type === 'PPN_INPUT')
+  const pph23Tax = taxRows.find((tax) => tax.tax_type === 'PPH23')
+  const ppnAmount = numberValue(ppnTax?.tax_amount)
+  const pph23Amount = numberValue(pph23Tax?.tax_amount)
+  const dppAmount = money(numberValue(bill.total_amount) - ppnAmount)
+  const vendorPayableAmount = money(
+    numberValue(bill.total_amount) - pph23Amount,
+  )
+
+  await ensureVatPeriodOpen(
+    connection,
+    String(bill.bill_date).slice(0, 7),
+    ppnAmount > 0,
+  )
+
+  const payableAccount = await findAccountByCode(
+    connection,
+    AP_ACCOUNT_CODE,
+    'liability',
+  )
+
+  const expenseAccount = expenseAccountId
+    ? await findAccountById(connection, expenseAccountId, 'expense')
+    : await findAccountByCode(
+        connection,
+        DEFAULT_EXPENSE_ACCOUNT_CODE,
+        'expense',
+      )
+
+  const vatInputAccount = ppnAmount > 0
+    ? await findAccountByCode(
+        connection,
+        VAT_INPUT_ACCOUNT_CODE,
+        'asset',
+      )
+    : null
+
+  const pph23PayableAccount = pph23Amount > 0
+    ? await findAccountByCode(
+        connection,
+        PPH23_PAYABLE_ACCOUNT_CODE,
+        'liability',
+      )
+    : null
+
+  if (!payableAccount) {
+    throw new Error(
+      `Akun Utang Usaha dengan kode ${AP_ACCOUNT_CODE} tidak ditemukan.`,
+    )
+  }
+
+  if (!expenseAccount) {
+    throw new Error('Akun beban tidak ditemukan atau tidak aktif.')
+  }
+
+  if (ppnAmount > 0 && !vatInputAccount) {
+    throw new Error(
+      `Akun PPN Masukan dengan kode ${VAT_INPUT_ACCOUNT_CODE} tidak ditemukan. Jalankan migration pajak terlebih dahulu.`,
+    )
+  }
+
+  if (pph23Amount > 0 && !pph23PayableAccount) {
+    throw new Error(
+      `Akun Utang PPh 23 dengan kode ${PPH23_PAYABLE_ACCOUNT_CODE} tidak ditemukan. Jalankan migration pajak terlebih dahulu.`,
+    )
+  }
+
+  const lines = [
+    {
+      account_id: expenseAccount.id,
+      description: `Beban ${bill.bill_number}`,
+      debit: dppAmount,
+      credit: 0,
+    },
+  ]
+
+  if (ppnAmount > 0) {
+    lines.push({
+      account_id: vatInputAccount.id,
+      description: `PPN Masukan ${bill.bill_number}`,
+      debit: ppnAmount,
+      credit: 0,
+    })
+  }
+
+  lines.push({
+    account_id: payableAccount.id,
+    description: `Utang vendor ${bill.bill_number}`,
+    debit: 0,
+    credit: vendorPayableAmount,
+  })
+
+  if (pph23Amount > 0) {
+    lines.push({
+      account_id: pph23PayableAccount.id,
+      description: `Utang PPh 23 ${bill.bill_number}`,
+      debit: 0,
+      credit: pph23Amount,
+    })
+  }
+
+  const journalId = await postAutomaticJournal(connection, {
+    voucher_number: `AP-BIL-${bill.id}`,
+    transaction_date: bill.bill_date,
+    description: `Penerbitan tagihan ${bill.bill_number} dari ${bill.vendor_name}`,
+    source_type: 'bill',
+    source_id: bill.id,
+    lines,
+  })
+
+  let pph23TaxRecordId = null
+
+  if (pph23Tax && pph23Amount > 0) {
+    const [taxRecordResult] = await connection.query(
+      `
+        INSERT INTO tax_records (
+          tax_type,
+          tax_period,
+          amount,
+          due_date,
+          status,
+          notes
+        ) VALUES ('PPh 23', ?, ?, NULL, 'unpaid', ?)
+      `,
+      [
+        String(bill.bill_date).slice(0, 7),
+        pph23Amount,
+        [
+          `Dibuat otomatis dari tagihan vendor ${bill.bill_number}.`,
+          `Vendor: ${bill.vendor_name}.`,
+          `Objek: ${pph23Tax.pph23_object || 'PPh 23'}.`,
+          `Tarif efektif: ${numberValue(pph23Tax.tax_rate)}%.`,
+        ].join(' '),
+      ],
+    )
+
+    pph23TaxRecordId = taxRecordResult.insertId
+  }
+
+  for (const taxRow of taxRows) {
+    await connection.query(
+      `
+        UPDATE transaction_taxes
+        SET
+          status = 'posted',
+          journal_entry_id = ?,
+          tax_record_id = ?
+        WHERE id = ?
+      `,
+      [
+        journalId,
+        taxRow.tax_type === 'PPH23' ? pph23TaxRecordId : null,
+        taxRow.id,
+      ],
+    )
+  }
+
+  return journalId
+}
+
 async function generateBillNumber(connection, billDate) {
   const period = String(billDate).slice(0, 7).replace('-', '')
 
@@ -1340,7 +1528,7 @@ router.post('/:id/payments', async (req, res) => {
     )
 
     if (!billJournalRows[0]) {
-      throw new Error('Jurnal tagihan belum diposting.')
+      await ensureBillIssueJournal(connection, bill)
     }
 
     const payableAccount = await findAccountByCode(
