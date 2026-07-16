@@ -1,7 +1,7 @@
 <template>
   <main class="dashboard-view space-y-7 pb-4 md:pb-8">
     <section
-      class="dashboard-card-enter dashboard-card-delay-0 dashboard-hero rounded-3xl px-5 py-5 xl:flex xl:items-end xl:justify-between xl:gap-5"
+      class="workspace-page-header dashboard-card-enter dashboard-card-delay-0 flex flex-col justify-between gap-4 xl:flex-row xl:items-end"
     >
       <div>
         <p
@@ -10,11 +10,11 @@
           Financial Overview
         </p>
         <h1
-          class="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#102A56] sm:text-[30px]"
+          class="mt-2 text-xl font-extrabold tracking-tight text-[#0B1F4A]"
         >
           Ringkasan Keuangan
         </h1>
-        <p class="mt-1.5 text-sm leading-6 text-[#6B7A90]">
+        <p class="mt-1 text-sm leading-6 text-[#6B7A90]">
           Pantau posisi kas, proyek aktif, piutang, dan agenda finance PT Kedata
           Indonesia Digital.
         </p>
