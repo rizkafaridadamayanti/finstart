@@ -549,7 +549,7 @@ const pageGuides: Record<string, PageGuide> = {
   },
 };
 
-const _activePageGuide = computed<PageGuide>(
+const activePageGuide = computed<PageGuide>(
   () => pageGuides[activeTab.value] ?? pageGuides.dashboard,
 );
 

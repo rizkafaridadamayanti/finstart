@@ -978,6 +978,7 @@
 import { eventValue } from "../utils/domEvents";
 import { parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import type { CSSProperties } from "vue";
 import {
   Search,
   Plus,
@@ -1117,7 +1118,7 @@ const selectedParentAccountLabel = computed(() => {
     : "Tidak ada";
 });
 
-const parentAccountDropdownStyle = computed(() => ({
+const parentAccountDropdownStyle = computed<CSSProperties>(() => ({
   top: `${parentAccountDropdownPosition.value.top}px`,
   left: `${parentAccountDropdownPosition.value.left}px`,
   width: `${parentAccountDropdownPosition.value.width}px`,

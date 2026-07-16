@@ -1949,12 +1949,6 @@ function resetClientForm() {
   newClient.value = createEmptyClientForm();
 }
 
-function openCreateClientFromProject() {
-  resetClientForm();
-  shouldAttachNewClientToProject.value = true;
-  isClientFormOpen.value = true;
-}
-
 function handleRemoveStaff(name: string) {
   newProj.value = {
     ...newProj.value,
