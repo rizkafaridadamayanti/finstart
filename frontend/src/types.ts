@@ -61,6 +61,13 @@ export interface Transaksi {
   kreditAkun: string; // Kode Akun
   isDraft?: boolean;
   status?: string;
+  journal_id?: number | null;
+  journal_status?: string | null;
+  approved_at?: string | null;
+  source_type?: string | null;
+  source_status?: string | null;
+  source_number?: string | null;
+  party_name?: string | null;
 }
 export interface Langganan {
   id: string;

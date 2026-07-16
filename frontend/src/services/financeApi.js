@@ -5,6 +5,11 @@ const API_BASE = (
 const AUTH_TOKEN_KEY = "finstart-auth-token";
 const AUTH_USER_KEY = "finstart-auth-user";
 const AUTH_EXPIRES_KEY = "finstart-auth-expires-at";
+const PUBLIC_AUTH_PATHS = new Set([
+  "/auth/login",
+  "/auth/password/request-reset",
+  "/auth/password/reset",
+]);
 
 function storagePair() {
   if (typeof window === "undefined") return [];
@@ -102,7 +107,11 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401) {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const shouldExpireCurrentSession =
+      response.status === 401 && !PUBLIC_AUTH_PATHS.has(normalizedPath);
+
+    if (shouldExpireCurrentSession) {
       clearAuthSession();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("finstart-auth-expired"));

@@ -1,10 +1,12 @@
 const assert = require('node:assert/strict')
-const { hashPassword, verifyPassword } = require('../utils/password')
+const bcrypt = require('bcryptjs')
+const { hashPassword, needsPasswordRehash, verifyPassword } = require('../utils/password')
 const { hasPermission, getAllowedTabs } = require('../middleware/authorization')
 const journalsRouter = require('../routes/journals')
 const invoicesRouter = require('../routes/invoices')
 const billsRouter = require('../routes/bills')
 const taxesRouter = require('../routes/taxes')
+const journalTransactionsRouter = require('../routes/journal-transactions')
 
 let passed = 0
 function test(name, fn) {
@@ -23,6 +25,14 @@ test('password disimpan dalam hash dan hanya password benar yang lolos', () => {
   assert.notEqual(hash, 'PasswordAman123!')
   assert.equal(verifyPassword('PasswordAman123!', hash), true)
   assert.equal(verifyPassword('password-salah', hash), false)
+})
+
+test('hash bcrypt lama tetap dapat login dan ditandai untuk upgrade', () => {
+  const legacyHash = bcrypt.hashSync('PasswordLama123!', 8)
+  assert.equal(verifyPassword('PasswordLama123!', legacyHash), true)
+  assert.equal(verifyPassword('password-salah', legacyHash), false)
+  assert.equal(needsPasswordRehash(legacyHash), true)
+  assert.equal(needsPasswordRehash(hashPassword('PasswordBaru123!')), false)
 })
 
 test('jurnal seimbang dapat divalidasi', () => {
@@ -90,6 +100,16 @@ test('PPh 21 payroll menghitung TER bulanan dan menandai Desember untuk rekonsil
   })
   assert.equal(december.needs_final_reconciliation, true)
   assert.equal(december.pph21_amount, null)
+})
+
+
+test('status jurnal transaksi dinormalisasi ke lima status final', () => {
+  const status = journalTransactionsRouter.getTransactionStatusForTest
+  assert.equal(status({ journalId: null, sourceType: 'invoice_draft', sourceStatus: 'draft' }), 'unposted')
+  assert.equal(status({ journalId: 1, journalStatus: 'posted', sourceType: 'manual' }), 'posted')
+  assert.equal(status({ journalId: 2, journalStatus: 'posted', sourceType: 'invoice', sourceStatus: 'partial' }), 'posted-unpaid')
+  assert.equal(status({ journalId: 3, journalStatus: 'posted', sourceType: 'invoice_payment', sourceStatus: 'paid' }), 'posted-paid')
+  assert.equal(status({ journalId: 4, journalStatus: 'cancelled', sourceType: 'manual' }), 'canceled')
 })
 
 test('role HR tidak dapat menulis jurnal, sedangkan director dapat approve/post', () => {

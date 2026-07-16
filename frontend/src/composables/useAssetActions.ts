@@ -2,6 +2,18 @@ import type { Ref } from "vue";
 import { financeApi } from "../services/financeApi.js";
 import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 
+const SUBSCRIPTION_EXPENSE_CODES: Record<string, string> = {
+  Software: "5001",
+  "Hosting / Cloud": "5001",
+  "Internet & Jaringan": "5002",
+  "Layanan Profesional": "5003",
+  Maintenance: "5003",
+  Asuransi: "5003",
+  Lainnya: "5001",
+};
+
+const CASH_BANK_CODES = ["1001", "1110", "1120", "1130"];
+
 interface AssetActionOptions {
   subscriptions: Ref<any[]>;
   accounts: Ref<any[]>;
@@ -19,16 +31,17 @@ export function useAssetActions({
     withApiFeedback(
       async () => {
         const cycle = item.siklus === "Tahunan" ? "yearly" : "monthly";
+        const amount = toNumber(item.biayaIDR || item.biaya);
+        const startDay =
+          item.tanggalTagihan || new Date().toISOString().slice(0, 10);
         await financeApi.post("/subscriptions", {
           subscription_name: item.nama,
           provider_name: item.provider,
           category: item.kategori,
-          amount: toNumber(item.biayaIDR || item.biaya),
+          amount,
           billing_cycle: cycle,
-          start_date:
-            item.tanggalTagihan || new Date().toISOString().slice(0, 10),
-          renewal_date:
-            item.tanggalTagihan || new Date().toISOString().slice(0, 10),
+          start_date: startDay,
+          renewal_date: startDay,
           payment_terms_days: 0,
           status: "active",
           notes:
@@ -36,8 +49,53 @@ export function useAssetActions({
               ? `Nominal asli: ${item.mataUang} ${item.biaya}. Kurs input: ${item.kurs || "-"}.`
               : "",
         });
+
+        const cash = CASH_BANK_CODES.map((code) =>
+          accounts.value.find(
+            (account) =>
+              String(account.kode) === code && account.status === "active",
+          ),
+        ).find(Boolean);
+        if (!cash) {
+          throw new Error(
+            "Akun kas/bank (1001/1110/1120) belum tersedia. Silakan buat akun kas terlebih dahulu di Buku Besar.",
+          );
+        }
+        const expenseCode =
+          SUBSCRIPTION_EXPENSE_CODES[item.kategori] || "5001";
+        const expense = pickAccount(accounts, expenseCode, "Beban");
+        if (!expense) {
+          throw new Error(
+            `Akun beban langganan (${expenseCode}) belum tersedia di database.`,
+          );
+        }
+        await financeApi.post("/journals", {
+          voucher_number: `SUB-${Date.now()}`,
+          transaction_date: startDay,
+          description: `Langganan ${item.nama} (${item.provider || "-"})`,
+          source_type: "subscription",
+          source_id: null,
+          lines: [
+            {
+              account_id: Number(expense.id),
+              description: `Beban langganan: ${item.nama}`,
+              debit: amount,
+              credit: 0,
+            },
+            {
+              account_id: Number(cash.id),
+              description: `Pembayaran langganan: ${item.nama}`,
+              debit: 0,
+              credit: amount,
+            },
+          ],
+        });
+
         await refreshData();
-        notify("Langganan berhasil disimpan ke database.");
+        notify(
+          "Langganan berhasil disimpan dan jurnal pengeluaran dibuat.",
+        );
+        return true;
       },
       "Gagal menyimpan langganan.",
       notify,
@@ -65,6 +123,7 @@ export function useAssetActions({
         });
         await refreshData();
         notify("Langganan dinonaktifkan di database.");
+        return true;
       },
       "Gagal menonaktifkan langganan.",
       notify,
@@ -73,9 +132,16 @@ export function useAssetActions({
   const addAsset = async (item: any) =>
     withApiFeedback(
       async () => {
-        const cash = pickAccount(accounts, "1001", "Aset");
+        const cash = CASH_BANK_CODES.map((code) =>
+          accounts.value.find(
+            (account) =>
+              String(account.kode) === code && account.status === "active",
+          ),
+        ).find(Boolean);
         if (!cash) {
-          throw new Error("Akun kas/bank untuk perolehan aset belum tersedia.");
+          throw new Error(
+            "Akun kas/bank belum tersedia. Silakan buat akun kas (1001) atau bank (1110/1120) di Buku Besar terlebih dahulu.",
+          );
         }
         await financeApi.post("/assets", {
           asset_name: item.nama,
@@ -92,6 +158,7 @@ export function useAssetActions({
         });
         await refreshData();
         notify("Aset berhasil diregistrasi dan dijurnal ke database.");
+        return true;
       },
       "Gagal meregistrasi aset.",
       notify,
@@ -114,6 +181,7 @@ export function useAssetActions({
         notify(
           "Data aset berhasil diperbarui. Harga perolehan tidak diubah agar jurnal akuisisi tetap konsisten.",
         );
+        return true;
       },
       "Gagal memperbarui aset.",
       notify,
@@ -128,6 +196,7 @@ export function useAssetActions({
         });
         await refreshData();
         notify(`Aset ${asset.nama} telah dilepas dan jurnal pelepasan dibuat.`);
+        return true;
       },
       "Gagal melepas aset.",
       notify,

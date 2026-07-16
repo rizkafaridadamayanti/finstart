@@ -17,7 +17,7 @@
             Financial Planning &amp; Reporting
           </p>
           <h1
-            class="mt-1 text-[26px] font-semibold tracking-tight text-[#0B1F4A]"
+            class="mt-1 text-[20px] sm:text-[26px] font-semibold tracking-tight text-[#0B1F4A]"
           >
             <template v-if="isForecast">Proyeksi Bisnis Tahunan</template
             ><template v-else>Laporan Keuangan</template>
@@ -649,7 +649,7 @@
             </p>
           </div>
           <div
-            class="grid w-full grid-cols-3 gap-3 text-right lg:w-auto lg:min-w-[420px]"
+            class="grid w-full grid-cols-1 sm:grid-cols-3 gap-3 text-right lg:w-auto lg:min-w-[420px]"
           >
             <div
               class="rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 py-3"
@@ -768,7 +768,7 @@
               class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#182338]"
               @change="updateBudgetForm({
                     ...budgetForm,
-                    budget_amount: Number(eventValue($event)),
+                    budget_amount: parseRupiahInput(eventValue($event)),
                   })" /></label
           ><label class="space-y-1"
             ><span
@@ -1000,7 +1000,7 @@
               {{ activeReportTab.label }}
             </p>
           </div>
-          <div class="relative w-full md:w-[360px]">
+          <div ref="reportTypeDropdownRef" class="relative w-full md:w-[360px]">
             <button
               id="report-type-dropdown"
               type="button"
@@ -1143,7 +1143,7 @@
     <Teleport to="body">
     <div
       v-if="isTargetModalOpen"
-      class="target-modal-layer fixed inset-0 z-[10090] flex items-center justify-center p-4"
+      class="target-modal-layer fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto p-4"
       role="dialog"
       aria-modal="true"
     >
@@ -1266,9 +1266,10 @@
       </div>
     </div>
     </Teleport>
+    <Teleport to="body">
     <div
       v-if="isPrintModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_24px_70px_rgba(11,31,74,0.22)]"
@@ -1294,7 +1295,7 @@
           </button>
         </div>
         <div class="flex-1 overflow-y-auto p-8">
-          <div class="border border-slate-200 p-8">
+            <div class="border border-slate-200 overflow-x-auto p-8">
             <div class="border-b-2 border-[#0B1F4A] pb-4 text-center">
               <h4 class="text-lg font-semibold text-[#0B1F4A]">
                 PT KEDATA INDONESIA DIGITAL
@@ -1352,6 +1353,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
     <ConfirmDialog
       :open="!!deleteBudgetConfirm"
       eyebrow="Konfirmasi Penghapusan"
@@ -1386,7 +1388,8 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { computed, ref } from "vue";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
   AlertCircle,
   BarChart3,
@@ -1466,7 +1469,6 @@ const props = defineProps<ProyeksiDanLaporanProps>();
 const {
   activeSection,
   transaksi,
-  projectionData,
   reportData,
   reportPeriod = "",
   reportPeriods = [],
@@ -1488,6 +1490,14 @@ const isForecast = activeSection === "proyeksi";
 const activeReportType = ref<ReportType>("labarugi"),
   updateActiveReportType = (next) => (activeReportType.value = next);
 const isReportTypeMenuOpen = ref(false);
+const reportTypeDropdownRef = ref<HTMLElement | null>(null);
+function handleReportTypeOutsideClick(e: MouseEvent) {
+  if (reportTypeDropdownRef.value && !reportTypeDropdownRef.value.contains(e.target as Node)) {
+    isReportTypeMenuOpen.value = false;
+  }
+}
+onMounted(() => document.addEventListener("click", handleReportTypeOutsideClick, true));
+onUnmounted(() => document.removeEventListener("click", handleReportTypeOutsideClick, true));
 const activeReportTab = computed(
   () =>
     reportTabs.find((tab) => tab.id === activeReportType.value) ||
@@ -1504,21 +1514,21 @@ const editingTargetId = ref("");
 const isPrintModalOpen = ref(false),
   updateIsPrintModalOpen = (next) => (isPrintModalOpen.value = next);
 const selectedScenarioKey = ref(
-    String(projectionData?.scenario?.scenario_key || "normal"),
+    String(props.projectionData?.scenario?.scenario_key || "normal"),
   ),
   updateSelectedScenarioKey = (next) => (selectedScenarioKey.value = next);
 const scenarioForm = ref({
-    scenario_key: String(projectionData?.scenario?.scenario_key || "normal"),
-    revenue_factor: Number(projectionData?.scenario?.revenue_factor || 1),
-    expense_factor: Number(projectionData?.scenario?.expense_factor || 1),
-    notes: String(projectionData?.scenario?.notes || ""),
+    scenario_key: String(props.projectionData?.scenario?.scenario_key || "normal"),
+    revenue_factor: Number(props.projectionData?.scenario?.revenue_factor || 1),
+    expense_factor: Number(props.projectionData?.scenario?.expense_factor || 1),
+    notes: String(props.projectionData?.scenario?.notes || ""),
   }),
   updateScenarioForm = (next) => (scenarioForm.value = next);
 const budgetForm = ref({
     id: "",
-    budget_year: Number(projectionData?.year || new Date().getFullYear()),
+    budget_year: Number(props.projectionData?.year || new Date().getFullYear()),
     budget_month: "",
-    scenario_key: String(projectionData?.scenario?.scenario_key || "normal"),
+    scenario_key: String(props.projectionData?.scenario?.scenario_key || "normal"),
     account_id: "",
     division_id: "",
     budget_amount: 0,
@@ -1530,27 +1540,27 @@ const targetPage = ref(1);
 const budgetPage = ref(1);
 const targetDetailPage = ref(1);
 const reportPage = ref(1);
-const projectionSummary = projectionData?.summary || {};
-const targets = ref<AnnualTarget[]>([
+const projectionSummary = computed(() => props.projectionData?.summary || {});
+const targets = computed<AnnualTarget[]>(() => [
   {
-    id: `TARGET-REV-${projectionData?.year || new Date().getFullYear()}`,
+    id: `TARGET-REV-${props.projectionData?.year || new Date().getFullYear()}`,
     nama: "Target Pendapatan",
-    nilaiTarget: Number(projectionSummary.revenue_target || 0),
-    nilaiRealisasi: Number(projectionSummary.revenue_actual || 0),
+    nilaiTarget: Number(projectionSummary.value.revenue_target || 0),
+    nilaiRealisasi: Number(projectionSummary.value.revenue_actual || 0),
     satuan: "Rupiah",
   },
   {
-    id: `TARGET-EXP-${projectionData?.year || new Date().getFullYear()}`,
+    id: `TARGET-EXP-${props.projectionData?.year || new Date().getFullYear()}`,
     nama: "Target Beban Operasional",
-    nilaiTarget: Number(projectionSummary.expense_target || 0),
-    nilaiRealisasi: Number(projectionSummary.expense_actual || 0),
+    nilaiTarget: Number(projectionSummary.value.expense_target || 0),
+    nilaiRealisasi: Number(projectionSummary.value.expense_actual || 0),
     satuan: "Rupiah",
   },
   {
-    id: `TARGET-PROFIT-${projectionData?.year || new Date().getFullYear()}`,
+    id: `TARGET-PROFIT-${props.projectionData?.year || new Date().getFullYear()}`,
     nama: "Target Laba Bersih",
-    nilaiTarget: Number(projectionSummary.profit_target || 0),
-    nilaiRealisasi: Number(projectionSummary.profit_actual || 0),
+    nilaiTarget: Number(projectionSummary.value.profit_target || 0),
+    nilaiRealisasi: Number(projectionSummary.value.profit_actual || 0),
     satuan: "Rupiah",
   },
 ]);
@@ -1600,17 +1610,17 @@ const targetStatusBadgeClass = (target: AnnualTarget) => {
   return "inline-flex rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-semibold text-[#53658A]";
 };
 
-const projectionMonths = Array.isArray(projectionData?.months)
-  ? projectionData.months
-  : [];
-const projectionScenarios = Array.isArray(projectionData?.scenarios)
-  ? projectionData.scenarios
-  : [];
-const budgetAllocations = Array.isArray(projectionData?.budget_allocations)
-  ? projectionData.budget_allocations
-  : [];
+const projectionMonths = computed(() => Array.isArray(props.projectionData?.months)
+  ? props.projectionData.months
+  : []);
+const projectionScenarios = computed(() => Array.isArray(props.projectionData?.scenarios)
+  ? props.projectionData.scenarios
+  : []);
+const budgetAllocations = computed(() => Array.isArray(props.projectionData?.budget_allocations)
+  ? props.projectionData.budget_allocations
+  : []);
 const orderedTargets = computed(() => latestFirst(targets.value));
-const orderedBudgetAllocations = computed(() => latestFirst(budgetAllocations));
+const orderedBudgetAllocations = computed(() => latestFirst(budgetAllocations.value));
 const pagedTargets = computed(() =>
   pageRows(orderedTargets.value, targetPage.value),
 );
@@ -1618,15 +1628,15 @@ const pagedBudgetAllocations = computed(() =>
   pageRows(orderedBudgetAllocations.value, budgetPage.value),
 );
 const pagedProjectionMonths = computed(() =>
-  pageRows(projectionMonths, targetDetailPage.value),
+  pageRows(projectionMonths.value, targetDetailPage.value),
 );
-const budgetSummary = projectionData?.budget_summary || {};
-const currentScenario = projectionData?.scenario || {
+const budgetSummary = computed(() => props.projectionData?.budget_summary || {});
+const currentScenario = computed(() => props.projectionData?.scenario || {
   scenario_key: "normal",
   label: "Normal",
   revenue_factor: 1,
   expense_factor: 1,
-};
+});
 const selectScenario = async (scenario: any) => {
   const key = String(scenario?.scenario_key || scenario || "normal");
   updateSelectedScenarioKey(key);
@@ -1655,7 +1665,7 @@ const saveScenario = async () => {
 const resetBudgetForm = () =>
   updateBudgetForm({
     id: "",
-    budget_year: Number(projectionData?.year || new Date().getFullYear()),
+    budget_year: Number(props.projectionData?.year || new Date().getFullYear()),
     budget_month: "",
     scenario_key: selectedScenarioKey.value || "normal",
     account_id: "",
@@ -1667,7 +1677,7 @@ const editBudget = (budget: any) =>
   updateBudgetForm({
     id: String(budget.id),
     budget_year: Number(
-      budget.budget_year || projectionData?.year || new Date().getFullYear(),
+      budget.budget_year || props.projectionData?.year || new Date().getFullYear(),
     ),
     budget_month: budget.budget_month ? String(budget.budget_month) : "",
     scenario_key: String(
@@ -1704,63 +1714,69 @@ const confirmDeleteBudget = async () => {
   await deleteBudgetAllocation(budget);
   if (String(budgetForm.value.id) === String(budget.id)) resetBudgetForm();
 };
-const roadmapBase = projectionMonths.length
-  ? projectionMonths
-  : [
-      {
-        label: "Tahun 1",
-        forecast_revenue: 0,
-        revenue_target: 0,
-        revenue_actual: 0,
-        expense_target: 0,
-        expense_actual: 0,
-      },
-    ];
-const roadmapRows = roadmapBase.slice(0, 6).map((item: any, index: number) => {
-  const revenueTarget = Number(
-    item.revenue_target || item.forecast_revenue || 0,
-  );
-  const revenueForecast = Number(
-    item.forecast_revenue || item.revenue_actual || revenueTarget || 0,
-  );
-  const revenueActual = Number(item.revenue_actual || revenueForecast || 0);
-  const expenseTarget = Number(item.expense_target || 0);
-  const expenseForecast = Number(
-    item.forecast_expense || item.expense_actual || expenseTarget || 0,
-  );
-  const expenseActual = Number(item.expense_actual || expenseForecast || 0);
-  return {
-    label: item.short_label || item.label || `Bulan ${index + 1}`,
-    revenueTarget,
-    revenueForecast,
-    revenueActual,
-    expenseTarget,
-    expenseForecast,
-    expenseActual,
-    value: Number(
-      (
-        Math.max(
-          revenueTarget,
-          revenueForecast,
-          revenueActual,
-          expenseTarget,
-          expenseForecast,
-          expenseActual,
-        ) / 1000000000
-      ).toFixed(1),
-    ),
-  };
-});
-const roadmapMax = Math.max(
-  ...roadmapRows.flatMap((item) => [
-    item.revenueTarget,
-    item.revenueForecast,
-    item.revenueActual,
-    item.expenseTarget,
-    item.expenseForecast,
-    item.expenseActual,
-  ]),
-  1,
+const roadmapBase = computed(() =>
+  projectionMonths.value.length
+    ? projectionMonths.value
+    : [
+        {
+          label: "Tahun 1",
+          forecast_revenue: 0,
+          revenue_target: 0,
+          revenue_actual: 0,
+          expense_target: 0,
+          expense_actual: 0,
+        },
+      ],
+);
+const roadmapRows = computed(() =>
+  roadmapBase.value.slice(0, 6).map((item: any, index: number) => {
+    const revenueTarget = Number(
+      item.revenue_target || item.forecast_revenue || 0,
+    );
+    const revenueForecast = Number(
+      item.forecast_revenue || item.revenue_actual || revenueTarget || 0,
+    );
+    const revenueActual = Number(item.revenue_actual || revenueForecast || 0);
+    const expenseTarget = Number(item.expense_target || 0);
+    const expenseForecast = Number(
+      item.forecast_expense || item.expense_actual || expenseTarget || 0,
+    );
+    const expenseActual = Number(item.expense_actual || expenseForecast || 0);
+    return {
+      label: item.short_label || item.label || `Bulan ${index + 1}`,
+      revenueTarget,
+      revenueForecast,
+      revenueActual,
+      expenseTarget,
+      expenseForecast,
+      expenseActual,
+      value: Number(
+        (
+          Math.max(
+            revenueTarget,
+            revenueForecast,
+            revenueActual,
+            expenseTarget,
+            expenseForecast,
+            expenseActual,
+          ) / 1000000000
+        ).toFixed(1),
+      ),
+    };
+  }),
+);
+const roadmapMax = computed(() =>
+  Math.max(
+    ...roadmapRows.value.flatMap((item) => [
+      item.revenueTarget,
+      item.revenueForecast,
+      item.revenueActual,
+      item.expenseTarget,
+      item.expenseForecast,
+      item.expenseActual,
+    ]),
+    1,
+  ),
 );
 const roadmapChartWidth = 1000;
 const roadmapChartHeight = 300;
@@ -1770,19 +1786,19 @@ const roadmapChartPadding = {
   top: 22,
   bottom: 46,
 };
-const roadmapChartRows = roadmapRows.map((item, index) => {
+const roadmapChartRows = computed(() => roadmapRows.value.map((item, index) => {
   const usableWidth =
     roadmapChartWidth - roadmapChartPadding.left - roadmapChartPadding.right;
   const usableHeight =
     roadmapChartHeight - roadmapChartPadding.top - roadmapChartPadding.bottom;
   const x =
     roadmapChartPadding.left +
-    (roadmapRows.length <= 1
+    (roadmapRows.value.length <= 1
       ? usableWidth / 2
-      : (index * usableWidth) / Math.max(roadmapRows.length - 1, 1));
+      : (index * usableWidth) / Math.max(roadmapRows.value.length - 1, 1));
   const projectY = (value: number) =>
     roadmapChartPadding.top +
-    (1 - Number(value || 0) / roadmapMax) * usableHeight;
+    (1 - Number(value || 0) / roadmapMax.value) * usableHeight;
   return {
     ...item,
     x,
@@ -1793,7 +1809,7 @@ const roadmapChartRows = roadmapRows.map((item, index) => {
     expenseForecastY: projectY(item.expenseForecast),
     expenseActualY: projectY(item.expenseActual),
   };
-});
+}));
 const roadmapLinePoints = (
   key:
     | "revenueTargetY"
@@ -1803,8 +1819,8 @@ const roadmapLinePoints = (
     | "expenseForecastY"
     | "expenseActualY",
 ) =>
-  roadmapChartRows.length
-    ? roadmapChartRows
+  roadmapChartRows.value.length
+    ? roadmapChartRows.value
         .map(
           (item, index) => `${index === 0 ? "M" : "L"} ${item.x} ${item[key]}`,
         )
@@ -1813,7 +1829,7 @@ const roadmapLinePoints = (
 const openTargetModal = (target: any = null) => {
   editingTargetId.value = target?.month ? String(target.month) : "";
   const monthNumber = Number(target?.month || new Date().getMonth() + 1);
-  const monthIso = `${projectionData?.year || new Date().getFullYear()}-${String(monthNumber).padStart(2, "0")}`;
+  const monthIso = `${props.projectionData?.year || new Date().getFullYear()}-${String(monthNumber).padStart(2, "0")}`;
   updateNewTarget({
     revenueTarget: Number(target?.revenue_target || 0),
     expenseTarget: Number(target?.expense_target || 0),

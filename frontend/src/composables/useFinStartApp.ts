@@ -153,10 +153,19 @@ export function useFinStartApp() {
       );
     }
   };
-  const isSidebarCollapsed = ref(false);
+  const isSidebarCollapsed = ref(window.innerWidth < 1280);
   const toggleSidebar = () => {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
   };
+
+  if (typeof window !== "undefined") {
+    const mql = window.matchMedia("(min-width: 1280px)");
+    const onBreakpoint = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (!e.matches) isSidebarCollapsed.value = true;
+    };
+    mql.addEventListener("change", onBreakpoint);
+    onBreakpoint(mql);
+  }
 
   // Semua daftar keuangan di bawah ini berasal dari API backend yang sudah ada.
   const proyek = ref<any[]>([]);

@@ -11,7 +11,7 @@ const integerDigits = (value) => {
 
 export const parseRupiahInput = (value) => Number(integerDigits(value) || 0);
 
-const formatRupiahInput = (value, withDecimals = true, withPrefix = true) => {
+export const formatRupiahInput = (value, withDecimals = true, withPrefix = true) => {
   const digits = integerDigits(value).replace(/^0+(?=\d)/, "");
   if (!digits) return "";
   const prefix = withPrefix ? "Rp " : "";

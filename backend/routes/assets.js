@@ -207,7 +207,7 @@ async function generateAssetCode(connection, acquisitionDate) {
 function makeDepreciationPlan(asset, period) {
   const acquisitionDate = dateText(asset.acquisition_date)
   const acquisitionMonth = acquisitionDate.slice(0, 7)
-  const firstPeriod = nextPeriod(acquisitionMonth)
+  const firstPeriod = acquisitionMonth
   const usefulLife = Number(asset.useful_life_months || 0)
   const cost = money(asset.acquisition_cost)
   const residual = money(asset.residual_value)
@@ -394,7 +394,7 @@ router.get('/', async (req, res) => {
         payment_accounts: paymentAccounts,
         accounting_policy: {
           method: 'Garis lurus',
-          start: 'Penyusutan dimulai pada bulan setelah tanggal perolehan.',
+          start: 'Penyusutan dimulai pada bulan perolehan aset.',
         },
       },
     })

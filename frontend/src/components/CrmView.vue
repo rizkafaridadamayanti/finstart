@@ -286,7 +286,7 @@
     <Teleport to="body"
       ><div
         v-if="renderContext.selectedProject || renderContext.selectedClient"
-        class="crm-modal-layer fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 overflow-y-auto"
+        class="crm-modal-layer fixed inset-0 bg-[#111827]/55 backdrop-blur-sm flex items-center justify-center z-[10090] p-4 overflow-y-auto"
       >
         <div
           class="crm-detail-modal bg-white border border-slate-100 rounded-3xl w-full overflow-hidden shadow-2xl"
@@ -854,7 +854,7 @@
           <!-- Form body -->
           <form class="flex min-h-0 flex-1 flex-col" @submit="handleSaveProject">
             <nav class="crm-project-steps shrink-0 border-b border-[#E8EEF7]" aria-label="Tahapan inisiasi proyek">
-              <ol class="grid grid-cols-5 gap-2">
+              <ol class="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 <li v-for="(label, index) in projectFormSteps" :key="label" :class="['crm-project-step', { active: projectFormStep === index + 1, complete: projectFormStep > index + 1 }]">
                   <span>{{ index + 1 }}</span><strong>{{ label }}</strong>
                 </li>
@@ -1300,27 +1300,6 @@
                     <ChevronDown class="w-4 h-4" />
                   </div>
                   <p v-if="projectStepErrors.klienId" class="form-field-warning">{{ projectStepErrors.klienId }}</p>
-                </div>
-                <div
-                  class="flex flex-col gap-3 rounded-2xl border border-dashed border-[#BBD3EE] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p class="text-sm font-bold text-[#102A56]">
-                      Klien belum ada di database?
-                    </p>
-                    <p class="mt-1 text-xs leading-5 text-[#637083]">
-                      Tambahkan klien baru dari sini, lalu otomatis dipilih
-                      untuk proyek ini.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#102A56] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0B1F42]"
-                    @click="openCreateClientFromProject"
-                  >
-                    <Plus class="h-4 w-4" />
-                    Tambah Klien Baru
-                  </button>
                 </div>
               </div>
             </div>

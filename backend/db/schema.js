@@ -319,7 +319,7 @@ const journalEntries = mysqlTable("journal_entries", {
   description: text("description"),
   sourceType: varchar("source_type", { length: 50 }),
   sourceId: bigint("source_id", { mode: "number", unsigned: true }),
-  status: mysqlEnum("status", ["draft", "approved", "posted", "rejected"]).notNull().default("draft"),
+  status: mysqlEnum("status", ["draft", "approved", "posted", "rejected", "cancelled"]).notNull().default("draft"),
   createdBy: bigint("created_by", { mode: "number", unsigned: true }),
   approvedBy: bigint("approved_by", { mode: "number", unsigned: true }),
   approvedAt: datetime("approved_at"),

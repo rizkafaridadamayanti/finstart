@@ -4,6 +4,7 @@ const {
   createToken,
   hashPassword,
   hashToken,
+  needsPasswordRehash,
   verifyPassword,
 } = require('../utils/password')
 const { safeAudit } = require('../utils/audit')
@@ -145,6 +146,12 @@ router.post('/login', async (req, res) => {
     }
 
     clearAttempts(req, email)
+
+    // Akun lama tetap bisa login. Hash lama di-upgrade sekali setelah password terverifikasi.
+    if (needsPasswordRehash(user.password_hash)) {
+      await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), user.id])
+    }
+
     const token = createToken()
     const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000)
     const [sessionResult] = await db.query(

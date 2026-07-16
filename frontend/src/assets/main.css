@@ -192,17 +192,10 @@
 }
 
 #app .app-main {
-  margin-left: 0;
+  margin-left: var(--sidebar-offset, 0px);
   z-index: 0;
-  width: 100%;
+  width: calc(100% - var(--sidebar-offset, 0px));
   transition: margin-left 260ms ease, width 260ms ease;
-}
-
-@media (min-width: 1280px) {
-  #app .app-main {
-    margin-left: var(--sidebar-offset, 0px);
-    width: calc(100% - var(--sidebar-offset, 0px));
-  }
 }
 
 body:has(.confirm-overlay) #btn-sidebar-drawer,
@@ -245,28 +238,26 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
   z-index: 0 !important;
 }
 
-@media (min-width: 1280px) {
-  #app .app-main :where(
-      .crm-modal-layer,
-      .tax-manual-modal-layer,
-      .master-data-modal-layer,
-      .sdm-form-modal-layer,
-      .employee-confirm-layer,
-      .asset-modal-layer,
-      .account-modal-layer,
-      .journal-modal-layer,
-      .receivable-modal-layer,
-      .payable-modal-layer,
-      .target-modal-layer,
-      .modal-layer,
-      .confirm-overlay
-    ),
-  #app .app-main .fixed.inset-0 {
-    left: calc(-1 * var(--sidebar-offset, 0px)) !important;
-    right: 0 !important;
-    width: calc(100% + var(--sidebar-offset, 0px)) !important;
-    max-width: none !important;
-  }
+#app .app-main :where(
+    .crm-modal-layer,
+    .tax-manual-modal-layer,
+    .master-data-modal-layer,
+    .sdm-form-modal-layer,
+    .employee-confirm-layer,
+    .asset-modal-layer,
+    .account-modal-layer,
+    .journal-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .target-modal-layer,
+    .modal-layer,
+    .confirm-overlay
+  ),
+#app .app-main .fixed.inset-0 {
+  left: calc(-1 * var(--sidebar-offset, 0px)) !important;
+  right: 0 !important;
+  width: calc(100% + var(--sidebar-offset, 0px)) !important;
+  max-width: none !important;
 }
 
 /* Keep currency prefixes separate from typed values across every modal form. */
@@ -894,6 +885,19 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
   padding-right: 20px !important;
 }
 
+/* Restore currency prefix padding inside all modal layers. */
+:where(
+    .crm-modal-layer,
+    .journal-modal-layer,
+    .asset-modal-layer,
+    .receivable-modal-layer,
+    .payable-modal-layer,
+    .modal-layer
+  )
+  .currency-input > input {
+  padding-left: 2.75rem !important;
+}
+
 :where(
     .crm-modal-layer,
     .tax-manual-modal-layer,
@@ -1146,5 +1150,42 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
     > * {
     min-width: 0;
     scroll-snap-align: start;
+  }
+}
+
+/* All form overlays and modals must be scrollable on every screen size. */
+.app-shell :where(.fixed.inset-0) {
+  overflow-y: auto;
+}
+
+/* On small screens, constrain modal inner cards to viewport. */
+@media (max-width: 640px) {
+  .app-shell :where(.fixed.inset-0 > div[class*="bg-white"][class*="shadow-2xl"]) {
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+    width: 100% !important;
+    border-radius: 18px !important;
+  }
+
+  .app-shell :where(.fixed.inset-0 form) {
+    padding: 1rem !important;
+    font-size: 0.8125rem;
+  }
+
+  .app-shell :where(.fixed.inset-0 form input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    .fixed.inset-0 form select) {
+    min-height: 44px !important;
+    font-size: 13px !important;
+  }
+
+  .app-shell :where(.fixed.inset-0 form textarea) {
+    min-height: 88px !important;
+    font-size: 13px !important;
+  }
+
+  .app-shell :where(.fixed.inset-0 form button[type="submit"],
+    .fixed.inset-0 form button[type="button"]) {
+    min-height: 46px !important;
+    font-size: 13px !important;
   }
 }

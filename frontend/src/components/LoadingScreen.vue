@@ -34,7 +34,7 @@
                   PT. Kedata Indonesia Digital
                 </p>
                 <h1
-                  class="mt-1 text-3xl font-extrabold tracking-[0.16em] text-white"
+                  class="mt-1 text-xl font-extrabold tracking-[0.16em] text-white sm:text-3xl"
                 >
                   FINSTART
                 </h1>
@@ -53,7 +53,7 @@
                 Login berhasil
               </p>
               <h2
-                class="text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-[3.25rem]"
+                class="text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl sm:text-[3.25rem]"
               >
                 Menyiapkan ruang kerja Finstart Anda
               </h2>

@@ -740,6 +740,99 @@ router.post('/:id/post', requirePermission('journals', 'post'), async (req, res)
 })
 
 /*
+  POST /api/journals/:id/void
+  Membatalkan jurnal (draft, approved, atau posted).
+  Jika sudah posted, saldo akun akan dibalik (reverse).
+*/
+router.post('/:id/void', requirePermission('journals', 'post'), async (req, res) => {
+  let connection
+
+  try {
+    const journalId = Number.parseInt(req.params.id, 10)
+
+    if (!Number.isInteger(journalId) || journalId <= 0) {
+      throw createAppError(422, 'ID jurnal tidak valid.')
+    }
+
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+
+    const [journals] = await connection.query(
+      'SELECT id, status, source_type FROM journal_entries WHERE id = ? FOR UPDATE',
+      [journalId],
+    )
+
+    if (journals.length === 0) {
+      throw createAppError(404, 'Jurnal tidak ditemukan.')
+    }
+
+    if (journals[0].status === 'cancelled') {
+      throw createAppError(422, 'Jurnal sudah berstatus cancelled.')
+    }
+
+    if (journals[0].source_type && journals[0].source_type !== 'manual') {
+      throw createAppError(422, 'Jurnal otomatis harus dibatalkan dari halaman transaksi sumber agar data tetap sinkron.')
+    }
+
+    if (journals[0].status === 'posted') {
+      const [lines] = await connection.query(
+        'SELECT account_id, debit, credit FROM journal_lines WHERE journal_entry_id = ?',
+        [journalId],
+      )
+
+      const accounts = await validateAccounts(connection, lines, true)
+      const accountMap = new Map(accounts.map((a) => [a.id, a]))
+
+      for (const line of lines) {
+        const account = accountMap.get(line.account_id)
+        const debit = Number(line.debit || 0)
+        const credit = Number(line.credit || 0)
+
+        const reverseChange =
+          account.normal_balance === 'debit'
+            ? credit - debit
+            : debit - credit
+
+        await connection.query(
+          'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?',
+          [reverseChange, account.id],
+        )
+      }
+    }
+
+    await connection.query(
+      "UPDATE journal_entries SET status = 'cancelled' WHERE id = ?",
+      [journalId],
+    )
+
+    const journal = await getJournalDetail(connection, journalId)
+
+    await connection.commit()
+
+    res.json({
+      success: true,
+      message: journals[0].status === 'posted'
+        ? 'Jurnal berhasil dibatalkan (cancelled) dan saldo akun dibalik.'
+        : 'Jurnal berhasil dibatalkan (cancelled).',
+      data: journal,
+    })
+  } catch (error) {
+    if (connection) {
+      await connection.rollback()
+    }
+
+    res.status(error.status || 500).json({
+      success: false,
+      message: safePublicMessage(error, 'Gagal membatalkan jurnal'),
+    })
+  } finally {
+    if (connection) {
+      connection.release()
+    }
+  }
+})
+
+/*
   DELETE /api/journals/:id
   Hanya jurnal draft yang boleh dihapus.
 */

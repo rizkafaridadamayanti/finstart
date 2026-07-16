@@ -135,19 +135,38 @@
       <div
         class="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm"
       >
-        <div class="p-5 border-b border-slate-100">
-          <div class="relative w-full max-w-[374px]">
-            <span
-              class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#94A3B8]"
-              ><Search class="w-4 h-4" /></span
-            ><input
-              id="staff-search-box"
-              type="text"
-              :value="searchQuery"
-              placeholder="Cari pegawai berdasarkan nama atau NIP..."
-              class="w-full h-10 pl-10 pr-4 bg-white border border-[#D8E5F4] rounded-2xl text-sm text-[#1F2A44] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
-              @input="updateSearchQuery(eventValue($event))"
-            />
+        <div class="border-b border-slate-100 p-5">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="relative w-full max-w-[374px]">
+              <span
+                class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#94A3B8]"
+                ><Search class="w-4 h-4" /></span
+              ><input
+                id="staff-search-box"
+                type="text"
+                :value="searchQuery"
+                placeholder="Cari pegawai berdasarkan nama atau NIP..."
+                class="w-full h-10 pl-10 pr-4 bg-white border border-[#D8E5F4] rounded-2xl text-sm text-[#1F2A44] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                @input="updateSearchQuery(eventValue($event))"
+              />
+            </div>
+            <div
+              class="inline-flex w-fit rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-1"
+              aria-label="Filter status pegawai"
+            >
+              <button
+                v-for="option in employeeStatusFilterOptions"
+                :key="option.value"
+                type="button"
+                :class="[
+                  'h-8 rounded-xl px-3 text-[11px] font-extrabold transition',
+                  employeeStatusFilterButtonClass(option.value),
+                ]"
+                @click="updateEmployeeStatusFilter(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -158,8 +177,8 @@
               <tr>
                 <th class="px-7 py-5">Identitas Pegawai</th>
                 <th class="px-7 py-5">Jabatan</th>
-                <th class="px-7 py-5">Status Aktif</th>
-                <th class="px-7 py-5">Compliance</th>
+                <th class="px-7 py-5 text-center">Status Aktif</th>
+                <th class="px-7 py-5 text-center">Compliance</th>
                 <th class="px-7 py-5 text-[#0B1F4A]">Gaji Bersih (Net)</th>
                 <th class="px-7 py-5 text-center">Aksi</th>
               </tr>
@@ -184,24 +203,27 @@
                     staff.status
                   }}</span>
                 </td>
-                <td class="px-7 py-4">
+                <td class="px-7 py-4 text-center">
                   <span
-                    :class="`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${String(staff?._raw?.employment_status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`"
+                    :class="[
+                      'inline-flex min-w-[78px] items-center justify-center rounded-full border px-3 py-1.5 text-[10px] font-extrabold shadow-sm',
+                      employeeStatusKey(staff) === 'active'
+                        ? 'employee-status-pill-active'
+                        : 'employee-status-pill-inactive',
+                    ]"
                     ><template
-                      v-if="
-                        String(
-                          staff?._raw?.employment_status || 'active',
-                        ).toLowerCase() === 'active'
-                      "
+                      v-if="employeeStatusKey(staff) === 'active'"
                       >Aktif</template
                     ><template v-else>Nonaktif</template></span
                   >
                 </td>
-                <td class="px-7 py-4">
-                  <span
-                    :class="`text-[10px] px-2.5 py-1 rounded-full font-bold ${staff.compliance === 'Patuh' ? 'bg-[#EEF5FC] text-[#0B1F4A]' : 'bg-amber-50 text-amber-700'}`"
-                    >{{ staff.compliance }}</span
-                  >
+                <td class="px-7 py-4 text-center">
+                  <div class="flex justify-center">
+                    <span
+                      :class="`inline-flex min-w-[66px] items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-bold ${staff.compliance === 'Patuh' ? 'bg-[#EEF5FC] text-[#0B1F4A]' : 'bg-amber-50 text-amber-700'}`"
+                      >{{ staff.compliance }}</span
+                    >
+                  </div>
                 </td>
                 <td class="px-7 py-4 font-mono font-bold text-[#0B1F4A]">
                   {{ formatRupiah(staff.gajiBersih) }}
@@ -248,17 +270,17 @@
       <Teleport to="body">
       <div
         v-if="isPayrollHistoryOpen"
-        class="sdm-form-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-hidden bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="sdm-form-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl"
+        class="payroll-history-card flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl"
         :style="{
-          width: 'min(1180px, calc(100vw - 32px))',
-          height: 'min(820px, calc(100dvh - 32px))',
+          width: 'min(1080px, calc(100vw - 32px))',
+          height: 'min(720px, calc(100dvh - 32px))',
           maxHeight: 'calc(100dvh - 32px)',
         }"
       >
-        <div class="shrink-0 border-b border-slate-100 px-6 py-5">
+        <div class="shrink-0 border-b border-slate-100 px-7 py-5">
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-base font-extrabold text-[#102A56]">Riwayat Penggajian</h2>
@@ -282,7 +304,7 @@
             scrollbarGutter: 'stable',
           }"
         >
-          <table class="w-full min-w-[900px] text-left">
+          <table class="payroll-history-table w-full min-w-[860px] text-left">
             <thead class="sticky top-0 z-10 bg-[#EEF5FC] shadow-[0_1px_0_#D8E5F4]">
               <tr>
                 <th class="px-6 py-4">Periode</th>
@@ -306,7 +328,7 @@
             </tbody>
           </table>
         </div>
-        <div class="flex shrink-0 items-center justify-between border-t border-slate-100 px-6 py-4">
+        <div class="flex shrink-0 items-center justify-between border-t border-slate-100 px-7 py-4">
           <p class="text-[11px] font-medium text-[#6B7A90]">{{ payrollHistory.length }} riwayat payroll</p>
           <button type="button" class="h-10 rounded-xl bg-[#0B1F4A] px-5 text-xs font-semibold text-white hover:bg-[#102A56]" @click="isPayrollHistoryOpen = false">Tutup</button>
         </div>
@@ -337,7 +359,7 @@
             }"
           >
             <div
-              class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4 sm:px-7 sm:py-5"
+              class="shrink-0 flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4 sm:px-7 sm:py-5"
             >
               <div>
                 <p
@@ -366,7 +388,7 @@
               </button>
             </div>
             <div
-              class="flex flex-wrap gap-2 border-b border-[#E8EEF7] bg-[#FAFCFF] px-5 py-3 sm:px-7"
+              class="shrink-0 flex flex-wrap gap-2 border-b border-[#E8EEF7] bg-[#FAFCFF] px-5 py-3 sm:px-7"
             >
               <button
                 type="button"
@@ -656,14 +678,14 @@
             v-if="isMasterEditorOpen"
             class="master-editor-layer"
             :style="{
-              position: 'absolute',
+              position: 'fixed',
               inset: 0,
-              zIndex: 30,
+              zIndex: 2147483000,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '100%',
-              height: '100%',
+              width: '100vw',
+              height: '100dvh',
               padding: '20px',
               overflowY: 'auto',
               pointerEvents: 'auto',
@@ -921,7 +943,7 @@
         v-if="isEmployeeDetailOpen &amp;&amp; selectedEmployeeDetail"
         to="body"
         ><div
-          class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
+          class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
         >
           <div
             class="w-full max-w-2xl rounded-[28px] border border-slate-100 bg-white shadow-2xl overflow-hidden"
@@ -1080,7 +1102,7 @@
             Tax Compliance
           </p>
           <h1
-            class="mt-1.5 text-[28px] font-semibold tracking-[-0.025em] text-[#102A56]"
+            class="mt-1.5 text-[22px] sm:text-[28px] font-semibold tracking-[-0.025em] text-[#102A56]"
           >
             Perpajakan
           </h1>
@@ -1089,29 +1111,33 @@
             catat setoran dari Kas atau Bank.
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
           <button
-            id="btn-export-efaktur"
-            type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-[12px] font-medium text-[#40516A] transition hover:bg-[#F8FBFE]"
-            @click="exportTaxCsv"
-          >
-            <FileText class="h-4 w-4 text-[#1E5AA8]" /> Export CSV</button
-          ><button
-            id="btn-draft-spt"
-            type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-[12px] font-medium text-[#40516A] transition hover:bg-[#F8FBFE]"
-            @click="printTaxReport"
-          >
-            <FileText class="h-4 w-4 text-[#1E5AA8]" /> Cetak / Simpan PDF</button
-          ><button
             id="btn-tax-manual"
             type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-[12px] font-medium text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#102A56]"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-[12px] font-semibold text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#102A56]"
             @click="openManualTaxModal"
           >
             <Plus class="h-4 w-4" /> Buat Kewajiban Pajak
           </button>
+          <div class="flex items-center gap-2">
+            <button
+              id="btn-export-efaktur"
+              type="button"
+              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-[12px] font-medium text-[#40516A] transition hover:bg-[#F8FBFE]"
+              @click="exportTaxCsv"
+            >
+              <FileText class="h-4 w-4 text-[#1E5AA8]" /> Export CSV
+            </button>
+            <button
+              id="btn-draft-spt"
+              type="button"
+              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-[12px] font-medium text-[#40516A] transition hover:bg-[#F8FBFE]"
+              @click="printTaxReport"
+            >
+              <FileText class="h-4 w-4 text-[#1E5AA8]" /> Cetak PDF
+            </button>
+          </div>
         </div>
       </header>
       <section
@@ -1136,7 +1162,7 @@
           </div>
           <button
             type="button"
-            class="inline-flex h-9 w-fit items-center gap-2 rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 text-[11px] font-medium text-[#1E5AA8] transition hover:bg-[#EEF5FF]"
+            class="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3.5 text-[11px] font-semibold text-[#1E5AA8] transition hover:bg-[#EEF5FF]"
             @click="resetTaxCalculation"
           >
             <RefreshCw class="h-3.5 w-3.5" /> Perbarui Dasar
@@ -1278,9 +1304,11 @@
                 {{ formatRupiah(calculatedTax) }}
               </p>
             </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 pt-1">
             <button
               type="button"
-              class="inline-flex h-full min-h-12 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-[12px] font-medium text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#102A56]"
+              class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-[12px] font-semibold text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#102A56]"
               @click="handleCreateTaxDraft"
             >
               <Calculator class="h-4 w-4" /> Buat Draft dari Kalkulasi
@@ -1349,22 +1377,24 @@
         <div
           class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <div class="tax-filter-controls flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              :class="`tax-filter-control h-9 rounded-lg px-3 transition-all ${taxTableTab === 'unpaid' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              :class="`h-9 rounded-lg px-3.5 text-[11px] font-semibold transition-all ${taxTableTab === 'unpaid' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
               @click="updateTaxTableTab('unpaid')"
             >
-              Belum Dibayar</button
-            ><button
+              Belum Dibayar
+            </button>
+            <button
               type="button"
-              :class="`tax-filter-control h-9 rounded-lg px-3 transition-all ${taxTableTab === 'history' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              :class="`h-9 rounded-lg px-3.5 text-[11px] font-semibold transition-all ${taxTableTab === 'history' ? 'bg-[#0B1F4A] text-white shadow-sm' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
               @click="updateTaxTableTab('history')"
             >
-              Riwayat Setoran</button
-            ><select
+              Riwayat Setoran
+            </button>
+            <select
               :value="taxTypeFilter"
-              class="tax-filter-control h-9 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[#0B1F4A] outline-none focus:border-[#1E5AA8]"
+              class="h-9 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[11px] font-semibold text-[#0B1F4A] outline-none focus:border-[#1E5AA8]"
               @change="updateTaxTypeFilter(eventValue($event))"
             >
               <option value="Semua">Semua Jenis Pajak</option>
@@ -1377,7 +1407,7 @@
               <option>Lainnya</option>
             </select>
           </div>
-          <div class="tax-filter-controls flex w-full items-center gap-2 lg:w-auto">
+          <div class="flex w-full items-center gap-2 lg:w-auto">
             <div class="relative min-w-0 flex-1 lg:w-72">
               <Search
                 class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#94A3B8]"
@@ -1385,13 +1415,13 @@
                 type="text"
                 :value="taxSearchQuery"
                 placeholder="Cari jenis pajak, periode, NTPN..."
-                class="tax-filter-control h-9 w-full rounded-lg border border-[#DCE7F4] bg-[#FBFCFE] pl-9 pr-3 text-[#243650] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
+                class="h-9 w-full rounded-lg border border-[#DCE7F4] bg-[#FBFCFE] pl-9 pr-3 text-[11px] font-semibold text-[#243650] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
                 @change="updateTaxSearchQuery(eventValue($event))"
               />
             </div>
             <button
               type="button"
-              class="tax-filter-control inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
+              class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#DCE7F4] bg-white px-3 text-[11px] font-semibold text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
               @click="notify('Data kewajiban pajak telah diperbarui.')"
             >
               <RefreshCw class="h-3.5 w-3.5" /> Refresh
@@ -1414,7 +1444,7 @@
             >
           </div>
           <div class="overflow-x-auto">
-            <table class="min-w-[930px] w-full text-left">
+            <table class="min-w-[1020px] w-full text-left">
               <thead
                 class="border-b border-[#E8EEF7] text-[10px] font-medium text-[#7A8CA8]"
               >
@@ -1426,12 +1456,13 @@
                   <th class="px-3 py-3">Jatuh Tempo</th>
                   <th class="px-3 py-3 text-center">Status</th>
                   <th class="px-3 py-3 text-center">NTPN</th>
+                  <th class="px-3 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[#EDF2F8]">
                 <tr v-if="filteredTaxRows.length === 0">
                   <td
-                    :colspan="7"
+                    :colspan="8"
                     class="px-3 py-12 text-center text-sm text-[#8A99AD]"
                   >
                     Tidak ada data pajak yang sesuai.
@@ -1482,6 +1513,17 @@
                       class="px-3 py-3.5 text-center text-[10px] text-[#64748B]"
                     >
                       {{ tax.ntpn || "—" }}
+                    </td>
+                    <td class="px-3 py-3.5 text-center">
+                      <button
+                        v-if="tax.status === 'Belum Setor'"
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100"
+                        @click="openTaxPaymentForTax(tax)"
+                      >
+                        <Banknote class="h-3.5 w-3.5" /> Setor
+                      </button>
+                      <span v-else class="text-[10px] text-[#94A3B8]">—</span>
                     </td>
                   </tr></template
                 >
@@ -2069,9 +2111,11 @@
                     ><input
                       id="employee-base-salary"
                       required
-                      type="number"
-                      min="1"
-                      :value="employeeForm.gajiPokok || ''"
+                      type="text"
+                      inputmode="numeric"
+                      data-rupiah="true"
+                      data-rupiah-external-prefix="true"
+                      :value="employeeBaseSalaryInputValue"
                       style="padding-left: 2.75rem !important"
                       :class="[
                         inputClass,
@@ -2085,7 +2129,7 @@
                       @input="
                         setEmployeeField(
                           'gajiPokok',
-                          Number(eventValue($event)),
+                          parseRupiahInput(eventValue($event)),
                         )
                       "
                     /></div
@@ -2594,7 +2638,7 @@
     </Teleport>
     <div
       v-if="payslipPreview"
-      class="fixed inset-0 z-[10100] flex items-center justify-center bg-[#000]/60 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-[10100] flex items-center justify-center overflow-y-auto bg-[#000]/60 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -2925,7 +2969,7 @@
                       :class="`h-11 w-full rounded-lg border border-[#DCE7F4] px-3 text-[12px] font-medium text-[#243650] outline-none placeholder:text-[#A5B3C6] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10 ${manualTaxForm.sourceId ? 'bg-[#F8FBFE]' : 'bg-white'}`"
                       @change="updateManualTaxForm({
                             ...manualTaxForm,
-                            taxBase: Number(eventValue($event)),
+                            taxBase: parseRupiahInput(eventValue($event)),
                           })"
                     />
                   </div>
@@ -2965,7 +3009,7 @@
                       required
                       @change="updateManualTaxForm({
                             ...manualTaxForm,
-                            nominal: Number(eventValue($event)),
+                            nominal: parseRupiahInput(eventValue($event)),
                           })"
                     />
                   </div>
@@ -3044,7 +3088,7 @@
     ><!-- 5. TAX SSP SETTLEMENT MODAL -->
     <Teleport v-if="isTaxPayModalOpen" to="body">
     <div
-      class="tax-payment-modal-layer fixed inset-0 flex items-center justify-center bg-[#000]/50 p-4"
+      class="tax-payment-modal-layer fixed inset-0 flex items-center justify-center overflow-y-auto bg-[#000]/50 p-4"
       :style="{ zIndex: 2147483000 }"
     >
       <div
@@ -3144,7 +3188,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { parseRupiahInput } from "../utils/rupiahInputs.js";
+import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   Users,
@@ -3167,6 +3211,7 @@ import {
   BriefcaseBusiness,
   Power,
   History,
+  Banknote,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Pegawai, AkunBukuBesar } from "../types.ts";
@@ -3266,8 +3311,17 @@ const {
   tax: { createTax, payTax },
 } = useFinStartContext();
 const activeTab = ref(activeSection === "sdm" ? "sdm" : "pajak");
-const searchQuery = ref(""),
-  updateSearchQuery = (next) => (searchQuery.value = next);
+type EmployeeStatusFilter = "all" | "active" | "inactive";
+const searchQuery = ref("");
+const employeeStatusFilter = ref<EmployeeStatusFilter>("all");
+const employeeStatusFilterOptions: Array<{
+  value: EmployeeStatusFilter;
+  label: string;
+}> = [
+  { value: "all", label: "Semua" },
+  { value: "active", label: "Aktif" },
+  { value: "inactive", label: "Nonaktif" },
+];
 const taxTableTab = ref("unpaid"),
   updateTaxTableTab = (next) => (taxTableTab.value = next);
 const taxTypeFilter = ref("Semua"),
@@ -3275,6 +3329,21 @@ const taxTypeFilter = ref("Semua"),
 const taxSearchQuery = ref(""),
   updateTaxSearchQuery = (next) => (taxSearchQuery.value = next); // Modals toggle
 const employeePage = ref(1);
+const updateSearchQuery = (next) => {
+  searchQuery.value = next;
+  employeePage.value = 1;
+};
+const updateEmployeeStatusFilter = (next: EmployeeStatusFilter) => {
+  employeeStatusFilter.value = next;
+  employeePage.value = 1;
+};
+const employeeStatusFilterButtonClass = (value: EmployeeStatusFilter) => {
+  if (employeeStatusFilter.value !== value)
+    return "employee-status-filter-idle";
+  if (value === "active") return "employee-status-filter-active";
+  if (value === "inactive") return "employee-status-filter-inactive";
+  return "employee-status-filter-all";
+};
 const masterPage = ref(1);
 const taxPage = ref(1);
 const isBpjsModalOpen = ref(false);
@@ -3782,6 +3851,9 @@ const employeeForm = ref({
     noRekening: "",
   }),
   updateEmployeeForm = (next) => (employeeForm.value = next);
+const employeeBaseSalaryInputValue = computed(() =>
+  formatRupiahInput(employeeForm.value.gajiPokok, false, false),
+);
 
 type EmployeeFormFieldKey =
   | "nama"
@@ -4115,6 +4187,10 @@ watch(
 );
 const selectedTaxId = ref(""),
   updateSelectedTaxId = (next) => (selectedTaxId.value = next);
+const openTaxPaymentForTax = (tax: any) => {
+  updateSelectedTaxId(tax.id);
+  updateIsTaxPayModalOpen(true);
+};
 const taxPaymentAccount = ref("1001"),
   updateTaxPaymentAccount = (next) => (taxPaymentAccount.value = next); // Submit tax settlement
 const isTaxPaymentSubmitting = ref(false);
@@ -4836,6 +4912,14 @@ function employeeDisplayStatus(employee: any = employeeDeleteConfirm.value) {
   return status === "active" || status === "aktif" ? "Aktif" : "Nonaktif";
 }
 
+function employeeStatusKey(employee: any): "active" | "inactive" {
+  const raw = employee?._raw || {};
+  const status = String(
+    raw.employment_status || raw.status || employee?.status || "active",
+  ).toLowerCase();
+  return status === "inactive" || status === "nonaktif" ? "inactive" : "active";
+}
+
 function handleDeleteEmployee(employee: any) {
   const employeeId = employeeDatabaseId(employee);
   if (!employeeId) {
@@ -5145,7 +5229,11 @@ const filteredEmployees = computed(() =>
       const raw = p?._raw || {};
       const haystack =
         `${p.nama || raw.full_name || ""} ${p.id || raw.employee_code || ""} ${p.jabatan || raw.position_name || ""} ${raw.division_name || ""} ${raw.employment_status || ""}`.toLowerCase();
-      return haystack.includes(searchQuery.value.toLowerCase());
+      const matchesSearch = haystack.includes(searchQuery.value.toLowerCase());
+      const matchesStatus =
+        employeeStatusFilter.value === "all" ||
+        employeeStatusKey(p) === employeeStatusFilter.value;
+      return matchesSearch && matchesStatus;
     }),
   ),
 );
@@ -5502,6 +5590,45 @@ const assetAccounts = computed(() =>
 </script>
 
 <style>
+.employee-status-filter-idle {
+  background: transparent !important;
+  color: #53658a !important;
+}
+
+.employee-status-filter-idle:hover {
+  background: #ffffff !important;
+}
+
+.employee-status-filter-all {
+  background: #0b1f4a !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(11, 31, 74, 0.16) !important;
+}
+
+.employee-status-filter-active {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.2) !important;
+}
+
+.employee-status-filter-inactive {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.2) !important;
+}
+
+.employee-status-pill-active {
+  border-color: #93c5fd !important;
+  background: #dbeafe !important;
+  color: #1d4ed8 !important;
+}
+
+.employee-status-pill-inactive {
+  border-color: #fda4af !important;
+  background: #ffe4e6 !important;
+  color: #be123c !important;
+}
+
 .tax-filter-control {
   font-family: inherit !important;
   font-size: 13px !important;
@@ -5919,6 +6046,61 @@ const assetAccounts = computed(() =>
 .payroll-history-scroll {
   scrollbar-width: thin;
   scrollbar-color: #9fb3cc #eef5fc;
+}
+
+.payroll-history-card h2 {
+  font-size: 18px !important;
+  line-height: 1.25 !important;
+}
+
+.payroll-history-card p {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.payroll-history-card > div:last-child button {
+  min-width: 86px;
+  height: 44px !important;
+  border-radius: 13px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+.payroll-history-table {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+.payroll-history-table thead th {
+  padding: 13px 22px !important;
+  color: #102a56 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+}
+
+.payroll-history-table tbody td {
+  padding: 14px 22px !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+
+.payroll-history-table tbody td,
+.payroll-history-table tbody td span,
+.payroll-history-table tbody td strong {
+  font-size: 13px !important;
+}
+
+.payroll-history-table tbody td span.text-\[10px\] {
+  font-size: 11px !important;
+}
+
+.payroll-history-table tbody td .rounded-full {
+  min-height: 26px;
+  align-items: center;
+  font-size: 11px !important;
+  line-height: 1 !important;
 }
 
 .payroll-history-scroll::-webkit-scrollbar {

@@ -145,10 +145,18 @@ export function useLedgerActions({
       notify,
     );
 
+  const journalId = (item: any) => {
+    const id = Number(item?.journal_id || item?.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new Error("ID jurnal tidak valid. Muat ulang data lalu coba kembali.");
+    }
+    return id;
+  };
+
   const approveJournal = async (item: any) =>
     withApiFeedback(
       async () => {
-        await financeApi.post(`/journals/${item.id}/approve`, {});
+        await financeApi.post(`/journals/${journalId(item)}/approve`, {});
         await refreshData();
         notify("Jurnal disetujui dan siap diposting.");
       },
@@ -159,11 +167,22 @@ export function useLedgerActions({
   const postJournal = async (item: any) =>
     withApiFeedback(
       async () => {
-        await financeApi.post(`/journals/${item.id}/post`, {});
+        await financeApi.post(`/journals/${journalId(item)}/post`, {});
         await refreshData();
         notify("Jurnal berhasil diposting ke Buku Besar.");
       },
       "Gagal memposting jurnal. Pastikan jurnal sudah disetujui.",
+      notify,
+    );
+
+  const cancelJournal = async (item: any) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.post(`/journals/${journalId(item)}/void`, {});
+        await refreshData();
+        notify("Jurnal berhasil dibatalkan.");
+      },
+      "Gagal membatalkan jurnal.",
       notify,
     );
 
@@ -174,5 +193,6 @@ export function useLedgerActions({
     addTransaction,
     approveJournal,
     postJournal,
+    cancelJournal,
   };
 }

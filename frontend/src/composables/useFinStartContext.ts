@@ -14,6 +14,7 @@ interface FinStartContext {
     addTransaction: AsyncAction;
     approveJournal: AsyncAction;
     postJournal: AsyncAction;
+    cancelJournal: AsyncAction;
   };
   receivables: {
     createInvoice: AsyncAction;

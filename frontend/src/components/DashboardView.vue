@@ -10,7 +10,7 @@
           Financial Overview
         </p>
         <h1
-          class="mt-2 text-[30px] font-semibold tracking-[-0.03em] text-[#102A56]"
+          class="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#102A56] sm:text-[30px]"
         >
           Ringkasan Keuangan
         </h1>
@@ -365,14 +365,14 @@
               Analisis data finance dari ringkasan operasional terbaru.
             </p>
           </div>
-          <div class="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div v-if="!isChatHistoryOpen" class="cfo-sidebar border-b p-3">
+            <div class="relative z-10 flex min-h-0 flex-1 flex-col">
+              <div class="cfo-sidebar border-b p-3">
               <p
                 class="cfo-section-label mb-2 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
               >
                 <FileText class="h-3.5 w-3.5" /> Template
               </p>
-              <div class="grid grid-cols-2 gap-1.5 min-[1500px]:grid-cols-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 min-[1500px]:grid-cols-4">
                 <button
                   v-for="item in quickQuestions.slice(0, 4)"
                   :id="`btn-fast-${item.id}`"
@@ -387,7 +387,7 @@
               </div>
             </div>
             <div class="cfo-ai-workspace flex min-h-0 flex-1">
-              <div v-if="!isChatHistoryOpen" class="flex min-w-0 flex-1 flex-col">
+              <div class="flex min-w-0 flex-1 flex-col">
                 <div
                   class="cfo-chat-top flex items-center justify-between gap-3 border-b px-4 py-3"
                 >
@@ -1128,10 +1128,11 @@ const dashboardData = dashboard || {};
 const fallbackCash = akun
   .filter(
     (account) =>
-      account.tipe === "Aset" && ["1110", "1120"].includes(account.kode),
+      account.tipe === "Aset" &&
+      ["1001", "1002", "1110", "1120", "1130"].includes(account.kode),
   )
   .reduce((sum, account) => sum + Number(account.saldo || 0), 0);
-const totalKasBank = Number(dashboardData.cash_balance ?? fallbackCash ?? 0);
+const totalKasBank = Number(dashboardData.cash_balance || fallbackCash || 0);
 const ongoingProjectsCount = Number(
   dashboardData.active_projects ??
     proyek.filter((project) => project.status === "Ongoing").length,
@@ -1141,8 +1142,14 @@ const monthlySubscriptionBurn = langganan.reduce(
   (total, item) => total + Number(item.biayaIDR || 0),
   0,
 );
-const totalRevenue = Number(dashboardData.total_revenue || 0);
-const netProfit = Number(dashboardData.net_profit || 0);
+const fallbackRevenue = akun
+  .filter((account) => account.tipe === "Pendapatan")
+  .reduce((sum, account) => sum + Number(account.saldo || 0), 0);
+const fallbackExpense = akun
+  .filter((account) => account.tipe === "Beban")
+  .reduce((sum, account) => sum + Number(account.saldo || 0), 0);
+const totalRevenue = Number(dashboardData.total_revenue || fallbackRevenue || 0);
+const netProfit = Number(dashboardData.net_profit || (fallbackRevenue - fallbackExpense) || 0);
 const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 const normalizedCashflow =
   Array.isArray(dashboardData.cashflow_series) &&
@@ -1186,10 +1193,16 @@ const ongoingProjects = proyek
   .filter((project) => project.status === "Ongoing")
   .slice(0, 3);
 const actionInvoices = (invoices || [])
-  .filter((item: any) => item.status !== "Paid")
+  .filter((item: any) => {
+    const s = String(item.status || "").toLowerCase();
+    return ["unpaid", "overdue"].includes(s) && Number(item.outstandingAmount || item.nominal || 0) > 0;
+  })
   .slice(0, 2);
 const openInvoices = (invoices || []).filter(
-  (item: any) => item.status !== "Paid",
+  (item: any) => {
+    const s = String(item.status || "").toLowerCase();
+    return ["unpaid", "overdue"].includes(s) && Number(item.outstandingAmount || item.nominal || 0) > 0;
+  },
 );
 const overdueInvoices = openInvoices.filter(
   (item: any) => item.status === "Overdue",
@@ -1666,17 +1679,18 @@ function confirmDeleteChat() {
 
 .cfo-inline-history {
   display: flex;
-  flex: 1 1 100%;
-  width: 100%;
+  flex: 0 0 280px;
+  width: 280px;
   min-width: 0;
   min-height: 0;
   padding: 16px;
   flex-direction: column;
   gap: 12px;
   color: var(--cfo-navy);
-  border-left: 0;
+  border-left: 1px solid rgba(11, 31, 74, 0.1);
   background: #f7f9fc;
   box-shadow: none;
+  overflow-y: auto;
 }
 
 .cfo-inline-history-header {
