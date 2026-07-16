@@ -394,10 +394,10 @@
     <Teleport to="body">
       <div
         v-if="isInvoiceModalOpen"
-        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="receivable-invoice-modal-card bg-white border border-slate-200 rounded-3xl w-full max-w-[760px] overflow-hidden shadow-2xl"
+        class="receivable-invoice-modal-card bg-white border border-slate-200 rounded-3xl w-full max-w-[760px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
       >
         <div
           class="p-5 bg-slate-50 border-b border-slate-100 flex justify-between items-center"
@@ -466,17 +466,23 @@
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700"
               >Nominal Penagihan Termin (Rupiah)</label
-            ><input
-              id="inv-form-val"
-              type="number"
-              required
-              :value="newInvoice.nominal"
-              :class="[
-                'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
-                { 'form-control-invalid': invoiceFormErrors.nominal },
-              ]"
-              @change="setInvoiceField('nominal', Number(eventValue($event)))"
-            />
+            >
+            <div class="currency-input relative">
+              <span
+                class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
+                >Rp</span
+              ><input
+                id="inv-form-val"
+                type="number"
+                required
+                :value="newInvoice.nominal"
+                :class="[
+                  'w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none font-mono',
+                  { 'form-control-invalid': invoiceFormErrors.nominal },
+                ]"
+                @change="setInvoiceField('nominal', parseRupiahInput(eventValue($event)))"
+              />
+            </div>
             <p v-if="invoiceFormErrors.nominal" class="form-field-warning">
               {{ invoiceFormErrors.nominal }}
             </p>
@@ -550,10 +556,10 @@
     <Teleport to="body">
       <div
         v-if="isReceiptModalOpen"
-        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="receivable-receipt-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] overflow-hidden shadow-2xl"
+        class="receivable-receipt-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
       >
         <div
           class="px-9 py-8 bg-emerald-50/60 border-b border-emerald-50 flex justify-between items-center"
@@ -578,7 +584,7 @@
           </button>
         </div>
         <form
-          class="px-9 py-11 space-y-9 text-sm"
+          class="h-0 min-h-0 flex-1 overflow-y-auto px-9 py-11 space-y-9 text-sm"
           @submit.prevent="handleRecordReceipt"
         >
           <div v-if="receiptErrorCount > 0" class="form-validation-summary">
@@ -662,7 +668,7 @@
                   'w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all',
                   { 'form-control-invalid': receiptFormErrors.amount },
                 ]"
-                @input="setReceiptAmount(Number(eventValue($event)))"
+                @input="setReceiptAmount(parseRupiahInput(eventValue($event)))"
               />
             </div>
             <p v-if="receiptFormErrors.amount" class="form-field-warning">
@@ -689,10 +695,10 @@
     <Teleport to="body">
       <div
         v-if="isBillModalOpen"
-        class="payable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="payable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="payable-bill-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] overflow-hidden shadow-2xl"
+        class="payable-bill-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
       >
         <div
           class="px-9 py-8 bg-rose-50/60 border-b border-rose-50 flex justify-between items-center"
@@ -849,7 +855,7 @@
                   'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-rose-600/20 text-[#111827] font-bold text-sm transition-all',
                   { 'form-control-invalid': billFormErrors.nominal },
                 ]"
-                @change="setBillField('nominal', Number(eventValue($event)))"
+                @change="setBillField('nominal', parseRupiahInput(eventValue($event)))"
               />
             </div>
             <p v-if="billFormErrors.nominal" class="form-field-warning">
@@ -892,10 +898,10 @@
     <Teleport to="body">
       <div
         v-if="isPayBillModalOpen"
-        class="payable-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="payable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="payable-payment-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] overflow-hidden shadow-2xl"
+        class="payable-payment-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
       >
         <div
           class="px-9 py-8 bg-indigo-50/60 border-b border-indigo-50 flex justify-between items-center"
@@ -919,7 +925,7 @@
             <X class="w-5 h-5" />
           </button>
         </div>
-        <form class="px-9 py-10 space-y-7 text-sm" @submit.prevent="handlePayBill">
+        <form class="h-0 min-h-0 flex-1 overflow-y-auto px-9 py-10 space-y-7 text-sm" @submit.prevent="handlePayBill">
           <div v-if="paymentErrorCount > 0" class="form-validation-summary">
             <strong>Form belum dapat disimpan.</strong>
             <span>Lengkapi {{ paymentErrorCount }} kolom yang ditandai di bawah ini.</span>
@@ -1060,7 +1066,7 @@
                   'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
                   { 'form-control-invalid': paymentFormErrors.jumlah },
                 ]"
-                @change="setPaymentField('jumlah', Number(eventValue($event)))"
+                @change="setPaymentField('jumlah', parseRupiahInput(eventValue($event)))"
               />
             </div>
             <p v-if="paymentFormErrors.jumlah" class="form-field-warning">
@@ -1125,6 +1131,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, ref, watch } from "vue";
 import {
   Plus,

@@ -126,7 +126,7 @@ function confirmDialog() {
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10080;
+  z-index: 130000;
   display: flex;
   align-items: center;
   justify-content: center;

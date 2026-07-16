@@ -1,6 +1,7 @@
 <template>
   <header
-    class="sticky top-0 z-[1000] grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pl-9 pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl sm:pl-10 md:pr-8 lg:pl-[104px]"
+    class="sticky top-0 z-[1000] grid h-[88px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/70 bg-white/95 py-0 pr-5 shadow-[0_12px_34px_rgba(16,42,86,0.07)] backdrop-blur-2xl sm:pr-8"
+    :style="{ paddingLeft: '2.25rem' }"
   >
     <div class="flex min-w-0 items-center">
       <div class="flex min-w-0 items-center gap-3">
@@ -32,7 +33,7 @@
         >{{ formattedDate }}</span
       >
 
-      <div class="relative">
+      <div ref="profileDropdownRef" class="relative">
         <button
           id="btn-profile-dropdown"
           type="button"
@@ -108,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { ChevronDown, LogOut } from "lucide-vue-next";
 import FinStartLogo from "../assets/finstart-logo.png";
 
@@ -121,6 +122,14 @@ const props = defineProps({
 const emit = defineEmits(["logout", "open-settings"]);
 
 const isProfileOpen = ref(false);
+const profileDropdownRef = ref(null);
+function handleProfileOutsideClick(e) {
+  if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
+    isProfileOpen.value = false;
+  }
+}
+onMounted(() => document.addEventListener("click", handleProfileOutsideClick, true));
+onUnmounted(() => document.removeEventListener("click", handleProfileOutsideClick, true));
 
 const roleLabel = computed(() => {
   const labels = {

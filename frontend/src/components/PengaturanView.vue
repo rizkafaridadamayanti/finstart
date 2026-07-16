@@ -10,7 +10,7 @@
           Konfigurasi Finstart
         </p>
         <h1
-          class="mt-1 text-[26px] font-semibold tracking-tight text-[#0B1F4A]"
+          class="mt-1 text-[20px] sm:text-[26px] font-semibold tracking-tight text-[#0B1F4A]"
         >
           Pengaturan Sistem
         </h1>
@@ -430,7 +430,7 @@
             <form
               v-if="isPasswordOpen"
               class="space-y-3 border-t border-[#EDF2F7] py-4"
-              @submit="changePassword"
+              @submit.prevent="changePassword"
             >
               <input
                 required
@@ -574,7 +574,7 @@
     <Teleport to="body">
     <div
       v-if="isUserModalOpen"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -655,7 +655,7 @@
     <Teleport to="body">
     <div
       v-if="passwordReset.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -738,7 +738,7 @@
     <Teleport to="body">
     <div
       v-if="userDelete.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center bg-[#081936]/55 p-4 backdrop-blur-sm"
+      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -808,7 +808,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import {
   Building2,
   CheckCircle2,
@@ -865,7 +865,8 @@ function sameEmail(left: any, right: any) {
 }
 
 const props = defineProps<PengaturanViewProps>();
-const { userEmail, userRole }: PengaturanViewProps = props;
+const userEmail = computed(() => props.userEmail);
+const userRole = computed(() => props.userRole);
 
 const { notify } = useFinStartContext();
 const activeTab = ref<SettingsTab>("profile");
@@ -934,7 +935,7 @@ const labelClass =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-[#70819B]";
 const isAdmin = () =>
   ["admin", "finance_manager", "finance"].includes(
-    String(userRole || "").toLowerCase(),
+    String(userRole.value || "").toLowerCase(),
   );
 const internalFinanceRole = () =>
   roles.value.find(
@@ -1155,7 +1156,7 @@ async function resetUserPassword() {
 }
 
 function isCurrentUser(user: any) {
-  return sameEmail(user?.email, userEmail);
+  return sameEmail(user?.email, userEmail.value);
 }
 
 function openUserDelete(user: any) {

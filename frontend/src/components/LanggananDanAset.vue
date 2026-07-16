@@ -263,24 +263,24 @@
           <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <button
               type="button"
-              :class="`inline-flex h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-[11px] font-bold transition ${showAssetArchive ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
+              :class="`inline-flex h-9 min-w-[104px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-[11px] font-extrabold transition ${showAssetArchive ? 'border border-amber-300 bg-amber-100 text-amber-800 shadow-sm' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
               @click="showAssetArchive = !showAssetArchive"
             >
               <Archive class="h-4 w-4" /> Arsip ({{ archivedAssets.length }})
             </button>
             <div
-              class="flex shrink-0 items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white p-1"
+              class="flex shrink-0 items-center gap-2"
             >
               <input
                 type="month"
                 :value="depreciationPeriod"
-                class="h-8 border-0 bg-transparent px-2 text-xs text-[#0B1F4A] outline-none"
-                :style="{ width: '136px' }"
+                class="h-9 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A] focus:ring-2 focus:ring-[#0B1F4A]/10"
+                :style="{ width: '132px' }"
                 @change="depreciationPeriod = eventValue($event)"
               /><button
                 type="button"
                 :disabled="isDepreciationProcessing"
-                class="h-8 rounded-lg bg-[#0B1F4A] px-3 text-[10px] font-semibold text-white whitespace-nowrap transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
+                class="h-9 min-w-[136px] rounded-xl bg-[#0B1F4A] px-4 text-[11px] font-extrabold text-white whitespace-nowrap shadow-sm shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
                 @click.stop.prevent="openDepreciationModal"
               >
                 <template v-if="isDepreciationProcessing"
@@ -290,20 +290,30 @@
             </div>
           </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-500">
+        <div class="overflow-hidden">
+          <table class="w-full table-fixed text-center text-xs text-slate-500">
+            <colgroup>
+              <col style="width: 16%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 13%" />
+              <col style="width: 13%" />
+              <col style="width: 13%" />
+              <col style="width: 13%" />
+              <col style="width: 8%" />
+            </colgroup>
             <thead
               class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
             >
               <tr>
-                <th class="p-5">Aset Hardware &amp; Cloud</th>
-                <th class="p-5">Kategori Aset</th>
-                <th class="p-5 font-mono">Tgl Perolehan</th>
-                <th class="p-5 text-right">Harga Perolehan</th>
-                <th class="p-5 text-right">Depresiasi / Thn</th>
-                <th class="p-5 text-right">Nilai Buku Neto</th>
-                <th class="p-5">Penanggung Jawab</th>
-                <th class="p-5 text-center">Aksi</th>
+                <th class="px-3 py-4 text-center">Aset Hardware &amp; Cloud</th>
+                <th class="px-3 py-4 text-center">Kategori Aset</th>
+                <th class="px-3 py-4 text-center font-mono">Tgl Perolehan</th>
+                <th class="px-3 py-4 text-center">Harga Perolehan</th>
+                <th class="px-3 py-4 text-center">Depresiasi / Thn</th>
+                <th class="px-3 py-4 text-center">Nilai Buku Neto</th>
+                <th class="px-3 py-4 text-center">Penanggung Jawab</th>
+                <th class="px-3 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-150">
@@ -312,7 +322,7 @@
                 :key="asset.id"
                 class="hover:bg-slate-50 transition-colors"
               >
-                <td class="p-5">
+                <td class="px-3 py-4 text-center">
                   <span class="font-bold text-[#0B1F4A] block text-sm">{{
                     asset.nama
                   }}</span
@@ -320,26 +330,26 @@
                     asset.id
                   }}</span>
                 </td>
-                <td class="p-5 text-slate-700 font-semibold">
+                <td class="px-3 py-4 text-center text-slate-700 font-semibold break-words">
                   {{ asset.kategori }}
                 </td>
-                <td class="p-5 font-mono">{{ asset.tanggalBeli }}</td>
-                <td class="p-5 text-right font-mono font-medium text-slate-600">
+                <td class="px-3 py-4 text-center font-mono">{{ asset.tanggalBeli }}</td>
+                <td class="px-3 py-4 text-center font-mono font-medium text-slate-600">
                   {{ formatRupiah(asset.hargaBeli) }}
                 </td>
-                <td class="p-5 text-right font-mono text-rose-600">
+                <td class="px-3 py-4 text-center font-mono text-rose-600">
                   -{{ formatRupiah(asset.penyusutanTahunan) }}
                 </td>
                 <td
-                  class="p-5 text-right font-mono font-bold text-emerald-600 text-sm"
+                  class="px-3 py-4 text-center font-mono font-bold text-emerald-600 text-sm"
                 >
                   {{ formatRupiah(asset.nilaiBuku) }}
                 </td>
-                <td class="p-5 font-medium text-slate-700">
+                <td class="px-3 py-4 text-center font-medium text-slate-700 break-words">
                   {{ asset.penanggungJawab }}
                 </td>
-                <td class="p-5">
-                  <div class="flex justify-center gap-2">
+                <td class="px-3 py-4 text-center">
+                  <div class="flex justify-center gap-1">
                     <button
                       type="button"
                       :aria-label="`Riwayat penyusutan ${asset.nama}`"
@@ -382,7 +392,7 @@
     <Teleport to="body">
       <div
         v-if="isDepreciationModalOpen"
-        class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
         <div
           class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-[#D8E5F4] bg-white shadow-2xl"
@@ -475,7 +485,7 @@
             </div>
 
             <div
-              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#DCE7F4]"
+              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-x-auto rounded-2xl border border-[#DCE7F4]"
             >
               <table class="depreciation-preview-table w-full text-left text-xs">
                 <thead
@@ -566,7 +576,7 @@
     <Teleport to="body">
     <div
       v-if="assetHistory"
-      class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
+      class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"
@@ -592,42 +602,114 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <div class="max-h-[55vh] overflow-y-auto p-6">
+        <div class="max-h-[55vh] overflow-auto p-6">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div
+              class="inline-flex rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] p-1"
+            >
+              <button
+                type="button"
+                :class="[
+                  'h-8 rounded-lg px-3 text-xs font-bold transition',
+                  assetHistoryViewMode === 'monthly'
+                    ? 'bg-[#0B1F4A] text-white shadow-sm'
+                    : 'text-[#53658A] hover:bg-white',
+                ]"
+                @click="setAssetHistoryViewMode('monthly')"
+              >
+                Bulanan
+              </button>
+              <button
+                type="button"
+                :class="[
+                  'h-8 rounded-lg px-3 text-xs font-bold transition',
+                  assetHistoryViewMode === 'yearly'
+                    ? 'bg-[#0B1F4A] text-white shadow-sm'
+                    : 'text-[#53658A] hover:bg-white',
+                ]"
+                @click="setAssetHistoryViewMode('yearly')"
+              >
+                Tahunan
+              </button>
+            </div>
+            <div class="text-xs font-semibold text-[#70819B]">
+              Periode aktif: {{ depreciationPeriod }}
+            </div>
+          </div>
           <table
-            v-if="(assetHistory.depreciations || []).length"
-            class="w-full text-left text-xs"
+            v-if="assetHistoryDisplayRows.length"
+            class="w-full table-fixed text-left text-xs"
           >
+            <colgroup>
+              <col class="w-[22%]" />
+              <col class="w-[28%]" />
+              <col class="w-[24%]" />
+              <col class="w-[26%]" />
+            </colgroup>
             <thead class="border-b border-[#E8EEF7] text-[#70819B]">
               <tr>
-                <th class="pb-3">Periode</th>
-                <th class="pb-3 text-right">Nilai</th>
-                <th class="pb-3">Voucher</th>
+                <th class="px-3 pb-3">
+                  {{ assetHistoryViewMode === "monthly" ? "Bulan" : "Tahun" }}
+                </th>
+                <th class="px-3 pb-3">Status</th>
+                <th class="px-3 pb-3 text-right">Nilai</th>
+                <th class="px-3 pb-3">Voucher</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#EDF2F7]">
               <tr v-for="item in pagedAssetHistoryRows" :key="item.id">
-                <td class="py-3">{{ item.depreciation_period }}</td>
-                <td class="py-3 text-right font-semibold">
-                  {{ formatRupiah(Number(item.depreciation_amount || 0)) }}
+                <td class="px-3 py-3">{{ item.periodLabel }}</td>
+                <td class="px-3 py-3">
+                  <span
+                    :class="[
+                      'rounded-full px-2 py-1 text-[10px] font-bold',
+                      item.isPosted
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-blue-50 text-blue-700',
+                    ]"
+                    >{{ item.statusLabel }}</span
+                  >
                 </td>
-                <td class="py-3">{{ item.journal_voucher_number || "-" }}</td>
+                <td class="px-3 py-3 text-right font-semibold whitespace-nowrap">
+                  {{ formatRupiah(item.amount) }}
+                </td>
+                <td class="px-3 py-3 text-[#8A98AB] break-words">
+                  {{ item.voucher }}
+                </td>
               </tr>
             </tbody>
           </table>
-          <p v-else class="text-sm text-[#8A98AB]">
-            Belum ada riwayat penyusutan untuk aset ini.
+          <div v-else class="rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-4 text-sm text-[#8A98AB]">
+            Belum ada data penyusutan untuk aset ini.
+          </div>
+          <p
+            v-if="assetHistoryDisplayRows.some((item) => !item.isPosted)"
+            class="mt-3 rounded-xl bg-blue-50 px-4 py-3 text-xs leading-5 text-[#0B1F4A]"
+          >
+            Baris estimasi mengikuti periode aktif yang dipilih di atas tabel.
+            Agar menjadi riwayat resmi dan masuk jurnal, posting penyusutan
+            periode terkait.
           </p>
         </div>
         <TablePagination
-          v-if="(assetHistory.depreciations || []).length > 0"
+          v-if="assetHistoryDisplayRows.length > 0"
           :page="assetHistoryPage"
-          :total="(assetHistory.depreciations || []).length"
+          :total="assetHistoryDisplayRows.length"
           @page-change="assetHistoryPage = safePage(
                 $event,
-                (assetHistory.depreciations || []).length,
+                assetHistoryDisplayRows.length,
               )"
         />
-        <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4">
+        <div class="flex flex-wrap justify-end gap-3 border-t border-[#E8EEF7] px-6 py-4">
+          <button
+            type="button"
+            :disabled="isDepreciationProcessing || !assetHistory?.asset?.id"
+            class="h-10 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-semibold text-[#0B1F4A] disabled:cursor-not-allowed disabled:opacity-60"
+            @click="processAssetHistoryDepreciation"
+          >
+            <template v-if="isDepreciationProcessing">Memposting...</template>
+            <template v-else>Posting {{ depreciationPeriod }}</template>
+          </button>
           <button
             type="button"
             class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
@@ -659,13 +741,13 @@
     <Teleport to="body">
       <div
         v-if="isSubModalOpen"
-        class="fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-3 backdrop-blur-sm md:items-center md:p-4"
       >
       <div
-        class="subscription-modal-card my-4 flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
+        class="subscription-modal-card my-3 flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl md:my-4 md:rounded-[34px]"
       >
         <div
-          class="px-9 py-8 border-b border-slate-100 flex justify-between items-center"
+          class="shrink-0 px-5 py-5 border-b border-slate-100 flex justify-between items-center md:px-9 md:py-7"
         >
           <div class="flex items-center gap-3">
             <div
@@ -686,7 +768,7 @@
           </button>
         </div>
         <form
-          class="min-h-0 flex-1 space-y-7 overflow-y-auto px-9 py-10 text-sm"
+          class="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6 text-sm md:px-9 md:py-8"
           @submit="handleSaveSub"
         >
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -824,7 +906,7 @@
                   </div>
                   <span
                     :class="[
-                      'rounded-full px-2.5 py-1 text-[10px] font-extrabold',
+                      'subscription-rate-status rounded-full px-3 py-1 text-[10px] font-extrabold',
                       subscriptionRateConfirmed
                         ? 'bg-emerald-50 text-emerald-700'
                         : 'bg-amber-50 text-amber-700',
@@ -833,7 +915,7 @@
                     {{ subscriptionRateConfirmed ? "OK" : "Belum OK" }}
                   </span>
                 </div>
-                <div class="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <div class="subscription-rate-controls mt-3 grid grid-cols-[minmax(0,1fr)_56px] gap-2">
                   <div class="relative">
                     <span
                       class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-extrabold text-[#64748B]"
@@ -851,7 +933,7 @@
                   </div>
                   <button
                     type="button"
-                    class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#071735]"
+                    class="subscription-rate-ok h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#071735]"
                     @click="confirmSubscriptionRate"
                   >
                     OK
@@ -859,7 +941,7 @@
                 </div>
                 <button
                   type="button"
-                  class="mt-2 inline-flex min-h-8 items-center rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-3 text-[11px] font-extrabold text-[#1E5AA8] transition-colors hover:bg-[#EEF5FC]"
+                  class="subscription-exchange-link mt-2 inline-flex min-h-8 items-center rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-3 text-[11px] font-extrabold text-[#1E5AA8] transition-colors hover:bg-[#EEF5FC]"
                   @click="openSubscriptionExchangeRate"
                 >
                   Lihat kurs {{ newSub.mataUang }} ke IDR di Google
@@ -942,7 +1024,7 @@
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4 pt-2">
+          <div class="subscription-modal-actions sticky bottom-0 z-10 grid grid-cols-1 gap-3 border-t border-[#E8EEF7] bg-white pt-4 md:grid-cols-[180px_1fr] md:gap-4">
             <button
               id="btn-sub-cancel"
               type="button"
@@ -965,7 +1047,7 @@
     <Teleport to="body">
       <div
         v-if="showExpiredSubscriptions"
-        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
       >
       <div
         class="w-full max-w-3xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1067,10 +1149,10 @@
     <Teleport to="body">
       <div
         v-if="showSubscriptionTransactions"
-        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
       >
       <div
-        class="w-full max-w-4xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+        class="w-full max-w-4xl rounded-[24px] border border-slate-100 bg-white shadow-2xl"
       >
         <div
           class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
@@ -1166,7 +1248,7 @@
     <Teleport to="body">
       <div
         v-if="subscriptionHistory"
-        class="fixed inset-0 z-[120000] flex items-center justify-center bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
       >
       <div
         class="w-full max-w-[540px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1261,10 +1343,10 @@
     </Teleport>
     <!-- 4. ADD HARDWARE ASSET MODAL -->
     <Teleport to="body">
-    <div
-      v-if="isAssetModalOpen"
-      class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-    >
+      <div
+        v-if="isAssetModalOpen"
+        class="asset-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
       <div
         class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
       >
@@ -1297,7 +1379,7 @@
         <form
           novalidate
           data-manual-validation="true"
-          class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6 text-xs"
+          class="h-0 min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6 text-xs"
           @submit="handleSaveAsset"
         >
           <div
@@ -1430,7 +1512,7 @@
                     ]"
                     @input="setAssetField('tanggalBeli', eventValue($event))"
                   /><Calendar
-                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827] z-10"
                   />
                 </div>
                 <p
@@ -1444,22 +1526,30 @@
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
                   >Harga Perolehan (Rp)</label
-                ><input
-                  id="asset-form-cost"
-                  type="text"
-                  required
-                  inputmode="numeric"
-                  :disabled="!!editingAsset"
-                  :value="newAsset.hargaBeli || ''"
-                  placeholder="0"
-                  :class="[
-                    assetInputClass,
-                    { 'form-control-invalid': assetFormErrors.hargaBeli },
-                  ]"
-                  @input="
-                    setAssetField('hargaBeli', parseRupiahInput(eventValue($event)))
-                  "
-                />
+                >
+                <div class="currency-input relative">
+                  <span
+                    class="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs z-[1] pointer-events-none"
+                    >Rp</span
+                  ><input
+                    id="asset-form-cost"
+                    type="text"
+                    required
+                    data-rupiah="true"
+                    data-rupiah-external-prefix="true"
+                    inputmode="numeric"
+                    :disabled="!!editingAsset"
+                    :value="assetCostInputValue"
+                    placeholder="0"
+                    :class="[
+                      assetInputClass,
+                      { 'form-control-invalid': assetFormErrors.hargaBeli },
+                    ]"
+                    @input="
+                      setAssetField('hargaBeli', parseRupiahInput(eventValue($event)))
+                    "
+                  />
+                </div>
                 <p
                   v-if="assetFormErrors.hargaBeli"
                   class="form-field-warning"
@@ -1496,21 +1586,29 @@
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
                   >Nilai Sisa / Salvage (Rp)</label
-                ><input
-                  id="asset-form-salvage"
-                  type="text"
-                  required
-                  inputmode="numeric"
-                  :value="newAsset.nilaiSisa"
-                  placeholder="0"
-                  :class="[
-                    assetInputClass,
-                    { 'form-control-invalid': assetFormErrors.nilaiSisa },
-                  ]"
-                  @input="
-                    setAssetField('nilaiSisa', parseRupiahInput(eventValue($event)))
-                  "
-                />
+                >
+                <div class="currency-input relative">
+                  <span
+                    class="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs z-[1] pointer-events-none"
+                    >Rp</span
+                  ><input
+                    id="asset-form-salvage"
+                    type="text"
+                    required
+                    data-rupiah="true"
+                    data-rupiah-external-prefix="true"
+                    inputmode="numeric"
+                    :value="assetSalvageInputValue"
+                    placeholder="0"
+                    :class="[
+                      assetInputClass,
+                      { 'form-control-invalid': assetFormErrors.nilaiSisa },
+                    ]"
+                    @input="
+                      setAssetField('nilaiSisa', parseRupiahInput(eventValue($event)))
+                    "
+                  />
+                </div>
                 <p
                   v-if="assetFormErrors.nilaiSisa"
                   class="form-field-warning"
@@ -1533,19 +1631,19 @@
             </p>
           </div>
           <div
-            class="grid grid-cols-1 md:grid-cols-[175px_1fr] gap-3 pt-4 border-t border-slate-100"
+            class="asset-form-actions grid grid-cols-1 items-center md:grid-cols-[175px_1fr] gap-3 pt-4 border-t border-slate-100"
           >
             <button
               id="btn-asset-cancel"
               type="button"
-              class="h-[38px] border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-xl text-sm transition-all"
+              class="border border-[#D8E5F4] hover:bg-slate-50 text-[#1F2A44] font-bold rounded-xl text-sm transition-all flex items-center justify-center"
               @click="closeAssetModal"
             >
               Batal</button
             ><button
               id="btn-asset-submit"
               type="submit"
-              class="h-[38px] bg-[#0B1F4A] hover:bg-[#071735] text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm"
+              class="bg-[#0B1F4A] hover:bg-[#071735] text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm"
             >
               <Save class="w-4 h-4" /><template v-if="editingAsset"
                 >Simpan Perubahan</template
@@ -1561,7 +1659,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { parseRupiahInput } from "../utils/rupiahInputs.js";
+import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, ref } from "vue";
 import {
   Cloud,
@@ -1656,6 +1754,7 @@ const showSubscriptionTransactions = ref(false);
 const showExpiredSubscriptions = ref(false);
 const showAssetArchive = ref(false);
 const assetHistory = ref<any>(null);
+const assetHistoryViewMode = ref<"monthly" | "yearly">("monthly");
 const subscriptionRateConfirmed = ref(true);
 const isCurrencyCode = (value: string): value is CurrencyCode =>
   currencyOptions.some((option) => option.value === value);
@@ -1729,9 +1828,8 @@ const subscriptionEstimateLabel = computed(() => {
   if (currency === "IDR") return formatRupiah(amount);
   const rate = Number(newSub.value.kurs || 0);
   if (!rate) return "Masukkan kurs hari ini terlebih dahulu.";
-  if (!subscriptionRateConfirmed.value) {
-    return "Tekan OK setelah memastikan kurs hari ini dari Google.";
-  }
+  if (!subscriptionRateConfirmed.value)
+    return "Tekan OK setelah kurs dicek di Google.";
   return `1 ${currency} = ${formatRupiah(rate)}; ${formatCurrency(amount, currency)} x ${formatRupiah(rate)} = ${formatRupiah(convertToIdr(amount, currency, rate))}`;
 });
 const subscriptionCostInputValue = computed(() =>
@@ -1757,10 +1855,10 @@ const subscriptionIdrSummary = computed(() => {
   const amount = Number(newSub.value.biaya || 0);
   if (!amount) return "-";
   if (newSub.value.mataUang === "IDR") return formatRupiah(amount);
-  if (!newSub.value.kurs || !subscriptionRateConfirmed.value) return "Menunggu OK kurs";
-  return formatRupiah(
-    convertToIdr(amount, newSub.value.mataUang, newSub.value.kurs),
-  );
+  const rate = Number(newSub.value.kurs || 0);
+  if (!rate) return "Masukkan kurs";
+  if (!subscriptionRateConfirmed.value) return "Tekan OK untuk akumulasi";
+  return formatRupiah(convertToIdr(amount, newSub.value.mataUang, rate));
 });
 const assetCategoryOptions = [
   "Elektronik / IT",
@@ -1768,6 +1866,8 @@ const assetCategoryOptions = [
   "Kendaraan",
   "Gedung & Kantor",
 ];
+const formatAssetCurrencyInput = (amount: number) =>
+  formatRupiahInput(amount, false, false);
 
 const newAsset = ref({
     nama: "",
@@ -1779,6 +1879,12 @@ const newAsset = ref({
     penanggungJawab: "",
   }),
   updateNewAsset = (next) => (newAsset.value = next); // Submit new subscription
+const assetCostInputValue = computed(() =>
+  formatAssetCurrencyInput(newAsset.value.hargaBeli),
+);
+const assetSalvageInputValue = computed(() =>
+  formatAssetCurrencyInput(newAsset.value.nilaiSisa),
+);
 
 const assetInputClass =
   "w-full h-10 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all";
@@ -1903,6 +2009,18 @@ function validateAssetForm() {
     }
   }
 
+  const acquisitionCost = Number(newAsset.value.hargaBeli || 0);
+  const residualValue = Number(newAsset.value.nilaiSisa || 0);
+  if (
+    !nextErrors.hargaBeli &&
+    !nextErrors.nilaiSisa &&
+    acquisitionCost > 0 &&
+    residualValue >= acquisitionCost
+  ) {
+    nextErrors.nilaiSisa =
+      "Nilai sisa harus lebih kecil dari harga perolehan.";
+  }
+
   assetFormErrors.value = nextErrors;
   const firstInvalidField = assetRequiredFields.find(
     (field) => nextErrors[field.key],
@@ -1950,7 +2068,8 @@ const handleSaveSub = async (e: Event) => {
       newSub.value.kurs,
     ),
   };
-  await addSubscription(item);
+  const result = await addSubscription(item);
+  if (!result) return;
   updateIsSubModalOpen(false);
   updateNewSub({
     nama: "",
@@ -2017,9 +2136,11 @@ const handleSaveAsset = async (e: Event) => {
     return;
   }
   if (editingAsset.value) {
-    await updateAsset(editingAsset.value, { ...newAsset.value });
+    const result = await updateAsset(editingAsset.value, { ...newAsset.value });
+    if (!result) return;
   } else {
-    await addAsset({ ...newAsset.value });
+    const result = await addAsset({ ...newAsset.value });
+    if (!result) return;
   }
   closeAssetModal();
   resetAssetForm();
@@ -2154,11 +2275,108 @@ async function showDepreciationHistory(asset: any) {
   try {
     const assetId = Number(asset?._raw?.id || asset?.id);
     if (!assetId) return notify("ID aset tidak valid.");
-    assetHistory.value = await financeApi.get(
+    const history = await financeApi.get(
       `/assets/${assetId}/depreciations`,
     );
+    const raw = asset?._raw || {};
+    assetHistory.value = {
+      ...history,
+      asset: {
+        ...(history?.asset || {}),
+        id: assetId,
+        asset_name: history?.asset?.asset_name || asset?.nama || raw.asset_name,
+        acquisition_date: raw.acquisition_date || asset?.tanggalBeli,
+        acquisition_cost: raw.acquisition_cost ?? asset?.hargaBeli,
+        useful_life_months: raw.useful_life_months ?? asset?.usefulLifeMonths,
+        residual_value:
+          raw.residual_value ?? asset?.residualValue ?? asset?.nilaiSisa,
+        accumulated_depreciation:
+          raw.accumulated_depreciation ??
+          history?.asset?.accumulated_depreciation ??
+          0,
+        book_value: raw.book_value ?? asset?.nilaiBuku,
+      },
+    };
+    assetHistoryPage.value = 1;
   } catch (error) {
     notify(getApiErrorMessage(error, "Gagal memuat riwayat penyusutan aset."));
+  }
+}
+
+function nextPeriodFromDate(value: string) {
+  const period = String(value || "").slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(period)) return "";
+  return period;
+}
+
+function addMonthsToPeriod(period: string, offset: number) {
+  if (!/^\d{4}-\d{2}$/.test(String(period || ""))) return "";
+  const [year, month] = period.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1))
+    .toISOString()
+    .slice(0, 7);
+}
+
+function isPeriodInAssetSchedule(asset: any, period: string) {
+  const firstPeriod = nextPeriodFromDate(asset?.acquisition_date);
+  const usefulLife = Math.max(1, Number(asset?.useful_life_months || 0));
+  if (!firstPeriod || !/^\d{4}-\d{2}$/.test(String(period || ""))) return false;
+  return period >= firstPeriod && period <= addMonthsToPeriod(firstPeriod, usefulLife - 1);
+}
+
+function monthlyProjectionAmount(asset: any, period: string) {
+  if (!isPeriodInAssetSchedule(asset, period)) return 0;
+  const cost = Number(asset?.acquisition_cost || 0);
+  const residual = Number(asset?.residual_value || 0);
+  const usefulLife = Math.max(1, Number(asset?.useful_life_months || 0));
+  const depreciableAmount = Math.max(cost - residual, 0);
+  if (!cost || !usefulLife || depreciableAmount <= 0) return 0;
+
+  const firstPeriod = nextPeriodFromDate(asset?.acquisition_date);
+  const [firstYear, firstMonth] = firstPeriod.split("-").map(Number);
+  const [periodYear, periodMonth] = period.split("-").map(Number);
+  const monthIndex = (periodYear - firstYear) * 12 + (periodMonth - firstMonth);
+  const monthlyAmount = depreciableAmount / usefulLife;
+  return monthIndex === usefulLife - 1
+    ? Math.max(depreciableAmount - monthlyAmount * monthIndex, 0)
+    : monthlyAmount;
+}
+
+function setAssetHistoryViewMode(mode: "monthly" | "yearly") {
+  assetHistoryViewMode.value = mode;
+  assetHistoryPage.value = 1;
+}
+
+async function processAssetHistoryDepreciation() {
+  const assetId = Number(assetHistory.value?.asset?.id);
+  if (!assetId) return notify("ID aset tidak valid.");
+  if (!depreciationPeriod.value) {
+    notify("Pilih periode penyusutan terlebih dahulu.");
+    return;
+  }
+
+  isDepreciationProcessing.value = true;
+  try {
+    await financeApi.post(`/assets/${assetId}/depreciate`, {
+      depreciation_period: depreciationPeriod.value,
+      notes: "Penyusutan aset diposting dari modal riwayat FinStart.",
+    });
+    await refreshData();
+    const history = await financeApi.get(`/assets/${assetId}/depreciations`);
+    assetHistory.value = {
+      ...history,
+      asset: {
+        ...(assetHistory.value?.asset || {}),
+        ...(history?.asset || {}),
+        id: assetId,
+      },
+    };
+    assetHistoryPage.value = 1;
+    notify(`Penyusutan aset periode ${depreciationPeriod.value} berhasil diposting.`);
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal memposting penyusutan aset."));
+  } finally {
+    isDepreciationProcessing.value = false;
   }
 }
 
@@ -2265,11 +2483,91 @@ const pagedExpiredSubs = computed(() =>
 const pagedSubHistory = computed(() =>
   pageRows(latestFirst(props.langganan || []), subHistoryPage.value),
 );
+const assetHistoryRows = computed(() =>
+  latestFirst(assetHistory.value?.depreciations || []),
+);
+const assetHistoryMonthlyRows = computed(() => {
+  const postedRows = assetHistoryRows.value.map((item: any) => ({
+    id: `posted-${item.id}`,
+    period: String(item.depreciation_period || ""),
+    periodLabel: String(item.depreciation_period || "-"),
+    amount: Number(item.depreciation_amount || 0),
+    voucher: item.journal_voucher_number || "-",
+    isPosted: true,
+    statusLabel: "Terposting",
+  }));
+  if (postedRows.length) return postedRows;
+
+  const asset = assetHistory.value?.asset || {};
+  const period = depreciationPeriod.value;
+  const amount = monthlyProjectionAmount(asset, period);
+  if (!amount) return [];
+  return [
+    {
+      id: `estimate-${period}`,
+      period,
+      periodLabel: period,
+      amount,
+      voucher: "-",
+      isPosted: false,
+      statusLabel: "Estimasi",
+    },
+  ];
+});
+const assetHistoryYearlyRows = computed(() => {
+  const groupedRows = new Map<string, any>();
+  for (const item of assetHistoryRows.value) {
+    const year = String(item.depreciation_period || "").slice(0, 4);
+    if (!year) continue;
+    const current = groupedRows.get(year) || {
+      id: `posted-year-${year}`,
+      period: year,
+      periodLabel: year,
+      amount: 0,
+      voucher: [],
+      isPosted: true,
+      statusLabel: "Terposting",
+    };
+    current.amount += Number(item.depreciation_amount || 0);
+    if (item.journal_voucher_number) current.voucher.push(item.journal_voucher_number);
+    groupedRows.set(year, current);
+  }
+  if (groupedRows.size) {
+    return Array.from(groupedRows.values())
+      .map((item) => ({
+        ...item,
+        voucher: item.voucher.length ? item.voucher.join(", ") : "-",
+      }))
+      .sort((a, b) => String(b.period).localeCompare(String(a.period)));
+  }
+
+  const asset = assetHistory.value?.asset || {};
+  const year = String(depreciationPeriod.value || "").slice(0, 4);
+  if (!year) return [];
+  let amount = 0;
+  for (let month = 1; month <= 12; month += 1) {
+    amount += monthlyProjectionAmount(asset, `${year}-${String(month).padStart(2, "0")}`);
+  }
+  if (!amount) return [];
+  return [
+    {
+      id: `estimate-year-${year}`,
+      period: year,
+      periodLabel: year,
+      amount,
+      voucher: "-",
+      isPosted: false,
+      statusLabel: "Estimasi",
+    },
+  ];
+});
+const assetHistoryDisplayRows = computed(() =>
+  assetHistoryViewMode.value === "monthly"
+    ? assetHistoryMonthlyRows.value
+    : assetHistoryYearlyRows.value,
+);
 const pagedAssetHistoryRows = computed(() =>
-  pageRows(
-    latestFirst(assetHistory.value?.depreciations || []),
-    assetHistoryPage.value,
-  ),
+  pageRows(assetHistoryDisplayRows.value, assetHistoryPage.value),
 );
 const totalSubBurnRate = computed(() =>
   activeSubs.value.reduce(
@@ -2291,8 +2589,9 @@ const totalNetBookValue = computed(() =>
 );
 function handleSubscriptionCostInput(event: Event) {
   const biaya = parseRupiahInput(eventValue(event));
+  const rate = Number(newSub.value.kurs || 0);
   const canCalculate =
-    newSub.value.mataUang === "IDR" || subscriptionRateConfirmed.value;
+    newSub.value.mataUang === "IDR" || (rate && subscriptionRateConfirmed.value);
   updateNewSub({
     ...newSub.value,
     biaya,
@@ -2314,12 +2613,12 @@ function handleSubscriptionCurrencyChange(event: Event) {
 }
 function handleSubscriptionRateInput(event: Event) {
   const kurs = parseRupiahInput(eventValue(event));
-  subscriptionRateConfirmed.value = false;
   updateNewSub({
     ...newSub.value,
     kurs,
     biayaIDR: 0,
   });
+  subscriptionRateConfirmed.value = false;
 }
 function confirmSubscriptionRate() {
   const kurs = Number(newSub.value.kurs || 0);
@@ -2327,10 +2626,14 @@ function confirmSubscriptionRate() {
     notify("Isi nominal kurs terlebih dahulu.");
     return;
   }
-  const checked = window.confirm(
-    "Apakah sudah melihat kurs hari ini di Google? Jika sudah, tekan OK untuk memakai kurs ini dalam perhitungan.",
+  const isConfirmed = window.confirm(
+    `Apakah kurs ${newSub.value.mataUang} ke IDR sudah dicek di Google? Jika sudah, biaya akan langsung diakumulasikan ke Rupiah.`,
   );
-  if (!checked) return;
+  if (!isConfirmed) {
+    subscriptionRateConfirmed.value = false;
+    notify("Cek kurs di Google terlebih dahulu sebelum akumulasi.");
+    return;
+  }
   subscriptionRateConfirmed.value = true;
   updateNewSub({
     ...newSub.value,
@@ -2359,8 +2662,26 @@ function closeConfirmDialog() {
 </script>
 
 <style scoped>
+.asset-form-actions :deep(button) {
+  height: 48px !important;
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  padding-block: 0 !important;
+}
+
+.asset-form-actions :deep(#btn-asset-submit) {
+  box-shadow: 0 12px 24px rgba(11, 31, 74, 0.18) !important;
+}
+
+.subscription-modal-card {
+  max-height: calc(100dvh - 1.5rem);
+  max-width: 950px;
+}
+
 .subscription-modal-card :deep(form) {
   gap: 18px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .subscription-modal-card :deep(label) {
@@ -2416,7 +2737,23 @@ function closeConfirmDialog() {
 }
 
 .subscription-rate-card {
-  min-height: 140px;
+  min-height: 136px;
+}
+
+.subscription-rate-status {
+  display: inline-flex;
+  min-width: 74px;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1 !important;
+}
+
+.subscription-rate-controls {
+  grid-template-columns: minmax(0, 1fr) 56px !important;
+  align-items: stretch;
 }
 
 .subscription-estimate-card {
@@ -2444,6 +2781,34 @@ function closeConfirmDialog() {
   min-height: 32px;
   border-radius: 12px;
   line-height: 1.2;
+}
+
+.subscription-rate-card .subscription-rate-ok {
+  height: 44px !important;
+  min-height: 44px !important;
+  width: 56px;
+  padding-inline: 0 !important;
+}
+
+.subscription-rate-card .subscription-exchange-link {
+  min-height: 34px !important;
+  max-width: 100%;
+  padding-inline: 14px !important;
+  color: #1e5aa8 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  white-space: nowrap;
+}
+
+.subscription-modal-actions {
+  margin-inline: -20px;
+  padding-inline: 20px;
+  padding-bottom: 4px;
+}
+
+.subscription-modal-actions button {
+  min-height: 52px;
 }
 
 .subscription-estimate-card button {

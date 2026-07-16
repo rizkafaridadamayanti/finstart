@@ -50,7 +50,7 @@
                 PT Kedata Indonesia Digital
               </p>
               <h1
-                class="mt-1 text-[40px] font-extrabold leading-none tracking-[0.12em] text-white"
+                class="mt-1 text-[28px] font-extrabold leading-none tracking-[0.12em] text-white sm:text-[40px]"
               >
                 FINSTART
               </h1>
@@ -69,7 +69,7 @@
               Sistem internal PT Kedata
             </p>
             <h2
-              class="mt-6 text-[54px] font-extrabold leading-[1.12] text-white xl:text-[64px]"
+              class="mt-6 text-[32px] font-extrabold leading-[1.12] text-white sm:text-[54px] xl:text-[64px]"
             >
               Kontrol finansial yang rapi untuk pertumbuhan bisnis.
             </h2>
@@ -154,7 +154,7 @@
                   PT Kedata Indonesia Digital
                 </p>
                 <h3
-                  class="mt-1 text-[26px] font-extrabold tracking-[0.10em] text-[#0B1F4A]"
+                  class="mt-1 text-[20px] font-extrabold tracking-[0.10em] text-[#0B1F4A] sm:text-[26px]"
                 >
                   FINSTART
                 </h3>
@@ -179,7 +179,7 @@
               Akses workspace
             </p>
             <h2
-              class="mt-2 text-[28px] font-extrabold tracking-tight text-[#0B1F4A]"
+              class="mt-2 text-[22px] font-extrabold tracking-tight text-[#0B1F4A] sm:text-[28px]"
             >
               Selamat Datang Kembali
             </h2>

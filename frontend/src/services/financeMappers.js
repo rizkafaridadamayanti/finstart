@@ -79,6 +79,97 @@ function accountCodeFromAllocation(value) {
   return found ? found[1] : "";
 }
 
+const journalSourceLabels = {
+  manual: "Jurnal Manual",
+  asset_depreciation: "Jurnal Penyesuaian",
+  asset_acquisition: "Perolehan Aset",
+  asset_disposal: "Pelepasan Aset",
+  subscription: "Langganan",
+  invoice: "Invoice",
+  invoice_payment: "Pelunasan Invoice",
+  bill: "Tagihan Vendor",
+  bill_payment: "Pembayaran Tagihan",
+  tax_record: "Pajak",
+  tax_payment: "Setoran Pajak",
+  payroll: "Payroll",
+  employee_payroll: "PPh 21",
+  vat_closing: "Penutupan PPN",
+};
+
+const journalSourceBadgeColors = {
+  asset_depreciation: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  asset_acquisition: "bg-blue-50 text-blue-700 border-blue-100",
+  asset_disposal: "bg-rose-50 text-rose-700 border-rose-100",
+  subscription: "bg-sky-50 text-sky-700 border-sky-100",
+  invoice: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  invoice_payment: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  bill: "bg-amber-50 text-amber-700 border-amber-100",
+  bill_payment: "bg-amber-50 text-amber-700 border-amber-100",
+  tax_record: "bg-purple-50 text-purple-700 border-purple-100",
+  tax_payment: "bg-purple-50 text-purple-700 border-purple-100",
+  payroll: "bg-cyan-50 text-cyan-700 border-cyan-100",
+  employee_payroll: "bg-cyan-50 text-cyan-700 border-cyan-100",
+  vat_closing: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
+};
+
+function journalSourceLabel(sourceType) {
+  return journalSourceLabels[sourceType] || "Jurnal Sistem";
+}
+
+function journalSourceBadgeClass(sourceType) {
+  return (
+    journalSourceBadgeColors[sourceType] ||
+    "bg-slate-50 text-slate-600 border-slate-100"
+  );
+}
+
+const journalStatusDisplay = {
+  unposted: "Unposted",
+  posted: "Posted",
+  canceled: "Canceled",
+  "posted-unpaid": "Posted / Unpaid",
+  "posted-paid": "Posted / Paid",
+  // Alias untuk data lama agar deployment dengan database existing tetap aman.
+  draft: "Unposted",
+  approved: "Unposted",
+  cancelled: "Canceled",
+  rejected: "Canceled",
+  "posted/unpaid": "Posted / Unpaid",
+  "posted/partial": "Posted / Unpaid",
+  "posted/paid": "Posted / Paid",
+  "posted/overdue": "Posted / Unpaid",
+  "posted/draft": "Unposted",
+  "posted/issued": "Posted / Unpaid",
+  "posted/cancelled": "Canceled",
+};
+
+const journalStatusColor = {
+  unposted: "bg-amber-50 text-amber-700",
+  posted: "bg-emerald-50 text-emerald-700",
+  canceled: "bg-rose-50 text-rose-700",
+  "posted-unpaid": "bg-sky-50 text-sky-700",
+  "posted-paid": "bg-emerald-50 text-emerald-700",
+  draft: "bg-amber-50 text-amber-700",
+  approved: "bg-amber-50 text-amber-700",
+  cancelled: "bg-rose-50 text-rose-700",
+  rejected: "bg-rose-50 text-rose-700",
+  "posted/unpaid": "bg-sky-50 text-sky-700",
+  "posted/partial": "bg-sky-50 text-sky-700",
+  "posted/paid": "bg-emerald-50 text-emerald-700",
+  "posted/overdue": "bg-sky-50 text-sky-700",
+  "posted/draft": "bg-amber-50 text-amber-700",
+  "posted/issued": "bg-sky-50 text-sky-700",
+  "posted/cancelled": "bg-rose-50 text-rose-700",
+};
+
+export function getJournalStatusDisplay(status) {
+  return journalStatusDisplay[status] || status || "Draft";
+}
+
+export function getJournalStatusColor(status) {
+  return journalStatusColor[status] || "bg-amber-50 text-amber-700";
+}
+
 export function mapJournalTransaction(row = {}) {
   const debitAllocations = Array.isArray(row.debit_allocations)
     ? row.debit_allocations
@@ -87,19 +178,40 @@ export function mapJournalTransaction(row = {}) {
     ? row.credit_allocations
     : [];
 
+  const rawStatus = row.status || "";
+  const sourceType = row.source_type || "";
+  const isUnpostedSource = ["invoice_draft", "bill_draft", "tax_draft"].includes(
+    sourceType,
+  );
+
   return {
     id: String(row.id ?? ""),
-    tanggal: dateOnly(row.transaction_date || row.tanggal),
-    refVoucher: row.voucher_number || row.refVoucher || "-",
-    keterangan: row.description || row.keterangan || "-",
-    nominal: numberValue(row.total_debit ?? row.total_credit ?? row.nominal),
+    tanggal: dateOnly(row.tanggal || row.transaction_date),
+    refVoucher: row.refVoucher || row.voucher_number || "-",
+    keterangan: row.keterangan || row.description || "-",
+    nominal: numberValue(row.nominal ?? row.total_debit ?? row.total_credit),
     debitAkun:
       accountCodeFromAllocation(debitAllocations[0]) || row.debitAkun || "",
     kreditAkun:
       accountCodeFromAllocation(creditAllocations[0]) || row.kreditAkun || "",
-    isDraft: row.status === "draft",
-    status: row.status || "",
-    _raw: row,
+    isDraft: isUnpostedSource || ["draft", "approved", "unposted"].includes(rawStatus),
+    status: rawStatus,
+    journal_id: row.journal_id ? Number(row.journal_id) : null,
+    journal_status: row.journal_status || null,
+    approved_at: row.approved_at || null,
+    source_type: sourceType,
+    source_label: journalSourceLabel(sourceType || "manual"),
+    source_badge_class: journalSourceBadgeClass(sourceType || "manual"),
+    source_status: row.source_status || null,
+    source_number: row.source_number || null,
+    party_name: row.party_name || null,
+    debit_allocations: debitAllocations,
+    credit_allocations: creditAllocations,
+    total_debit: numberValue(row.total_debit),
+    total_credit: numberValue(row.total_credit),
+    created_by_name: row.created_by_name || "-",
+    approved_by_name: row.approved_by_name || "-",
+    _raw: row._raw || row,
   };
 }
 
@@ -182,6 +294,8 @@ const invoiceStatus = {
   partial: "Unpaid",
   draft: "Draft",
   cancelled: "Cancelled",
+  posted: "Unpaid",
+  issued: "Unpaid",
 };
 
 export function mapInvoice(row = {}) {

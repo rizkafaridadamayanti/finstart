@@ -230,12 +230,24 @@
                     {{ t.refVoucher }}
                   </td>
                   <td class="p-4">
-                    <span class="font-bold text-slate-800 block text-sm">{{
-                      t.keterangan
-                    }}</span
-                    ><span class="text-[10px] text-slate-400 block font-light"
-                      >Ref ID: {{ t.id }}</span
+                    <span class="font-bold text-slate-800 block text-sm">
+                      {{ t.keterangan }}
+                    </span>
+                    <span
+                      v-if="t.source_label"
+                      :class="`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${t.source_badge_class || 'bg-slate-50 text-slate-600 border-slate-100'}`"
                     >
+                      {{ t.source_label }}
+                    </span>
+                    <span
+                      v-if="t.party_name"
+                      class="text-[10px] text-slate-400 block font-light"
+                    >
+                      {{ t.party_name }}
+                    </span>
+                    <span class="text-[10px] text-slate-400 block font-light">
+                      Ref ID: {{ t.id }}
+                    </span>
                   </td>
                   <td class="p-4 text-[10px] space-y-1">
                     <span class="block text-emerald-600 font-bold font-mono"
@@ -253,19 +265,15 @@
                   </td>
                   <td class="p-4 text-center">
                     <span
-                      :class="`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${t.status === 'posted' ? 'bg-emerald-50 text-emerald-700' : t.status === 'approved' ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'}`"
-                      ><template v-if="t.status === 'posted'">Posted</template
-                      ><template v-else
-                        ><template v-if="t.status === 'approved'"
-                          >Approved</template
-                        ><template v-else>Draft</template></template
-                      ></span
+                      :class="`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${getJournalStatusColor(t.status)}`"
+                      >{{ getJournalStatusDisplay(t.status) }}</span
                     >
                   </td>
                   <td class="p-4">
                     <div class="flex items-center justify-center gap-1">
+                      <template v-if="!t.source_type || t.source_type === 'manual'">
                       <button
-                        v-if="t.status === 'draft' &amp;&amp; ['admin', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                        v-if="t.journal_status === 'draft' &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
                         type="button"
                         class="inline-flex h-8 items-center gap-1 rounded-lg bg-sky-50 px-2 text-[10px] font-bold text-sky-700 hover:bg-sky-100"
                         title="Setujui jurnal draft"
@@ -273,7 +281,7 @@
                       >
                         <ShieldCheck class="h-3.5 w-3.5" />Setujui</button
                       ><button
-                        v-if="t.status === 'approved' &amp;&amp; ['admin', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                        v-if="t.journal_status === 'approved' &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
                         type="button"
                         class="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-50 px-2 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
                         title="Posting jurnal"
@@ -281,6 +289,15 @@
                       >
                         <Send class="h-3.5 w-3.5" />Posting</button
                       ><button
+                        v-if="!['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '')) &amp;&amp; t.journal_status !== null &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-rose-50 px-2 text-[10px] font-bold text-rose-700 hover:bg-rose-100"
+                        title="Batalkan jurnal"
+                        @click="cancelJournal(t)"
+                      >
+                        <Ban class="h-3.5 w-3.5" />Batal</button
+                      ></template>
+                      <button
                         type="button"
                         class="p-2 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 rounded-xl"
                         title="Unduh Slip Bukti"
@@ -410,23 +427,31 @@
             </p>
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <div class="space-y-1.5">
+            <div class="relative space-y-1.5">
               <label class="font-bold text-slate-700">Akun Induk</label
-              ><select
-                id="acc-form-parent"
-                :value="newAccount.parentId"
-                :class="accountInputClass"
-                @change="setAccountField('parentId', eventValue($event))"
+              ><div
+                class="relative"
+                @focusout="closeParentAccountDropdownSoon"
+                @keydown.escape.prevent="closeParentAccountDropdown"
               >
-                <option value="">Tidak ada</option>
-                <option
-                  v-for="a in availableParentAccounts"
-                  :key="a.id"
-                  :value="String(a.id)"
+                <input
+                  id="acc-form-parent"
+                  type="hidden"
+                  :value="newAccount.parentId"
+                />
+                <button
+                  ref="parentAccountButtonRef"
+                  type="button"
+                  class="flex w-full h-12 items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-5 text-left text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                  @click="toggleParentAccountDropdown"
                 >
-                  {{ a.kode }} - {{ a.nama }}
-                </option>
-              </select>
+                  <span class="truncate">{{ selectedParentAccountLabel }}</span>
+                  <ChevronDown
+                    class="h-4 w-4 shrink-0 text-slate-500 transition"
+                    :class="{ 'rotate-180': isParentAccountDropdownOpen }"
+                  />
+                </button>
+              </div>
             </div>
             <div class="space-y-1.5">
               <label class="font-bold text-slate-700">Status</label
@@ -449,19 +474,25 @@
             </div>
           </div>
           <div class="space-y-1.5">
-            <label class="font-bold text-slate-700">Saldo Awal (Rupiah)</label
-            ><input
-              id="acc-form-val"
-              type="number"
-              required
-              :value="newAccount.saldo"
-              :class="[
-                accountInputClass,
-                'font-mono',
-                { 'form-control-invalid': accountFormErrors.saldo },
-              ]"
-              @input="setAccountField('saldo', Number(eventValue($event)))"
-            />
+            <label class="font-bold text-slate-700">Saldo Awal (Rupiah)</label>
+            <div class="currency-input relative">
+              <span
+                class="pointer-events-none absolute left-5 top-1/2 z-[2] w-8 -translate-y-1/2 text-left text-[#94A3B8] font-extrabold text-xs"
+                >Rp</span
+              ><input
+                id="acc-form-val"
+                type="number"
+                required
+                :value="newAccount.saldo"
+                style="padding-left: 3.75rem !important"
+                :class="[
+                  accountInputClass,
+                  'font-mono',
+                  { 'form-control-invalid': accountFormErrors.saldo },
+                ]"
+                @input="setAccountField('saldo', Number(eventValue($event)))"
+              />
+            </div>
             <p v-if="accountFormErrors.saldo" class="form-field-warning">
               {{ accountFormErrors.saldo }}
             </p>
@@ -475,16 +506,38 @@
           </button>
         </form>
       </div>
+      <div
+        v-if="isParentAccountDropdownOpen"
+        class="fixed overflow-y-auto rounded-xl border border-[#D8E5F4] bg-white py-1 shadow-[0_12px_28px_rgba(16,42,86,0.12)]"
+        :style="parentAccountDropdownStyle"
+      >
+        <button
+          type="button"
+          class="w-full px-4 py-2 text-left text-[12px] font-semibold leading-snug text-[#0B1F4A] transition hover:bg-[#F3F8FE]"
+          @mousedown.prevent="selectParentAccount('')"
+        >
+          Tidak ada
+        </button>
+        <button
+          v-for="a in availableParentAccounts"
+          :key="a.id"
+          type="button"
+          class="w-full px-4 py-2 text-left text-[12px] font-semibold leading-snug text-[#0B1F4A] transition hover:bg-[#F3F8FE]"
+          @mousedown.prevent="selectParentAccount(String(a.id))"
+        >
+          {{ a.kode }} - {{ a.nama }}
+        </button>
+      </div>
     </div>
     </Teleport>
     <!-- 4. JOURNAL ENTRY FORM MODAL -->
     <Teleport to="body">
       <div
         v-if="isJournalModalOpen"
-        class="journal-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+        class="journal-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
       <div
-        class="journal-entry-modal bg-white border border-slate-200 rounded-3xl w-full overflow-hidden shadow-2xl flex flex-col"
+        class="journal-entry-modal bg-white border border-slate-200 rounded-3xl w-full max-w-[920px] max-h-[calc(100dvh-2rem)] overflow-hidden shadow-2xl flex flex-col my-4"
       >
         <div
           class="px-7 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0"
@@ -523,7 +576,7 @@
             {{ tmpl }}
           </button>
         </div>
-        <div class="p-6 text-sm space-y-4 flex-1">
+        <div class="p-6 text-sm space-y-4 h-0 min-h-0 flex-1 overflow-y-auto">
           <div
             v-if="journalErrorCount > 0"
             class="form-validation-summary"
@@ -656,25 +709,29 @@
                   >
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
                       {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
-                    </option></select
-                  ><input
-                    :id="`debit-line-val-${idx}`"
-                    type="number"
-                    placeholder="Debit Nominal"
-                    :value="line.nominal"
-                    :class="[
-                      'h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none',
-                      {
-                        'form-control-invalid':
-                          journalFormErrors[`debitNominal-${idx}`],
-                      },
-                    ]"
-                    @change="handleDebitRowChange(
-                          idx,
-                          'nominal',
-                          Number(eventValue($event)),
-                        )"
-                  /><button
+                    </option                   ></select
+                  ><div class="currency-input relative">
+                    <span
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs z-[1] pointer-events-none"
+                      >Rp</span
+                    ><input
+                      :id="`debit-line-val-${idx}`"
+                      type="number"
+                      placeholder="0"
+                      :value="line.nominal || ''"
+                      :class="[
+                        'h-11 w-full rounded-2xl border border-slate-300 bg-white pl-9 pr-4 font-mono text-sm text-slate-800 focus:outline-none',
+                        {
+                          'form-control-invalid':
+                            journalFormErrors[`debitNominal-${idx}`],
+                        },
+                      ]"
+                      @change="handleDebitRowChange(
+                            idx,
+                            'nominal',
+                            parseRupiahInput(eventValue($event)),
+                          )"
+                    /></div><button
                     v-if="debitLines.length > 1"
                     type="button"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50"
@@ -735,24 +792,28 @@
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
                       {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
                     </option></select
-                  ><input
-                    :id="`credit-line-val-${idx}`"
-                    type="number"
-                    placeholder="Kredit Nominal"
-                    :value="line.nominal"
-                    :class="[
-                      'h-11 w-full rounded-2xl border border-slate-300 bg-white px-4 font-mono text-sm text-slate-800 focus:outline-none',
-                      {
-                        'form-control-invalid':
-                          journalFormErrors[`creditNominal-${idx}`],
-                      },
-                    ]"
-                    @change="handleCreditRowChange(
-                          idx,
-                          'nominal',
-                          Number(eventValue($event)),
-                        )"
-                  /><button
+                  ><div class="currency-input relative">
+                    <span
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs z-[1] pointer-events-none"
+                      >Rp</span
+                    ><input
+                      :id="`credit-line-val-${idx}`"
+                      type="number"
+                      placeholder="0"
+                      :value="line.nominal || ''"
+                      :class="[
+                        'h-11 w-full rounded-2xl border border-slate-300 bg-white pl-9 pr-4 font-mono text-sm text-slate-800 focus:outline-none',
+                        {
+                          'form-control-invalid':
+                            journalFormErrors[`creditNominal-${idx}`],
+                        },
+                      ]"
+                      @change="handleCreditRowChange(
+                            idx,
+                            'nominal',
+                            parseRupiahInput(eventValue($event)),
+                          )"
+                    /></div><button
                     v-if="creditLines.length > 1"
                     type="button"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50"
@@ -829,7 +890,7 @@
     <Teleport to="body">
       <div
       v-if="selectedAccountDetail"
-      class="account-modal-layer fixed inset-0 z-[10080] flex items-center justify-center bg-[#111827]/55 p-4 backdrop-blur-sm"
+      class="account-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -915,7 +976,8 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { computed, ref } from "vue";
+import { parseRupiahInput } from "../utils/rupiahInputs.js";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import {
   Search,
   Plus,
@@ -932,8 +994,14 @@ import {
   ShieldCheck,
   Eye,
   X,
+  Ban,
+  ChevronDown,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
+import {
+  getJournalStatusDisplay,
+  getJournalStatusColor,
+} from "../services/financeMappers.js";
 import { AkunBukuBesar, Transaksi, TipeAkun } from "../types.ts";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
@@ -963,6 +1031,7 @@ const {
     addTransaction,
     approveJournal,
     postJournal,
+    cancelJournal,
   },
 } = useFinStartContext();
 const activeTab = computed(() =>
@@ -981,6 +1050,13 @@ const isAccountModalOpen = ref(false),
   updateIsAccountModalOpen = (next) => (isAccountModalOpen.value = next);
 const deleteConfirm = ref<any>(null);
 const selectedAccountDetail = ref<any>(null);
+const isParentAccountDropdownOpen = ref(false);
+const parentAccountButtonRef = ref<HTMLElement | null>(null);
+const parentAccountDropdownPosition = ref({
+  top: 0,
+  left: 0,
+  width: 0,
+});
 const newAccount = ref({
     kode: "",
     nama: "",
@@ -992,7 +1068,7 @@ const newAccount = ref({
   updateNewAccount = (next) => (newAccount.value = next);
 
 const accountInputClass =
-  "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none";
+  "w-full h-12 px-5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none";
 
 type AccountFormFieldKey = "kode" | "nama" | "tipe" | "status" | "saldo";
 
@@ -1032,6 +1108,24 @@ const accountFormErrorMessages = computed(() =>
   Object.values(accountFormErrors.value).filter(Boolean),
 );
 
+const selectedParentAccountLabel = computed(() => {
+  const selectedParent = availableParentAccounts.value.find(
+    (account) => String(account.id) === String(newAccount.value.parentId),
+  );
+  return selectedParent
+    ? `${selectedParent.kode} - ${selectedParent.nama}`
+    : "Tidak ada";
+});
+
+const parentAccountDropdownStyle = computed(() => ({
+  top: `${parentAccountDropdownPosition.value.top}px`,
+  left: `${parentAccountDropdownPosition.value.left}px`,
+  width: `${parentAccountDropdownPosition.value.width}px`,
+  maxHeight: "150px",
+  overflowY: "auto",
+  zIndex: 130001,
+}));
+
 function resetAccountFormErrors() {
   accountFormErrors.value = emptyAccountFormErrors();
 }
@@ -1052,6 +1146,40 @@ function setAccountField(key: keyof typeof newAccount.value, value: any) {
   if (key in accountFormErrors.value)
     clearAccountFormError(key as AccountFormFieldKey);
 }
+
+function toggleParentAccountDropdown() {
+  if (isParentAccountDropdownOpen.value) {
+    closeParentAccountDropdown();
+    return;
+  }
+  isParentAccountDropdownOpen.value = true;
+  nextTick(updateParentAccountDropdownPosition);
+}
+
+function closeParentAccountDropdown() {
+  isParentAccountDropdownOpen.value = false;
+}
+
+function closeParentAccountDropdownSoon() {
+  window.setTimeout(closeParentAccountDropdown, 80);
+}
+
+function selectParentAccount(parentId: string) {
+  setAccountField("parentId", parentId);
+  closeParentAccountDropdown();
+}
+
+function updateParentAccountDropdownPosition() {
+  const rect = parentAccountButtonRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  parentAccountDropdownPosition.value = {
+    top: rect.bottom + 6,
+    left: rect.left,
+    width: rect.width,
+  };
+}
+
+onBeforeUnmount(closeParentAccountDropdown);
 
 function accountRawInputValue(id: string) {
   return (
@@ -1529,6 +1657,15 @@ const filteredJournals = computed(() =>
           .includes(query) ||
         String(t.refVoucher || "")
           .toLowerCase()
+          .includes(query) ||
+        String(t.party_name || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(t.source_number || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(t.source_label || "")
+          .toLowerCase()
           .includes(query);
       const matchesDate = !journalDate.value || t.tanggal === journalDate.value;
       return matchesSearch && matchesDate;
@@ -1671,6 +1808,10 @@ const buildJournalVoucherPdf = (transaction: Transaksi) => {
 };
 
 const downloadJournalVoucher = (transaction: Transaksi) => {
+  if (!transaction.journal_id || !transaction.refVoucher || transaction.refVoucher === '-') {
+    notify("Tidak ada bukti jurnal untuk transaksi draft.");
+    return;
+  }
   downloadBlobFile(
     `bukti-jurnal-${transaction.refVoucher || transaction.id}.pdf`,
     buildJournalVoucherPdf(transaction),

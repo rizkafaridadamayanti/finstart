@@ -1178,7 +1178,7 @@
     <!-- DETIL PRODUK MODAL -->
     <div
       v-if="selectedProductIndex !== null"
-      class="fixed inset-0 bg-slate-950/40 flex items-center justify-center z-50 p-4 backdrop-blur-md"
+      class="fixed inset-0 bg-slate-950/40 flex items-center justify-center overflow-y-auto z-50 p-4 backdrop-blur-md"
     >
       <div
         class="relative w-full max-w-3xl max-h-[calc(100vh-64px)] h-[calc(100vh-64px)] overflow-hidden rounded-[32px] border border-slate-200 bg-white/95 shadow-[0_40px_120px_rgba(15,23,42,0.18)]"
@@ -1408,7 +1408,7 @@
     </div>
     <div
       v-if="selectedProjectDetailIndex !== null"
-      class="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-60 p-4 backdrop-blur-sm"
+      class="fixed inset-0 bg-slate-950/90 flex items-center justify-center overflow-y-auto z-60 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-3xl h-[calc(100vh-4rem)] overflow-hidden rounded-[32px] bg-white shadow-[0_40px_120px_rgba(15,23,42,0.25)]"
@@ -1467,7 +1467,7 @@
     </div>
     <div
       v-if="selectedFeatureDetailIndex !== null"
-      class="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-60 p-4 backdrop-blur-sm"
+      class="fixed inset-0 bg-slate-950/90 flex items-center justify-center overflow-y-auto z-60 p-4 backdrop-blur-sm"
     >
       <div
         class="w-full max-w-3xl h-[calc(100vh-4rem)] overflow-hidden rounded-[32px] bg-white shadow-[0_40px_120px_rgba(15,23,42,0.25)]"

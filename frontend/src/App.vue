@@ -48,7 +48,7 @@
         <button
           id="btn-sidebar-drawer"
           type="button"
-          class="dashboard-sidebar-drawer-enter hidden xl:flex hover:!bg-[#0B3A78] hover:!text-white"
+          class="dashboard-sidebar-drawer-enter flex hover:!bg-[#0B3A78] hover:!text-white"
           :style="sidebarToggleStyle"
           :title="
             isSidebarCollapsed
@@ -549,7 +549,7 @@ const pageGuides: Record<string, PageGuide> = {
   },
 };
 
-const activePageGuide = computed<PageGuide>(
+const _activePageGuide = computed<PageGuide>(
   () => pageGuides[activeTab.value] ?? pageGuides.dashboard,
 );
 
@@ -600,21 +600,21 @@ provideFinStartContext({
 const sidebarToggleStyle = computed<CSSProperties>(() => ({
   position: "fixed",
   left: isSidebarCollapsed.value ? "72px" : "286px",
-  top: "54%",
+  top: "50%",
   transform: "translateY(-50%)",
   zIndex: 99999,
-  width: "34px",
-  height: "54px",
+  width: "30px",
+  height: "64px",
   alignItems: "center",
   justifyContent: "center",
-  borderTop: "1px solid #D8E5F4",
-  borderRight: "1px solid #D8E5F4",
-  borderBottom: "1px solid #D8E5F4",
+  borderTop: "1.5px solid #BFD3EA",
+  borderRight: "1.5px solid #BFD3EA",
+  borderBottom: "1.5px solid #BFD3EA",
   borderLeft: 0,
   borderRadius: "0 14px 14px 0",
-  background: "#FFFFFF",
-  color: "#102A56",
-  boxShadow: "0 12px 26px rgba(16,42,86,0.14)",
+  background: "#E8F0FB",
+  color: "#1E5AA8",
+  boxShadow: "4px 0 18px rgba(16,42,86,0.12)",
   transition: "left 240ms ease, background 180ms ease, color 180ms ease",
 }));
 </script>
