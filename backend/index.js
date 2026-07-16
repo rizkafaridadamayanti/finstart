@@ -40,13 +40,22 @@ const app = express()
 const PORT = process.env.PORT || 4000
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // konfigurasi CORS yang sudah ada
 }))
 
 app.use(express.json())
 
-// Payload direkam untuk audit setelah respons berhasil dikirim.
 app.use(captureResponsePayload)
+
+// Endpoint publik untuk mengecek backend
+app.get('/api/status', (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: 'online',
+    message: 'Backend FinStart aktif',
+  })
+})
+
 app.use(authenticate)
 app.use(enforceApiAuthorization)
 app.use(activityLogger)
