@@ -1,78 +1,181 @@
 const db = require('../config/db')
 const { hashToken } = require('../utils/password')
 
+/*
+ * Endpoint yang boleh diakses tanpa login.
+ *
+ * /api/status dan /api/health tetap dicantumkan agar aman,
+ * walaupun endpoint tersebut sebaiknya ditempatkan sebelum
+ * app.use(authenticate) di backend/index.js.
+ */
 const PUBLIC_PATHS = new Set([
+  '/api/status',
   '/api/health',
   '/api/auth/login',
   '/api/auth/password/request-reset',
   '/api/auth/password/reset',
 ])
 
+/**
+ * Mengambil token dari header:
+ *
+ * Authorization: Bearer <token>
+ *
+ * @param {import('express').Request} req
+ * @returns {string}
+ */
 function getBearerToken(req) {
-  const header = String(req.headers.authorization || '')
-  const match = header.match(/^Bearer\s+(.+)$/i)
-  return match ? match[1].trim() : ''
+  const authorizationHeader = String(
+    req.get('authorization') || '',
+  ).trim()
+
+  const match = authorizationHeader.match(
+    /^Bearer\s+(.+)$/i,
+  )
+
+  return match?.[1]?.trim() || ''
 }
 
+/**
+ * Memeriksa apakah endpoint dapat diakses tanpa autentikasi.
+ *
+ * @param {import('express').Request} req
+ * @returns {boolean}
+ */
+function isPublicRequest(req) {
+  if (req.method === 'OPTIONS') {
+    return true
+  }
+
+  const requestPath = String(req.path || '')
+  return PUBLIC_PATHS.has(requestPath)
+}
+
+/**
+ * Middleware autentikasi global.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 async function authenticate(req, res, next) {
-  if (PUBLIC_PATHS.has(req.path)) {
+  if (isPublicRequest(req)) {
     return next()
   }
+
+  const authorizationHeader = String(
+    req.get('authorization') || '',
+  ).trim()
 
   const token = getBearerToken(req)
 
   if (!token) {
+    /*
+     * Log ini tidak mencetak isi token.
+     * Aman digunakan untuk melihat penyebab request ditolak
+     * melalui Railway Deploy Logs.
+     */
+    console.warn('[auth] Bearer token tidak ditemukan', {
+      method: req.method,
+      path: req.originalUrl,
+      authorizationHeaderPresent:
+        authorizationHeader.length > 0,
+      authorizationFormatValid:
+        /^Bearer\s+.+$/i.test(authorizationHeader),
+    })
+
     return res.status(401).json({
       success: false,
-      message: 'Akses ditolak. Silakan login terlebih dahulu.',
+      message:
+        'Akses ditolak. Silakan login terlebih dahulu.',
     })
   }
 
   try {
+    const tokenHash = hashToken(token)
+
     const [rows] = await db.query(
       `
         SELECT
           sessions.id AS session_id,
+          sessions.user_id,
           sessions.expires_at,
-          users.id,
+          sessions.revoked_at,
+
+          users.id AS id,
           users.role_id,
           users.name,
           users.email,
           users.status,
+
           roles.name AS role_name
         FROM auth_sessions AS sessions
-        INNER JOIN users ON users.id = sessions.user_id
-        LEFT JOIN roles ON roles.id = users.role_id
+        INNER JOIN users
+          ON users.id = sessions.user_id
+        LEFT JOIN roles
+          ON roles.id = users.role_id
         WHERE sessions.token_hash = ?
           AND sessions.revoked_at IS NULL
           AND sessions.expires_at > NOW()
         LIMIT 1
       `,
-      [hashToken(token)],
+      [tokenHash],
     )
 
-    const user = rows[0]
+    const user = rows?.[0]
 
-    if (!user || user.status !== 'active') {
+    if (!user) {
+      console.warn(
+        '[auth] Token tidak memiliki sesi aktif',
+        {
+          method: req.method,
+          path: req.originalUrl,
+        },
+      )
+
       return res.status(401).json({
         success: false,
         message: 'Sesi tidak valid atau sudah berakhir.',
       })
     }
 
+    if (
+      String(user.status || '').toLowerCase() !==
+      'active'
+    ) {
+      console.warn('[auth] Pengguna tidak aktif', {
+        method: req.method,
+        path: req.originalUrl,
+        userId: user.id,
+        status: user.status,
+      })
+
+      return res.status(403).json({
+        success: false,
+        message:
+          'Akun pengguna sedang tidak aktif.',
+      })
+    }
+
     req.authToken = token
+
     req.user = {
       id: user.id,
       role_id: user.role_id,
-      role_name: user.role_name,
+      role_name: user.role_name || '',
       name: user.name,
       email: user.email,
       session_id: user.session_id,
+      expires_at: user.expires_at,
     }
 
     return next()
   } catch (error) {
-    console.error('[auth middleware] Gagal memvalidasi sesi:', error)
+    console.error(
+      '[auth middleware] Gagal memvalidasi sesi:',
+      error,
+    )
+
     return res.status(500).json({
       success: false,
       message: 'Gagal memvalidasi sesi login.',
@@ -80,14 +183,56 @@ async function authenticate(req, res, next) {
   }
 }
 
+/**
+ * Membatasi endpoint berdasarkan nama role pengguna.
+ *
+ * Contoh:
+ * router.post(
+ *   '/endpoint',
+ *   requireRole(['finance', 'admin']),
+ *   handler,
+ * )
+ *
+ * @param {string[]} allowedRoles
+ * @returns {import('express').RequestHandler}
+ */
 function requireRole(allowedRoles = []) {
-  return (req, res, next) => {
-    const role = String(req.user?.role_name || '').toLowerCase()
+  const normalizedAllowedRoles = new Set(
+    allowedRoles
+      .map((item) =>
+        String(item || '').trim().toLowerCase(),
+      )
+      .filter(Boolean),
+  )
 
-    if (allowedRoles.length && !allowedRoles.map((item) => item.toLowerCase()).includes(role)) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'Akses ditolak. Silakan login terlebih dahulu.',
+      })
+    }
+
+    /*
+     * Jika allowedRoles kosong, cukup pastikan pengguna
+     * sudah berhasil melewati autentikasi.
+     */
+    if (normalizedAllowedRoles.size === 0) {
+      return next()
+    }
+
+    const currentRole = String(
+      req.user.role_name || '',
+    )
+      .trim()
+      .toLowerCase()
+
+    if (!normalizedAllowedRoles.has(currentRole)) {
       return res.status(403).json({
         success: false,
-        message: 'Akses ditolak untuk peran pengguna saat ini.',
+        message:
+          'Akses ditolak untuk peran pengguna saat ini.',
       })
     }
 
@@ -98,4 +243,5 @@ function requireRole(allowedRoles = []) {
 module.exports = {
   authenticate,
   requireRole,
+  getBearerToken,
 }
