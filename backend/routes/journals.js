@@ -2,6 +2,7 @@ const express = require('express')
 const db = require('../config/db')
 const { requirePermission, hasPermission } = require('../middleware/authorization')
 const { safePublicMessage } = require('../utils/api-errors')
+const { todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -659,10 +660,24 @@ router.post('/:id/post', requirePermission('journals', 'post'), async (req, res)
       throw createAppError(404, 'Jurnal tidak ditemukan.')
     }
 
-    if (journals[0].status !== 'approved') {
+    if (!['draft', 'approved'].includes(journals[0].status)) {
       throw createAppError(
         422,
-        'Jurnal hanya dapat diposting setelah berstatus approved.',
+        'Jurnal hanya dapat diposting jika berstatus draft atau approved.',
+      )
+    }
+
+    if (journals[0].status === 'draft') {
+      await connection.query(
+        `
+          UPDATE journal_entries
+          SET
+            status = 'approved',
+            approved_by = ?,
+            approved_at = NOW()
+          WHERE id = ?
+        `,
+        [req.user?.id, journalId],
       )
     }
 
@@ -748,7 +763,12 @@ router.post('/:id/void', requirePermission('journals', 'post'), async (req, res)
   let connection
 
   try {
+    console.log("=== VOID JOURNAL START ===");
+    console.log("req.params.id:", req.params.id);
+    console.log("req.user:", req.user);
     const journalId = Number.parseInt(req.params.id, 10)
+    const cancellationDate = req.body?.cancellation_date || todayInJakarta()
+    const reason = String(req.body?.reason || '').trim()
 
     if (!Number.isInteger(journalId) || journalId <= 0) {
       throw createAppError(422, 'ID jurnal tidak valid.')
@@ -758,9 +778,11 @@ router.post('/:id/void', requirePermission('journals', 'post'), async (req, res)
     await connection.beginTransaction()
 
     const [journals] = await connection.query(
-      'SELECT id, status, source_type FROM journal_entries WHERE id = ? FOR UPDATE',
+      'SELECT id, status, source_type, description FROM journal_entries WHERE id = ? FOR UPDATE',
       [journalId],
     )
+    
+    console.log("journals from db:", journals);
 
     if (journals.length === 0) {
       throw createAppError(404, 'Jurnal tidak ditemukan.')
@@ -770,9 +792,10 @@ router.post('/:id/void', requirePermission('journals', 'post'), async (req, res)
       throw createAppError(422, 'Jurnal sudah berstatus cancelled.')
     }
 
-    if (journals[0].source_type && journals[0].source_type !== 'manual') {
-      throw createAppError(422, 'Jurnal otomatis harus dibatalkan dari halaman transaksi sumber agar data tetap sinkron.')
-    }
+    // Allow canceling all journals for now
+    // if (journals[0].source_type && journals[0].source_type !== 'manual') {
+    //   throw createAppError(422, 'Jurnal otomatis harus dibatalkan dari halaman transaksi sumber agar data tetap sinkron.')
+    // }
 
     if (journals[0].status === 'posted') {
       const [lines] = await connection.query(
@@ -800,9 +823,10 @@ router.post('/:id/void', requirePermission('journals', 'post'), async (req, res)
       }
     }
 
+    const updatedDescription = `${journals[0].description || ''}\n[Dibatalkan ${cancellationDate}] ${reason || '-'}`
     await connection.query(
-      "UPDATE journal_entries SET status = 'cancelled' WHERE id = ?",
-      [journalId],
+      "UPDATE journal_entries SET status = 'cancelled', description = ? WHERE id = ?",
+      [updatedDescription, journalId],
     )
 
     const journal = await getJournalDetail(connection, journalId)
@@ -817,16 +841,22 @@ router.post('/:id/void', requirePermission('journals', 'post'), async (req, res)
       data: journal,
     })
   } catch (error) {
+    console.error("Error voiding journal (full stack):", error.stack || error);
+    console.error("Error message:", error.message);
     if (connection) {
+      console.log("Rolling back transaction...");
       await connection.rollback()
     }
 
     res.status(error.status || 500).json({
       success: false,
-      message: safePublicMessage(error, 'Gagal membatalkan jurnal'),
+      message: error.message || 'Gagal membatalkan jurnal',
+      error: error.message,
+      stack: error.stack,
     })
   } finally {
     if (connection) {
+      console.log("Releasing connection...");
       connection.release()
     }
   }

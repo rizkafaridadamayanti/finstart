@@ -230,11 +230,7 @@ export function useFinStartApp() {
   };
 
   function replaceList(target: any, values: any[]) {
-    target.value.splice(
-      0,
-      target.value.length,
-      ...(Array.isArray(values) ? values : []),
-    );
+    target.value = Array.isArray(values) ? [...values] : [];
   }
 
   async function loadReportData(

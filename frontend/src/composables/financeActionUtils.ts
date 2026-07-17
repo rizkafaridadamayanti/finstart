@@ -80,7 +80,7 @@ export async function withApiFeedback<T>(
   try {
     return await task();
   } catch (error) {
-    console.error(error);
+    console.error("Error in withApiFeedback:", error);
     notify(getApiErrorMessage(error, fallback));
     return undefined;
   }

@@ -55,7 +55,9 @@ const ROLE_PERMISSIONS = {
     'journals:post',
     'reports:read',
     'receivable:read',
+    'receivable:write',
     'payable:read',
+    'payable:write',
     'subscriptions:read',
     'assets:read',
     'taxes:read',
@@ -195,6 +197,8 @@ function actionFromRequest(req, moduleName) {
   const method = String(req.method || 'GET').toUpperCase()
   if (moduleName === 'journals' && /\/approve$/.test(req.path)) return 'approve'
   if (moduleName === 'journals' && /\/post$/.test(req.path)) return 'post'
+  if (moduleName === 'journals' && /\/void$/.test(req.path)) return 'post'
+  if ((moduleName === 'receivable' || moduleName === 'payable') && /\/cancel$/.test(req.path)) return 'write'
   return ['GET', 'HEAD', 'OPTIONS'].includes(method) ? 'read' : 'write'
 }
 

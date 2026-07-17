@@ -161,7 +161,7 @@
                 </td>
                 <td class="p-4 text-center">
                   <span
-                    :class="`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : inv.status === 'Cancelled' ? 'bg-slate-100 text-slate-600 border border-slate-200' : inv.status === 'Overdue' ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : inv.status === 'Draft' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`"
+                    :class="`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : inv.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border border-rose-200' : inv.status === 'Overdue' ? 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse' : inv.status === 'Draft' ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`"
                     >{{ inv.status }}</span
                   >
                 </td>
@@ -298,6 +298,16 @@
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-500">
+            <colgroup>
+              <col style="width: 12%" />
+              <col style="width: 20%" />
+              <col style="width: 36%" />
+              <col style="width: 8%" />
+              <col style="width: 8%" />
+              <col style="width: 8%" />
+              <col style="width: 6%" />
+              <col style="width: 8%" />
+            </colgroup>
             <thead
               class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
             >
@@ -321,15 +331,11 @@
                 <td class="p-4 font-mono font-bold text-[#0B1F4A]">
                   {{ bill.nomorTagihan }}
                 </td>
-                <td class="p-4">
-                  <span class="font-bold text-slate-800 block text-sm">{{
-                    bill.vendor
-                  }}</span
-                  ><span class="text-[10px] text-slate-400 block font-light"
-                    >ID Partner: {{ bill.id }}</span
-                  >
+                <td class="p-4 min-w-[160px]">
+                  <span class="font-bold text-slate-800 block text-sm">{{ bill.vendor }}</span>
+                  <span class="text-[10px] text-slate-400 block font-light">ID Partner: {{ bill.id }}</span>
                 </td>
-                <td class="p-4 text-slate-600">{{ bill.keterangan }}</td>
+                <td class="p-4 text-slate-600 break-words max-w-[520px] leading-5">{{ bill.keterangan }}</td>
                 <td class="whitespace-nowrap p-4 font-mono">{{ bill.tanggalMasuk }}</td>
                 <td class="whitespace-nowrap p-4 font-mono">{{ bill.jatuhTempo }}</td>
                 <td

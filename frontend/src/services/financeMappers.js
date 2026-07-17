@@ -20,7 +20,7 @@ const projectStatus = {
   planning: "Planning",
   ongoing: "Ongoing",
   completed: "Completed",
-  cancelled: "Planning",
+  cancelled: "Cancelled",
 };
 
 export function mapProject(row = {}) {
@@ -145,22 +145,22 @@ const journalStatusDisplay = {
 };
 
 const journalStatusColor = {
-  unposted: "bg-amber-50 text-amber-700",
-  posted: "bg-emerald-50 text-emerald-700",
-  canceled: "bg-rose-50 text-rose-700",
-  "posted-unpaid": "bg-sky-50 text-sky-700",
-  "posted-paid": "bg-emerald-50 text-emerald-700",
-  draft: "bg-amber-50 text-amber-700",
-  approved: "bg-amber-50 text-amber-700",
-  cancelled: "bg-rose-50 text-rose-700",
-  rejected: "bg-rose-50 text-rose-700",
-  "posted/unpaid": "bg-sky-50 text-sky-700",
-  "posted/partial": "bg-sky-50 text-sky-700",
-  "posted/paid": "bg-emerald-50 text-emerald-700",
-  "posted/overdue": "bg-sky-50 text-sky-700",
-  "posted/draft": "bg-amber-50 text-amber-700",
-  "posted/issued": "bg-sky-50 text-sky-700",
-  "posted/cancelled": "bg-rose-50 text-rose-700",
+  unposted: "bg-amber-50 text-amber-700 border border-amber-200",
+  posted: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  canceled: "bg-rose-50 text-rose-700 border border-rose-200",
+  "posted-unpaid": "bg-sky-50 text-sky-700 border border-sky-200",
+  "posted-paid": "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  draft: "bg-amber-50 text-amber-700 border border-amber-200",
+  approved: "bg-amber-50 text-amber-700 border border-amber-200",
+  cancelled: "bg-rose-50 text-rose-700 border border-rose-200",
+  rejected: "bg-rose-50 text-rose-700 border border-rose-200",
+  "posted/unpaid": "bg-sky-50 text-sky-700 border border-sky-200",
+  "posted/partial": "bg-sky-50 text-sky-700 border border-sky-200",
+  "posted/paid": "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  "posted/overdue": "bg-sky-50 text-sky-700 border border-sky-200",
+  "posted/draft": "bg-amber-50 text-amber-700 border border-amber-200",
+  "posted/issued": "bg-sky-50 text-sky-700 border border-sky-200",
+  "posted/cancelled": "bg-rose-50 text-rose-700 border border-rose-200",
 };
 
 export function getJournalStatusDisplay(status) {
@@ -168,7 +168,7 @@ export function getJournalStatusDisplay(status) {
 }
 
 export function getJournalStatusColor(status) {
-  return journalStatusColor[status] || "bg-amber-50 text-amber-700";
+  return journalStatusColor[status] || "bg-amber-50 text-amber-700 border border-amber-200";
 }
 
 export function mapJournalTransaction(row = {}) {

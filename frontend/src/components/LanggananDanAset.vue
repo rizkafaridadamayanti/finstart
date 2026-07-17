@@ -117,6 +117,15 @@
             >
               <History class="h-3.5 w-3.5" /> Riwayat Transaksi</button
             ><button
+              id="btn-due-bills"
+              type="button"
+              class="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100"
+              @click="showDueBills = true"
+            >
+              <Wallet class="h-3.5 w-3.5" /> Tagihan Berikutnya ({{
+                dueSubs.length
+              }})</button
+            ><button
               id="btn-expired-subscriptions"
               type="button"
               class="inline-flex h-9 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100"
@@ -139,7 +148,6 @@
                 <th class="p-5">Biaya Rutin (Siklus)</th>
                 <th class="p-5">Est. Nominal Rupiah</th>
                 <th class="p-5">Tagihan Berikutnya</th>
-                <th class="p-5">Status</th>
                 <th class="p-5 text-center">Aksi</th>
               </tr>
             </thead>
@@ -183,51 +191,15 @@
                   </span>
                 </td>
                 <td class="p-5">
-                  <span
-                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
-                    >{{ subscriptionBillingStatusLabel(item) }}</span
-                  >
-                  <span
-                    v-if="subscriptionBillingSummary(item)"
-                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
-                  >
-                    {{ subscriptionBillingSummary(item) }}
-                  </span>
-                </td>
-                <td class="p-5">
                   <div class="flex justify-center gap-1.5">
                     <button
-                      v-if="canCreateSubscriptionBill(item)"
                       type="button"
-                      :aria-label="`Buat draft tagihan ${item.nama}`"
-                      :disabled="isSubscriptionActionBusy(item, 'create-bill')"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100 disabled:cursor-wait disabled:opacity-60"
-                      title="Buat draft tagihan"
-                      @click="handleCreateSubscriptionBill(item)"
+                      :aria-label="`Detail ${item.nama}`"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
+                      title="Detail"
+                      @click="showSubDetail(item)"
                     >
-                      <Save class="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      v-if="canIssueSubscriptionBill(item)"
-                      type="button"
-                      :aria-label="`Posting jurnal tagihan ${item.nama}`"
-                      :disabled="isSubscriptionActionBusy(item, 'issue-bill')"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
-                      title="Posting jurnal tagihan"
-                      @click="handleIssueSubscriptionBill(item)"
-                    >
-                      <Send class="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      v-if="canPaySubscriptionBill(item)"
-                      type="button"
-                      :aria-label="`Bayar tagihan ${item.nama}`"
-                      :disabled="isSubscriptionActionBusy(item, 'pay-bill')"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
-                      title="Bayar tagihan"
-                      @click="handlePaySubscriptionBill(item)"
-                    >
-                      <CheckCircle2 class="h-3.5 w-3.5" />
+                      <Eye class="h-3.5 w-3.5" />
                     </button>
                     <button
                       :aria-label="`Hapus ${item.nama}`"
@@ -824,6 +796,67 @@
       </div>
     </div>
     </Teleport>
+    <!-- SUBSCRIPTION DETAIL MODAL -->
+    <Teleport to="body">
+      <div
+        v-if="viewingSub"
+        class="fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+        <div
+          class="bg-white border border-slate-100 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl"
+        >
+          <div class="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">Detail Langganan</p>
+              <h3 class="mt-2 text-xl font-extrabold text-[#102A56] tracking-tight">{{ viewingSub.nama }}</h3>
+              <p class="mt-1 text-xs text-slate-500">{{ viewingSub.id }} &middot; {{ viewingSub.provider }}</p>
+            </div>
+            <button
+              class="w-11 h-11 flex shrink-0 items-center justify-center rounded-2xl border border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+              @click="closeSubDetail"
+            >
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+          <div class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Kategori</p>
+                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.kategori }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Siklus</p>
+                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.siklus }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Mata Uang</p>
+                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.mataUang }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Biaya</p>
+                <p class="mt-2 text-[13px] font-bold text-[#0B1F4A]">{{ formatRupiah(viewingSub.biayaIDR || viewingSub.biaya) }}</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Tagihan Berikutnya</p>
+                <p class="mt-2 text-[13px] font-semibold text-slate-800 font-mono">{{ viewingSub.tanggalTagihan }}</p>
+              </div>
+            </div>
+            <div v-if="viewingSub.mataUang !== 'IDR'" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+              <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Kurs & Konversi</p>
+              <p class="mt-2 text-[13px] text-slate-700">Nominal asli: {{ viewingSub.mataUang }} {{ viewingSub.biaya }}</p>
+              <p class="mt-1 text-[13px] font-semibold text-[#0B1F4A]">Estimasi IDR: {{ formatRupiah(viewingSub.biayaIDR) }}</p>
+            </div>
+          </div>
+          <div class="flex justify-end px-6 py-4 border-t border-slate-100">
+            <button
+              type="button"
+              class="rounded-xl border border-[#DCE7F4] bg-white px-5 py-2.5 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
+              @click="closeSubDetail"
+            >Tutup</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <ConfirmDialog
       :open="!!confirmDialog"
       :eyebrow="confirmDialog?.eyebrow || 'Konfirmasi'"
@@ -1152,7 +1185,7 @@
     <Teleport to="body">
       <div
         v-if="showExpiredSubscriptions"
-        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
       >
       <div
         class="w-full max-w-3xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1254,7 +1287,7 @@
     <Teleport to="body">
       <div
         v-if="showSubscriptionTransactions"
-        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
       >
       <div
         class="w-full max-w-4xl rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1322,7 +1355,7 @@
                 <td class="whitespace-nowrap py-3 pr-6 text-right font-mono font-bold text-[#0B1F4A]">
                   {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
                 </td>
-                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ item.tanggalTagihan || "-" }}</td>
+                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ subscriptionDueDisplayDate(item) || "-" }}</td>
                 <td class="py-3 pl-4">
                   <span
                     :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
@@ -1357,10 +1390,132 @@
       </div>
       </div>
     </Teleport>
+    <!-- TAGIHAN BERIKUTNYA modal -->
+    <Teleport to="body">
+      <div
+        v-if="showDueBills"
+        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
+      >
+      <div
+        class="w-full max-w-4xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+      >
+        <div
+          class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
+        >
+          <div>
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600"
+            >
+              Pembayaran Tagihan Vendor
+            </p>
+            <h3
+              class="mt-1 text-lg font-extrabold tracking-tight text-[#111827]"
+            >
+              Tagihan Berikutnya
+            </h3>
+            <p class="mt-0.5 text-[11px] text-[#53658A]">
+              Langganan muncul mulai H-3 dari tanggal tagihan berikutnya. Tagihan yang sudah paid tidak ditampilkan di tabel ini.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-slate-600"
+            @click="showDueBills = false"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="max-h-[60vh] overflow-auto p-6">
+          <table v-if="dueSubs.length" class="w-full min-w-[800px] table-fixed text-left text-xs">
+            <colgroup>
+              <col style="width: 25%" />
+              <col style="width: 15%" />
+              <col style="width: 12%" />
+              <col style="width: 18%" />
+              <col style="width: 15%" />
+              <col style="width: 15%" />
+            </colgroup>
+            <thead
+              class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
+            >
+              <tr>
+                <th class="pb-3">Layanan</th>
+                <th class="pb-3">Kategori</th>
+                <th class="pb-3 pr-6 text-right">Nominal</th>
+                <th class="pb-3 pl-6">Tagihan Berikutnya</th>
+                <th class="pb-3 pl-4">Status</th>
+                <th class="pb-3 pl-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#EDF2F7]">
+              <tr v-for="item in pagedDueSubs" :key="`due-${item.id}`">
+                <td class="py-3">
+                  <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
+                  <p class="mt-0.5 text-[10px] text-[#8A98AB]">
+                    {{ item.provider || "-" }} · {{ item.latestBillNumber || item.id }}
+                  </p>
+                </td>
+                <td class="py-3">{{ item.kategori || "-" }}</td>
+                <td class="whitespace-nowrap py-3 pr-6 text-right font-mono font-bold text-[#0B1F4A]">
+                  {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
+                </td>
+                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ subscriptionDueDisplayDate(item) || "-" }}</td>
+                <td class="py-3 pl-4">
+                  <span
+                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
+                  >
+                    {{ subscriptionBillingStatusLabel(item) }}
+                  </span>
+                  <span
+                    v-if="subscriptionBillingSummary(item)"
+                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
+                  >
+                    {{ subscriptionBillingSummary(item) }}
+                  </span>
+                </td>
+                <td class="py-3 pl-4 text-center">
+                  <button
+                    type="button"
+                    :disabled="payingSubId === item.id"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                    @click="handlePayBill(item)"
+                  >
+                    <CheckCircle2 class="h-3.5 w-3.5" />
+                    {{ payingSubId === item.id ? 'Memproses...' : 'Bayar' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p
+            v-else
+            class="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FBFE] p-6 text-center text-sm text-[#6B7A90]"
+          >
+            Tidak ada tagihan yang belum dibayar.
+          </p>
+        </div>
+        <TablePagination
+          v-if="dueSubs.length > 0"
+          :page="dueSubsPage"
+          :total="dueSubs.length"
+          @page-change="dueSubsPage = safePage($event, dueSubs.length)"
+        />
+        <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4">
+          <button
+            type="button"
+            class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
+            @click="showDueBills = false"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+      </div>
+    </Teleport>
     <Teleport to="body">
       <div
         v-if="subscriptionHistory"
-        class="fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#0B1220]/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
       >
       <div
         class="w-full max-w-[540px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
@@ -1792,13 +1947,14 @@ import {
   Archive,
   CheckCircle2,
   CircleAlert,
-  Send,
+  Wallet,
+  Eye,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Langganan } from "../types.ts";
 import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
-import { currentMonthIso, todayIso } from "../utils/localDate";
+import { addDaysIso, currentMonthIso, todayIso } from "../utils/localDate";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
@@ -1826,8 +1982,6 @@ const {
   refreshData,
   assets: {
     addSubscription,
-    createSubscriptionBill,
-    issueSubscriptionBill,
     paySubscriptionBill,
     deleteSubscription,
     addAsset,
@@ -1857,7 +2011,6 @@ const isDepreciationModalOpen = ref(false);
 const isSubscriptionSaving = ref(false);
 const isAssetSaving = ref(false);
 const isDepreciationProcessing = ref(false);
-const subscriptionActionBusy = ref<Record<string, boolean>>({});
 const depreciationResult = ref<any>(null);
 type CurrencyCode = "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
 const currencyOptions: { value: CurrencyCode; label: string }[] = [
@@ -1872,10 +2025,16 @@ const currencyOptions: { value: CurrencyCode; label: string }[] = [
 const subscriptionHistory = ref<any>(null);
 const showSubscriptionTransactions = ref(false);
 const showExpiredSubscriptions = ref(false);
+const showDueBills = ref(false);
+const dueSubsPage = ref(1);
+const payingSubId = ref<string | null>(null);
 const showAssetArchive = ref(false);
 const assetHistory = ref<any>(null);
 const assetHistoryViewMode = ref<"monthly" | "yearly">("monthly");
 const subscriptionRateConfirmed = ref(true);
+const viewingSub = ref<any>(null);
+const showSubDetail = (item: any) => { viewingSub.value = item; };
+const closeSubDetail = () => { viewingSub.value = null; };
 const isCurrencyCode = (value: string): value is CurrencyCode =>
   currencyOptions.some((option) => option.value === value);
 
@@ -1905,6 +2064,7 @@ const openSubscriptionExchangeRate = () =>
     "noopener,noreferrer",
   );
 const todayDate = () => todayIso();
+const subscriptionNoticeDate = () => addDaysIso(todayDate(), 3);
 const isExpiredSubscription = (item: any) => {
   const status = String(
     item?.status || item?._raw?.status || "active",
@@ -1927,6 +2087,34 @@ const subscriptionBillStatus = (item: any) =>
       item?._raw?.latest_bill_status ||
       "",
   ).toLowerCase();
+const openSubscriptionBillStatuses = new Set([
+  "draft",
+  "unpaid",
+  "partial",
+  "overdue",
+]);
+const normalizeSubscriptionDate = (value: any) =>
+  String(value || "").slice(0, 10);
+const subscriptionRenewalDate = (item: any) =>
+  normalizeSubscriptionDate(item?.tanggalTagihan || item?._raw?.renewal_date);
+const subscriptionOpenBillDate = (item: any) =>
+  normalizeSubscriptionDate(
+    item?.latestBillDate ||
+      item?._raw?.latest_bill_date ||
+      item?.latestBillDueDate ||
+      item?._raw?.latest_bill_due_date,
+  );
+const subscriptionDueDisplayDate = (item: any) => {
+  const billStatus = subscriptionBillStatus(item);
+  if (openSubscriptionBillStatuses.has(billStatus)) {
+    return subscriptionOpenBillDate(item) || subscriptionRenewalDate(item);
+  }
+  return subscriptionRenewalDate(item);
+};
+const isSubscriptionInNoticeWindow = (item: any) => {
+  const dueDate = subscriptionDueDisplayDate(item);
+  return Boolean(dueDate && dueDate <= subscriptionNoticeDate());
+};
 const subscriptionBillingStatusLabel = (item: any) => {
   if (isExpiredSubscription(item)) return subscriptionStatusLabel(item);
   const billStatus = subscriptionBillStatus(item);
@@ -1936,12 +2124,10 @@ const subscriptionBillingStatusLabel = (item: any) => {
   if (billStatus === "overdue") return "Overdue";
   if (billStatus === "paid") return "Paid";
   if (billStatus === "cancelled") return "Cancelled";
-  if (subscriptionCountValue(item, "paidJournalCount", "paid_journal_count") > 0) return "Paid";
-  const renewalDate = String(
-    item?.tanggalTagihan || item?._raw?.renewal_date || "",
-  );
+  const renewalDate = subscriptionDueDisplayDate(item);
   if (renewalDate && renewalDate < todayDate()) return "Belum Dibuat";
   if (renewalDate === todayDate()) return "Jatuh Tempo";
+  if (renewalDate && renewalDate <= subscriptionNoticeDate()) return "Akan Jatuh Tempo";
   return "Terjadwal";
 };
 const subscriptionBillingStatusClass = (item: any) => {
@@ -1960,32 +2146,13 @@ const subscriptionBillingStatusClass = (item: any) => {
 const subscriptionCountValue = (item: any, key: string, rawKey: string) =>
   Number(item?.[key] ?? item?._raw?.[rawKey] ?? 0);
 const subscriptionBillingSummary = (item: any) => {
-  const paid =
-    subscriptionCountValue(item, "paidBillCount", "paid_bill_count") +
-    subscriptionCountValue(item, "paidJournalCount", "paid_journal_count");
   const open = subscriptionCountValue(item, "openBillCount", "open_bill_count");
   const draft = subscriptionCountValue(item, "draftBillCount", "draft_bill_count");
   const parts = [];
-  if (paid > 0) parts.push(`Paid: ${paid}`);
   if (open > 0) parts.push(`Open: ${open}`);
   if (draft > 0) parts.push(`Draft: ${draft}`);
   return parts.join(" | ");
 };
-const isSubscriptionDueForBilling = (item: any) => {
-  const renewalDate = String(
-    item?.tanggalTagihan || item?._raw?.renewal_date || "",
-  );
-  return Boolean(renewalDate && renewalDate <= todayDate());
-};
-const canCreateSubscriptionBill = (item: any) =>
-  !isExpiredSubscription(item) &&
-  isSubscriptionDueForBilling(item) &&
-  !["draft", "unpaid", "partial", "overdue"].includes(subscriptionBillStatus(item));
-const canIssueSubscriptionBill = (item: any) =>
-  !isExpiredSubscription(item) && subscriptionBillStatus(item) === "draft";
-const canPaySubscriptionBill = (item: any) =>
-  !isExpiredSubscription(item) &&
-  ["unpaid", "partial", "overdue"].includes(subscriptionBillStatus(item));
 const editingAsset = ref<any>(null);
 const confirmDialog = ref<any>(null);
 // Daftar aset berasal langsung dari props API backend.
@@ -2270,36 +2437,6 @@ const handleSaveSub = async (e: Event) => {
     isSubscriptionSaving.value = false;
   }
 };
-
-const subscriptionActionKey = (item: any, action: string) =>
-  `${action}:${item?.id || item?.latestBillId || item?.nama || "unknown"}`;
-const isSubscriptionActionBusy = (item: any, action: string) =>
-  Boolean(subscriptionActionBusy.value[subscriptionActionKey(item, action)]);
-const runSubscriptionAction = async (
-  item: any,
-  action: string,
-  runner: () => Promise<any>,
-) => {
-  const key = subscriptionActionKey(item, action);
-  if (subscriptionActionBusy.value[key]) return;
-  subscriptionActionBusy.value = { ...subscriptionActionBusy.value, [key]: true };
-  try {
-    await runner();
-  } finally {
-    const next = { ...subscriptionActionBusy.value };
-    delete next[key];
-    subscriptionActionBusy.value = next;
-  }
-};
-
-const handleCreateSubscriptionBill = async (item: any) =>
-  runSubscriptionAction(item, "create-bill", () => createSubscriptionBill(item));
-
-const handleIssueSubscriptionBill = async (item: any) =>
-  runSubscriptionAction(item, "issue-bill", () => issueSubscriptionBill(item));
-
-const handlePaySubscriptionBill = async (item: any) =>
-  runSubscriptionAction(item, "pay-bill", () => paySubscriptionBill(item));
 
 const resetAssetForm = () => {
   editingAsset.value = null;
@@ -2621,6 +2758,21 @@ const activeSubs = computed(() =>
     (props.langganan || []).filter((item: any) => !isExpiredSubscription(item)),
   ),
 );
+const dueSubs = computed(() =>
+  latestFirst(
+    (props.langganan || []).filter((item: any) => {
+      if (isExpiredSubscription(item)) return false;
+      const billStatus = subscriptionBillStatus(item);
+      const hasBill = !!item.latestBillId || !!item._raw?.latest_bill_id;
+      const isInNoticeWindow = isSubscriptionInNoticeWindow(item);
+      const isUpcomingWithoutBill = !hasBill && isInNoticeWindow;
+      return (
+        (hasBill && openSubscriptionBillStatuses.has(billStatus) && isInNoticeWindow) ||
+        isUpcomingWithoutBill
+      );
+    }),
+  ),
+);
 const filteredSubs = computed(() =>
   latestFirst(
     activeSubs.value.filter((l: any) => {
@@ -2732,6 +2884,17 @@ const pagedAssets = computed(() =>
 const pagedExpiredSubs = computed(() =>
   pageRows(expiredSubs.value, expiredPage.value),
 );
+const pagedDueSubs = computed(() =>
+  pageRows(dueSubs.value, dueSubsPage.value),
+);
+const handlePayBill = async (item: any) => {
+  payingSubId.value = item.id;
+  try {
+    await paySubscriptionBill(item);
+  } finally {
+    payingSubId.value = null;
+  }
+};
 const pagedSubHistory = computed(() =>
   pageRows(latestFirst(props.langganan || []), subHistoryPage.value),
 );

@@ -319,7 +319,7 @@ const {
 } = app;
 
 const refreshData = async () => {
-  await loadFinancialData({ silent: true, bumpVersion: false });
+  await loadFinancialData({ silent: true });
 };
 
 const ledgerActions = useLedgerActions({

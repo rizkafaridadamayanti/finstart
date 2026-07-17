@@ -67,22 +67,16 @@
                 Performa Arus Kas Operasional
               </h2>
             </div>
-            <div class="flex items-center gap-3 text-[12px] text-[#6B7A90]">
-              <span class="inline-flex items-center gap-1.5"
-                ><span
-                  class="finance-chart-swatch finance-chart-swatch-primary"
-                />
-                Pemasukan </span
-              ><span class="inline-flex items-center gap-1.5"
-                ><span
-                  class="finance-chart-swatch finance-chart-swatch-secondary"
-                />
-                Pengeluaran </span
-              ><span
-                class="ml-1 rounded-full border border-[#DCE7F4] bg-[#F8FBFE] px-3 py-1.5 text-[11px] font-medium text-[#53658A]"
-              >
-                Jan – Jun 2026
+            <div class="flex flex-nowrap items-center gap-3 text-[12px] text-[#6B7A90]">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="finance-chart-swatch finance-chart-swatch-primary" />
+                Pemasukan
               </span>
+              <span class="inline-flex items-center gap-1.5">
+                <span class="finance-chart-swatch finance-chart-swatch-secondary" />
+                Pengeluaran
+              </span>
+              <span class="ml-1 shrink-0 rounded-full border border-[#DCE7F4] bg-[#F8FBFE] px-2 py-1 text-[10px] font-medium text-[#53658A] whitespace-nowrap" title="Jan – Jun 2026">Jan – Jun 2026</span>
             </div>
           </div>
           <div class="px-6 pb-5 pt-4">
@@ -166,28 +160,29 @@
                   <circle
                     :cx="chartX(Number(index))"
                     :cy="chartY(item.income)"
-                    r="5.2"
+                    r="3.6"
                     fill="white"
                     stroke="url(#dashboard-income-stroke)"
-                    stroke-width="3"
+                    stroke-width="2.4"
                     class="modern-chart-dot"
                     :style="{ animationDelay: `${0.48 + Number(index) * 0.07}s` }"
                   />
                   <circle
                     :cx="chartX(Number(index))"
                     :cy="chartY(item.expense)"
-                    r="4.7"
+                    r="3.2"
                     fill="white"
                     stroke="url(#dashboard-expense-stroke)"
-                    stroke-width="2.8"
+                    stroke-width="2"
                     class="modern-chart-dot"
                     :style="{ animationDelay: `${0.58 + Number(index) * 0.07}s` }"
                   />
                   <text
                     :x="chartX(Number(index))"
                     y="183"
-                    class="fill-[#8291A8] text-[9px] font-medium"
+                    class="fill-[#8291A8] text-[8px] font-medium"
                     text-anchor="middle"
+                    style="font-feature-settings: 'tnum' 1;"
                   >
                     {{ item.month }}
                   </text>
@@ -404,7 +399,7 @@
                     id="btn-clear-chat"
                     type="button"
                     class="cfo-clear-button shrink-0 text-[11px] font-semibold transition"
-                    @click="clearActiveChat"
+                    @click="() => clearActiveChat()"
                   >
                     Bersihkan
                   </button>
@@ -543,23 +538,14 @@
                     <button
                       type="button"
                       class="cfo-inline-session-open"
-                      :aria-current="
-                        session.id === activeChatId ? 'page' : undefined
-                      "
+                      :aria-current="session.id === activeChatId ? 'page' : undefined"
                       :title="`Buka ${session.title}`"
                       @click="selectChatHistory(session.id)"
                     >
-                      <span class="cfo-inline-session-title">{{
-                        session.title
-                      }}</span
-                      ><span class="cfo-inline-session-preview">{{
-                        session.messages[session.messages.length - 1]?.text ||
-                        "Belum ada pesan."
-                      }}</span
-                      ><span class="cfo-inline-session-time">{{
-                        session.updatedAt
-                      }}</span></button
-                    ><button
+                      <span class="cfo-inline-session-title">{{ cleanHistoryText(session.title) }}</span>
+                      <span class="cfo-inline-session-time">{{ session.updatedAt }}</span>
+                    </button>
+                    <button
                       type="button"
                       class="cfo-inline-delete"
                       :aria-label="`Hapus ${session.title}`"
@@ -879,6 +865,12 @@ function cloneChatSessions(sessions: ChatSession[] = initialChatSessions) {
     messages: session.messages.map((message) => ({ ...message })),
   }));
 }
+function cleanHistoryText(value = "") {
+  return String(value)
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function loadStoredChatSessions() {
   if (typeof window === "undefined") return cloneChatSessions();
   try {
@@ -1030,26 +1022,33 @@ const createNewChat = () => {
   closeChatHistory();
   keepFocusOnAiForm();
 };
-const clearActiveChat = () => {
-  chatSessions.value = chatSessions.value.map((session) =>
-    session.id === activeChatId.value
-      ? {
-          ...session,
-          title: "Chat baru",
-          updatedAt: "Baru saja",
-          messages: [
-            {
-              ...defaultInsightMessage,
-              id: `clear-${Date.now()}`,
-            },
-          ],
-        }
-      : session,
-  );
+const clearActiveChat = (archiveCleared = true) => {
+  const current = activeChat.value;
+  const archive =
+    archiveCleared && current ? createClearedChatArchive(current) : null;
+  const clearedSession: ChatSession = {
+    id: current?.id || activeChatId.value || `chat-${Date.now()}`,
+    title: "Chat baru",
+    updatedAt: "Baru saja",
+    messages: [
+      {
+        ...defaultInsightMessage,
+        id: `clear-${Date.now()}`,
+      },
+    ],
+  };
+
+  chatSessions.value = [
+    clearedSession,
+    ...(archive ? [archive] : []),
+    ...chatSessions.value.filter((session) => session.id !== clearedSession.id),
+  ].slice(0, 12);
+  updateActiveChatId(clearedSession.id);
+  updateInputMessage("");
 };
 const deleteChat = (chatId: string) => {
   if (chatSessions.value.length === 1) {
-    clearActiveChat();
+    clearActiveChat(false);
     return;
   }
   const remaining = chatSessions.value.filter(
@@ -1094,6 +1093,30 @@ const normalizeCfoTemplate = (reply: string) => {
 const createChatTitle = (prompt: string) => {
   const title = prompt.replace(/\s+/g, " ").trim();
   return title.length > 88 ? `${title.slice(0, 85)}...` : title;
+};
+const createClearedChatArchive = (session: ChatSession): ChatSession | null => {
+  const hasConversation =
+    session.title !== "Chat baru" ||
+    session.messages.length > 1 ||
+    session.messages.some(
+      (message) => message.id !== defaultInsightMessage.id && message.id !== "welcome",
+    );
+
+  if (!hasConversation) return null;
+
+  const timestamp = Date.now();
+  return {
+    id: `cleared-${timestamp}`,
+    title:
+      session.title === "Chat baru"
+        ? "Percakapan yang dibersihkan"
+        : `${session.title} (dibersihkan)`,
+    updatedAt: "Dibersihkan",
+    messages: session.messages.map((message, index) => ({
+      ...message,
+      id: `cleared-${timestamp}-${index}`,
+    })),
+  };
 };
 const handleFastQuestion = async (prompt: string) => {
   if (isAiLoading.value) return;
@@ -1757,10 +1780,9 @@ function confirmDeleteChat() {
 }
 
 .cfo-history-page .cfo-inline-history-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  align-content: start;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .cfo-inline-session {
@@ -1769,7 +1791,7 @@ function confirmDeleteChat() {
   min-width: 0;
   flex: 0 0 auto;
   align-items: stretch;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(11, 31, 74, 0.18);
   border-radius: 12px;
   transition: 160ms ease;
@@ -1786,34 +1808,31 @@ function confirmDeleteChat() {
   flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
-  padding: 12px 10px 12px 13px;
+  gap: 6px;
+  padding: 12px 14px;
   text-align: left;
 }
 
 .cfo-inline-session-title,
 .cfo-inline-session-preview {
-  display: -webkit-box;
+  display: block;
   width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: initial;
   white-space: normal;
   overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
 }
 
 .cfo-inline-session-title {
-  -webkit-line-clamp: 2;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.4;
 }
 
 .cfo-inline-session-preview {
-  -webkit-line-clamp: 2;
   color: #6b7a90;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .cfo-inline-session-time {
@@ -1824,12 +1843,14 @@ function confirmDeleteChat() {
 
 .cfo-inline-delete {
   display: inline-flex;
-  width: 34px;
-  flex: 0 0 34px;
+  width: 44px;
+  min-height: 100%;
+  flex: 0 0 44px;
   align-items: center;
   justify-content: center;
   color: #7a889d;
   border-left: 1px solid rgba(11, 31, 74, 0.12);
+  border-radius: 0 12px 12px 0;
   transition: 160ms ease;
 }
 

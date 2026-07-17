@@ -66,6 +66,12 @@ async function authenticate(req, res, next) {
   ).trim()
 
   const token = getBearerToken(req)
+  console.log('[auth] Checking authentication', {
+    method: req.method,
+    path: req.originalUrl,
+    authorizationHeaderPresent: authorizationHeader.length > 0,
+    tokenLength: token.length,
+  })
 
   if (!token) {
     /*
