@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { isValidDate, todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 const CONFIG_ID = 1
@@ -18,12 +19,8 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : NaN
 }
 
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
-}
-
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function cleanText(value, maxLength = 5000) {

@@ -1161,6 +1161,7 @@ import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 import { mapBill, mapInvoice } from "../services/financeMappers.js";
+import { addDaysIso, todayIso } from "../utils/localDate";
 interface Invoice {
   id: string;
   nomor: string;
@@ -1209,12 +1210,7 @@ const {
   },
 } = useFinStartContext();
 const activeTab = activeSection === "piutang" ? "receivables" : "payables";
-const todayIso = () => new Date().toISOString().slice(0, 10);
-const datePlusDays = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-};
+const datePlusDays = (days: number) => addDaysIso(todayIso(), days);
 const newReferenceNumber = (prefix: string, sequence = 1) =>
   `${prefix}/${new Date().getFullYear()}/${String(sequence).padStart(3, "0")}`;
 
@@ -1823,7 +1819,7 @@ const handlePayBill = async () => {
     updatePaymentForm({
       vendor: "",
       buktiBayar: `PAY/${new Date().getFullYear()}/001`,
-      tanggalBayar: new Date().toISOString().slice(0, 10),
+      tanggalBayar: todayIso(),
       jumlah: 0,
       catatan: "",
     });
@@ -1887,7 +1883,7 @@ function openPaymentModal() {
   updatePaymentForm({
     vendor: "",
     buktiBayar: `PAY/${new Date().getFullYear()}/001`,
-    tanggalBayar: new Date().toISOString().slice(0, 10),
+    tanggalBayar: todayIso(),
     jumlah: 0,
     catatan: "",
   });

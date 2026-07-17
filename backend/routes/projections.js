@@ -54,6 +54,8 @@ const SCENARIO_DEFAULTS = {
   normal: { revenue_factor: 1, expense_factor: 1, label: 'Normal' },
   pessimistic: { revenue_factor: 0.85, expense_factor: 1.1, label: 'Pesimistis' },
 }
+const MAX_BUDGET_AMOUNT = 999999999999999.99
+const MAX_PROJECTION_TARGET_AMOUNT = 9999999999999.99
 
 function normalizeScenarioKey(value) {
   const key = String(value || 'normal').trim().toLowerCase()
@@ -207,6 +209,39 @@ function getMonthStatus(row, currentDate) {
     label: 'Perlu Evaluasi',
     key: 'watch',
   }
+}
+
+function isValidBudgetAmount(value) {
+  return Number.isFinite(value) && value >= 0 && value <= MAX_BUDGET_AMOUNT
+}
+
+function isValidProjectionTargetAmount(value) {
+  return Number.isFinite(value) && value >= 0 && value <= MAX_PROJECTION_TARGET_AMOUNT
+}
+
+function budgetValidationMessage({ id = 1, year, month, accountId, divisionId, rawBudgetAmount, budgetAmount }, requireId = false) {
+  if (requireId && (!Number.isInteger(id) || id <= 0)) {
+    return 'ID budget tidak valid.'
+  }
+  if (!isValidYear(year)) {
+    return 'Tahun budget harus berupa tahun yang valid.'
+  }
+  if (month !== null && !isValidMonth(month)) {
+    return 'Bulan budget harus kosong atau berada antara 1 sampai 12.'
+  }
+  if (!Number.isInteger(accountId) || accountId <= 0) {
+    return 'Akun buku besar wajib dipilih.'
+  }
+  if (divisionId !== null && (!Number.isInteger(divisionId) || divisionId <= 0)) {
+    return 'Divisi harus kosong atau berisi ID divisi yang valid.'
+  }
+  if (String(rawBudgetAmount ?? '').trim() === '') {
+    return 'Nilai budget wajib diisi.'
+  }
+  if (!isValidBudgetAmount(budgetAmount)) {
+    return 'Nilai budget harus 0 atau lebih dan tidak melebihi batas data sumber.'
+  }
+  return ''
 }
 
 /*
@@ -501,10 +536,10 @@ router.post('/', async (req, res) => {
       })
     }
 
-    if (revenueTarget < 0 || expenseTarget < 0) {
+    if (!isValidProjectionTargetAmount(revenueTarget) || !isValidProjectionTargetAmount(expenseTarget)) {
       return res.status(400).json({
         success: false,
-        message: 'Target pendapatan dan beban tidak boleh negatif.',
+        message: 'Target pendapatan dan beban harus bernilai 0 atau lebih dan tidak melebihi batas data sumber.',
       })
     }
 
@@ -605,10 +640,12 @@ router.post('/budgets', async (req, res) => {
     const accountId = Number(req.body?.account_id)
     const rawDivisionId = req.body?.division_id
     const divisionId = rawDivisionId === null || rawDivisionId === undefined || rawDivisionId === '' ? null : Number(rawDivisionId)
-    const budgetAmount = money(req.body?.budget_amount)
+    const rawBudgetAmount = req.body?.budget_amount
+    const budgetAmount = money(rawBudgetAmount)
     const notes = String(req.body?.notes || '').trim() || null
-    if (!isValidYear(year) || (month !== null && !isValidMonth(month)) || !Number.isInteger(accountId) || accountId <= 0 || (divisionId !== null && (!Number.isInteger(divisionId) || divisionId <= 0)) || budgetAmount < 0) {
-      return res.status(422).json({ success: false, message: 'Data budget tidak valid.' })
+    const validationMessage = budgetValidationMessage({ year, month, accountId, divisionId, rawBudgetAmount, budgetAmount })
+    if (validationMessage) {
+      return res.status(422).json({ success: false, message: validationMessage })
     }
     await validateBudgetReferences(accountId, divisionId)
     const [result] = await db.query(
@@ -632,10 +669,12 @@ router.put('/budgets/:id', async (req, res) => {
     const accountId = Number(req.body?.account_id)
     const rawDivisionId = req.body?.division_id
     const divisionId = rawDivisionId === null || rawDivisionId === undefined || rawDivisionId === '' ? null : Number(rawDivisionId)
-    const budgetAmount = money(req.body?.budget_amount)
+    const rawBudgetAmount = req.body?.budget_amount
+    const budgetAmount = money(rawBudgetAmount)
     const notes = String(req.body?.notes || '').trim() || null
-    if (!Number.isInteger(id) || id <= 0 || !isValidYear(year) || (month !== null && !isValidMonth(month)) || !Number.isInteger(accountId) || accountId <= 0 || (divisionId !== null && (!Number.isInteger(divisionId) || divisionId <= 0)) || budgetAmount < 0) {
-      return res.status(422).json({ success: false, message: 'Data budget tidak valid.' })
+    const validationMessage = budgetValidationMessage({ id, year, month, accountId, divisionId, rawBudgetAmount, budgetAmount }, true)
+    if (validationMessage) {
+      return res.status(422).json({ success: false, message: validationMessage })
     }
     await validateBudgetReferences(accountId, divisionId)
     const [result] = await db.query(
@@ -708,3 +747,8 @@ router.delete('/:year/:month', async (req, res) => {
 })
 
 module.exports = router
+module.exports.isValidMonthForTest = isValidMonth
+module.exports.isValidBudgetAmountForTest = isValidBudgetAmount
+module.exports.isValidProjectionTargetAmountForTest = isValidProjectionTargetAmount
+module.exports.MAX_BUDGET_AMOUNT_FOR_TEST = MAX_BUDGET_AMOUNT
+module.exports.MAX_PROJECTION_TARGET_AMOUNT_FOR_TEST = MAX_PROJECTION_TARGET_AMOUNT

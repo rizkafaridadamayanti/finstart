@@ -1678,9 +1678,7 @@ import { useFinStartContext } from "../composables/useFinStartContext";
 import { financeApi } from "../services/financeApi.js";
 import { mapClient, mapProject } from "../services/financeMappers.js";
 import { toNumber, withApiFeedback } from "../composables/financeActionUtils";
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayIso } from "../utils/localDate";
 const CRM_SUBTAB_KEY = "finstart-crm-active-subtab";
 
 interface CrmViewProps {

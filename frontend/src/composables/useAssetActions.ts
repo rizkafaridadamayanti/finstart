@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { financeApi } from "../services/financeApi.js";
+import { todayIso } from "../utils/localDate";
 import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 
 const SUBSCRIPTION_EXPENSE_CODES: Record<string, string> = {
@@ -35,7 +36,7 @@ export function useAssetActions({
         const cycle = item.siklus === "Tahunan" ? "yearly" : "monthly";
         const amount = toNumber(item.biayaIDR || item.biaya);
         const startDay =
-          item.tanggalTagihan || new Date().toISOString().slice(0, 10);
+          item.tanggalTagihan || todayIso();
         await financeApi.post("/subscriptions", {
           subscription_name: item.nama,
           provider_name: item.provider,
@@ -122,7 +123,7 @@ export function useAssetActions({
           );
         }
         await financeApi.post(`/bills/${billId}/payments`, {
-          payment_date: new Date().toISOString().slice(0, 10),
+          payment_date: todayIso(),
           payment_method: "transfer",
           amount: toNumber(
             subscription.latestBillOutstandingAmount ||
@@ -189,7 +190,7 @@ export function useAssetActions({
           asset_name: item.nama,
           category: item.kategori,
           acquisition_date:
-            item.tanggalBeli || new Date().toISOString().slice(0, 10),
+            item.tanggalBeli || todayIso(),
           acquisition_cost: toNumber(item.hargaBeli),
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
@@ -233,7 +234,7 @@ export function useAssetActions({
     withApiFeedback(
       async () => {
         await financeApi.post(`/assets/${asset.id}/dispose`, {
-          disposal_date: new Date().toISOString().slice(0, 10),
+          disposal_date: todayIso(),
           reason,
         });
         await refreshData();

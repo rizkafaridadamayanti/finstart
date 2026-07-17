@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { currentPeriodInJakarta, isValidDate } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -36,10 +37,6 @@ function numberValue(value) {
   return Number.isFinite(number) ? number : NaN
 }
 
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
-}
-
 function normalizeEmployeeCode(value) {
   const text = cleanText(value, 50)
 
@@ -58,7 +55,7 @@ function normalizeEnum(value, allowed, fallback = null) {
 }
 
 async function generateEmployeeCode(connection) {
-  const period = new Date().toISOString().slice(0, 7).replace('-', '')
+  const period = currentPeriodInJakarta().replace('-', '')
 
   const [rows] = await connection.query(
     `

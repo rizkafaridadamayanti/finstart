@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { financeApi } from "../services/financeApi.js";
+import { todayIso } from "../utils/localDate";
 import {
   normalizePeriod,
   pickAccount,
@@ -25,7 +26,7 @@ export function useTaxActions({
           tax_type: item.jenis,
           tax_period: normalizePeriod(item.masaPajak),
           amount: toNumber(item.nominal),
-          due_date: item.jatuhTempo || new Date().toISOString().slice(0, 10),
+          due_date: item.jatuhTempo || todayIso(),
           notes: item.catatan || "",
         });
         const expense = pickAccount(accounts, "5002", "Beban");
@@ -52,7 +53,7 @@ export function useTaxActions({
         await financeApi.post(`/taxes/${tax.id}/issue`, {});
         await financeApi.post(`/taxes/${tax.id}/pay`, {
           payment_date:
-            payment.paymentDate || new Date().toISOString().slice(0, 10),
+            payment.paymentDate || todayIso(),
           cash_account_id: Number(cash.id),
           tax_number: payment.taxNumber || tax.ntpn || "",
           notes: payment.notes || "",

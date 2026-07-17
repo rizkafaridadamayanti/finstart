@@ -1,5 +1,6 @@
 const express = require('express')
 const db = require('../config/db')
+const { currentPeriodInJakarta, todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -9,8 +10,7 @@ function numberValue(value) {
 }
 
 function getPeriodData(requestedPeriod) {
-  const today = new Date()
-  const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const fallback = currentPeriodInJakarta()
   const period = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(requestedPeriod || ''))
     ? String(requestedPeriod)
     : fallback
@@ -31,7 +31,7 @@ function getPeriodData(requestedPeriod) {
 
 function dateOnly(value) {
   if (!value) return ''
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  if (value instanceof Date) return todayInJakarta(value)
   return String(value).slice(0, 10)
 }
 
@@ -546,7 +546,8 @@ router.get('/', async (req, res) => {
         `
           SELECT tax_type, tax_period, tax_number, amount, due_date, payment_date, status, notes
           FROM tax_records
-          WHERE tax_period = ? OR tax_period LIKE ?
+          WHERE (tax_period = ? OR tax_period LIKE ?)
+            AND status IN ('unpaid', 'paid', 'overdue')
           ORDER BY due_date ASC, id ASC
         `,
         [period, `${period}%`], warnings, 'Laporan Pajak',
@@ -557,6 +558,7 @@ router.get('/', async (req, res) => {
                  base_salary, employee_bpjs_deduction, employer_bpjs_contribution, net_pay, status
           FROM payroll_records
           WHERE payroll_period = ?
+            AND status = 'posted'
           ORDER BY employee_name ASC
         `,
         [period], warnings, 'Laporan Payroll',

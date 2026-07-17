@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { currentPeriodInJakarta, isValidDate, isValidPeriod, todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -19,22 +20,12 @@ function money(value) {
   return Math.round((numberValue(value) + Number.EPSILON) * 100) / 100
 }
 
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
-}
-
-function isValidPeriod(value) {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ''))
-}
-
 function getToday() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function getDefaultPeriod() {
-  const now = new Date()
-
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  return currentPeriodInJakarta()
 }
 
 async function findAccountByCode(executor, code, expectedType = null) {

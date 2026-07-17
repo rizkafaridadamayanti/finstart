@@ -1798,6 +1798,7 @@ import { formatRupiah } from "../data.ts";
 import { Langganan } from "../types.ts";
 import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
+import { currentMonthIso, todayIso } from "../utils/localDate";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
@@ -1851,7 +1852,7 @@ const isSubModalOpen = ref(false),
   updateIsSubModalOpen = (next) => (isSubModalOpen.value = next);
 const isAssetModalOpen = ref(false),
   updateIsAssetModalOpen = (next) => (isAssetModalOpen.value = next);
-const depreciationPeriod = ref(new Date().toISOString().slice(0, 7));
+const depreciationPeriod = ref(currentMonthIso());
 const isDepreciationModalOpen = ref(false);
 const isSubscriptionSaving = ref(false);
 const isAssetSaving = ref(false);
@@ -1903,7 +1904,7 @@ const openSubscriptionExchangeRate = () =>
     "_blank",
     "noopener,noreferrer",
   );
-const todayDate = () => new Date().toISOString().slice(0, 10);
+const todayDate = () => todayIso();
 const isExpiredSubscription = (item: any) => {
   const status = String(
     item?.status || item?._raw?.status || "active",
@@ -1997,7 +1998,7 @@ const newSub = ref({
     biaya: 0,
     biayaIDR: 0,
     kurs: 1,
-    tanggalTagihan: new Date().toISOString().slice(0, 10),
+    tanggalTagihan: todayIso(),
   }),
   updateNewSub = (next) => (newSub.value = next);
 const subscriptionEstimateLabel = computed(() => {
@@ -2051,7 +2052,7 @@ const formatAssetCurrencyInput = (amount: number) =>
 const newAsset = ref({
     nama: "",
     kategori: "Elektronik / IT",
-    tanggalBeli: new Date().toISOString().slice(0, 10),
+    tanggalBeli: todayIso(),
     hargaBeli: 0,
     masaManfaat: 4,
     nilaiSisa: 0,
@@ -2262,7 +2263,7 @@ const handleSaveSub = async (e: Event) => {
       biaya: 0,
       biayaIDR: 0,
       kurs: 1,
-      tanggalTagihan: new Date().toISOString().slice(0, 10),
+      tanggalTagihan: todayIso(),
     });
     subscriptionRateConfirmed.value = true;
   } finally {
@@ -2306,7 +2307,7 @@ const resetAssetForm = () => {
   updateNewAsset({
     nama: "",
     kategori: "Elektronik / IT",
-    tanggalBeli: new Date().toISOString().slice(0, 10),
+    tanggalBeli: todayIso(),
     hargaBeli: 0,
     masaManfaat: 4,
     nilaiSisa: 0,
@@ -2325,7 +2326,7 @@ const openAssetForm = (asset: any = null) => {
       tanggalBeli:
         asset.tanggalBeli ||
         raw.acquisition_date ||
-        new Date().toISOString().slice(0, 10),
+        todayIso(),
       hargaBeli: Number(asset.hargaBeli ?? raw.acquisition_cost ?? 0),
       masaManfaat: raw.useful_life_months
         ? Math.max(1, Math.round(Number(raw.useful_life_months) / 12))

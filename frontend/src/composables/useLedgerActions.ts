@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { financeApi } from "../services/financeApi.js";
+import { todayIso } from "../utils/localDate";
 import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 
 interface LedgerActionOptions {
@@ -121,7 +122,7 @@ export function useLedgerActions({
     return financeApi.post("/journals", {
       voucher_number: newTransaction.refVoucher || `JV-${Date.now()}`,
       transaction_date:
-        newTransaction.tanggal || new Date().toISOString().slice(0, 10),
+        newTransaction.tanggal || todayIso(),
       description: newTransaction.keterangan || "Jurnal manual FinStart",
       source_type: "manual",
       source_id: null,

@@ -1086,6 +1086,7 @@ import {
 } from "../services/financeMappers.js";
 import { AkunBukuBesar, Transaksi, TipeAkun } from "../types.ts";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
+import { todayIso } from "../utils/localDate";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
@@ -1378,7 +1379,7 @@ const voucherNo = ref(
     voucherNo.value = next;
     clearJournalError("voucherNo");
   };
-const journalDateInput = ref(new Date().toISOString().split("T")[0]),
+const journalDateInput = ref(todayIso()),
   updateJournalDateInput = (next) => {
     journalDateInput.value = next;
     clearJournalError("journalDate");

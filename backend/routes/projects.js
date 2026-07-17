@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -52,7 +53,7 @@ function money(value) {
 }
 
 function getToday() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function addDays(dateText, days) {
@@ -214,6 +215,25 @@ async function getProjectFinancials(projectIds, executor = db) {
     totals.set(String(row.project_id), current)
   }
   return totals
+}
+
+async function getProjectUsage(projectId, executor = db) {
+  const [rows] = await executor.query(
+    `
+      SELECT
+        (SELECT COUNT(*) FROM project_members WHERE project_id = ?) AS member_count,
+        (SELECT COUNT(*) FROM invoices WHERE project_id = ?) AS invoice_count,
+        (SELECT COUNT(*) FROM bills WHERE project_id = ?) AS bill_count
+    `,
+    [projectId, projectId, projectId],
+  )
+
+  const row = rows?.[0] || {}
+  return {
+    member_count: Number(row.member_count || 0),
+    invoice_count: Number(row.invoice_count || 0),
+    bill_count: Number(row.bill_count || 0),
+  }
 }
 
 async function attachProjectMembers(projects, executor = db, skipEnsure = false) {
@@ -996,10 +1016,42 @@ router.post('/:id/close', async (req, res) => {
 */
 router.delete('/:id', async (req, res) => {
   try {
-    await db.query(
-      'DELETE FROM project_members WHERE project_id = ?',
-      [req.params.id],
+    const projectId = Number(req.params.id)
+
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID project tidak valid.',
+      })
+    }
+
+    const [projects] = await db.query(
+      'SELECT id, status FROM projects WHERE id = ? LIMIT 1',
+      [projectId],
     )
+
+    if (projects.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project tidak ditemukan',
+      })
+    }
+
+    const usage = await getProjectUsage(projectId)
+    const reasons = [
+      usage.invoice_count > 0 ? `${usage.invoice_count} invoice` : '',
+      usage.bill_count > 0 ? `${usage.bill_count} tagihan vendor` : '',
+      usage.member_count > 0 ? `${usage.member_count} anggota proyek` : '',
+    ].filter(Boolean)
+
+    if (reasons.length > 0) {
+      return res.status(409).json({
+        success: false,
+        code: 'PROJECT_IN_USE',
+        message: `Project masih terhubung dengan ${reasons.join(', ')}. Record terpakai tidak boleh dihapus; ubah status project menjadi cancelled/completed atau lepaskan data terkait terlebih dahulu.`,
+        data: usage,
+      })
+    }
 
     const [result] = await db.query(
       'DELETE FROM projects WHERE id = ?',
@@ -1018,6 +1070,13 @@ router.delete('/:id', async (req, res) => {
       message: 'Project berhasil dihapus',
     })
   } catch (error) {
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(409).json({
+        success: false,
+        message: 'Project tidak dapat dihapus karena sudah dipakai data lain. Ubah status project atau lepaskan data terkait terlebih dahulu.',
+      })
+    }
+
     res.status(500).json({
       success: false,
       message: 'Gagal menghapus project',

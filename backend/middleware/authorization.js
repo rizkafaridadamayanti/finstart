@@ -1,3 +1,6 @@
+const db = require('../config/db')
+const { safeAudit } = require('../utils/audit')
+
 const INTERNAL_ROLE = 'finance_manager'
 
 const ROLE_ALIASES = {
@@ -133,6 +136,18 @@ function requirePermission(moduleName, action = 'read') {
     }
 
     if (!hasPermission(req.user.role_name, moduleName, action)) {
+      const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(String(req.method || 'GET').toUpperCase())
+      if (isMutation) {
+        const referenceId = Number(req.params?.id)
+        safeAudit(db, {
+          userId: req.user.id,
+          activity: 'Percobaan akses ditolak',
+          description: `${req.user.name || req.user.email} mencoba melakukan ${action} pada modul ${moduleName} tanpa hak akses.`,
+          module: moduleName,
+          referenceId: Number.isInteger(referenceId) && referenceId > 0 ? referenceId : null,
+        })
+      }
+
       return res.status(403).json({
         success: false,
         message: 'Hak akses Anda tidak mencukupi untuk melakukan tindakan ini.',
