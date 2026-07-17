@@ -25,6 +25,17 @@ function getStatus(value, fallback = 'active') {
   return ALLOWED_STATUSES.has(status) ? status : null
 }
 
+function duplicateMessage(error, fallback) {
+  if (error?.code !== 'ER_DUP_ENTRY') return null
+
+  const message = String(error?.sqlMessage || error?.message || '').toLowerCase()
+  if (message.includes('uq_positions_code') || message.includes("'code'")) {
+    return 'Kode sudah digunakan.'
+  }
+
+  return fallback
+}
+
 async function getDivision(id) {
   if (!id) return null
   const [rows] = await db.query(
@@ -159,7 +170,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
-      message: error?.code === 'ER_DUP_ENTRY' ? 'Kode jabatan sudah digunakan.' : 'Gagal menambahkan jabatan.',
+      message: duplicateMessage(error, 'Kode sudah digunakan.') || 'Gagal menambahkan jabatan.',
     })
   }
 })
@@ -193,7 +204,7 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
-      message: error?.code === 'ER_DUP_ENTRY' ? 'Kode jabatan sudah digunakan.' : 'Gagal memperbarui jabatan.',
+      message: duplicateMessage(error, 'Kode sudah digunakan.') || 'Gagal memperbarui jabatan.',
     })
   }
 })

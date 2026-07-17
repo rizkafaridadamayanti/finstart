@@ -12,6 +12,7 @@ const {
   activityLogger,
   captureResponsePayload,
 } = require('./middleware/activityLogger')
+const { idempotency } = require('./middleware/idempotency')
 
 // Route autentikasi dan pengguna
 const authRouter = require('./routes/auth')
@@ -103,6 +104,10 @@ const corsOptions = {
   allowedHeaders: [
     'Content-Type',
     'Authorization',
+    'Idempotency-Key',
+  ],
+  exposedHeaders: [
+    'Idempotency-Replayed',
   ],
 
   optionsSuccessStatus: 204,
@@ -176,6 +181,7 @@ app.get('/api/health', async (req, res) => {
  */
 app.use(authenticate)
 app.use(enforceApiAuthorization)
+app.use(idempotency)
 app.use(activityLogger)
 
 // API autentikasi dan pengguna

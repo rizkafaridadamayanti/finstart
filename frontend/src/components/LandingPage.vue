@@ -62,13 +62,13 @@
         <div class="flex flex-wrap justify-center items-center gap-4 pt-4">
           <button
             id="hero-btn-kenal"
-            class="bg-white/10 hover:bg-white/20 text-white font-extrabold py-3.5 px-8 rounded-full transition-all duration-200 text-xs uppercase tracking-widest border border-white/20 hover:border-white/40 cursor-pointer shadow-lg"
+            class="hero-cta-bold bg-white/10 hover:bg-white/20 text-white font-black py-3.5 px-8 rounded-full transition-all duration-200 text-xs uppercase tracking-widest border border-white/20 hover:border-white/40 cursor-pointer shadow-lg"
             @click="scrollToSection('tentang')"
           >
             Lihat Fitur</button
           ><button
             id="hero-btn-masuk-sistem"
-            class="bg-white hover:bg-blue-50 text-[#0B1F4A] hover:text-[#0B1F4A] font-black py-3.5 px-8 rounded-full shadow-xl transition-all duration-200 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
+            class="hero-cta-bold bg-white hover:bg-blue-50 text-[#0B1F4A] hover:text-[#0B1F4A] font-black py-3.5 px-8 rounded-full shadow-xl transition-all duration-200 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
             @click="openLogin"
           >
             Masuk ke Sistem
@@ -1181,12 +1181,12 @@
       class="fixed inset-0 bg-slate-950/40 flex items-center justify-center overflow-y-auto z-50 p-4 backdrop-blur-md"
     >
       <div
-        class="relative w-full max-w-3xl max-h-[calc(100vh-64px)] h-[calc(100vh-64px)] overflow-hidden rounded-[32px] border border-slate-200 bg-white/95 shadow-[0_40px_120px_rgba(15,23,42,0.18)]"
+        class="relative w-full max-w-5xl max-h-[calc(100vh-64px)] overflow-y-auto rounded-[32px] border border-slate-200 bg-white/95 shadow-[0_40px_120px_rgba(15,23,42,0.18)]"
       >
         <div
           class="absolute -top-8 left-1/2 h-20 w-80 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400/30 via-cyan-300/20 to-indigo-500/20 blur-3xl"
         />
-        <div class="relative flex h-full min-h-0 flex-col overflow-hidden">
+        <div class="relative flex min-h-0 flex-col">
           <div
             class="p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-[#0B1F4A] text-white lg:p-8"
           >
@@ -1210,10 +1210,10 @@
               </button>
             </div>
           </div>
-          <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div class="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8">
+          <div class="min-h-0">
+            <div class="p-6 lg:p-8">
               <div
-                class="grid gap-8 lg:grid-cols-[1.45fr_0.95fr] text-slate-700"
+                class="grid gap-8 text-slate-700"
               >
                 <section class="space-y-6">
                   <div class="space-y-4">
@@ -1246,64 +1246,6 @@
                     </ul>
                   </div>
                 </section>
-                <aside class="space-y-6">
-                  <div
-                    class="rounded-[28px] border border-slate-200 bg-slate-50 p-6 shadow-sm"
-                  >
-                    <div
-                      class="mb-5 rounded-3xl bg-gradient-to-br from-[#0B1F4A] via-slate-900 to-slate-800 p-5 text-white shadow-lg"
-                    >
-                      <p
-                        class="text-xs uppercase tracking-[0.32em] text-sky-300"
-                      >
-                        Highlight Fitur
-                      </p>
-                      <h4 class="mt-3 text-xl font-bold">
-                        Finance Control Center
-                      </h4>
-                      <p class="mt-3 text-sm leading-6 text-slate-200">
-                        Ringkas semua metrik finance internal dengan dashboard
-                        eksekutif, proyeksi, dan compliance dalam satu tampilan
-                        kelas enterprise.
-                      </p>
-                    </div>
-                    <div class="space-y-4 text-sm text-slate-600">
-                      <div
-                        class="rounded-3xl bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)]"
-                      >
-                        <p class="font-semibold text-slate-800">
-                          Dashboard eksekutif
-                        </p>
-                        <p class="mt-2 text-slate-500">
-                          Kas, piutang, utang, pajak, payroll, dan proyek semua
-                          dapat dipantau bersama.
-                        </p>
-                      </div>
-                      <div
-                        class="rounded-3xl bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)]"
-                      >
-                        <p class="font-semibold text-slate-800">
-                          Proyeksi dan laporan
-                        </p>
-                        <p class="mt-2 text-slate-500">
-                          Target bisnis lebih mudah diikuti dengan laporan siap
-                          presentasi dan insight KPI.
-                        </p>
-                      </div>
-                      <div
-                        class="rounded-3xl bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)]"
-                      >
-                        <p class="font-semibold text-slate-800">
-                          Kontrol operasional
-                        </p>
-                        <p class="mt-2 text-slate-500">
-                          Sistem dirancang untuk proses finansial yang rapi,
-                          jelas, dan mudah diaudit.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </aside>
               </div>
             </div>
           </div>
@@ -2837,6 +2779,11 @@ const selectedProjects = [
     opacity: 1;
     transform: translateY(-12px) scale(1);
   }
+}
+.hero-cta-bold {
+  font-weight: 900 !important;
+  -webkit-text-stroke: 0.18px currentColor;
+  text-rendering: geometricPrecision;
 }
 @media (max-width: 900px) {
   .landing-carousel-grid {

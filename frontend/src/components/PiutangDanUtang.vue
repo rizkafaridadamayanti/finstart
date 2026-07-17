@@ -121,7 +121,7 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-500">
+        <table class="w-full min-w-[1120px] text-left text-xs text-slate-500">
             <thead
               class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
             >
@@ -305,8 +305,8 @@
                 <th class="p-4">ID Tagihan</th>
                 <th class="p-4">Nama Vendor / Penyedia Layanan</th>
                 <th class="p-4">Keterangan Pengeluaran</th>
-                <th class="p-4 font-mono">Tgl Tagihan</th>
-                <th class="p-4 font-mono">Jatuh Tempo</th>
+                <th class="min-w-[112px] whitespace-nowrap p-4 font-mono">Tgl Tagihan</th>
+                <th class="min-w-[112px] whitespace-nowrap p-4 font-mono">Jatuh Tempo</th>
                 <th class="p-4 text-right">Nominal Utang</th>
                 <th class="p-4 text-center">Status</th>
                 <th class="p-4 text-center">Aksi</th>
@@ -330,8 +330,8 @@
                   >
                 </td>
                 <td class="p-4 text-slate-600">{{ bill.keterangan }}</td>
-                <td class="p-4 font-mono">{{ bill.tanggalMasuk }}</td>
-                <td class="p-4 font-mono">{{ bill.jatuhTempo }}</td>
+                <td class="whitespace-nowrap p-4 font-mono">{{ bill.tanggalMasuk }}</td>
+                <td class="whitespace-nowrap p-4 font-mono">{{ bill.jatuhTempo }}</td>
                 <td
                   class="p-4 text-right font-mono font-bold text-slate-800 text-sm"
                 >
@@ -544,9 +544,11 @@
           <button
             id="btn-inv-submit"
             type="submit"
-            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
+            :disabled="isSavingInvoice"
+            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
           >
-            <FilePlus class="w-4 h-4 text-[#38BDF8]" /> Posting Invoice Piutang
+            <FilePlus class="w-4 h-4 text-[#38BDF8]" />
+            {{ isSavingInvoice ? "Menyimpan..." : "Posting Invoice Piutang" }}
           </button>
         </form>
       </div>
@@ -885,9 +887,11 @@
             <button
               id="btn-bill-submit"
               type="submit"
-              class="h-[52px] w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2"
+              :disabled="isSavingBill"
+              class="h-[52px] w-full bg-rose-600 hover:bg-rose-700 disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2"
             >
-              <Save class="w-4 h-4" /> Simpan Tagihan
+              <Save class="w-4 h-4" />
+              {{ isSavingBill ? "Menyimpan..." : "Simpan Tagihan" }}
             </button>
           </div>
         </form>
@@ -1304,6 +1308,8 @@ const setInvoiceField = (key: keyof typeof newInvoice.value, value: any) => {
 const selectedInvoiceId = ref(""),
   updateSelectedInvoiceId = (next) => (selectedInvoiceId.value = next);
 const receiptDropdownOpen = ref(false);
+const isSavingInvoice = ref(false);
+const isSavingBill = ref(false);
 const isRecordingReceipt = ref(false);
 const isPayingBill = ref(false);
 const selectedReceiptInvoiceLabel = computed(() => {
@@ -1620,6 +1626,7 @@ const openInvoiceForm = (invoice: any = null) => {
 };
 const handleSaveInvoice = async (e: Event) => {
   e.preventDefault();
+  if (isSavingInvoice.value) return;
   if (!validateInvoiceForm()) {
     notify("Lengkapi seluruh kolom invoice sebelum menyimpan.");
     return;
@@ -1631,11 +1638,16 @@ const handleSaveInvoice = async (e: Event) => {
     notify("Harap pilih proyek terlebih dahulu.");
     return;
   }
-  if (editingInvoice.value)
-    await updateInvoice(editingInvoice.value, { ...newInvoice.value });
-  else await createInvoice({ ...newInvoice.value });
-  editingInvoice.value = null;
-  closeInvoiceModal();
+  isSavingInvoice.value = true;
+  try {
+    if (editingInvoice.value)
+      await updateInvoice(editingInvoice.value, { ...newInvoice.value });
+    else await createInvoice({ ...newInvoice.value });
+    editingInvoice.value = null;
+    closeInvoiceModal();
+  } finally {
+    isSavingInvoice.value = false;
+  }
 };
 
 const getInvoiceOutstanding = (invoice: any) =>
@@ -1764,15 +1776,21 @@ const openBillForm = (bill: any = null) => {
 };
 const handleSaveBill = async (e: Event) => {
   e.preventDefault();
+  if (isSavingBill.value) return;
   if (!validateBillForm()) {
     notify("Lengkapi seluruh kolom tagihan sebelum menyimpan.");
     return;
   }
-  if (editingBill.value)
-    await updateBill(editingBill.value, { ...newBill.value });
-  else await createBill({ ...newBill.value });
-  editingBill.value = null;
-  closeBillModal();
+  isSavingBill.value = true;
+  try {
+    if (editingBill.value)
+      await updateBill(editingBill.value, { ...newBill.value });
+    else await createBill({ ...newBill.value });
+    editingBill.value = null;
+    closeBillModal();
+  } finally {
+    isSavingBill.value = false;
+  }
 };
 
 const handlePayBill = async () => {

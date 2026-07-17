@@ -6,6 +6,22 @@ const router = express.Router()
 
 const ALLOWED_CYCLES = ['monthly', 'quarterly', 'yearly']
 const ALLOWED_STATUSES = ['active', 'inactive', 'cancelled']
+const SUBSCRIPTION_EXPENSE_ACCOUNT_CODES = {
+  Infrastruktur: '5002',
+  infrastructure: '5002',
+  Software: '5001',
+  'Software/SaaS': '5001',
+  software: '5001',
+  Marketing: '5001',
+  marketing: '5001',
+}
+const SUBSCRIPTION_EXPENSE_ACCOUNT_NAMES = {
+  5001: 'Beban Software dan Langganan',
+  5002: 'Beban Infrastruktur Digital',
+}
+const DEFAULT_SUBSCRIPTION_EXPENSE_ACCOUNT_CODE = '5001'
+const DEFAULT_CASH_BANK_CODE = '1120'
+const CASH_BANK_CODES = ['1001', '1110', '1120', '1130']
 
 function numberValue(value) {
   return Number(value || 0)
@@ -84,6 +100,175 @@ function monthlyEquivalent(amount, billingCycle) {
   }
 
   return money(numberValue(amount) / divisors[billingCycle])
+}
+
+async function findAccountByCode(executor, code, expectedType = null) {
+  const params = [code]
+  const typeClause = expectedType ? 'AND type = ?' : ''
+  if (expectedType) params.push(expectedType)
+
+  const [rows] = await executor.query(
+    `
+      SELECT id, code, name, type, normal_balance
+      FROM accounts
+      WHERE code = ?
+        AND status = 'active'
+        ${typeClause}
+      LIMIT 1
+    `,
+    params,
+  )
+
+  return rows[0] || null
+}
+
+async function findCashAccount(executor) {
+  for (const code of CASH_BANK_CODES) {
+    const account = await findAccountByCode(executor, code, 'asset')
+    if (account) return account
+  }
+
+  return ensureOperationalAccount(executor, DEFAULT_CASH_BANK_CODE, 'Bank Operasional', 'asset', 'debit')
+}
+
+async function ensureOperationalAccount(executor, code, name, type, normalBalance) {
+  const existing = await findAccountByCode(executor, code, type)
+  if (existing) return existing
+
+  const [result] = await executor.query(
+    `
+      INSERT INTO accounts (
+        code,
+        name,
+        type,
+        normal_balance,
+        opening_balance,
+        current_balance,
+        status
+      ) VALUES (?, ?, ?, ?, 0, 0, 'active')
+    `,
+    [code, name, type, normalBalance],
+  )
+
+  const [rows] = await executor.query(
+    `
+      SELECT id, code, name, type, normal_balance, status
+      FROM accounts
+      WHERE id = ?
+      LIMIT 1
+    `,
+    [result.insertId],
+  )
+
+  return rows[0]
+}
+
+async function postSubscriptionPaymentJournal(connection, subscription, userId = null) {
+  const expenseCode =
+    SUBSCRIPTION_EXPENSE_ACCOUNT_CODES[subscription.category] ||
+    SUBSCRIPTION_EXPENSE_ACCOUNT_CODES[String(subscription.category || '').toLowerCase()] ||
+    DEFAULT_SUBSCRIPTION_EXPENSE_ACCOUNT_CODE
+  const expenseAccount = await ensureOperationalAccount(
+    connection,
+    expenseCode,
+    SUBSCRIPTION_EXPENSE_ACCOUNT_NAMES[expenseCode] || 'Beban Langganan',
+    'expense',
+    'debit',
+  )
+  const cashAccount = await findCashAccount(connection)
+
+  if (!expenseAccount) {
+    throw new Error(`Akun beban langganan (${expenseCode}) belum tersedia atau belum aktif.`)
+  }
+
+  if (!cashAccount) {
+    throw new Error('Akun kas/bank (1001/1110/1120/1130) belum tersedia atau belum aktif.')
+  }
+
+  const amount = money(subscription.amount)
+  const transactionDate = dateText(subscription.start_date || subscription.renewal_date || getToday())
+
+  const [journalResult] = await connection.query(
+    `
+      INSERT INTO journal_entries (
+        voucher_number,
+        transaction_date,
+        description,
+        source_type,
+        source_id,
+        status,
+        posted_at,
+        created_by
+      ) VALUES (?, ?, ?, 'subscription', ?, 'posted', NOW(), ?)
+    `,
+    [
+      `SUB-PAY-${subscription.id}`,
+      transactionDate,
+      `Pembayaran langganan ${subscription.subscription_name} (${subscription.provider_name || '-'})`,
+      subscription.id,
+      userId || null,
+    ],
+  )
+
+  const journalId = journalResult.insertId
+  await connection.query(
+    `
+      INSERT INTO journal_lines (
+        journal_entry_id,
+        account_id,
+        description,
+        debit,
+        credit
+      ) VALUES
+        (?, ?, ?, ?, 0),
+        (?, ?, ?, 0, ?)
+    `,
+    [
+      journalId,
+      expenseAccount.id,
+      `Beban langganan: ${subscription.subscription_name}`,
+      amount,
+      journalId,
+      cashAccount.id,
+      `Pembayaran langganan: ${subscription.subscription_name}`,
+      amount,
+    ],
+  )
+
+  for (const line of [
+    { account_id: expenseAccount.id, debit: amount, credit: 0 },
+    { account_id: cashAccount.id, debit: 0, credit: amount },
+  ]) {
+    const [accountRows] = await connection.query(
+      `
+        SELECT id, normal_balance
+        FROM accounts
+        WHERE id = ?
+        FOR UPDATE
+      `,
+      [line.account_id],
+    )
+    const account = accountRows[0]
+
+    if (!account) {
+      throw new Error('Akun jurnal langganan tidak ditemukan.')
+    }
+
+    const delta = account.normal_balance === 'debit'
+      ? money(line.debit) - money(line.credit)
+      : money(line.credit) - money(line.debit)
+
+    await connection.query(
+      `
+        UPDATE accounts
+        SET current_balance = current_balance + ?
+        WHERE id = ?
+      `,
+      [delta, account.id],
+    )
+  }
+
+  return journalId
 }
 
 function subscriptionRenewalStatus(subscription) {
@@ -340,48 +525,81 @@ router.get('/', async (req, res) => {
         s.updated_at,
 
         COALESCE(run_summary.generated_bill_count, 0) AS generated_bill_count,
+        COALESCE(run_summary.paid_bill_count, 0) AS paid_bill_count,
+        COALESCE(run_summary.open_bill_count, 0) AS open_bill_count,
+        COALESCE(run_summary.draft_bill_count, 0) AS draft_bill_count,
+        COALESCE(run_summary.overdue_bill_count, 0) AS overdue_bill_count,
         run_summary.last_billed_date,
+        COALESCE(journal_summary.paid_journal_count, 0) AS paid_journal_count,
+        journal_summary.latest_journal_id,
 
-        (
-          SELECT b.id
-          FROM subscription_bill_runs latest_run
-          INNER JOIN bills b
-            ON b.id = latest_run.bill_id
-          WHERE latest_run.subscription_id = s.id
-          ORDER BY latest_run.id DESC
-          LIMIT 1
-        ) AS latest_bill_id,
-
-        (
-          SELECT b.bill_number
-          FROM subscription_bill_runs latest_run
-          INNER JOIN bills b
-            ON b.id = latest_run.bill_id
-          WHERE latest_run.subscription_id = s.id
-          ORDER BY latest_run.id DESC
-          LIMIT 1
-        ) AS latest_bill_number,
-
-        (
-          SELECT b.status
-          FROM subscription_bill_runs latest_run
-          INNER JOIN bills b
-            ON b.id = latest_run.bill_id
-          WHERE latest_run.subscription_id = s.id
-          ORDER BY latest_run.id DESC
-          LIMIT 1
-        ) AS latest_bill_status
+        latest_bill.id AS latest_bill_id,
+        latest_bill.bill_number AS latest_bill_number,
+        latest_bill.bill_date AS latest_bill_date,
+        latest_bill.due_date AS latest_bill_due_date,
+        latest_bill.total_amount AS latest_bill_total_amount,
+        latest_bill.paid_amount AS latest_bill_paid_amount,
+        GREATEST(
+          COALESCE(latest_bill.total_amount, 0) - COALESCE(latest_bill.paid_amount, 0),
+          0
+        ) AS latest_bill_outstanding_amount,
+        latest_bill.status AS latest_bill_status,
+        CASE
+          WHEN latest_bill.status IN ('unpaid', 'partial')
+            AND latest_bill.due_date IS NOT NULL
+            AND latest_bill.due_date < CURDATE()
+            AND latest_bill.paid_amount < latest_bill.total_amount
+            THEN 'overdue'
+          ELSE latest_bill.status
+        END AS latest_bill_display_status
 
       FROM subscriptions s
+      LEFT JOIN subscription_bill_runs latest_run
+        ON latest_run.id = (
+          SELECT id
+          FROM subscription_bill_runs
+          WHERE subscription_id = s.id
+          ORDER BY id DESC
+          LIMIT 1
+        )
+      LEFT JOIN bills latest_bill
+        ON latest_bill.id = latest_run.bill_id
       LEFT JOIN (
         SELECT
-          subscription_id,
+          runs.subscription_id,
           COUNT(*) AS generated_bill_count,
-          MAX(billing_date) AS last_billed_date
-        FROM subscription_bill_runs
-        GROUP BY subscription_id
+          SUM(CASE WHEN bills.status = 'paid' THEN 1 ELSE 0 END) AS paid_bill_count,
+          SUM(CASE WHEN bills.status IN ('unpaid', 'partial', 'overdue') THEN 1 ELSE 0 END) AS open_bill_count,
+          SUM(CASE WHEN bills.status = 'draft' THEN 1 ELSE 0 END) AS draft_bill_count,
+          SUM(CASE
+            WHEN (
+              bills.status = 'overdue'
+              OR (
+                bills.status IN ('unpaid', 'partial')
+                AND bills.due_date IS NOT NULL
+                AND bills.due_date < CURDATE()
+                AND bills.paid_amount < bills.total_amount
+              )
+            ) THEN 1 ELSE 0
+          END) AS overdue_bill_count,
+          MAX(runs.billing_date) AS last_billed_date
+        FROM subscription_bill_runs runs
+        INNER JOIN bills
+          ON bills.id = runs.bill_id
+        GROUP BY runs.subscription_id
       ) run_summary
         ON run_summary.subscription_id = s.id
+      LEFT JOIN (
+        SELECT
+          source_id AS subscription_id,
+          COUNT(*) AS paid_journal_count,
+          MAX(id) AS latest_journal_id
+        FROM journal_entries
+        WHERE source_type = 'subscription'
+          AND status = 'posted'
+        GROUP BY source_id
+      ) journal_summary
+        ON journal_summary.subscription_id = s.id
       ORDER BY
         CASE s.status WHEN 'active' THEN 0 ELSE 1 END,
         s.renewal_date ASC,
@@ -449,10 +667,15 @@ router.get('/', async (req, res) => {
   POST /api/subscriptions
 */
 router.post('/', async (req, res) => {
+  let connection
+
   try {
     const payload = normalizeSubscriptionPayload(req.body || {})
 
-    const [result] = await db.query(
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+
+    const [result] = await connection.query(
       `
         INSERT INTO subscriptions (
           subscription_name,
@@ -481,18 +704,60 @@ router.post('/', async (req, res) => {
       ],
     )
 
+    const subscriptionId = result.insertId
+    const subscription = {
+      id: subscriptionId,
+      subscription_name: payload.subscriptionName,
+      provider_name: payload.providerName,
+      category: payload.category,
+      amount: payload.amount,
+      billing_cycle: payload.billingCycle,
+      start_date: payload.startDate,
+      renewal_date: payload.renewalDate,
+      payment_terms_days: payload.paymentTermsDays,
+      status: payload.status,
+      notes: payload.notes,
+    }
+    const journalId = await postSubscriptionPaymentJournal(
+      connection,
+      subscription,
+      req.user?.id,
+    )
+    const nextDate = nextRenewalDate(payload.renewalDate, payload.billingCycle)
+
+    await connection.query(
+      `
+        UPDATE subscriptions
+        SET renewal_date = ?
+        WHERE id = ?
+      `,
+      [nextDate, subscriptionId],
+    )
+
+    await connection.commit()
+
     res.status(201).json({
       success: true,
-      message: 'Langganan berhasil disimpan.',
+      message: 'Langganan berhasil disimpan dan jurnal pembayaran otomatis diposting.',
       data: {
-        id: result.insertId,
+        id: subscriptionId,
+        journal_entry_id: journalId,
+        next_renewal_date: nextDate,
       },
     })
   } catch (error) {
+    if (connection) {
+      await connection.rollback()
+    }
+
     res.status(400).json({
       success: false,
       message: safePublicMessage(error, 'Gagal menyimpan langganan.'),
     })
+  } finally {
+    if (connection) {
+      connection.release()
+    }
   }
 })
 

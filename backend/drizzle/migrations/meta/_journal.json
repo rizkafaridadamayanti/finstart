@@ -150,13 +150,6 @@
       "breakpoints": true
     },
     {
-      "idx": 21,
-      "version": "7",
-      "when": 1783674000021,
-      "tag": "0021_create_password_reset_tokens",
-      "breakpoints": true
-    },
-    {
       "idx": 22,
       "version": "7",
       "when": 1783674000022,
@@ -280,6 +273,13 @@
       "version": "7",
       "when": 1784131200000,
       "tag": "0103_add_void_journal_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784217600000,
+      "tag": "0104_drop_obsolete_auth_tokens",
       "breakpoints": true
     }
   ]

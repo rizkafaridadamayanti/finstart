@@ -579,13 +579,25 @@ router.post('/:id/dispose', async (req, res) => {
 router.post('/depreciate-batch', async (req, res) => {
   const period = String(req.body.depreciation_period || '').trim()
   const notes = String(req.body.notes || '').trim() || null
+  const requestedAssetIds = Array.isArray(req.body.asset_ids)
+    ? req.body.asset_ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+    : []
   if (!isValidPeriod(period)) return res.status(400).json({ success: false, message: 'Periode penyusutan harus menggunakan format YYYY-MM.' })
 
   let connection
   try {
     connection = await db.getConnection()
     await connection.beginTransaction()
-    const [assetRows] = await connection.query("SELECT * FROM assets WHERE status = 'active' ORDER BY acquisition_date, id FOR UPDATE")
+    const assetWhere = requestedAssetIds.length
+      ? 'status = \'active\' AND id IN (?)'
+      : 'status = \'active\''
+    const assetParams = requestedAssetIds.length ? [[...new Set(requestedAssetIds)]] : []
+    const [assetRows] = await connection.query(
+      `SELECT * FROM assets WHERE ${assetWhere} ORDER BY acquisition_date, id FOR UPDATE`,
+      assetParams,
+    )
 
     const processed = []
     const skipped = []

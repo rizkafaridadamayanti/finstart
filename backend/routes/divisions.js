@@ -26,8 +26,17 @@ function getStatus(value, fallback = 'active') {
 }
 
 function duplicateMessage(error, fallback) {
-  if (error?.code === 'ER_DUP_ENTRY') return fallback
-  return null
+  if (error?.code !== 'ER_DUP_ENTRY') return null
+
+  const message = String(error?.sqlMessage || error?.message || '').toLowerCase()
+  if (message.includes('uq_divisions_code') || message.includes("'code'")) {
+    return 'Kode sudah digunakan.'
+  }
+  if (message.includes('uq_divisions_name') || message.includes("'name'")) {
+    return 'Nama divisi sudah digunakan.'
+  }
+
+  return fallback
 }
 
 async function getDivisionById(id) {
@@ -179,7 +188,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
-      message: duplicateMessage(error, 'Kode atau nama divisi sudah digunakan.') || 'Gagal menambahkan divisi.',
+      message: duplicateMessage(error, 'Kode sudah digunakan.') || 'Gagal menambahkan divisi.',
     })
   }
 })
@@ -233,7 +242,7 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
       success: false,
-      message: duplicateMessage(error, 'Kode atau nama divisi sudah digunakan.') || 'Gagal memperbarui divisi.',
+      message: duplicateMessage(error, 'Kode sudah digunakan.') || 'Gagal memperbarui divisi.',
     })
   }
 })

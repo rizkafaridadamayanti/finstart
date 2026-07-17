@@ -279,6 +279,29 @@ function calculatePayroll(employee, bpjsConfig, adjustments = {}) {
   }
 }
 
+async function calculatePayrollPph21(executor, employeeId, payrollPeriod, employee, calculation) {
+  const info = payrollPeriod.endsWith('-12')
+    ? await calculateDecemberPph21(executor, employeeId, payrollPeriod, employee, calculation)
+    : buildEmployeePph21Calculation({
+        employee_name: employee.employee_name,
+        employee_nik: employee.nik,
+        employee_position: employee.position_name,
+        tax_period: payrollPeriod,
+        ptkp_status: employee.ptkp_status || 'TK/0',
+        base_salary: money(
+          calculation.base_salary +
+          calculation.overtime_amount +
+          calculation.bonus_amount,
+        ),
+        allowance_amount: calculation.allowance_amount,
+      })
+
+  return {
+    ...info,
+    pph21_amount: money(info?.pph21_amount),
+  }
+}
+
 async function postJournal(connection, payload) {
   const totalDebit = money(payload.lines.reduce(
     (total, line) => total + numberValue(line.debit),
@@ -557,8 +580,12 @@ router.get('/', async (req, res) => {
           pr.net_pay,
           pr.status,
           pr.journal_entry_id,
-          je.voucher_number
+          je.voucher_number,
+          e.bank_name,
+          e.bank_account_number,
+          COALESCE(e.bank_account_holder, e.full_name, e.name) AS bank_account_holder
         FROM payroll_records pr
+        LEFT JOIN employees e ON e.id = pr.employee_id
         LEFT JOIN journal_entries je ON je.id = pr.journal_entry_id
         ${whereClause}
         ORDER BY pr.payment_date DESC, pr.id DESC
@@ -636,22 +663,14 @@ async function processPayrollRecord(input) {
     if (!cashAccount) throw new Error('Akun Kas/Bank untuk pembayaran payroll tidak ditemukan atau tidak aktif.')
 
     const calculation = calculatePayroll(employee, bpjsConfig, adjustments)
-    let pph21Amount = money(input?.pph21_amount)
-    let pph21Info = null
-    if (!pph21Amount && calculation.gross_salary > 0) {
-      pph21Info = payrollPeriod.endsWith('-12')
-        ? await calculateDecemberPph21(connection, employeeId, payrollPeriod, employee, calculation)
-        : buildEmployeePph21Calculation({
-          employee_name: employee.employee_name,
-          employee_nik: employee.nik,
-          employee_position: employee.position_name,
-          tax_period: payrollPeriod,
-          ptkp_status: employee.ptkp_status || 'TK/0',
-          base_salary: money(calculation.base_salary + calculation.overtime_amount + calculation.bonus_amount),
-          allowance_amount: calculation.allowance_amount,
-        })
-      pph21Amount = money(pph21Info.pph21_amount)
-    }
+    const pph21Info = await calculatePayrollPph21(
+      connection,
+      employeeId,
+      payrollPeriod,
+      employee,
+      calculation,
+    )
+    const pph21Amount = money(pph21Info.pph21_amount)
     const totalDeductions = money(calculation.employee_bpjs_deduction + pph21Amount + calculation.loan_deduction + calculation.other_deduction)
     const netPay = money(calculation.gross_salary - totalDeductions)
     if (netPay < 0) throw new Error('Total potongan payroll tidak boleh melebihi penghasilan bruto.')
@@ -782,17 +801,13 @@ router.post('/preview', async (req, res) => {
 
     const bpjsConfig = await getBpjsConfig(db)
     const calculation = calculatePayroll(employee, bpjsConfig, input)
-    const pph21Info = payrollPeriod.endsWith('-12')
-      ? await calculateDecemberPph21(db, employeeId, payrollPeriod, employee, calculation)
-      : buildEmployeePph21Calculation({
-          employee_name: employee.employee_name,
-          employee_nik: employee.nik,
-          employee_position: employee.position_name,
-          tax_period: payrollPeriod,
-          ptkp_status: employee.ptkp_status || 'TK/0',
-          base_salary: money(calculation.base_salary + calculation.overtime_amount + calculation.bonus_amount),
-          allowance_amount: calculation.allowance_amount,
-        })
+    const pph21Info = await calculatePayrollPph21(
+      db,
+      employeeId,
+      payrollPeriod,
+      employee,
+      calculation,
+    )
     const pph21Amount = money(pph21Info.pph21_amount)
     const totalDeductions = money(
       calculation.employee_bpjs_deduction + pph21Amount +
@@ -832,6 +847,125 @@ router.post('/process', async (req, res) => {
     })
   } catch (error) {
     res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal memproses payroll.') })
+  }
+})
+
+router.post('/preview-bulk', async (req, res) => {
+  try {
+    const payrollPeriod = String(req.body?.payroll_period || currentPeriod())
+    const paymentDate = String(req.body?.payment_date || today())
+    const cashAccountId = Number(req.body?.cash_account_id)
+
+    if (!isValidPeriod(payrollPeriod)) return res.status(400).json({ success: false, message: 'Periode payroll harus berformat YYYY-MM.' })
+    if (!isValidDate(paymentDate)) return res.status(400).json({ success: false, message: 'Tanggal pembayaran payroll tidak valid.' })
+    if (!Number.isInteger(cashAccountId) || cashAccountId <= 0) return res.status(400).json({ success: false, message: 'Akun Kas/Bank wajib dipilih.' })
+
+    const [employees] = await db.query(
+      `SELECT
+         e.id,
+         e.employee_code,
+         COALESCE(NULLIF(e.full_name, ''), e.name) AS employee_name,
+         e.employment_status,
+         COALESCE(NULLIF(e.base_salary, 0), e.salary, 0) AS base_salary,
+         pr.id AS existing_payroll_id
+       FROM employees e
+       LEFT JOIN payroll_records pr
+         ON pr.employee_id = e.id
+        AND pr.payroll_period = ?
+       ORDER BY employee_name, e.id`,
+      [payrollPeriod],
+    )
+
+    const bpjsConfig = await getBpjsConfig(db)
+    const ready = []
+    const skipped = []
+
+    for (const row of employees) {
+      const employeeName = row.employee_name || row.employee_code || `Pegawai #${row.id}`
+      const status = String(row.employment_status || 'active').toLowerCase()
+      if (status !== 'active') {
+        skipped.push({
+          employee_id: row.id,
+          employee_name: employeeName,
+          reason: 'Pegawai nonaktif.',
+        })
+        continue
+      }
+      if (row.existing_payroll_id) {
+        skipped.push({
+          employee_id: row.id,
+          employee_name: employeeName,
+          reason: `Sudah digaji untuk periode ${payrollPeriod}.`,
+        })
+        continue
+      }
+      if (numberValue(row.base_salary) <= 0) {
+        skipped.push({
+          employee_id: row.id,
+          employee_name: employeeName,
+          reason: 'Gaji pokok belum diisi.',
+        })
+        continue
+      }
+
+      try {
+        const employee = await getEmployeeForPayroll(db, row.id)
+        const calculation = calculatePayroll(employee, bpjsConfig, req.body || {})
+        const pph21Info = await calculatePayrollPph21(
+          db,
+          row.id,
+          payrollPeriod,
+          employee,
+          calculation,
+        )
+        const pph21Amount = money(pph21Info.pph21_amount)
+        const totalDeductions = money(
+          calculation.employee_bpjs_deduction + pph21Amount +
+          calculation.loan_deduction + calculation.other_deduction,
+        )
+        const netPay = money(calculation.gross_salary - totalDeductions)
+        if (netPay < 0) throw new Error('Total potongan payroll tidak boleh melebihi penghasilan bruto.')
+        ready.push({
+          employee_id: row.id,
+          employee_name: employee.employee_name,
+          employee_code: employee.employee_code,
+          base_salary: calculation.base_salary,
+          gross_salary: calculation.gross_salary,
+          employee_bpjs_deduction: calculation.employee_bpjs_deduction,
+          pph21_amount: pph21Amount,
+          net_pay: netPay,
+        })
+      } catch (error) {
+        skipped.push({
+          employee_id: row.id,
+          employee_name: employeeName,
+          reason: safePublicMessage(error, 'Tidak dapat diproses.'),
+        })
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Preview payroll massal siap dikonfirmasi.',
+      data: {
+        payroll_period: payrollPeriod,
+        payment_date: paymentDate,
+        ready,
+        skipped,
+        totals: {
+          employee_count: employees.length,
+          ready_count: ready.length,
+          skipped_count: skipped.length,
+          gross_salary: money(ready.reduce((sum, item) => sum + numberValue(item.gross_salary), 0)),
+          net_pay: money(ready.reduce((sum, item) => sum + numberValue(item.net_pay), 0)),
+        },
+      },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: safePublicMessage(error, 'Gagal menyiapkan preview payroll massal.'),
+    })
   }
 })
 

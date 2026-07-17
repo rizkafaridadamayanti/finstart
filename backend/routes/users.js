@@ -1,6 +1,5 @@
 const express = require('express')
 const db = require('../config/db')
-const { hashPassword } = require('../utils/password')
 
 const router = express.Router()
 const STATUS = new Set(['active', 'inactive'])
@@ -58,28 +57,6 @@ router.get('/', async (_req, res) => {
   }
 })
 
-router.post('/', async (req, res) => {
-  try {
-    const role = await ensureInternalRole()
-    const name = text(req.body?.name, 100)
-    const email = normalizeEmail(req.body?.email)
-    const password = String(req.body?.password || '')
-    const phone = text(req.body?.phone, 30)
-    const status = String(req.body?.status || 'active').toLowerCase()
-    if (!name || !email || password.length < 8 || !STATUS.has(status) || !role?.id) {
-      return res.status(422).json({ success: false, message: 'Nama, email valid, status, dan password minimal 8 karakter wajib diisi.' })
-    }
-    const [result] = await db.query(
-      `INSERT INTO users (role_id, name, email, password_hash, phone, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [role.id, name, email, hashPassword(password), phone, status],
-    )
-    res.status(201).json({ success: true, message: 'Pengguna Keuangan Internal berhasil dibuat.', data: await getUser(result.insertId) })
-  } catch (error) {
-    res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal membuat pengguna.'})
-  }
-})
-
 router.put('/:id', async (req, res) => {
   try {
     const role = await ensureInternalRole()
@@ -95,20 +72,6 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, message: 'Pengguna diperbarui.', data: await getUser(req.params.id) })
   } catch (error) {
     res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500).json({ success: false, message: error.code === 'ER_DUP_ENTRY' ? 'Email sudah digunakan.' : 'Gagal memperbarui pengguna.'})
-  }
-})
-
-router.patch('/:id/password', async (req, res) => {
-  try {
-    const existing = await getUser(req.params.id)
-    const password = String(req.body?.password || '')
-    if (!existing) return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' })
-    if (password.length < 8) return res.status(422).json({ success: false, message: 'Password minimal 8 karakter.' })
-    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), req.params.id])
-    await db.query('UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL', [req.params.id])
-    res.json({ success: true, message: 'Password diubah dan sesi lama ditutup.' })
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal mengubah password.'})
   }
 })
 

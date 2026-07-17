@@ -172,18 +172,8 @@
               </p>
             </div>
           </div>
-          <button
-            v-if="isAdmin()"
-            type="button"
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-medium text-[#0B1F4A] hover:bg-[#F8FBFE]"
-            @click="isUserModalOpen = true"
-          >
-            <UserPlus class="h-4 w-4" /> Tambah Pengguna</button
-          ><span v-else class="text-xs text-[#8A98AB]"
-            >Manajemen pengguna hanya untuk Administrator</span
-          >
         </div>
-        <div class="grid gap-4 px-6 py-6 md:grid-cols-3">
+        <div class="grid gap-4 px-6 py-6 md:grid-cols-2">
           <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-5">
             <span
               class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[#1E5AA8] shadow-sm"
@@ -330,14 +320,6 @@
                     <div class="flex flex-wrap gap-2 md:justify-end">
                       <button
                         type="button"
-                        class="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] px-3 text-[11px] font-semibold text-[#0B1F4A] transition hover:border-[#1E5AA8] hover:bg-[#EEF5FC]"
-                        @click="openUserPasswordReset(user)"
-                      >
-                        <KeyRound class="h-3.5 w-3.5" />
-                        Reset Password
-                      </button>
-                      <button
-                        type="button"
                         class="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-xl border border-rose-200 px-3 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                         :disabled="isCurrentUser(user)"
                         @click="openUserDelete(user)"
@@ -418,57 +400,6 @@
                     })"
               />
             </div>
-            <div class="flex justify-end py-4">
-              <button
-                type="button"
-                class="inline-flex items-center gap-2 text-xs font-semibold text-[#1E5AA8]"
-                @click="isPasswordOpen = !isPasswordOpen"
-              >
-                <LockKeyhole class="h-4 w-4" /> Ubah kata sandi
-              </button>
-            </div>
-            <form
-              v-if="isPasswordOpen"
-              class="space-y-3 border-t border-[#EDF2F7] py-4"
-              @submit.prevent="changePassword"
-            >
-              <input
-                required
-                type="password"
-                :value="passwordForm.current_password"
-                placeholder="Password saat ini"
-                :class="inputClass"
-                @change="passwordForm = {
-                      ...passwordForm,
-                      current_password: eventValue($event),
-                    }"
-              /><input
-                required
-                type="password"
-                :value="passwordForm.new_password"
-                placeholder="Password baru (minimal 8 karakter)"
-                :class="inputClass"
-                @change="passwordForm = {
-                      ...passwordForm,
-                      new_password: eventValue($event),
-                    }"
-              /><input
-                required
-                type="password"
-                :value="passwordForm.confirm_password"
-                placeholder="Konfirmasi password baru"
-                :class="inputClass"
-                @change="passwordForm = {
-                      ...passwordForm,
-                      confirm_password: eventValue($event),
-                    }"
-              /><button
-                type="submit"
-                class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
-              >
-                Simpan Password
-              </button>
-            </form>
           </div>
         </section>
       </div>
@@ -573,170 +504,6 @@
     </div>
     <Teleport to="body">
     <div
-      v-if="isUserModalOpen"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
-    >
-      <div
-        class="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Administrator
-            </p>
-            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Tambah Pengguna
-            </h3>
-          </div>
-          <button
-            type="button"
-            class="rounded-xl p-2 text-[#6B7A90]"
-            @click="isUserModalOpen = false"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form class="space-y-4 p-6" @submit.prevent="createUser">
-          <input
-            required
-            v-model.trim="newUser.name"
-            placeholder="Nama pengguna"
-            :class="inputClass"
-          /><input
-            required
-            type="email"
-            v-model.trim="newUser.email"
-            placeholder="Email"
-            :class="inputClass"
-          /><input
-            v-model.trim="newUser.phone"
-            placeholder="Nomor telepon (opsional)"
-            :class="inputClass"
-          /><select
-            v-model="newUser.role_id"
-            :class="inputClass"
-          >
-            <option :value="internalFinanceRoleId()">
-              Keuangan Internal
-            </option></select
-          ><input
-            required
-            minlength="8"
-            type="password"
-            v-model="newUser.password"
-            placeholder="Password awal (minimal 8 karakter)"
-            :class="inputClass"
-          />
-          <div class="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-              :disabled="isCreatingUser"
-              @click="isUserModalOpen = false"
-            >
-              Batal</button
-            ><button
-              type="submit"
-              class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isCreatingUser"
-            >
-              <Plus class="h-4 w-4" />
-              {{ isCreatingUser ? "Menyimpan..." : "Buat Pengguna" }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    </Teleport>
-    <Teleport to="body">
-    <div
-      v-if="passwordReset.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
-    >
-      <div
-        class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#E8EEF7] px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Administrator
-            </p>
-            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Reset Password
-            </h3>
-          </div>
-          <button
-            type="button"
-            class="rounded-xl p-2 text-[#6B7A90]"
-            :disabled="isResettingUserPassword"
-            @click="closeUserPasswordReset"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form class="space-y-4 p-6" @submit.prevent="resetUserPassword">
-          <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
-            <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8A9BB4]">
-              Akun
-            </p>
-            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
-              {{ passwordReset.user?.name || "-" }}
-            </p>
-            <p class="mt-0.5 text-xs text-[#6B7A90]">
-              {{ passwordReset.user?.email || "-" }}
-            </p>
-          </div>
-          <input
-            required
-            minlength="8"
-            type="password"
-            v-model="passwordReset.password"
-            placeholder="Password baru (minimal 8 karakter)"
-            :class="inputClass"
-          />
-          <input
-            required
-            minlength="8"
-            type="password"
-            v-model="passwordReset.confirm"
-            placeholder="Konfirmasi password baru"
-            :class="inputClass"
-          />
-          <div class="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-              :disabled="isResettingUserPassword"
-              @click="closeUserPasswordReset"
-            >
-              Batal</button
-            ><button
-              type="submit"
-              class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isResettingUserPassword"
-            >
-              <Save class="h-4 w-4" />
-              {{
-                isResettingUserPassword
-                  ? "Menyimpan..."
-                  : "Simpan Password"
-              }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-    </Teleport>
-    <Teleport to="body">
-    <div
       v-if="userDelete.open"
       class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
@@ -815,14 +582,11 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
-  LockKeyhole,
   Monitor,
-  Plus,
   Save,
   Shield,
   Smartphone,
   Trash2,
-  UserPlus,
   Users,
   X,
 } from "lucide-vue-next";
@@ -888,32 +652,10 @@ const sessions = ref<any[]>([]);
 const activity = ref<any[]>([]);
 const isSavingProfile = ref(false);
 const isSavingSecurity = ref(false);
-const isPasswordOpen = ref(false);
-const isUserModalOpen = ref(false);
-const isCreatingUser = ref(false);
-const isResettingUserPassword = ref(false);
 const isDeletingUser = ref(false);
-const passwordForm = ref({
-  current_password: "",
-  new_password: "",
-  confirm_password: "",
-});
-const passwordReset = ref({
-  open: false,
-  user: null as any,
-  password: "",
-  confirm: "",
-});
 const userDelete = ref({
   open: false,
   user: null as any,
-});
-const newUser = ref({
-  name: "",
-  email: "",
-  phone: "",
-  role_id: "",
-  password: "",
 });
 const monthNames = [
   "Januari",
@@ -933,16 +675,11 @@ const inputClass =
   "h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10";
 const labelClass =
   "text-[10px] font-semibold uppercase tracking-[0.14em] text-[#70819B]";
-const isAdmin = () =>
-  ["admin", "finance_manager", "finance"].includes(
-    String(userRole.value || "").toLowerCase(),
-  );
 const internalFinanceRole = () =>
   roles.value.find(
     (role: any) => String(role.name || "").toLowerCase() === "finance_manager",
   ) ||
   roles.value[0] || { id: "1", name: "finance_manager", user_count: 0 };
-const internalFinanceRoleId = () => String(internalFinanceRole().id || "1");
 
 async function loadCompanySettings() {
   try {
@@ -1041,117 +778,6 @@ async function closeSession(session: any) {
     );
   } catch (error) {
     notify(getApiErrorMessage(error, "Gagal menutup sesi."));
-  }
-}
-
-async function changePassword(event: Event) {
-  event.preventDefault();
-  if (passwordForm.value.new_password.length < 8)
-    return notify("Password baru minimal 8 karakter.");
-  if (passwordForm.value.new_password !== passwordForm.value.confirm_password)
-    return notify("Konfirmasi password belum sama.");
-  try {
-    await financeApi.post("/auth/password/change", {
-      current_password: passwordForm.value.current_password,
-      new_password: passwordForm.value.new_password,
-    });
-    passwordForm.value = {
-      current_password: "",
-      new_password: "",
-      confirm_password: "",
-    };
-    isPasswordOpen.value = false;
-    notify("Password berhasil diubah. Sesi lain telah ditutup.");
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal mengubah password."));
-  }
-}
-
-async function createUser() {
-  if (isCreatingUser.value) return;
-  const name = newUser.value.name.trim();
-  const email = newUser.value.email.trim();
-  const password = newUser.value.password;
-  if (!name || !email || password.length < 8) {
-    notify("Nama, email, dan password minimal 8 karakter wajib diisi.");
-    return;
-  }
-  isCreatingUser.value = true;
-  try {
-    await financeApi.post("/users", {
-      ...newUser.value,
-      name,
-      email,
-      role_id: Number(internalFinanceRoleId()),
-      status: "active",
-    });
-    newUser.value = {
-      name: "",
-      email: "",
-      phone: "",
-      role_id: internalFinanceRoleId(),
-      password: "",
-    };
-    isUserModalOpen.value = false;
-    await loadSecurityData();
-    notify("Pengguna baru berhasil dibuat.");
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal membuat pengguna baru."));
-  } finally {
-    isCreatingUser.value = false;
-  }
-}
-
-function openUserPasswordReset(user: any) {
-  passwordReset.value = {
-    open: true,
-    user,
-    password: "",
-    confirm: "",
-  };
-}
-
-function closeUserPasswordReset() {
-  if (isResettingUserPassword.value) return;
-  passwordReset.value = {
-    open: false,
-    user: null,
-    password: "",
-    confirm: "",
-  };
-}
-
-async function resetUserPassword() {
-  if (isResettingUserPassword.value) return;
-  const target = passwordReset.value.user;
-  const password = passwordReset.value.password;
-  if (!target?.id) {
-    notify("Pengguna tidak valid.");
-    return;
-  }
-  if (password.length < 8) {
-    notify("Password baru minimal 8 karakter.");
-    return;
-  }
-  if (password !== passwordReset.value.confirm) {
-    notify("Konfirmasi password belum sama.");
-    return;
-  }
-  isResettingUserPassword.value = true;
-  try {
-    await financeApi.patch(`/users/${target.id}/password`, { password });
-    notify(`Password ${target.name || target.email} berhasil direset.`);
-    passwordReset.value = {
-      open: false,
-      user: null,
-      password: "",
-      confirm: "",
-    };
-    await loadSecurityData();
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal reset password pengguna."));
-  } finally {
-    isResettingUserPassword.value = false;
   }
 }
 

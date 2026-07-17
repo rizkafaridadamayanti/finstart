@@ -258,6 +258,40 @@ router.put('/:id', async (req, res) => {
 */
 router.delete('/:id', async (req, res) => {
   try {
+    const [clients] = await db.query(
+      'SELECT id, status FROM clients WHERE id = ? LIMIT 1',
+      [req.params.id],
+    )
+
+    if (clients.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client tidak ditemukan',
+      })
+    }
+
+    const [usageRows] = await db.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM projects
+        WHERE client_id = ?
+      `,
+      [req.params.id],
+    )
+    const usageCount = Number(usageRows[0]?.total || 0)
+
+    if (usageCount > 0) {
+      return res.status(409).json({
+        success: false,
+        code: 'CLIENT_IN_USE',
+        message: `Klien masih terhubung dengan ${usageCount} proyek CRM. Record terpakai tidak boleh dihapus; nonaktifkan klien jika sudah tidak digunakan.`,
+        data: {
+          project_count: usageCount,
+          current_status: clients[0].status,
+        },
+      })
+    }
+
     const [result] = await db.query(
       'DELETE FROM clients WHERE id = ?',
       [req.params.id],

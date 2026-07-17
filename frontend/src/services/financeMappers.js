@@ -11,6 +11,7 @@ export function mapClient(row = {}) {
     pic: row.pic_name || row.contact_person || row.pic || "-",
     email: row.email || "",
     telepon: row.phone || row.telepon || "",
+    status: row.status || "active",
     _raw: row,
   };
 }
@@ -258,6 +259,24 @@ export function mapSubscription(row = {}) {
     tanggalTagihan: dateOnly(
       row.renewal_date || row.next_billing_date || row.tanggalTagihan,
     ),
+    latestBillId: row.latest_bill_id ? String(row.latest_bill_id) : "",
+    latestBillNumber: row.latest_bill_number || "",
+    latestBillDate: dateOnly(row.latest_bill_date),
+    latestBillDueDate: dateOnly(row.latest_bill_due_date),
+    latestBillStatus:
+      row.latest_bill_display_status || row.latest_bill_status || "",
+    latestBillTotalAmount: numberValue(row.latest_bill_total_amount),
+    latestBillPaidAmount: numberValue(row.latest_bill_paid_amount),
+    latestBillOutstandingAmount: numberValue(
+      row.latest_bill_outstanding_amount,
+    ),
+    generatedBillCount: numberValue(row.generated_bill_count),
+    paidBillCount: numberValue(row.paid_bill_count),
+    openBillCount: numberValue(row.open_bill_count),
+    draftBillCount: numberValue(row.draft_bill_count),
+    overdueBillCount: numberValue(row.overdue_bill_count),
+    paidJournalCount: numberValue(row.paid_journal_count),
+    latestJournalId: row.latest_journal_id ? Number(row.latest_journal_id) : null,
     status: row.status || "",
     _raw: row,
   };
@@ -283,6 +302,8 @@ export function mapAsset(row = {}) {
     status: row.status || "",
     usefulLifeMonths: numberValue(row.useful_life_months),
     residualValue: numberValue(row.residual_value),
+    depreciationCount: numberValue(row.depreciation_count),
+    lastDepreciationPeriod: row.last_depreciation_period || "",
     _raw: row,
   };
 }

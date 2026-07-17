@@ -235,6 +235,11 @@
                   ><span class="text-[10px] text-slate-400 font-mono">{{
                     c.id
                   }}</span>
+                  <span
+                    :class="`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] ${isClientActive(c) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`"
+                  >
+                    {{ isClientActive(c) ? "Aktif" : "Nonaktif" }}
+                  </span>
                 </td>
                 <td class="p-4 text-slate-600 font-semibold">{{ c.bidang }}</td>
                 <td class="p-4 text-slate-500">
@@ -1290,7 +1295,7 @@
                     class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   >
                     <option value="">-- Pilih Perusahaan Klien --</option>
-                    <option v-for="k in klien" :key="k.id" :value="k.id">
+                    <option v-for="k in availableProjectClients" :key="k.id" :value="k.id">
                       {{ k.namaPerusahaan }} ({{ k.pic }})
                     </option>
                   </select>
@@ -1342,9 +1347,11 @@
               v-else
               id="btn-project-save"
               type="submit"
-              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] sm:w-auto"
+              :disabled="isProjectSaving"
+              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
             >
-              <CheckCircle2 class="w-4 h-4" /> SELESAIKAN INISIASI PROJEK
+              <CheckCircle2 class="w-4 h-4" />
+              {{ isProjectSaving ? "MENYIMPAN..." : "SELESAIKAN INISIASI PROJEK" }}
             </button>
             </div>
           </form>
@@ -1479,9 +1486,12 @@
               <button
                 id="btn-client-submit"
                 type="submit"
-                class="w-full bg-[#102A56] hover:bg-[#0B1F42] text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+                :disabled="isClientSaving"
+                class="w-full bg-[#102A56] hover:bg-[#0B1F42] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
               >
-                <CheckCircle2 class="w-4 h-4" /><template v-if="editingClientId"
+                <CheckCircle2 class="w-4 h-4" /><template v-if="isClientSaving"
+                  >Menyimpan...</template
+                ><template v-else-if="editingClientId"
                   >Simpan Perubahan Klien</template
                 ><template v-else>Daftarkan Klien Baru</template>
               </button>
@@ -1516,8 +1526,15 @@
           </div>
           <div class="crm-delete-body space-y-4 p-6">
             <p class="crm-delete-message text-sm leading-6 text-slate-600">
-              Periksa kembali data di bawah ini sebelum melanjutkan. Penghapusan
-              bersifat permanen dan tidak dapat dibatalkan dari aplikasi.
+              <template v-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
+                Record ini masih dipakai oleh proyek CRM, sehingga tidak boleh
+                dihapus. Nonaktifkan klien agar tidak dipilih untuk proyek baru.
+              </template>
+              <template v-else>
+                Periksa kembali data di bawah ini sebelum melanjutkan.
+                Penghapusan bersifat permanen dan tidak dapat dibatalkan dari
+                aplikasi.
+              </template>
             </p>
             <div
               class="crm-delete-summary grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 grid-cols-1"
@@ -1554,11 +1571,25 @@
                   {{ deleteConfirm.id }}
                 </p>
               </div>
+              <div v-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
+                <p
+                  class="crm-delete-label text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                >
+                  Pemakaian
+                </p>
+                <p class="crm-delete-value mt-1 text-sm font-bold text-amber-700">
+                  Terhubung dengan {{ deleteConfirm.projectCount }} proyek CRM
+                </p>
+              </div>
             </div>
             <div
-              class="crm-delete-impact rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-950"
+              :class="`crm-delete-impact rounded-2xl border p-4 text-sm leading-6 ${deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0 ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-rose-200 bg-rose-50 text-rose-950'}`"
             >
-              <p class="crm-delete-impact-title font-bold text-rose-700">Yang akan terdampak</p>
+              <p
+                :class="`crm-delete-impact-title font-bold ${deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0 ? 'text-amber-700' : 'text-rose-700'}`"
+              >
+                Yang akan terdampak
+              </p>
               <ul
                 v-if="deleteConfirm.type === 'proyek'"
                 class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5"
@@ -1571,12 +1602,19 @@
                 <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
               </ul>
               <ul v-else class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5">
-                <li>Klien hilang dari database CRM.</li>
-                <li>
-                  Klien tidak lagi tersedia di pilihan proyek baru atau edit
-                  proyek.
-                </li>
-                <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
+                <template v-if="(deleteConfirm.projectCount || 0) > 0">
+                  <li>Penghapusan diblokir karena record masih terpakai.</li>
+                  <li>Riwayat dan relasi proyek tetap aman.</li>
+                  <li>Klien akan dinonaktifkan agar tidak dipakai untuk data baru.</li>
+                </template>
+                <template v-else>
+                  <li>Klien hilang dari database CRM.</li>
+                  <li>
+                    Klien tidak lagi tersedia di pilihan proyek baru atau edit
+                    proyek.
+                  </li>
+                  <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
+                </template>
               </ul>
             </div>
             <div class="crm-delete-actions grid grid-cols-1 gap-3 pt-2">
@@ -1588,13 +1626,18 @@
                 Batalkan</button
               ><button
                 type="button"
-                class="crm-delete-submit w-full rounded-2xl bg-rose-600 py-3 text-sm font-bold text-white transition-colors hover:bg-rose-700"
+                :class="`crm-delete-submit w-full rounded-2xl py-3 text-sm font-bold text-white transition-colors ${deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0 ? 'bg-amber-600 hover:bg-amber-700' : 'bg-rose-600 hover:bg-rose-700'}`"
                 @click="handleConfirmDelete"
               >
-                Hapus
-                <template v-if="deleteConfirm.type === 'proyek'"
-                  >Proyek</template
-                ><template v-else>Klien</template>
+                <template v-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
+                  Nonaktifkan Klien
+                </template>
+                <template v-else>
+                  Hapus
+                  <template v-if="deleteConfirm.type === 'proyek'"
+                    >Proyek</template
+                  ><template v-else>Klien</template>
+                </template>
               </button>
             </div>
           </div>
@@ -1671,7 +1714,7 @@ function clientPayload(item: Klien) {
     category: item.bidang || "",
     location: item.lokasi || "",
     address: item.lokasi || "",
-    status: (item as any)._raw?.status || "active",
+    status: item.status || (item as any)._raw?.status || "active",
   };
 }
 
@@ -1739,8 +1782,30 @@ const deleteClient = async (id: string) =>
       await financeApi.delete(`/clients/${id}`);
       await refreshData();
       notify("Klien berhasil dihapus dari database.");
+      return true;
     },
     "Gagal menghapus klien.",
+    notify,
+  );
+
+const deactivateClient = async (id: string) =>
+  withApiFeedback(
+    async () => {
+      const target = klien.find((client) => client.id === id);
+      if (!target) throw new Error("Klien tidak ditemukan.");
+
+      await financeApi.put(`/clients/${id}`, {
+        ...clientPayload({
+          ...target,
+          status: "inactive",
+        }),
+        status: "inactive",
+      });
+      await refreshData();
+      notify("Klien terpakai sudah dinonaktifkan. Riwayat proyek tetap tersimpan.");
+      return true;
+    },
+    "Gagal menonaktifkan klien.",
     notify,
   );
 
@@ -1775,6 +1840,7 @@ const deleteProject = async (id: string) =>
       await financeApi.delete(`/projects/${id}`);
       await refreshData();
       notify("Proyek berhasil dihapus dari database.");
+      return true;
     },
     "Gagal menghapus proyek.",
     notify,
@@ -1785,6 +1851,8 @@ type DeleteTarget = {
   type: "proyek" | "klien";
   id: string;
   name: string;
+  projectCount?: number;
+  status?: string;
 };
 
 function createEmptyProjectForm() {
@@ -1820,6 +1888,7 @@ function createEmptyClientForm() {
     pic: "",
     email: "",
     telepon: "",
+    status: "active",
   };
 }
 
@@ -1837,15 +1906,34 @@ const editingClientId = ref<string | null>(null);
 const deleteConfirm = ref<DeleteTarget | null>(null);
 const isFormOpen = ref(false);
 const isClientFormOpen = ref(false);
+const isProjectSaving = ref(false);
+const isClientSaving = ref(false);
 const shouldAttachNewClientToProject = ref(false);
 const newProj = ref(createEmptyProjectForm());
 const newClient = ref(createEmptyClientForm());
 const manualStaffName = ref("");
 const manualStaffPosition = ref("");
 const selectedStaffId = ref("");
+const isActiveStaff = (staff: any) =>
+  String(
+    staff?.statusAktif || staff?._raw?.employment_status || staff?._raw?.status || "active",
+  ).toLowerCase() !== "nonaktif" &&
+  String(staff?._raw?.employment_status || staff?._raw?.status || "active").toLowerCase() !== "inactive";
 const availableProjectStaff = computed(() =>
   pegawai.filter(
-    (staff) => !newProj.value.tim.some((member) => member.nama === staff.nama),
+    (staff) =>
+      isActiveStaff(staff) &&
+      !newProj.value.tim.some((member) => member.nama === staff.nama),
+  ),
+);
+function isClientActive(client: Klien | null | undefined) {
+  return String(
+    client?.status || (client as any)?._raw?.status || "active",
+  ).toLowerCase() !== "inactive";
+}
+const availableProjectClients = computed(() =>
+  klien.filter(
+    (client) => isClientActive(client) || client.id === newProj.value.klienId,
   ),
 );
 const milestoneTitle = ref("");
@@ -1956,11 +2044,20 @@ function handleRemoveStaff(name: string) {
   };
 }
 function handleStaffSelectionChange() {
-  const staff = pegawai.find((item) => item.id === selectedStaffId.value);
+  const staff = availableProjectStaff.value.find((item) => item.id === selectedStaffId.value);
   manualStaffName.value = staff?.nama || "";
   manualStaffPosition.value = staff?.jabatan || "";
 }
 function handleAddManualStaff() {
+  const staff = availableProjectStaff.value.find((item) => item.id === selectedStaffId.value);
+  if (!staff) {
+    notify("Pilih pegawai aktif dari master SDM.");
+    return;
+  }
+  if (!isActiveStaff(staff)) {
+    notify("Pegawai nonaktif tidak bisa dimasukkan ke proyek.");
+    return;
+  }
   const name = manualStaffName.value.trim();
   const position = manualStaffPosition.value.trim();
   if (!name || !position) {
@@ -1978,6 +2075,7 @@ function handleAddManualStaff() {
     tim: [
       ...newProj.value.tim,
       {
+        employeeId: String(staff.dbId || staff._raw?.id || ""),
         nama: name,
         jabatan: position,
         alokasiPersen: 100,
@@ -2023,6 +2121,7 @@ function handleRemoveMilestone(index: number) {
 // Submit complete single-page project form
 async function handleSaveProject(event?: Event) {
   event?.preventDefault();
+  if (isProjectSaving.value) return;
   if (
     !newProj.value.nama ||
     !newProj.value.tanggalMulai ||
@@ -2056,22 +2155,28 @@ async function handleSaveProject(event?: Event) {
     klienId: finalKlienId,
     picKontak: finalPicKontak,
   };
-  if (editingProjectId.value) {
-    const updatedProject = await updateProject(projectItem);
-    if (!updatedProject) return;
-    notify("Proyek berhasil diperbarui.");
-  } else {
-    const createdProject = await addProject(projectItem);
-    if (!createdProject) return;
-    notify("Proyek baru berhasil diinisiasi & disimpan.");
+  isProjectSaving.value = true;
+  try {
+    if (editingProjectId.value) {
+      const updatedProject = await updateProject(projectItem);
+      if (!updatedProject) return;
+      notify("Proyek berhasil diperbarui.");
+    } else {
+      const createdProject = await addProject(projectItem);
+      if (!createdProject) return;
+      notify("Proyek baru berhasil diinisiasi & disimpan.");
+    }
+    isFormOpen.value = false;
+    resetProjectForm();
+  } finally {
+    isProjectSaving.value = false;
   }
-  isFormOpen.value = false;
-  resetProjectForm();
 }
 
 // Submit client form
 async function handleSaveClient(e: Event) {
   e.preventDefault();
+  if (isClientSaving.value) return;
   if (
     !newClient.value.namaPerusahaan ||
     !newClient.value.bidang ||
@@ -2094,33 +2199,38 @@ async function handleSaveClient(e: Event) {
   if (!attachToProject) {
     setActiveSubTab("klien");
   }
-  if (editingClientId.value) {
-    clientItem.id = editingClientId.value;
-    const updatedClient = await updateClient(clientItem);
-    if (!updatedClient) return;
-    notify("Data klien berhasil diperbarui.");
-    resetClientForm();
-  } else {
-    const createdClient = await addClient(clientItem);
-    if (!createdClient) return;
-    if (attachToProject) {
-      newProj.value = {
-        ...newProj.value,
-        klienId: createdClient.id,
-      };
-      projectStepErrors.value = {
-        ...projectStepErrors.value,
-        klienId: "",
-      };
-      projectStepWarning.value = "";
-      notify("Klien baru berhasil dibuat dan dipilih untuk proyek ini.");
+  isClientSaving.value = true;
+  try {
+    if (editingClientId.value) {
+      clientItem.id = editingClientId.value;
+      const updatedClient = await updateClient(clientItem);
+      if (!updatedClient) return;
+      notify("Data klien berhasil diperbarui.");
+      resetClientForm();
     } else {
-      notify("Klien korporasi baru berhasil didaftarkan.");
+      const createdClient = await addClient(clientItem);
+      if (!createdClient) return;
+      if (attachToProject) {
+        newProj.value = {
+          ...newProj.value,
+          klienId: createdClient.id,
+        };
+        projectStepErrors.value = {
+          ...projectStepErrors.value,
+          klienId: "",
+        };
+        projectStepWarning.value = "";
+        notify("Klien baru berhasil dibuat dan dipilih untuk proyek ini.");
+      } else {
+        notify("Klien korporasi baru berhasil didaftarkan.");
+      }
+      resetClientForm();
     }
-    resetClientForm();
+    isClientFormOpen.value = false;
+    shouldAttachNewClientToProject.value = false;
+  } finally {
+    isClientSaving.value = false;
   }
-  isClientFormOpen.value = false;
-  shouldAttachNewClientToProject.value = false;
 }
 
 function openCreateProjectModal() {
@@ -2151,7 +2261,10 @@ function openEditProjectModal(project: Proyek) {
 function openEditClientModal(client: Klien) {
   closeDetailModal();
   editingClientId.value = client.id;
-  newClient.value = { ...client };
+  newClient.value = {
+    ...client,
+    status: client.status || (client as any)._raw?.status || "active",
+  };
   shouldAttachNewClientToProject.value = false;
   isClientFormOpen.value = true;
 }
@@ -2208,11 +2321,18 @@ function openProjectDeleteConfirm(project: Proyek) {
   };
 }
 
+function clientProjectCount(clientId: string) {
+  return proyek.filter((project) => project.klienId === clientId).length;
+}
+
 function openClientDeleteConfirm(client: Klien) {
+  const projectCount = clientProjectCount(client.id);
   deleteConfirm.value = {
     type: "klien",
     id: client.id,
     name: client.namaPerusahaan,
+    projectCount,
+    status: client.status || (client as any)._raw?.status || "active",
   };
 }
 
@@ -2246,9 +2366,14 @@ async function handleConfirmDelete() {
   if (!target) return;
 
   if (target.type === "proyek") {
-    await deleteProject(target.id);
+    const deleted = await deleteProject(target.id);
+    if (!deleted) return;
+  } else if ((target.projectCount || 0) > 0) {
+    const deactivated = await deactivateClient(target.id);
+    if (!deactivated) return;
   } else {
-    await deleteClient(target.id);
+    const deleted = await deleteClient(target.id);
+    if (!deleted) return;
   }
 
   closeDetailModal();

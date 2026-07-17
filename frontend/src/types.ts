@@ -14,6 +14,7 @@ export interface Klien {
   pic: string;
   email: string;
   telepon: string;
+  status?: "active" | "inactive" | string;
 }
 export interface AnggotaTim {
   employeeId?: string;
@@ -79,6 +80,23 @@ export interface Langganan {
   biaya: number; // in original currency or IDR
   biayaIDR: number;
   tanggalTagihan: string;
+  status?: string;
+  latestBillId?: string;
+  latestBillNumber?: string;
+  latestBillDate?: string;
+  latestBillDueDate?: string;
+  latestBillStatus?: string;
+  latestBillTotalAmount?: number;
+  latestBillPaidAmount?: number;
+  latestBillOutstandingAmount?: number;
+  generatedBillCount?: number;
+  paidBillCount?: number;
+  openBillCount?: number;
+  draftBillCount?: number;
+  overdueBillCount?: number;
+  paidJournalCount?: number;
+  latestJournalId?: number | null;
+  _raw?: any;
 }
 export interface Piutang {
   id: string;
@@ -118,9 +136,11 @@ export interface Proyeksi {
 }
 export interface Pegawai {
   id: string;
+  dbId?: number;
   nama: string;
   jabatan: string;
-  status: "Kontrak" | "Tetap";
+  status: string;
+  statusAktif?: "Aktif" | "Nonaktif";
   gajiBersih: number;
   compliance: "Patuh" | "Tinjauan";
   _raw?: Record<string, any>;

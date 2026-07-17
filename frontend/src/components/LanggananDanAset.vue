@@ -138,7 +138,7 @@
                 <th class="p-5">Klasifikasi Kategori</th>
                 <th class="p-5">Biaya Rutin (Siklus)</th>
                 <th class="p-5">Est. Nominal Rupiah</th>
-                <th class="p-5">Tanggal Perpanjangan</th>
+                <th class="p-5">Tagihan Berikutnya</th>
                 <th class="p-5">Status</th>
                 <th class="p-5 text-center">Aksi</th>
               </tr>
@@ -173,15 +173,62 @@
                 <td class="p-5 font-mono font-bold text-slate-800 text-sm">
                   {{ formatRupiah(item.biayaIDR) }}
                 </td>
-                <td class="p-5 font-mono">{{ item.tanggalTagihan }}</td>
                 <td class="p-5">
+                  <span class="block font-mono">{{ item.tanggalTagihan }}</span>
                   <span
-                    class="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700"
-                    >Aktif</span
+                    v-if="item.latestBillNumber"
+                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
                   >
+                    Bill terakhir: {{ item.latestBillNumber }}
+                  </span>
                 </td>
                 <td class="p-5">
-                  <div class="flex justify-center gap-2">
+                  <span
+                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
+                    >{{ subscriptionBillingStatusLabel(item) }}</span
+                  >
+                  <span
+                    v-if="subscriptionBillingSummary(item)"
+                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
+                  >
+                    {{ subscriptionBillingSummary(item) }}
+                  </span>
+                </td>
+                <td class="p-5">
+                  <div class="flex justify-center gap-1.5">
+                    <button
+                      v-if="canCreateSubscriptionBill(item)"
+                      type="button"
+                      :aria-label="`Buat draft tagihan ${item.nama}`"
+                      :disabled="isSubscriptionActionBusy(item, 'create-bill')"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100 disabled:cursor-wait disabled:opacity-60"
+                      title="Buat draft tagihan"
+                      @click="handleCreateSubscriptionBill(item)"
+                    >
+                      <Save class="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      v-if="canIssueSubscriptionBill(item)"
+                      type="button"
+                      :aria-label="`Posting jurnal tagihan ${item.nama}`"
+                      :disabled="isSubscriptionActionBusy(item, 'issue-bill')"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 transition hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+                      title="Posting jurnal tagihan"
+                      @click="handleIssueSubscriptionBill(item)"
+                    >
+                      <Send class="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      v-if="canPaySubscriptionBill(item)"
+                      type="button"
+                      :aria-label="`Bayar tagihan ${item.nama}`"
+                      :disabled="isSubscriptionActionBusy(item, 'pay-bill')"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
+                      title="Bayar tagihan"
+                      @click="handlePaySubscriptionBill(item)"
+                    >
+                      <CheckCircle2 class="h-3.5 w-3.5" />
+                    </button>
                     <button
                       :aria-label="`Hapus ${item.nama}`"
                       class="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700"
@@ -263,7 +310,7 @@
           <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             <button
               type="button"
-              :class="`inline-flex h-9 min-w-[104px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-[11px] font-extrabold transition ${showAssetArchive ? 'border border-amber-300 bg-amber-100 text-amber-800 shadow-sm' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
+              :class="`asset-toolbar-button inline-flex h-10 min-w-[146px] shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-xs font-extrabold transition ${showAssetArchive ? 'border border-amber-300 bg-amber-100 text-amber-800 shadow-sm' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
               @click="showAssetArchive = !showAssetArchive"
             >
               <Archive class="h-4 w-4" /> Arsip ({{ archivedAssets.length }})
@@ -274,14 +321,15 @@
               <input
                 type="month"
                 :value="depreciationPeriod"
-                class="h-9 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A] focus:ring-2 focus:ring-[#0B1F4A]/10"
+                class="asset-toolbar-period h-10 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-bold text-[#0B1F4A] outline-none transition focus:border-[#0B1F4A] focus:ring-2 focus:ring-[#0B1F4A]/10"
                 :style="{ width: '132px' }"
                 @change="depreciationPeriod = eventValue($event)"
               /><button
+                id="btn-process-depreciation"
                 type="button"
                 :disabled="isDepreciationProcessing"
-                class="h-9 min-w-[136px] rounded-xl bg-[#0B1F4A] px-4 text-[11px] font-extrabold text-white whitespace-nowrap shadow-sm shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
-                @click.stop.prevent="openDepreciationModal"
+                class="asset-toolbar-button h-10 min-w-[146px] rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white whitespace-nowrap shadow-sm shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
+                @click="openDepreciationModal"
               >
                 <template v-if="isDepreciationProcessing"
                   >Memproses...</template
@@ -290,8 +338,8 @@
             </div>
           </div>
         </div>
-        <div class="overflow-hidden">
-          <table class="w-full table-fixed text-center text-xs text-slate-500">
+        <div class="asset-table-scroll overflow-x-auto">
+          <table class="w-full min-w-[980px] table-fixed text-center text-xs text-slate-500">
             <colgroup>
               <col style="width: 16%" />
               <col style="width: 12%" />
@@ -395,21 +443,21 @@
         class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
         <div
-          class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-[#D8E5F4] bg-white shadow-2xl"
+          class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-[#D8E5F4] bg-white shadow-2xl"
         >
           <div
-            class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"
+            class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-4"
           >
             <div class="min-w-0">
               <p
-                class="text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#1E5AA8]"
+                class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]"
               >
                 Konfirmasi Penyusutan
               </p>
-              <h3 class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
+              <h3 class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
                 Penyusutan periode {{ depreciationPeriod }}
               </h3>
-              <p class="mt-1 text-xs leading-5 text-[#64748B]">
+              <p class="mt-1 text-[12px] leading-5 text-[#64748B]">
                 Periksa rincian dulu. Setelah diposting, jurnal masuk ke Buku
                 Besar sebagai Dr Beban Penyusutan dan Cr Akumulasi Penyusutan.
               </p>
@@ -424,7 +472,7 @@
           </div>
 
           <div
-            class="depreciation-modal-body min-h-0 flex-1 overflow-hidden px-6 py-5"
+            class="depreciation-modal-body min-h-0 flex-1 overflow-hidden px-6 py-4"
           >
             <div
               v-if="depreciationResult"
@@ -451,41 +499,51 @@
               </div>
             </div>
 
-            <div class="shrink-0 grid gap-3 md:grid-cols-3">
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+            <div class="shrink-0 grid gap-3 md:grid-cols-4">
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
                 <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
                 >
-                  Aset Aktif
+                  Siap Diproses
                 </p>
-                <p class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
+                <p class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
                   {{ depreciationPreviewRows.length }}
                 </p>
               </div>
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
                 <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
                 >
                   Estimasi Beban
                 </p>
-                <p class="mt-1 text-xl font-extrabold text-[#0B1F4A]">
+                <p class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
                   {{ formatRupiah(depreciationPreviewTotal) }}
                 </p>
               </div>
-              <div class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
                 <p
-                  class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#70819B]"
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
+                >
+                  Sudah Disusutkan
+                </p>
+                <p class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
+                  {{ depreciationAlreadyPostedRows.length }}
+                </p>
+              </div>
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+                <p
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
                 >
                   Jurnal
                 </p>
-                <p class="mt-1 text-xs font-bold leading-5 text-[#0B1F4A]">
+                <p class="mt-1 text-[11.5px] font-bold leading-5 text-[#0B1F4A]">
                   Dr Beban Penyusutan<br />Cr Akumulasi Penyusutan
                 </p>
               </div>
             </div>
 
             <div
-              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-x-auto rounded-2xl border border-[#DCE7F4]"
+              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-x-auto rounded-xl border border-[#DCE7F4]"
             >
               <table class="depreciation-preview-table w-full text-left text-xs">
                 <thead
@@ -522,7 +580,52 @@
                   </tr>
                   <tr v-if="!depreciationPreviewRows.length">
                     <td colspan="4" class="px-4 py-8 text-center text-[#8A98AB]">
-                      Belum ada aset aktif untuk diproses.
+                      Tidak ada aset yang perlu diproses untuk periode ini.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              v-if="depreciationAlreadyPostedRows.length"
+              class="mt-4 overflow-hidden rounded-xl border border-[#DCE7F4]"
+            >
+              <div class="border-b border-[#E8EEF7] bg-[#F8FBFE] px-4 py-2.5">
+                <p class="text-xs font-extrabold text-[#0B1F4A]">
+                  Sudah disusutkan periode {{ depreciationPeriod }}
+                </p>
+                <p class="mt-1 text-[11px] font-semibold text-[#64748B]">
+                  Aset di daftar ini tidak ikut diposting ulang agar jurnal tidak dobel.
+                </p>
+              </div>
+              <table class="w-full text-left text-xs">
+                <thead
+                  class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B3A78]"
+                >
+                  <tr>
+                    <th class="px-4 py-3">Aset</th>
+                    <th class="px-4 py-3">Kategori</th>
+                    <th class="px-4 py-3 text-right">Nilai Buku</th>
+                    <th class="px-4 py-3 text-right">Periode Terakhir</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[#EDF2F7] bg-white">
+                  <tr
+                    v-for="row in depreciationAlreadyPostedRows"
+                    :key="`depreciation-posted-${row.id}`"
+                  >
+                    <td class="px-4 py-3 font-bold text-[#0B1F4A]">
+                      {{ row.nama }}
+                    </td>
+                    <td class="px-4 py-3 text-[#64748B]">
+                      {{ row.kategori }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-semibold text-[#0B1F4A]">
+                      {{ formatRupiah(row.nilaiBuku) }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold text-[#64748B]">
+                      {{ row.lastDepreciationPeriod }}
                     </td>
                   </tr>
                 </tbody>
@@ -550,11 +653,11 @@
           </div>
 
           <div
-            class="flex flex-col gap-3 border-t border-[#E8EEF7] px-6 py-4 sm:flex-row sm:justify-end"
+            class="flex flex-col gap-3 border-t border-[#E8EEF7] px-6 py-3.5 sm:flex-row sm:justify-end"
           >
             <button
               type="button"
-              class="h-11 rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-semibold text-[#0B1F4A]"
+              class="h-10 min-w-[96px] rounded-xl border border-[#D8E5F4] bg-white px-5 text-sm font-semibold text-[#0B1F4A]"
               @click="closeDepreciationModal"
             >
               Tutup
@@ -563,7 +666,7 @@
               v-if="!depreciationResult"
               type="button"
               :disabled="isDepreciationProcessing || !depreciationPreviewRows.length"
-              class="h-11 rounded-xl bg-[#0B1F4A] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B1F4A]/20 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
+              class="h-10 min-w-[268px] rounded-xl bg-[#0B1F4A] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B1F4A]/20 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
               @click="processMonthlyDepreciation"
             >
               <template v-if="isDepreciationProcessing">Memposting...</template>
@@ -729,6 +832,8 @@
       :details="confirmDialog?.details || []"
       :impact-items="confirmDialog?.impactItems || []"
       :confirm-label="confirmDialog?.confirmLabel || 'Lanjutkan'"
+      :cancel-label="confirmDialog?.cancelLabel || 'Batalkan'"
+      :variant="confirmDialog?.variant || 'danger'"
       :require-reason="!!confirmDialog?.requireReason"
       :reason-label="confirmDialog?.reasonLabel || 'Alasan'"
       :reason-placeholder="
@@ -769,7 +874,7 @@
         </div>
         <form
           class="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6 text-sm md:px-9 md:py-8"
-          @submit="handleSaveSub"
+          @submit.prevent="handleSaveSub"
         >
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
@@ -783,7 +888,7 @@
                 placeholder="Contoh: AWS Production"
                 :value="newSub.nama"
                 class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all"
-                @change="updateNewSub({ ...newSub, nama: eventValue($event) })"
+                @input="updateNewSub({ ...newSub, nama: eventValue($event) })"
               />
             </div>
             <div class="space-y-3">
@@ -797,7 +902,7 @@
                 placeholder="Contoh: Amazon"
                 :value="newSub.provider"
                 class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all"
-                @change="updateNewSub({ ...newSub, provider: eventValue($event) })"
+                @input="updateNewSub({ ...newSub, provider: eventValue($event) })"
               />
             </div>
           </div>
@@ -969,10 +1074,8 @@
                   type="date"
                   required
                   :value="newSub.tanggalTagihan"
-                  class="w-full h-12 px-5 pr-12 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-sm transition-all"
-                  @change="updateNewSub({ ...newSub, tanggalTagihan: eventValue($event) })"
-                /><Calendar
-                  class="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
+                  class="w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-sm transition-all"
+                  @input="updateNewSub({ ...newSub, tanggalTagihan: eventValue($event) })"
                 />
               </div>
               <div
@@ -1035,9 +1138,11 @@
             ><button
               id="btn-sub-submit"
               type="submit"
-              class="h-[52px] bg-[#0B1F4A] hover:bg-[#071735] text-white font-extrabold rounded-2xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2"
+              :disabled="isSubscriptionSaving"
+              class="h-[52px] bg-[#0B1F4A] hover:bg-[#071735] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2"
             >
-              <Save class="w-4 h-4" /> Simpan Layanan
+              <Save class="w-4 h-4" />
+              {{ isSubscriptionSaving ? "Menyimpan..." : "Simpan Layanan" }}
             </button>
           </div>
         </form>
@@ -1219,10 +1324,17 @@
                 </td>
                 <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ item.tanggalTagihan || "-" }}</td>
                 <td class="py-3 pl-4">
-                  {{
-                    item._raw?.latest_bill_status ||
-                    subscriptionStatusLabel(item)
-                  }}
+                  <span
+                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
+                  >
+                    {{ subscriptionBillingStatusLabel(item) }}
+                  </span>
+                  <span
+                    v-if="subscriptionBillingSummary(item)"
+                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
+                  >
+                    {{ subscriptionBillingSummary(item) }}
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -1504,15 +1616,13 @@
                     :value="newAsset.tanggalBeli"
                     :class="[
                       assetInputClass,
-                      'pr-10',
+                      'pr-4',
                       {
                         'form-control-invalid':
                           assetFormErrors.tanggalBeli,
                       },
                     ]"
                     @input="setAssetField('tanggalBeli', eventValue($event))"
-                  /><Calendar
-                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827] z-10"
                   />
                 </div>
                 <p
@@ -1643,9 +1753,12 @@
             ><button
               id="btn-asset-submit"
               type="submit"
-              class="bg-[#0B1F4A] hover:bg-[#071735] text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm"
+              :disabled="isAssetSaving"
+              class="bg-[#0B1F4A] hover:bg-[#071735] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm"
             >
-              <Save class="w-4 h-4" /><template v-if="editingAsset"
+              <Save class="w-4 h-4" /><template v-if="isAssetSaving"
+                >Menyimpan...</template
+              ><template v-else-if="editingAsset"
                 >Simpan Perubahan</template
               ><template v-else>Daftarkan Aset</template>
             </button>
@@ -1672,7 +1785,6 @@ import {
   BarChart2,
   X,
   Save,
-  Calendar,
   ChevronDown,
   Info,
   Pencil,
@@ -1680,6 +1792,7 @@ import {
   Archive,
   CheckCircle2,
   CircleAlert,
+  Send,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Langganan } from "../types.ts";
@@ -1712,6 +1825,9 @@ const {
   refreshData,
   assets: {
     addSubscription,
+    createSubscriptionBill,
+    issueSubscriptionBill,
+    paySubscriptionBill,
     deleteSubscription,
     addAsset,
     updateAsset,
@@ -1737,7 +1853,10 @@ const isAssetModalOpen = ref(false),
   updateIsAssetModalOpen = (next) => (isAssetModalOpen.value = next);
 const depreciationPeriod = ref(new Date().toISOString().slice(0, 7));
 const isDepreciationModalOpen = ref(false);
+const isSubscriptionSaving = ref(false);
+const isAssetSaving = ref(false);
 const isDepreciationProcessing = ref(false);
+const subscriptionActionBusy = ref<Record<string, boolean>>({});
 const depreciationResult = ref<any>(null);
 type CurrencyCode = "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
 const currencyOptions: { value: CurrencyCode; label: string }[] = [
@@ -1789,13 +1908,7 @@ const isExpiredSubscription = (item: any) => {
   const status = String(
     item?.status || item?._raw?.status || "active",
   ).toLowerCase();
-  const renewalDate = String(
-    item?.tanggalTagihan || item?._raw?.renewal_date || "",
-  );
-  return (
-    ["cancelled", "inactive", "expired", "stopped"].includes(status) ||
-    Boolean(renewalDate && renewalDate < todayDate())
-  );
+  return ["cancelled", "inactive", "expired", "stopped"].includes(status);
 };
 const subscriptionStatusLabel = (item: any) => {
   const status = String(
@@ -1806,6 +1919,72 @@ const subscriptionStatusLabel = (item: any) => {
   if (status === "expired") return "Kedaluwarsa";
   return isExpiredSubscription(item) ? "Kedaluwarsa" : "Aktif";
 };
+const subscriptionBillStatus = (item: any) =>
+  String(
+    item?.latestBillStatus ||
+      item?._raw?.latest_bill_display_status ||
+      item?._raw?.latest_bill_status ||
+      "",
+  ).toLowerCase();
+const subscriptionBillingStatusLabel = (item: any) => {
+  if (isExpiredSubscription(item)) return subscriptionStatusLabel(item);
+  const billStatus = subscriptionBillStatus(item);
+  if (billStatus === "draft") return "Draft Tagihan";
+  if (billStatus === "unpaid") return "Unpaid";
+  if (billStatus === "partial") return "Partial";
+  if (billStatus === "overdue") return "Overdue";
+  if (billStatus === "paid") return "Paid";
+  if (billStatus === "cancelled") return "Cancelled";
+  if (subscriptionCountValue(item, "paidJournalCount", "paid_journal_count") > 0) return "Paid";
+  const renewalDate = String(
+    item?.tanggalTagihan || item?._raw?.renewal_date || "",
+  );
+  if (renewalDate && renewalDate < todayDate()) return "Belum Dibuat";
+  if (renewalDate === todayDate()) return "Jatuh Tempo";
+  return "Terjadwal";
+};
+const subscriptionBillingStatusClass = (item: any) => {
+  const label = subscriptionBillingStatusLabel(item).toLowerCase();
+  if (label.includes("paid")) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (label.includes("overdue")) return "border-rose-200 bg-rose-50 text-rose-700";
+  if (label.includes("unpaid") || label.includes("partial")) return "border-amber-200 bg-amber-50 text-amber-700";
+  if (label.includes("draft") || label.includes("jatuh tempo") || label.includes("belum")) {
+    return "border-sky-200 bg-sky-50 text-sky-700";
+  }
+  if (label.includes("cancel") || label.includes("henti") || label.includes("nonaktif")) {
+    return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+  return "border-[#DCE7F4] bg-[#EEF5FC] text-[#1E5AA8]";
+};
+const subscriptionCountValue = (item: any, key: string, rawKey: string) =>
+  Number(item?.[key] ?? item?._raw?.[rawKey] ?? 0);
+const subscriptionBillingSummary = (item: any) => {
+  const paid =
+    subscriptionCountValue(item, "paidBillCount", "paid_bill_count") +
+    subscriptionCountValue(item, "paidJournalCount", "paid_journal_count");
+  const open = subscriptionCountValue(item, "openBillCount", "open_bill_count");
+  const draft = subscriptionCountValue(item, "draftBillCount", "draft_bill_count");
+  const parts = [];
+  if (paid > 0) parts.push(`Paid: ${paid}`);
+  if (open > 0) parts.push(`Open: ${open}`);
+  if (draft > 0) parts.push(`Draft: ${draft}`);
+  return parts.join(" | ");
+};
+const isSubscriptionDueForBilling = (item: any) => {
+  const renewalDate = String(
+    item?.tanggalTagihan || item?._raw?.renewal_date || "",
+  );
+  return Boolean(renewalDate && renewalDate <= todayDate());
+};
+const canCreateSubscriptionBill = (item: any) =>
+  !isExpiredSubscription(item) &&
+  isSubscriptionDueForBilling(item) &&
+  !["draft", "unpaid", "partial", "overdue"].includes(subscriptionBillStatus(item));
+const canIssueSubscriptionBill = (item: any) =>
+  !isExpiredSubscription(item) && subscriptionBillStatus(item) === "draft";
+const canPaySubscriptionBill = (item: any) =>
+  !isExpiredSubscription(item) &&
+  ["unpaid", "partial", "overdue"].includes(subscriptionBillStatus(item));
 const editingAsset = ref<any>(null);
 const confirmDialog = ref<any>(null);
 // Daftar aset berasal langsung dari props API backend.
@@ -2040,6 +2219,7 @@ function validateAssetForm() {
 
 const handleSaveSub = async (e: Event) => {
   e.preventDefault();
+  if (isSubscriptionSaving.value) return;
   if (
     !newSub.value.nama ||
     !newSub.value.tanggalTagihan ||
@@ -2068,22 +2248,57 @@ const handleSaveSub = async (e: Event) => {
       newSub.value.kurs,
     ),
   };
-  const result = await addSubscription(item);
-  if (!result) return;
-  updateIsSubModalOpen(false);
-  updateNewSub({
-    nama: "",
-    provider: "",
-    mataUang: "IDR",
-    siklus: "Bulanan",
-    kategori: "Software",
-    biaya: 0,
-    biayaIDR: 0,
-    kurs: 1,
-    tanggalTagihan: new Date().toISOString().slice(0, 10),
-  });
-  subscriptionRateConfirmed.value = true;
+  isSubscriptionSaving.value = true;
+  try {
+    const result = await addSubscription(item);
+    if (!result) return;
+    updateIsSubModalOpen(false);
+    updateNewSub({
+      nama: "",
+      provider: "",
+      mataUang: "IDR",
+      siklus: "Bulanan",
+      kategori: "Software",
+      biaya: 0,
+      biayaIDR: 0,
+      kurs: 1,
+      tanggalTagihan: new Date().toISOString().slice(0, 10),
+    });
+    subscriptionRateConfirmed.value = true;
+  } finally {
+    isSubscriptionSaving.value = false;
+  }
 };
+
+const subscriptionActionKey = (item: any, action: string) =>
+  `${action}:${item?.id || item?.latestBillId || item?.nama || "unknown"}`;
+const isSubscriptionActionBusy = (item: any, action: string) =>
+  Boolean(subscriptionActionBusy.value[subscriptionActionKey(item, action)]);
+const runSubscriptionAction = async (
+  item: any,
+  action: string,
+  runner: () => Promise<any>,
+) => {
+  const key = subscriptionActionKey(item, action);
+  if (subscriptionActionBusy.value[key]) return;
+  subscriptionActionBusy.value = { ...subscriptionActionBusy.value, [key]: true };
+  try {
+    await runner();
+  } finally {
+    const next = { ...subscriptionActionBusy.value };
+    delete next[key];
+    subscriptionActionBusy.value = next;
+  }
+};
+
+const handleCreateSubscriptionBill = async (item: any) =>
+  runSubscriptionAction(item, "create-bill", () => createSubscriptionBill(item));
+
+const handleIssueSubscriptionBill = async (item: any) =>
+  runSubscriptionAction(item, "issue-bill", () => issueSubscriptionBill(item));
+
+const handlePaySubscriptionBill = async (item: any) =>
+  runSubscriptionAction(item, "pay-bill", () => paySubscriptionBill(item));
 
 const resetAssetForm = () => {
   editingAsset.value = null;
@@ -2131,19 +2346,25 @@ const closeAssetModal = () => {
 
 const handleSaveAsset = async (e: Event) => {
   e.preventDefault();
+  if (isAssetSaving.value) return;
   if (!validateAssetForm()) {
     notify("Lengkapi seluruh data aset sebelum menyimpan.");
     return;
   }
-  if (editingAsset.value) {
-    const result = await updateAsset(editingAsset.value, { ...newAsset.value });
-    if (!result) return;
-  } else {
-    const result = await addAsset({ ...newAsset.value });
-    if (!result) return;
+  isAssetSaving.value = true;
+  try {
+    if (editingAsset.value) {
+      const result = await updateAsset(editingAsset.value, { ...newAsset.value });
+      if (!result) return;
+    } else {
+      const result = await addAsset({ ...newAsset.value });
+      if (!result) return;
+    }
+    closeAssetModal();
+    resetAssetForm();
+  } finally {
+    isAssetSaving.value = false;
   }
-  closeAssetModal();
-  resetAssetForm();
 };
 
 const requestStopSubscription = (item: any) => {
@@ -2198,6 +2419,10 @@ const handleConfirmDialog = async (reason = "") => {
   const action = confirmDialog.value;
   if (!action) return;
   confirmDialog.value = null;
+  if (action.type === "subscription-rate") {
+    applyConfirmedSubscriptionRate();
+    return;
+  }
   if (action.type === "subscription") {
     await deleteSubscription(action.item.id);
     notify(`Auto-renewal ${action.item.nama} dihentikan.`);
@@ -2234,6 +2459,9 @@ async function processMonthlyDepreciation() {
   try {
     const result = await financeApi.post("/assets/depreciate-batch", {
       depreciation_period: depreciationPeriod.value,
+      asset_ids: depreciationPreviewRows.value
+        .map((row: any) => Number(row.id))
+        .filter((id: number) => Number.isInteger(id) && id > 0),
       notes: "Penyusutan bulanan diproses dari workspace FinStart.",
     });
     await refreshData();
@@ -2348,6 +2576,7 @@ function setAssetHistoryViewMode(mode: "monthly" | "yearly") {
 }
 
 async function processAssetHistoryDepreciation() {
+  if (isDepreciationProcessing.value) return;
   const assetId = Number(assetHistory.value?.asset?.id);
   if (!assetId) return notify("ID aset tidak valid.");
   if (!depreciationPeriod.value) {
@@ -2425,8 +2654,16 @@ const activeAssets = computed(() =>
     ),
   ),
 );
-const depreciationPreviewRows = computed(() =>
-  activeAssets.value.map((asset: any) => {
+const isAssetDepreciatedInActivePeriod = (asset: any) =>
+  Boolean(
+    depreciationPeriod.value &&
+      String(
+        asset?.lastDepreciationPeriod ||
+          asset?._raw?.last_depreciation_period ||
+          "",
+      ) === depreciationPeriod.value,
+  );
+const buildDepreciationPreviewRow = (asset: any) => {
     const cost = Number(asset.hargaBeli || asset._raw?.acquisition_cost || 0);
     const residual = Number(asset.residualValue || asset._raw?.residual_value || 0);
     const bookValue = Number(asset.nilaiBuku || asset._raw?.book_value || 0);
@@ -2444,8 +2681,22 @@ const depreciationPreviewRows = computed(() =>
       kategori: asset.kategori,
       nilaiBuku: bookValue,
       nominal: monthlyAmount,
+      lastDepreciationPeriod:
+        asset.lastDepreciationPeriod ||
+        asset._raw?.last_depreciation_period ||
+        "-",
     };
-  }),
+};
+const depreciationPreviewRows = computed(() =>
+  activeAssets.value
+    .filter((asset: any) => !isAssetDepreciatedInActivePeriod(asset))
+    .map(buildDepreciationPreviewRow)
+    .filter((row: any) => Number(row.nominal || 0) > 0),
+);
+const depreciationAlreadyPostedRows = computed(() =>
+  activeAssets.value
+    .filter(isAssetDepreciatedInActivePeriod)
+    .map(buildDepreciationPreviewRow),
 );
 const depreciationPreviewTotal = computed(() =>
   depreciationPreviewRows.value.reduce(
@@ -2626,12 +2877,31 @@ function confirmSubscriptionRate() {
     notify("Isi nominal kurs terlebih dahulu.");
     return;
   }
-  const isConfirmed = window.confirm(
-    `Apakah kurs ${newSub.value.mataUang} ke IDR sudah dicek di Google? Jika sudah, biaya akan langsung diakumulasikan ke Rupiah.`,
-  );
-  if (!isConfirmed) {
-    subscriptionRateConfirmed.value = false;
-    notify("Cek kurs di Google terlebih dahulu sebelum akumulasi.");
+  confirmDialog.value = {
+    type: "subscription-rate",
+    eyebrow: "Konfirmasi Kurs",
+    title: "Gunakan kurs ini?",
+    message:
+      "Pastikan kurs sudah dicek. Setelah dikonfirmasi, estimasi rupiah layanan akan dihitung dari kurs ini.",
+    details: [
+      { label: "Mata uang", value: newSub.value.mataUang },
+      { label: "Kurs ke IDR", value: formatRupiah(kurs) },
+      { label: "Biaya asal", value: subscriptionOriginalCostSummary.value },
+    ],
+    impactItems: [
+      "Estimasi IDR layanan akan diperbarui.",
+      "Status kurs berubah menjadi siap dihitung.",
+    ],
+    confirmLabel: "Gunakan Kurs",
+    cancelLabel: "Cek Lagi",
+    variant: "warning",
+  };
+}
+
+function applyConfirmedSubscriptionRate() {
+  const kurs = Number(newSub.value.kurs || 0);
+  if (!kurs) {
+    notify("Isi nominal kurs terlebih dahulu.");
     return;
   }
   subscriptionRateConfirmed.value = true;
@@ -2656,12 +2926,51 @@ function subscriptionTotalByCategory(category: string) {
 }
 
 function closeConfirmDialog() {
+  if (confirmDialog.value?.type === "subscription-rate") {
+    subscriptionRateConfirmed.value = false;
+    notify("Cek kurs di Google terlebih dahulu sebelum akumulasi.");
+  }
   confirmDialog.value = null;
 }
 
 </script>
 
 <style scoped>
+.asset-toolbar-button,
+.asset-toolbar-period {
+  box-sizing: border-box;
+  height: 40px !important;
+  min-height: 40px !important;
+  line-height: 1 !important;
+}
+
+.asset-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-table-scroll {
+  scrollbar-color: #9aabc2 #eef5fc;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.asset-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.asset-table-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #eef5fc;
+}
+
+.asset-table-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid #eef5fc;
+  border-radius: 999px;
+  background: #9aabc2;
+}
+
 .asset-form-actions :deep(button) {
   height: 48px !important;
   min-height: 48px !important;
@@ -2843,7 +3152,7 @@ function closeConfirmDialog() {
 }
 
 .depreciation-modal-card {
-  height: min(820px, calc(100dvh - 32px));
+  height: min(720px, calc(100dvh - 32px));
   max-height: calc(100dvh - 32px);
 }
 
@@ -2853,8 +3162,8 @@ function closeConfirmDialog() {
 }
 
 .depreciation-table-panel {
-  height: min(440px, 48vh);
-  max-height: 48vh;
+  height: min(260px, 34vh);
+  max-height: 34vh;
 }
 
 .depreciation-preview-table {
@@ -2877,11 +3186,16 @@ function closeConfirmDialog() {
 }
 
 .depreciation-table-scroll {
-  max-height: calc(min(440px, 48vh) - 44px);
+  max-height: calc(min(260px, 34vh) - 40px);
   overflow-y: scroll;
   scrollbar-color: #9aabc2 #eef5fc;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
+}
+
+.depreciation-preview-table th,
+.depreciation-preview-table td {
+  line-height: 1.35;
 }
 
 .depreciation-table-scroll::-webkit-scrollbar {

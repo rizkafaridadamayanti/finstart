@@ -7,9 +7,11 @@ const AUTH_USER_KEY = "finstart-auth-user";
 const AUTH_EXPIRES_KEY = "finstart-auth-expires-at";
 const PUBLIC_AUTH_PATHS = new Set([
   "/auth/login",
-  "/auth/password/request-reset",
-  "/auth/password/reset",
 ]);
+const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const RECENT_MUTATION_TTL_MS = 1500;
+const inFlightMutations = new Map();
+const recentMutations = new Map();
 
 function storagePair() {
   if (typeof window === "undefined") return [];
@@ -83,50 +85,106 @@ function buildUrl(path, query = null) {
   return url.toString();
 }
 
+function stableHash(value) {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 async function request(path, options = {}) {
   const { method = "GET", body, query, headers = {} } = options;
+  const normalizedMethod = String(method || "GET").toUpperCase();
+  const url = buildUrl(path, query);
+  const requestBody = body !== undefined ? JSON.stringify(body) : undefined;
+  const mutationKey = MUTATION_METHODS.has(normalizedMethod)
+    ? `${normalizedMethod} ${url} ${requestBody || ""}`
+    : "";
+  const idempotencyKey = mutationKey
+    ? `finstart-${stableHash(mutationKey)}`
+    : "";
 
-  const response = await fetch(buildUrl(path, query), {
-    method,
-    headers: {
-      Accept: "application/json",
-      ...(getStoredToken()
-        ? { Authorization: `Bearer ${getStoredToken()}` }
-        : {}),
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    // Endpoint non-JSON tetap dilaporkan dengan pesan yang jelas.
+  if (mutationKey && inFlightMutations.has(mutationKey)) {
+    return inFlightMutations.get(mutationKey);
+  }
+  if (mutationKey) {
+    const recent = recentMutations.get(mutationKey);
+    if (recent && recent.expiresAt > Date.now()) {
+      return recent.task;
+    }
+    if (recent) recentMutations.delete(mutationKey);
   }
 
-  if (!response.ok || payload?.success === false) {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    const shouldExpireCurrentSession =
-      response.status === 401 && !PUBLIC_AUTH_PATHS.has(normalizedPath);
+  const task = (async () => {
+    const response = await fetch(url, {
+      method: normalizedMethod,
+      headers: {
+        Accept: "application/json",
+        ...(getStoredToken()
+          ? { Authorization: `Bearer ${getStoredToken()}` }
+          : {}),
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+        ...headers,
+      },
+      body: requestBody,
+    });
 
-    if (shouldExpireCurrentSession) {
-      clearAuthSession();
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("finstart-auth-expired"));
-      }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      // Endpoint non-JSON tetap dilaporkan dengan pesan yang jelas.
     }
 
-    const error = new Error(
-      payload?.message || `Permintaan API gagal (${response.status}).`,
+    if (!response.ok || payload?.success === false) {
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+      const shouldExpireCurrentSession =
+        response.status === 401 && !PUBLIC_AUTH_PATHS.has(normalizedPath);
+
+      if (shouldExpireCurrentSession) {
+        clearAuthSession();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("finstart-auth-expired"));
+        }
+      }
+
+      const error = new Error(
+        payload?.message || `Permintaan API gagal (${response.status}).`,
+      );
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
+
+    return payload?.data;
+  })();
+
+  if (mutationKey) {
+    inFlightMutations.set(mutationKey, task);
+    task.then(
+      () => {
+        inFlightMutations.delete(mutationKey);
+        recentMutations.set(mutationKey, {
+          task,
+          expiresAt: Date.now() + RECENT_MUTATION_TTL_MS,
+        });
+        globalThis.setTimeout?.(
+          () => {
+            const recent = recentMutations.get(mutationKey);
+            if (recent?.task === task) recentMutations.delete(mutationKey);
+          },
+          RECENT_MUTATION_TTL_MS,
+        );
+      },
+      () => inFlightMutations.delete(mutationKey),
     );
-    error.status = response.status;
-    error.payload = payload;
-    throw error;
   }
 
-  return payload?.data;
+  return task;
 }
 
 export const financeApi = {
@@ -142,16 +200,6 @@ export const financeApi = {
     }),
   me: () => request("/auth/me"),
   logout: () => request("/auth/logout", { method: "POST", body: {} }),
-  requestPasswordReset: (email) =>
-    request("/auth/password/request-reset", {
-      method: "POST",
-      body: { email },
-    }),
-  resetPassword: (token, password) =>
-    request("/auth/password/reset", {
-      method: "POST",
-      body: { token, password },
-    }),
   get: (path, query) => request(path, { query }),
   post: (path, body) => request(path, { method: "POST", body }),
   put: (path, body) => request(path, { method: "PUT", body }),

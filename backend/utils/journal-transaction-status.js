@@ -10,6 +10,7 @@ const ALWAYS_PAID_SOURCE_TYPES = new Set([
   'employee_payroll',
   'asset_acquisition',
   'asset_disposal',
+  'subscription',
 ])
 const ALWAYS_UNPAID_SOURCE_TYPES = new Set([
   'invoice',

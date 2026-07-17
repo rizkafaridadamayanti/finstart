@@ -17,7 +17,6 @@ const {
 
 const router = express.Router()
 const SESSION_HOURS = Number(process.env.AUTH_SESSION_HOURS || 8)
-const RESET_TOKEN_MINUTES = Number(process.env.AUTH_RESET_TOKEN_MINUTES || 30)
 const LOGIN_MAX_ATTEMPTS = Number(process.env.AUTH_LOGIN_MAX_ATTEMPTS || 5)
 const LOGIN_LOCK_MINUTES = Number(process.env.AUTH_LOGIN_LOCK_MINUTES || 1)
 const loginAttempts = new Map()
@@ -68,20 +67,6 @@ function registerFailedAttempt(req, email) {
 
 function clearAttempts(req, email) {
   loginAttempts.delete(attemptKey(req, email))
-}
-
-function isLocalDevelopmentRequest(req) {
-  if (process.env.NODE_ENV === 'production') return false
-  const hostname = String(req.hostname || '').toLowerCase()
-  const hostHeader = String(req.headers.host || '').toLowerCase()
-  const ip = String(req.ip || '').replace('::ffff:', '')
-  return [hostname, hostHeader, ip].some((value) => (
-    value === 'localhost'
-    || value === '127.0.0.1'
-    || value === '::1'
-    || value.startsWith('localhost:')
-    || value.startsWith('127.0.0.1:')
-  ))
 }
 
 async function findUserByEmail(email) {
@@ -304,92 +289,6 @@ router.post('/logout', async (req, res) => {
     res.json({ success: true, message: 'Logout berhasil.' })
   } catch (error) {
     return sendAuthServerError(res, 'Gagal logout.', error)
-  }
-})
-
-router.post('/password/change', async (req, res) => {
-  try {
-    const currentPassword = String(req.body?.current_password || '')
-    const newPassword = String(req.body?.new_password || '')
-    if (!currentPassword || newPassword.length < 8) return res.status(422).json({ success: false, message: 'Password lama dan password baru minimal 8 karakter wajib diisi.' })
-    const [rows] = await db.query('SELECT id, password_hash FROM users WHERE id = ? LIMIT 1', [req.user.id])
-    const user = rows[0]
-    if (!user || !verifyPassword(currentPassword, user.password_hash)) return res.status(401).json({ success: false, message: 'Password lama tidak sesuai.' })
-    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(newPassword), req.user.id])
-    await db.query('UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ? AND id <> ? AND revoked_at IS NULL', [req.user.id, req.user.session_id])
-    await safeAudit(db, {
-      userId: req.user.id,
-      activity: 'Password diubah',
-      description: `${req.user.name} mengubah password dan menutup sesi lain.`,
-      module: 'security',
-    })
-    res.json({ success: true, message: 'Password berhasil diubah. Sesi lain telah ditutup.' })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal mengubah password.', error)
-  }
-})
-
-router.post('/password/request-reset', async (req, res) => {
-  try {
-    const email = String(req.body.email || '').trim().toLowerCase()
-    const user = email ? await findUserByEmail(email) : null
-    let debugData = null
-
-    if (user) {
-      const token = createToken()
-      const expiresAt = new Date(Date.now() + RESET_TOKEN_MINUTES * 60 * 1000)
-      await db.query(
-        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-         VALUES (?, ?, ?)`,
-        [user.id, hashToken(token), expiresAt],
-      )
-      await safeAudit(db, {
-        userId: user.id,
-        activity: 'Permintaan reset password',
-        description: `Permintaan reset password dibuat untuk ${user.email}.`,
-        module: 'security',
-      })
-      // Token hanya boleh tampil untuk development lokal atau saat env eksplisit mengizinkan.
-      if (process.env.AUTH_SHOW_RESET_TOKEN === 'true' || isLocalDevelopmentRequest(req)) {
-        debugData = { reset_token: token, expires_at: expiresAt.toISOString() }
-      }
-    }
-
-    res.json({
-      success: true,
-      message: 'Jika email terdaftar, instruksi reset password akan dikirim melalui kanal yang dikonfigurasi administrator.',
-      data: debugData,
-    })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal membuat permintaan reset password.', error)
-  }
-})
-
-router.post('/password/reset', async (req, res) => {
-  try {
-    const token = String(req.body.token || '')
-    const password = String(req.body.password || '')
-    if (!token || password.length < 8) return res.status(422).json({ success: false, message: 'Token dan kata sandi baru minimal 8 karakter wajib diisi.' })
-    const [tokens] = await db.query(
-      `SELECT * FROM password_reset_tokens
-       WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW()
-       LIMIT 1`,
-      [hashToken(token)],
-    )
-    const reset = tokens[0]
-    if (!reset) return res.status(401).json({ success: false, message: 'Token reset tidak valid atau sudah kedaluwarsa.' })
-    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hashPassword(password), reset.user_id])
-    await db.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?', [reset.id])
-    await db.query('UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ?', [reset.user_id])
-    await safeAudit(db, {
-      userId: reset.user_id,
-      activity: 'Password direset',
-      description: 'Password akun diperbarui melalui token reset.',
-      module: 'security',
-    })
-    res.json({ success: true, message: 'Kata sandi berhasil diperbarui. Silakan login kembali.' })
-  } catch (error) {
-    return sendAuthServerError(res, 'Gagal reset password.', error)
   }
 })
 

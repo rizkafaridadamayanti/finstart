@@ -121,7 +121,7 @@
                       :aria-label="`Detail akun ${item.nama}`"
                       title="Detail"
                       class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
-                      @click="selectedAccountDetail = item"
+                      @click.stop="openAccountDetail(item)"
                     >
                       <Eye class="h-3.5 w-3.5" /></button
                     ><button
@@ -180,9 +180,13 @@
               ><Calendar class="mr-1 inline h-3.5 w-3.5" />Tanggal:</span
             ><input
               id="journal-date-box"
+              ref="journalDatePickerRef"
               type="date"
               :value="journalDate"
-              class="h-10 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs text-[#182338]"
+              class="h-10 cursor-pointer rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs text-[#182338]"
+              @click="openJournalDatePicker"
+              @focus="openJournalDatePicker"
+              @input="updateJournalDate(eventValue($event))"
               @change="updateJournalDate(eventValue($event))"
             /><button
               v-if="journalDate"
@@ -442,7 +446,7 @@
                 <button
                   ref="parentAccountButtonRef"
                   type="button"
-                  class="flex w-full h-12 items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-5 text-left text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                  class="flex w-full h-12 items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-5 text-left text-sm font-semibold text-slate-700 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/10"
                   @click="toggleParentAccountDropdown"
                 >
                   <span class="truncate">{{ selectedParentAccountLabel }}</span>
@@ -481,16 +485,17 @@
                 >Rp</span
               ><input
                 id="acc-form-val"
-                type="number"
+                type="text"
+                inputmode="numeric"
                 required
-                :value="newAccount.saldo"
+                :value="accountOpeningBalanceInputValue"
                 style="padding-left: 3.75rem !important"
                 :class="[
                   accountInputClass,
                   'font-mono',
                   { 'form-control-invalid': accountFormErrors.saldo },
                 ]"
-                @input="setAccountField('saldo', Number(eventValue($event)))"
+                @input="handleAccountOpeningBalanceInput"
               />
             </div>
             <p v-if="accountFormErrors.saldo" class="form-field-warning">
@@ -500,20 +505,27 @@
           <button
             id="btn-account-submit"
             type="submit"
-            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
+            :disabled="isAccountSaving"
+            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
           >
-            <FileCheck class="w-4 h-4 text-[#38BDF8]" /> Simpan Akun Buku Besar
+            <FileCheck class="w-4 h-4 text-[#38BDF8]" />
+            {{ isAccountSaving ? "Menyimpan..." : "Simpan Akun Buku Besar" }}
           </button>
         </form>
       </div>
       <div
         v-if="isParentAccountDropdownOpen"
-        class="fixed overflow-y-auto rounded-xl border border-[#D8E5F4] bg-white py-1 shadow-[0_12px_28px_rgba(16,42,86,0.12)]"
+        class="fixed overflow-y-auto rounded-xl border border-slate-200 bg-white py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.10)]"
         :style="parentAccountDropdownStyle"
       >
         <button
           type="button"
-          class="w-full px-4 py-2 text-left text-[12px] font-semibold leading-snug text-[#0B1F4A] transition hover:bg-[#F3F8FE]"
+          :class="[
+            'w-full px-3.5 py-2 text-left text-[12px] font-semibold leading-snug transition',
+            !newAccount.parentId
+              ? 'bg-slate-50 text-[#102A56]'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-[#102A56]',
+          ]"
           @mousedown.prevent="selectParentAccount('')"
         >
           Tidak ada
@@ -522,7 +534,12 @@
           v-for="a in availableParentAccounts"
           :key="a.id"
           type="button"
-          class="w-full px-4 py-2 text-left text-[12px] font-semibold leading-snug text-[#0B1F4A] transition hover:bg-[#F3F8FE]"
+          :class="[
+            'w-full px-3.5 py-2 text-left text-[12px] font-semibold leading-snug transition',
+            String(newAccount.parentId) === String(a.id)
+              ? 'bg-slate-50 text-[#102A56]'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-[#102A56]',
+          ]"
           @mousedown.prevent="selectParentAccount(String(a.id))"
         >
           {{ a.kode }} - {{ a.nama }}
@@ -878,10 +895,11 @@
           <button
             id="btn-journal-submit"
             type="button"
-            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A]"
+            :disabled="isJournalSaving"
+            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60"
             @click="handleSaveJournal"
           >
-            Simpan Draft Jurnal
+            {{ isJournalSaving ? "Menyimpan..." : "Simpan Draft Jurnal" }}
           </button>
         </div>
       </div>
@@ -890,10 +908,12 @@
     <Teleport to="body">
       <div
       v-if="selectedAccountDetail"
-      class="account-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      class="account-detail-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      @click.self="closeAccountDetail"
     >
       <div
-        class="w-full max-w-[520px] overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+        class="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+        :style="{ maxHeight: 'calc(100dvh - 32px)' }"
       >
         <div
           class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
@@ -912,43 +932,104 @@
           <button
             type="button"
             class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-slate-600"
-            @click="selectedAccountDetail = null"
+            @click="closeAccountDetail"
           >
             ×
           </button>
         </div>
-        <div class="grid gap-3 p-6 text-xs sm:grid-cols-2">
-          <div
-            v-for="([label, value], detailIndex) in [
-              ['Tipe', selectedAccountDetail.tipe],
-              [
-                'Status',
-                selectedAccountDetail.status ||
-                  selectedAccountDetail._raw?.status ||
-                  'active',
-              ],
-              [
-                'Saldo Berjalan',
-                formatRupiah(selectedAccountDetail.saldo || 0),
-              ],
-              [
-                'Saldo Awal',
-                formatRupiah(selectedAccountDetail._raw?.opening_balance || 0),
-              ],
-              [
-                'Normal Balance',
-                selectedAccountDetail._raw?.normal_balance || '-',
-              ],
-              ['Parent ID', selectedAccountDetail._raw?.parent_id || '-'],
-            ]"
-            :key="`${label}-${detailIndex}`"
-            class="rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4"
-          >
-            <p class="text-[10px] font-bold uppercase text-[#94A3B8]">
-              {{ label }}
-            </p>
-            <p class="mt-1 font-bold text-[#0B1F4A]">{{ value }}</p>
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <div class="grid gap-3 p-5 text-xs sm:grid-cols-3">
+            <div
+              v-for="([label, value], detailIndex) in [
+                ['Tipe', selectedAccountDetail.tipe],
+                [
+                  'Status',
+                  selectedAccountDetail.status ||
+                    selectedAccountDetail._raw?.status ||
+                    'active',
+                ],
+                [
+                  'Saldo Berjalan',
+                  formatRupiah(selectedAccountDetail.saldo || 0),
+                ],
+                [
+                  'Saldo Awal',
+                  formatRupiah(selectedAccountDetail._raw?.opening_balance || 0),
+                ],
+                [
+                  'Normal Balance',
+                  selectedAccountDetail._raw?.normal_balance || '-',
+                ],
+                ['Parent ID', selectedAccountDetail._raw?.parent_id || '-'],
+              ]"
+              :key="`${label}-${detailIndex}`"
+              class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-3"
+            >
+              <p class="text-[10px] font-bold uppercase text-[#94A3B8]">
+                {{ label }}
+              </p>
+              <p class="mt-1 font-bold text-[#0B1F4A]">{{ value }}</p>
+            </div>
           </div>
+          <section class="border-t border-[#E8EEF7] px-5 pb-5">
+            <div class="flex items-start justify-between gap-3 py-4">
+              <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1E5AA8]">
+                  Sumber Dana / Asal Nilai
+                </p>
+                <p class="mt-1 text-[11px] font-medium text-[#64748B]">
+                  Transaksi yang menambah saldo akun ini, berdasarkan lawan akun jurnal.
+                </p>
+              </div>
+              <span class="rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-extrabold text-[#0B1F4A]">
+                {{ selectedAccountFundingRows().length }} sumber
+              </span>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-[#DCE7F4]">
+              <div class="max-h-[260px] overflow-auto">
+                <table class="w-full min-w-[680px] text-left text-xs">
+                  <thead class="bg-[#EAF2FB] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#243650]">
+                    <tr>
+                      <th class="px-3 py-2.5">Tanggal</th>
+                      <th class="px-3 py-2.5">Sumber / Pihak</th>
+                      <th class="px-3 py-2.5">Lawan Akun</th>
+                      <th class="px-3 py-2.5 text-right">Nominal</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-[#E8EEF7] bg-white">
+                    <tr v-if="!selectedAccountFundingRows().length">
+                      <td colspan="4" class="px-3 py-6 text-center font-semibold text-[#64748B]">
+                        Belum ada transaksi yang menambah saldo akun ini.
+                      </td>
+                    </tr>
+                    <tr
+                      v-for="row in selectedAccountFundingRows()"
+                      :key="row.id"
+                    >
+                      <td class="px-3 py-3 font-mono font-bold text-[#0B1F4A]">
+                        {{ row.tanggal || '-' }}
+                      </td>
+                      <td class="px-3 py-3">
+                        <p class="font-bold text-[#0B1F4A]">{{ row.source }}</p>
+                        <p class="mt-0.5 line-clamp-2 text-[10px] font-medium text-[#64748B]">
+                          {{ row.memo }}
+                        </p>
+                      </td>
+                      <td class="px-3 py-3">
+                        <p class="font-semibold text-[#243650]">{{ row.counterpart }}</p>
+                        <p class="mt-0.5 text-[10px] font-medium text-[#7A8CA8]">
+                          {{ row.status }}
+                        </p>
+                      </td>
+                      <td class="px-3 py-3 text-right font-mono font-extrabold text-[#0B1F4A]">
+                        {{ formatRupiah(row.nominal) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
       </div>
@@ -976,7 +1057,7 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { parseRupiahInput } from "../utils/rupiahInputs.js";
+import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import type { CSSProperties } from "vue";
 import {
@@ -1043,12 +1124,42 @@ const ledgerSearch = ref(""),
   updateLedgerSearch = (next) => (ledgerSearch.value = next);
 const journalSearch = ref(""),
   updateJournalSearch = (next) => (journalSearch.value = next);
+function normalizeJournalDate(value: any) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const localMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (localMatch) {
+    return `${localMatch[3]}-${localMatch[2].padStart(2, "0")}-${localMatch[1].padStart(2, "0")}`;
+  }
+  return text.slice(0, 10);
+}
 const journalDate = ref(""),
-  updateJournalDate = (next) => (journalDate.value = next); // Add Account Form State
+  updateJournalDate = (next) => {
+    journalDate.value = normalizeJournalDate(next);
+    journalPage.value = 1;
+  }; // Add Account Form State
+const journalDatePickerRef = ref<HTMLInputElement | null>(null);
+function openJournalDatePicker() {
+  const picker = journalDatePickerRef.value as
+    | (HTMLInputElement & { showPicker?: () => void })
+    | null;
+
+  if (!picker?.showPicker) return;
+
+  try {
+    picker.showPicker();
+  } catch {
+    // Browser dapat menolak showPicker saat event bukan user gesture.
+  }
+}
 const ledgerPage = ref(1);
 const journalPage = ref(1);
 const isAccountModalOpen = ref(false),
   updateIsAccountModalOpen = (next) => (isAccountModalOpen.value = next);
+const isAccountSaving = ref(false);
+const isJournalSaving = ref(false);
 const deleteConfirm = ref<any>(null);
 const selectedAccountDetail = ref<any>(null);
 const isParentAccountDropdownOpen = ref(false);
@@ -1109,6 +1220,10 @@ const accountFormErrorMessages = computed(() =>
   Object.values(accountFormErrors.value).filter(Boolean),
 );
 
+const accountOpeningBalanceInputValue = computed(() =>
+  formatRupiahInput(newAccount.value.saldo, false, false),
+);
+
 const selectedParentAccountLabel = computed(() => {
   const selectedParent = availableParentAccounts.value.find(
     (account) => String(account.id) === String(newAccount.value.parentId),
@@ -1122,7 +1237,7 @@ const parentAccountDropdownStyle = computed<CSSProperties>(() => ({
   top: `${parentAccountDropdownPosition.value.top}px`,
   left: `${parentAccountDropdownPosition.value.left}px`,
   width: `${parentAccountDropdownPosition.value.width}px`,
-  maxHeight: "150px",
+  maxHeight: "128px",
   overflowY: "auto",
   zIndex: 130001,
 }));
@@ -1146,6 +1261,11 @@ function setAccountField(key: keyof typeof newAccount.value, value: any) {
   });
   if (key in accountFormErrors.value)
     clearAccountFormError(key as AccountFormFieldKey);
+}
+
+function handleAccountOpeningBalanceInput(event: Event) {
+  const rawValue = eventValue(event);
+  setAccountField("saldo", parseRupiahInput(rawValue));
 }
 
 function toggleParentAccountDropdown() {
@@ -1229,6 +1349,23 @@ function validateAccountForm() {
   }
 
   return true;
+}
+
+function accountCodeExists(code: string) {
+  const normalizedCode = String(code || "").trim().toLowerCase();
+  if (!normalizedCode) return false;
+
+  const editingId = editingAccount.value
+    ? String(editingAccount.value.id || editingAccount.value._raw?.id || "")
+    : "";
+
+  return akun.some((account: any) => {
+    const accountId = String(account.id || account._raw?.id || "");
+    return (
+      String(account.kode || "").trim().toLowerCase() === normalizedCode &&
+      (!editingId || accountId !== editingId)
+    );
+  });
 }
 
 const editingAccount = ref<any>(null); // Add Journal Entry Form State
@@ -1552,6 +1689,14 @@ const openAccountForm = (account: any = null) => {
   updateIsAccountModalOpen(true);
 };
 
+const openAccountDetail = (account: any) => {
+  selectedAccountDetail.value = account ? { ...account } : null;
+};
+
+const closeAccountDetail = () => {
+  selectedAccountDetail.value = null;
+};
+
 const closeAccountModal = () => {
   resetAccountFormErrors();
   updateIsAccountModalOpen(false);
@@ -1560,22 +1705,29 @@ const closeAccountModal = () => {
 // Add or edit account submission
 const handleSaveAccount = async (e: Event) => {
   e.preventDefault();
+  if (isAccountSaving.value) return;
   if (!validateAccountForm()) {
     notify("Lengkapi seluruh data akun sebelum menyimpan.");
     return;
   }
-  if (
-    !editingAccount.value &&
-    akun.some((a) => a.kode === newAccount.value.kode)
-  ) {
-    notify("Kode akun sudah terdaftar di database.");
+  if (accountCodeExists(newAccount.value.kode)) {
+    accountFormErrors.value = {
+      ...accountFormErrors.value,
+      kode: "Kode sudah digunakan.",
+    };
+    notify("Kode sudah digunakan.");
     return;
   }
   const item: any = { ...newAccount.value };
-  if (editingAccount.value) await updateAccount(editingAccount.value, item);
-  else await addAccount(item);
-  closeAccountModal();
-  resetAccountForm();
+  isAccountSaving.value = true;
+  try {
+    if (editingAccount.value) await updateAccount(editingAccount.value, item);
+    else await addAccount(item);
+    closeAccountModal();
+    resetAccountForm();
+  } finally {
+    isAccountSaving.value = false;
+  }
 };
 
 const deleteAccount = async (account: any) => {
@@ -1589,7 +1741,8 @@ const confirmDeleteAccount = async () => {
 };
 
 // Add Transaction Submission
-const handleSaveJournal = () => {
+const handleSaveJournal = async () => {
+  if (isJournalSaving.value) return;
   if (!validateJournalForm()) {
     notify("Lengkapi seluruh kolom jurnal sebelum menyimpan.");
     return;
@@ -1623,10 +1776,15 @@ const handleSaveJournal = () => {
         })),
     ],
   };
-  addTransaction(transactionItem);
-  updateIsJournalModalOpen(false);
-  resetJournalForm();
-  notify("Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.");
+  isJournalSaving.value = true;
+  try {
+    await addTransaction(transactionItem);
+    updateIsJournalModalOpen(false);
+    resetJournalForm();
+    notify("Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.");
+  } finally {
+    isJournalSaving.value = false;
+  }
 };
 
 // Filters
@@ -1668,7 +1826,10 @@ const filteredJournals = computed(() =>
         String(t.source_label || "")
           .toLowerCase()
           .includes(query);
-      const matchesDate = !journalDate.value || t.tanggal === journalDate.value;
+      const transactionDate = normalizeJournalDate(
+        t.tanggal || t.transaction_date || t._raw?.transaction_date,
+      );
+      const matchesDate = !journalDate.value || transactionDate === journalDate.value;
       return matchesSearch && matchesDate;
     }),
   ),
@@ -1833,6 +1994,74 @@ const activeDivisions = computed(() =>
 
 function accountNameByCode(code: string) {
   return (props.akun || []).find((account) => account.kode === code)?.nama || "-";
+}
+
+function accountNormalSide(account: any): "debit" | "credit" {
+  const rawSide = String(account?._raw?.normal_balance || "").toLowerCase();
+  if (rawSide === "debit" || rawSide === "credit") return rawSide;
+  return ["Kewajiban", "Modal", "Pendapatan"].includes(String(account?.tipe || ""))
+    ? "credit"
+    : "debit";
+}
+
+function allocationAccountCode(allocation: any) {
+  return String(allocation || "")
+    .replace(/^(Dr|Cr)\s+/i, "")
+    .split(" - ")[0]
+    .trim();
+}
+
+function allocationAccountLabel(allocation: any) {
+  const text = String(allocation || "").trim();
+  return text || "-";
+}
+
+function transactionAllocations(transaction: any, side: "debit" | "credit") {
+  const key = side === "debit" ? "debit_allocations" : "credit_allocations";
+  const allocations = Array.isArray(transaction?.[key]) ? transaction[key] : [];
+  if (allocations.length) return allocations;
+
+  const code = side === "debit" ? transaction?.debitAkun : transaction?.kreditAkun;
+  return code ? [`${side === "debit" ? "Dr" : "Cr"} ${code} - ${accountNameByCode(code)}`] : [];
+}
+
+function selectedAccountFundingRows() {
+  const account = selectedAccountDetail.value;
+  if (!account) return [];
+
+  const accountCode = String(account.kode || "");
+  const increaseSide = accountNormalSide(account);
+  const counterpartSide = increaseSide === "debit" ? "credit" : "debit";
+
+  return latestFirst(
+    (props.transaksi || [])
+      .filter((transaction: any) =>
+        transactionAllocations(transaction, increaseSide).some(
+          (allocation) => allocationAccountCode(allocation) === accountCode,
+        ),
+      )
+      .map((transaction: any) => {
+        const counterparts = transactionAllocations(transaction, counterpartSide)
+          .filter((allocation) => allocationAccountCode(allocation) !== accountCode)
+          .map(allocationAccountLabel);
+        const source =
+          transaction.party_name ||
+          transaction.source_number ||
+          transaction.source_label ||
+          transaction.refVoucher ||
+          "Jurnal manual";
+
+        return {
+          id: `${transaction.id}-${accountCode}`,
+          tanggal: transaction.tanggal,
+          source,
+          memo: transaction.keterangan || "-",
+          counterpart: counterparts.length ? counterparts.join(", ") : "-",
+          nominal: Number(transaction.nominal || transaction.total_debit || transaction.total_credit || 0),
+          status: transaction.status || transaction.journal_status || "-",
+        };
+      }),
+  ).slice(0, 12);
 }
 
 function closeDeleteConfirm() {
