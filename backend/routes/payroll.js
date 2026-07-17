@@ -2,6 +2,7 @@ const express = require('express')
 const db = require('../config/db')
 const taxModule = require('./taxes')
 const { safePublicMessage } = require('../utils/api-errors')
+const { currentPeriodInJakarta, isValidDate, isValidPeriod, todayInJakarta } = require('../utils/date-validation')
 const { buildEmployeePph21Calculation } = taxModule
 
 const router = express.Router()
@@ -91,21 +92,12 @@ async function calculateDecemberPph21(executor, employeeId, payrollPeriod, emplo
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function currentPeriod() {
-  return new Date().toISOString().slice(0, 7)
+  return currentPeriodInJakarta()
 }
-
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
-}
-
-function isValidPeriod(value) {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ''))
-}
-
 
 function cleanText(value, maxLength = 5000) {
   const text = String(value ?? '').trim()

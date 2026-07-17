@@ -3,6 +3,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const db = require('./config/db')
+const { createCorsOptions } = require('./config/cors')
 
 const { authenticate } = require('./middleware/auth')
 const {
@@ -47,71 +48,7 @@ const payrollRouter = require('./routes/payroll')
 
 const app = express()
 const PORT = Number(process.env.PORT) || 4000
-
-/*
- * Daftar origin frontend yang diizinkan mengakses backend.
- *
- * FRONTEND_URL dapat ditambahkan pada Variables backend Railway:
- * FRONTEND_URL=https://frontend-production-741a.up.railway.app
- */
-const environmentOrigins = String(
-  process.env.CORS_ORIGIN ||
-  process.env.FRONTEND_URL ||
-  '',
-)
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
-
-const allowedOrigins = [
-  ...new Set([
-    ...environmentOrigins,
-    'https://frontend-production-741a.up.railway.app',
-    'http://localhost:5173',
-    'http://localhost:5174',
-  ]),
-]
-
-const corsOptions = {
-  origin(origin, callback) {
-    /*
-     * Request tanpa origin tetap diperbolehkan.
-     * Contohnya request dari Postman, curl, atau health checker.
-     */
-    if (!origin) {
-      callback(null, true)
-      return
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true)
-      return
-    }
-
-    console.warn(`[cors] Origin ditolak: ${origin}`)
-    callback(new Error('Origin tidak diizinkan oleh konfigurasi CORS'))
-  },
-
-  methods: [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'OPTIONS',
-  ],
-
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Idempotency-Key',
-  ],
-  exposedHeaders: [
-    'Idempotency-Replayed',
-  ],
-
-  optionsSuccessStatus: 204,
-}
+const corsOptions = createCorsOptions()
 
 /*
  * CORS harus dipasang sebelum middleware autentikasi.

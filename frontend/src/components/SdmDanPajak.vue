@@ -3641,6 +3641,8 @@ import {
 import { formatRupiah } from "../data.ts";
 import { Pegawai, AkunBukuBesar } from "../types.ts";
 import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
+import { currentMonthIso, todayIso } from "../utils/localDate";
+import { csvEscape } from "../utils/spreadsheetExport.js";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import SdmField from "./sdm/SdmField.vue";
@@ -3670,20 +3672,14 @@ interface PajakKewajiban {
   ntpn?: string;
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function currentPayrollPeriod() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return currentMonthIso();
 }
 
 function currentTaxDueDate() {
   const period = currentPayrollPeriod();
   const [year, month] = period.split("-").map(Number);
-  const due = new Date(year, month, 10);
-  return due.toISOString().slice(0, 10);
+  return new Date(Date.UTC(year, month, 10)).toISOString().slice(0, 10);
 }
 
 function formatPeriodLabel(period: string) {
@@ -4339,7 +4335,7 @@ const employeeForm = ref({
     positionId: "",
     statusKontrak: "Karyawan Tetap",
     employmentStatus: "active",
-    tanggalBergabung: new Date().toISOString().slice(0, 10),
+    tanggalBergabung: todayIso(),
     bpjsKesehatanNo: "",
     bpjsKesehatanTipe: "PPU (Penerima Upah)",
     bpjsKesehatanKelas: "Kelas 1",
@@ -5929,7 +5925,7 @@ async function downloadPayrollBankTransfer() {
     ]
       .map((row) =>
         row
-          .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+          .map(csvEscape)
           .join(","),
       )
       .join("\n");
@@ -6018,8 +6014,6 @@ const filteredTaxRows = computed(() =>
 const pagedTaxRows = computed(() =>
   pageRows(filteredTaxRows.value, taxPage.value),
 );
-const csvEscape = (value: any) =>
-  `"${String(value ?? "").replace(/"/g, '""')}"`;
 const downloadTextFile = (
   filename: string,
   content: string,
@@ -6067,7 +6061,7 @@ const exportTaxCsv = () => {
   ];
 
   downloadTextFile(
-    `finstart-pajak-${new Date().toISOString().slice(0, 10)}.csv`,
+    `finstart-pajak-${todayIso()}.csv`,
     csvRows.map((row) => row.map(csvEscape).join(",")).join("\n"),
   );
   notify(`CSV pajak berhasil dibuat (${rows.length} data).`);

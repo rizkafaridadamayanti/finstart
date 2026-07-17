@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -57,7 +58,7 @@ function isValidDate(value) {
 }
 
 function getToday() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function addDays(dateValue, days) {

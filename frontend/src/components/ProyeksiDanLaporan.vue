@@ -781,23 +781,63 @@
               </p>
             </div>
           </div>
+          <button
+            id="btn-open-budget-modal"
+            type="button"
+            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56] lg:w-auto"
+            @click="openBudgetModal()"
+          >
+            <Plus class="h-4 w-4" /> Tambah Budget
+          </button>
         </div>
-        <form
-          class="grid gap-4 border-b border-[#E8EEF7] bg-[#FBFDFF] p-5 md:grid-cols-2 lg:grid-cols-3"
-          @submit="saveBudget"
-        >
+        <Teleport to="body">
+          <div
+            v-if="isBudgetModalOpen"
+            class="budget-modal-layer fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <form
+              class="budget-modal-card w-full max-w-3xl overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-2xl"
+              novalidate
+              @submit="saveBudget"
+            >
+              <div
+                class="flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4"
+              >
+                <div>
+                  <p
+                    class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1E5AA8]"
+                  >
+                    Budget Control
+                  </p>
+                  <h3 class="mt-1 text-base font-semibold text-[#0B1F4A]">
+                    {{ budgetForm.id ? "Ubah Budget Akun/Divisi" : "Tambah Budget Akun/Divisi" }}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  :disabled="isBudgetSaving"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] text-[#53658A] transition hover:bg-[#F8FBFE] disabled:cursor-wait disabled:opacity-60"
+                  aria-label="Tutup modal budget"
+                  @click="closeBudgetModal"
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
+              <div class="grid gap-4 bg-[#FBFDFF] p-5 md:grid-cols-2">
           <label class="space-y-1"
             ><span
               class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
-              >Akun</span
+              >Akun buku besar</span
             ><select
-              required
+              id="budget-account-field"
+              ref="budgetAccountFieldRef"
               :value="budgetForm.account_id"
-              class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#182338]"
-              @change="updateBudgetForm({
-                    ...budgetForm,
-                    account_id: eventValue($event),
-                  })"
+              :aria-invalid="Boolean(budgetFormErrors.account_id)"
+              aria-describedby="budget-account-error"
+              :class="`h-10 w-full rounded-xl border bg-white px-3 text-xs font-semibold text-[#182338] ${budgetFormErrors.account_id ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#D8E5F4]'}`"
+              @change="handleBudgetAccountChange"
             >
               <option value="">Pilih akun</option>
               <option
@@ -807,7 +847,14 @@
               >
                 {{ account.kode }} · {{ account.nama }}
               </option>
-            </select></label
+            </select
+            ><p
+              v-if="budgetFormErrors.account_id"
+              id="budget-account-error"
+              class="text-xs font-semibold text-rose-600"
+            >
+              {{ budgetFormErrors.account_id }}
+            </p></label
           ><label class="space-y-1"
             ><span
               class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
@@ -861,12 +908,22 @@
               required
               type="number"
               min="0"
-              :value="budgetForm.budget_amount || ''"
-              class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#182338]"
-              @change="updateBudgetForm({
-                    ...budgetForm,
-                    budget_amount: parseRupiahInput(eventValue($event)),
-                  })" /></label
+              step="0.01"
+              max="999999999999999.99"
+              data-rupiah="false"
+              ref="budgetAmountFieldRef"
+              :value="budgetForm.budget_amount"
+              :aria-invalid="Boolean(budgetFormErrors.budget_amount)"
+              aria-describedby="budget-amount-error"
+              :class="`h-10 w-full rounded-xl border bg-white px-3 text-xs font-semibold text-[#182338] ${budgetFormErrors.budget_amount ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#D8E5F4]'}`"
+              @change="handleBudgetAmountChange" 
+            /><p
+              v-if="budgetFormErrors.budget_amount"
+              id="budget-amount-error"
+              class="text-xs font-semibold text-rose-600"
+            >
+              {{ budgetFormErrors.budget_amount }}
+            </p></label
           ><label class="space-y-1"
             ><span
               class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
@@ -887,15 +944,17 @@
               ><template v-else-if="budgetForm.id">Perbarui</template
               ><template v-else>Simpan</template></button
             ><button
-              v-if="budgetForm.id"
               type="button"
               class="inline-flex h-11 items-center justify-center rounded-xl border border-[#D8E5F4] px-5 text-sm font-semibold text-[#53658A]"
-              @click="resetBudgetForm"
+              @click="closeBudgetModal"
             >
               Batal
             </button>
           </div>
-        </form>
+              </div>
+            </form>
+          </div>
+        </Teleport>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] text-left text-sm">
             <thead
@@ -1293,6 +1352,7 @@
         </div>
         <form
           class="flex-1 overflow-y-auto px-7 py-6"
+          novalidate
           @submit="handleSaveTarget"
         >
           <div
@@ -1309,15 +1369,21 @@
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
                 >Bulan Proyeksi</span
               ><input
+                id="target-month-field"
+                ref="targetMonthFieldRef"
                 type="month"
-                required
                 :value="newTarget.bulanProyeksi"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      bulanProyeksi: eventValue($event),
-                    })"
-            /></label
+                :aria-invalid="Boolean(targetFormErrors.bulanProyeksi)"
+                aria-describedby="target-month-error"
+                :class="`h-12 w-full rounded-xl border bg-white px-4 text-sm font-medium text-[#182338] ${targetFormErrors.bulanProyeksi ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#D8E5F4]'}`"
+                @change="handleTargetMonthChange"
+              /><p
+                v-if="targetFormErrors.bulanProyeksi"
+                id="target-month-error"
+                class="text-xs font-semibold text-rose-600"
+              >
+                {{ targetFormErrors.bulanProyeksi }}
+              </p></label
             ><label class="space-y-2"
               ><span
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
@@ -1327,14 +1393,27 @@
                   class="pointer-events-none absolute inset-y-0 left-4 z-10 flex items-center text-sm font-bold text-[#8A98AB]"
                   >Rp</span
                 ><input
-                  type="text"
-                  inputmode="numeric"
+                  ref="targetRevenueFieldRef"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  :max="MAX_TARGET_AMOUNT"
                   data-rupiah="false"
                   :value="targetRevenueInputValue"
                   placeholder="0"
-                  class="target-money-input h-12 w-full rounded-xl border border-[#D8E5F4] bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338]"
+                  :aria-invalid="Boolean(targetFormErrors.revenueTarget)"
+                  aria-describedby="target-revenue-error"
+                  :class="`target-money-input h-12 w-full rounded-xl border bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338] ${targetFormErrors.revenueTarget ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#D8E5F4]'}`"
                   @input="handleTargetRevenueInput"
                   @change="handleTargetRevenueInput" /></span
+              ><p
+                v-if="targetFormErrors.revenueTarget"
+                id="target-revenue-error"
+                class="text-xs font-semibold text-rose-600"
+              >
+                {{ targetFormErrors.revenueTarget }}
+              </p
             ></label
             ><label class="space-y-2"
               ><span
@@ -1345,14 +1424,27 @@
                   class="pointer-events-none absolute inset-y-0 left-4 z-10 flex items-center text-sm font-bold text-[#8A98AB]"
                   >Rp</span
                 ><input
-                  type="text"
-                  inputmode="numeric"
+                  ref="targetExpenseFieldRef"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  :max="MAX_TARGET_AMOUNT"
                   data-rupiah="false"
                   :value="targetExpenseInputValue"
                   placeholder="0"
-                  class="target-money-input h-12 w-full rounded-xl border border-[#D8E5F4] bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338]"
+                  :aria-invalid="Boolean(targetFormErrors.expenseTarget)"
+                  aria-describedby="target-expense-error"
+                  :class="`target-money-input h-12 w-full rounded-xl border bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338] ${targetFormErrors.expenseTarget ? 'border-rose-400 ring-2 ring-rose-100' : 'border-[#D8E5F4]'}`"
                   @input="handleTargetExpenseInput"
                   @change="handleTargetExpenseInput" /></span
+              ><p
+                v-if="targetFormErrors.expenseTarget"
+                id="target-expense-error"
+                class="text-xs font-semibold text-rose-600"
+              >
+                {{ targetFormErrors.expenseTarget }}
+              </p
             ></label
             ><label class="space-y-2 md:col-span-2"
               ><span
@@ -1510,7 +1602,8 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
+import { currentMonthIso as localCurrentMonthIso, todayIso } from "../utils/localDate";
+import { spreadsheetSafeText } from "../utils/spreadsheetExport.js";
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import {
   AlertCircle,
@@ -1568,7 +1661,9 @@ type ReportType =
   | "payroll"
   | "aset"
   | "profitproyek";
-const currentMonthIso = () => new Date().toISOString().slice(0, 7);
+const currentMonthIso = () => localCurrentMonthIso();
+const MAX_BUDGET_AMOUNT = 999999999999999.99;
+const MAX_TARGET_AMOUNT = 9999999999999.99;
 const currencyOrUnit = (value: number, unit: AnnualTarget["satuan"]) => {
   if (unit === "Rupiah") return formatRupiah(value);
   if (unit === "Persen") return `${value.toLocaleString("id-ID")}%`;
@@ -1648,10 +1743,20 @@ const selectReportType = (reportType: ReportType) => {
 };
 const isTargetModalOpen = ref(false),
   updateIsTargetModalOpen = (next) => (isTargetModalOpen.value = next);
+const isBudgetModalOpen = ref(false),
+  updateIsBudgetModalOpen = (next) => (isBudgetModalOpen.value = next);
 const isScenarioSaving = ref(false);
 const isBudgetSaving = ref(false);
 const isTargetSaving = ref(false);
 const editingTargetId = ref("");
+const targetFormErrors = ref({
+  bulanProyeksi: "",
+  revenueTarget: "",
+  expenseTarget: "",
+});
+const targetMonthFieldRef = ref<HTMLInputElement | null>(null);
+const targetRevenueFieldRef = ref<HTMLInputElement | null>(null);
+const targetExpenseFieldRef = ref<HTMLInputElement | null>(null);
 const isPrintModalOpen = ref(false),
   updateIsPrintModalOpen = (next) => (isPrintModalOpen.value = next);
 const selectedScenarioKey = ref(
@@ -1672,10 +1777,13 @@ const budgetForm = ref({
     scenario_key: String(props.projectionData?.scenario?.scenario_key || "normal"),
     account_id: "",
     division_id: "",
-    budget_amount: 0,
+    budget_amount: "",
     notes: "",
   }),
   updateBudgetForm = (next) => (budgetForm.value = next);
+const budgetFormErrors = ref({ account_id: "", budget_amount: "" });
+const budgetAccountFieldRef = ref<HTMLSelectElement | null>(null);
+const budgetAmountFieldRef = ref<HTMLInputElement | null>(null);
 const deleteBudgetConfirm = ref<any>(null);
 const targetPage = ref(1);
 const budgetPage = ref(1);
@@ -1711,30 +1819,137 @@ const targets = computed<AnnualTarget[]>(() => [
   },
 ]);
 const newTarget = ref({
-    revenueTarget: 0,
-    expenseTarget: 0,
+    revenueTarget: "0",
+    expenseTarget: "0",
     notes: "",
     bulanProyeksi: currentMonthIso(),
   }),
   updateNewTarget = (next) => (newTarget.value = next);
 const targetRevenueInputValue = computed(() =>
-  formatRupiahInput(newTarget.value.revenueTarget, false, false),
+  String(newTarget.value.revenueTarget ?? ""),
 );
 const targetExpenseInputValue = computed(() =>
-  formatRupiahInput(newTarget.value.expenseTarget, false, false),
+  String(newTarget.value.expenseTarget ?? ""),
 );
 function handleTargetRevenueInput(event: Event) {
+  targetFormErrors.value.revenueTarget = "";
   updateNewTarget({
     ...newTarget.value,
-    revenueTarget: parseRupiahInput(eventValue(event)),
+    revenueTarget: eventValue(event),
   });
 }
 function handleTargetExpenseInput(event: Event) {
+  targetFormErrors.value.expenseTarget = "";
   updateNewTarget({
     ...newTarget.value,
-    expenseTarget: parseRupiahInput(eventValue(event)),
+    expenseTarget: eventValue(event),
   });
 }
+const focusTargetMonthField = async () => {
+  await nextTick();
+  targetMonthFieldRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+  targetMonthFieldRef.value?.focus();
+};
+const focusTargetRevenueField = async () => {
+  await nextTick();
+  targetRevenueFieldRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+  targetRevenueFieldRef.value?.focus();
+};
+const focusTargetExpenseField = async () => {
+  await nextTick();
+  targetExpenseFieldRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+  targetExpenseFieldRef.value?.focus();
+};
+const handleTargetMonthChange = (event: Event) => {
+  targetFormErrors.value.bulanProyeksi = "";
+  updateNewTarget({
+    ...newTarget.value,
+    bulanProyeksi: eventValue(event),
+  });
+};
+const resetTargetErrors = () => {
+  targetFormErrors.value = {
+    bulanProyeksi: "",
+    revenueTarget: "",
+    expenseTarget: "",
+  };
+};
+const validateTargetAmount = (value: any, label: string) => {
+  const rawValue = String(value ?? "").trim();
+  const amount = rawValue === "" ? 0 : Number(rawValue);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { amount, message: `${label} harus 0 atau lebih.` };
+  }
+
+  if (amount > MAX_TARGET_AMOUNT) {
+    return {
+      amount,
+      message: `${label} melebihi batas data sumber.`,
+    };
+  }
+
+  return { amount, message: "" };
+};
+const validateTargetForm = async () => {
+  resetTargetErrors();
+  let valid = true;
+
+  if (!newTarget.value.bulanProyeksi) {
+    targetFormErrors.value.bulanProyeksi = "Bulan Proyeksi wajib diisi.";
+    valid = false;
+  }
+
+  const revenue = validateTargetAmount(
+    newTarget.value.revenueTarget,
+    "Target Pendapatan",
+  );
+  const expense = validateTargetAmount(
+    newTarget.value.expenseTarget,
+    "Target Beban",
+  );
+
+  if (revenue.message) {
+    targetFormErrors.value.revenueTarget = revenue.message;
+    valid = false;
+  }
+
+  if (expense.message) {
+    targetFormErrors.value.expenseTarget = expense.message;
+    valid = false;
+  }
+
+  if (valid && revenue.amount <= 0 && expense.amount <= 0) {
+    notify("Isi minimal salah satu target: pendapatan atau beban.");
+    return { valid: false, revenueTarget: revenue.amount, expenseTarget: expense.amount };
+  }
+
+  if (!valid && targetFormErrors.value.bulanProyeksi) {
+    notify(targetFormErrors.value.bulanProyeksi);
+    await focusTargetMonthField();
+  } else if (!valid && targetFormErrors.value.revenueTarget) {
+    notify(targetFormErrors.value.revenueTarget);
+    await focusTargetRevenueField();
+  } else if (!valid && targetFormErrors.value.expenseTarget) {
+    notify(targetFormErrors.value.expenseTarget);
+    await focusTargetExpenseField();
+  }
+
+  return {
+    valid,
+    revenueTarget: revenue.amount,
+    expenseTarget: expense.amount,
+  };
+};
 const achievementAverage = computed(() => {
   if (!targets.value.length) return 0;
   return Math.round(
@@ -1835,7 +2050,70 @@ const saveScenario = async () => {
     isScenarioSaving.value = false;
   }
 };
-const resetBudgetForm = () =>
+const focusBudgetAccountField = async () => {
+  await nextTick();
+  budgetAccountFieldRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+  budgetAccountFieldRef.value?.focus();
+};
+const focusBudgetAmountField = async () => {
+  await nextTick();
+  budgetAmountFieldRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+  budgetAmountFieldRef.value?.focus();
+};
+const handleBudgetAccountChange = (event: Event) => {
+  budgetFormErrors.value.account_id = "";
+  updateBudgetForm({
+    ...budgetForm.value,
+    account_id: eventValue(event),
+  });
+};
+const handleBudgetAmountChange = (event: Event) => {
+  budgetFormErrors.value.budget_amount = "";
+  updateBudgetForm({
+    ...budgetForm.value,
+    budget_amount: eventValue(event),
+  });
+};
+const validateBudgetForm = async () => {
+  let valid = true;
+  budgetFormErrors.value = { account_id: "", budget_amount: "" };
+
+  if (!budgetForm.value.account_id) {
+    budgetFormErrors.value.account_id = "Akun buku besar wajib diisi.";
+    valid = false;
+  }
+
+  const rawBudgetAmount = String(budgetForm.value.budget_amount ?? "").trim();
+  const budgetAmount = Number(rawBudgetAmount);
+  if (!rawBudgetAmount) {
+    budgetFormErrors.value.budget_amount = "Nilai budget wajib diisi.";
+    valid = false;
+  } else if (!Number.isFinite(budgetAmount) || budgetAmount < 0) {
+    budgetFormErrors.value.budget_amount = "Nilai budget harus 0 atau lebih.";
+    valid = false;
+  } else if (budgetAmount > MAX_BUDGET_AMOUNT) {
+    budgetFormErrors.value.budget_amount = "Nilai budget melebihi batas data sumber.";
+    valid = false;
+  }
+
+  if (!valid && budgetFormErrors.value.account_id) {
+    notify(budgetFormErrors.value.account_id);
+    await focusBudgetAccountField();
+  } else if (!valid) {
+    notify(budgetFormErrors.value.budget_amount);
+    await focusBudgetAmountField();
+  }
+
+  return valid;
+};
+const resetBudgetForm = () => {
+  budgetFormErrors.value = { account_id: "", budget_amount: "" };
   updateBudgetForm({
     id: "",
     budget_year: Number(props.projectionData?.year || new Date().getFullYear()),
@@ -1843,10 +2121,25 @@ const resetBudgetForm = () =>
     scenario_key: selectedScenarioKey.value || "normal",
     account_id: "",
     division_id: "",
-    budget_amount: 0,
+    budget_amount: "",
     notes: "",
   });
-const editBudget = (budget: any) =>
+};
+const openBudgetModal = (budget: any = null) => {
+  if (budget) {
+    editBudget(budget);
+    return;
+  }
+  resetBudgetForm();
+  updateIsBudgetModalOpen(true);
+};
+const closeBudgetModal = () => {
+  if (isBudgetSaving.value) return;
+  resetBudgetForm();
+  updateIsBudgetModalOpen(false);
+};
+const editBudget = (budget: any) => {
+  budgetFormErrors.value = { account_id: "", budget_amount: "" };
   updateBudgetForm({
     id: String(budget.id),
     budget_year: Number(
@@ -1861,15 +2154,12 @@ const editBudget = (budget: any) =>
     budget_amount: Number(budget.budget_amount || 0),
     notes: String(budget.notes || ""),
   });
+  updateIsBudgetModalOpen(true);
+};
 const saveBudget = async (event: Event) => {
   event.preventDefault();
   if (isBudgetSaving.value) return;
-  if (!budgetForm.value.account_id) {
-    notify("Pilih akun buku besar untuk budget.");
-    return;
-  }
-  if (Number(budgetForm.value.budget_amount) < 0) {
-    notify("Nilai budget tidak boleh negatif.");
+  if (!(await validateBudgetForm())) {
     return;
   }
   isBudgetSaving.value = true;
@@ -1879,6 +2169,7 @@ const saveBudget = async (event: Event) => {
       scenario_key: selectedScenarioKey.value || budgetForm.value.scenario_key,
     });
     resetBudgetForm();
+    updateIsBudgetModalOpen(false);
   } finally {
     isBudgetSaving.value = false;
   }
@@ -2015,18 +2306,20 @@ const roadmapLinePoints = (
         .join(" ")
     : "";
 const openTargetModal = (target: any = null) => {
+  resetTargetErrors();
   editingTargetId.value = target?.month ? String(target.month) : "";
   const monthNumber = Number(target?.month || new Date().getMonth() + 1);
   const monthIso = `${props.projectionData?.year || new Date().getFullYear()}-${String(monthNumber).padStart(2, "0")}`;
   updateNewTarget({
-    revenueTarget: Number(target?.revenue_target || 0),
-    expenseTarget: Number(target?.expense_target || 0),
+    revenueTarget: String(Number(target?.revenue_target || 0)),
+    expenseTarget: String(Number(target?.expense_target || 0)),
     notes: String(target?.notes || ""),
     bulanProyeksi: target?.month ? monthIso : currentMonthIso(),
   });
   updateIsTargetModalOpen(true);
 };
 const closeTargetModal = () => {
+  resetTargetErrors();
   editingTargetId.value = "";
   updateIsTargetModalOpen(false);
 };
@@ -2046,25 +2339,14 @@ const showSavedTargetInTable = async (month: number) => {
 const handleSaveTarget = async (event: Event) => {
   event.preventDefault();
   if (isTargetSaving.value) return;
-  const revenueTarget = Number(newTarget.value.revenueTarget || 0);
-  const expenseTarget = Number(newTarget.value.expenseTarget || 0);
-
-  if (!newTarget.value.bulanProyeksi) {
-    notify("Pilih bulan proyeksi terlebih dahulu.");
-    return;
-  }
-
-  if (revenueTarget < 0 || expenseTarget < 0) {
-    notify("Target pendapatan dan beban tidak boleh negatif.");
-    return;
-  }
-
-  if (revenueTarget <= 0 && expenseTarget <= 0) {
-    notify("Isi minimal salah satu target: pendapatan atau beban.");
+  const validation = await validateTargetForm();
+  if (!validation.valid) {
     return;
   }
 
   const targetMonth = Number(String(newTarget.value.bulanProyeksi || "").slice(-2));
+  const revenueTarget = validation.revenueTarget;
+  const expenseTarget = validation.expenseTarget;
 
   isTargetSaving.value = true;
   try {
@@ -2076,8 +2358,8 @@ const handleSaveTarget = async (event: Event) => {
     });
     if (!isSaved) return;
     updateNewTarget({
-      revenueTarget: 0,
-      expenseTarget: 0,
+      revenueTarget: "0",
+      expenseTarget: "0",
       notes: "",
       bulanProyeksi: currentMonthIso(),
     });
@@ -2347,6 +2629,8 @@ const escapeHtml = (value: any) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+const escapeSpreadsheetHtml = (value: any) =>
+  escapeHtml(typeof value === "number" ? value : spreadsheetSafeText(value));
 const exportCurrentReportExcel = () => {
   const report = currentReport.value;
   const tableRows = [
@@ -2354,9 +2638,9 @@ const exportCurrentReportExcel = () => {
     ...report.rows,
     ...report.totals.map((total: any) => [total[0], "", total[1] || ""]),
   ];
-  const worksheet = `<!doctype html><html><head><meta charset="utf-8"></head><body><table><tr><th colspan="3">PT Kedata Indonesia Digital</th></tr><tr><th colspan="3">${escapeHtml(report.title)}</th></tr><tr><td colspan="3">${escapeHtml(report.subtitle)}</td></tr><tr><td colspan="3"></td></tr>${tableRows.map((row: any, index: number) => `<tr>${row.map((cell: any) => (index === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`)).join("")}</tr>`).join("")}</table></body></html>`;
+  const worksheet = `<!doctype html><html><head><meta charset="utf-8"></head><body><table><tr><th colspan="3">PT Kedata Indonesia Digital</th></tr><tr><th colspan="3">${escapeSpreadsheetHtml(report.title)}</th></tr><tr><td colspan="3">${escapeSpreadsheetHtml(report.subtitle)}</td></tr><tr><td colspan="3"></td></tr>${tableRows.map((row: any, index: number) => `<tr>${row.map((cell: any) => (index === 0 ? `<th>${escapeSpreadsheetHtml(cell)}</th>` : `<td>${escapeSpreadsheetHtml(cell)}</td>`)).join("")}</tr>`).join("")}</table></body></html>`;
   downloadTextFile(
-    `finstart-${activeReportType.value}-${new Date().toISOString().slice(0, 10)}.xls`,
+    `finstart-${activeReportType.value}-${todayIso()}.xls`,
     `\ufeff${worksheet}`,
     "application/vnd.ms-excel;charset=utf-8;",
   );

@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { financeApi } from "../services/financeApi.js";
+import { todayIso } from "../utils/localDate";
 import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 
 interface ReceivableActionOptions {
@@ -30,12 +31,12 @@ export function useReceivableActions({
       issue_date:
         form.tanggalKirim ||
         form.issueDate ||
-        new Date().toISOString().slice(0, 10),
+        todayIso(),
       due_date:
         form.jatuhTempo ||
         form.dueDate ||
         form.tanggalKirim ||
-        new Date().toISOString().slice(0, 10),
+        todayIso(),
       notes: form.keterangan || form.notes || `Termin proyek ${project.nama}`,
       items: [
         {
@@ -99,7 +100,7 @@ export function useReceivableActions({
     withApiFeedback(
       async () => {
         await financeApi.post(`/invoices/${invoice.id}/cancel`, {
-          cancellation_date: new Date().toISOString().slice(0, 10),
+          cancellation_date: todayIso(),
           reason,
         });
         await refreshData();
@@ -120,7 +121,7 @@ export function useReceivableActions({
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
         const result = await financeApi.post(`/invoices/${invoice.id}/payments`, {
           payment_date:
-            payment.paymentDate || new Date().toISOString().slice(0, 10),
+            payment.paymentDate || todayIso(),
           payment_method: "transfer",
           amount: toNumber(
             payment.amount || invoice.outstandingAmount || invoice.nominal,
@@ -150,12 +151,12 @@ export function useReceivableActions({
     bill_date:
       form.tanggalMasuk ||
       form.billDate ||
-      new Date().toISOString().slice(0, 10),
+      todayIso(),
     due_date:
       form.jatuhTempo ||
       form.dueDate ||
       form.tanggalMasuk ||
-      new Date().toISOString().slice(0, 10),
+      todayIso(),
     notes: form.keterangan || form.notes || "",
     items: [
       {
@@ -223,7 +224,7 @@ export function useReceivableActions({
     withApiFeedback(
       async () => {
         await financeApi.post(`/bills/${bill.id}/cancel`, {
-          cancellation_date: new Date().toISOString().slice(0, 10),
+          cancellation_date: todayIso(),
           reason,
         });
         await refreshData();
@@ -244,7 +245,7 @@ export function useReceivableActions({
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
         const result = await financeApi.post(`/bills/${bill.id}/payments`, {
           payment_date:
-            payment.paymentDate || new Date().toISOString().slice(0, 10),
+            payment.paymentDate || todayIso(),
           payment_method: "transfer",
           amount: toNumber(
             payment.amount || bill.outstandingAmount || bill.nominal,

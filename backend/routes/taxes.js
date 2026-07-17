@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
+const { currentPeriodInJakarta, isValidDate, isValidPeriod, todayInJakarta } = require('../utils/date-validation')
 
 const router = express.Router()
 
@@ -72,21 +73,12 @@ function numberValue(value) {
   return Number(value || 0)
 }
 
-function isValidDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))
-}
-
-function isValidPeriod(value) {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || ''))
-}
-
 function getToday() {
-  return new Date().toISOString().slice(0, 10)
+  return todayInJakarta()
 }
 
 function getPeriodData(requestedPeriod) {
-  const today = new Date()
-  const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const fallback = currentPeriodInJakarta()
   const period = isValidPeriod(requestedPeriod) ? requestedPeriod : fallback
   const [yearText, monthText] = period.split('-')
   const year = Number(yearText)
@@ -1397,8 +1389,8 @@ router.delete('/:id', async (req, res) => {
       throw new Error('Kewajiban pajak tidak ditemukan.')
     }
 
-    if (record.status === 'paid') {
-      throw new Error('Kewajiban pajak yang sudah disetor tidak dapat dihapus.')
+    if (record.status !== 'draft') {
+      throw new Error('Hanya draft kewajiban pajak yang dapat dihapus.')
     }
 
     if (await hasGeneratedTaxSource(connection, record.id)) {
@@ -1418,10 +1410,6 @@ router.delete('/:id', async (req, res) => {
 
     if (paymentJournalRows[0]) {
       throw new Error('Pajak yang sudah memiliki jurnal setoran tidak dapat dihapus.')
-    }
-
-    if (record.status !== 'draft') {
-      await reverseTaxObligationJournal(connection, record.id, 'Dihapus dari tabel pajak')
     }
 
     await connection.query('DELETE FROM tax_records WHERE id = ?', [record.id])
