@@ -168,6 +168,15 @@ router.get('/', async (req, res) => {
       )
     }
 
+    // NOTE OPTIMASI:
+    // Agregasi journal_lines (SUM debit/credit + GROUP_CONCAT) dipindahkan ke
+    // subquery `line_agg` yang sudah menghasilkan 1 baris per journal_entry_id.
+    // Dengan begitu, query utama TIDAK PERLU lagi GROUP BY atas puluhan kolom
+    // dari tabel-tabel source (invoice/bill/tax/payroll/subscription/asset/dst),
+    // karena kolom-kolom tersebut sudah fungsional-dependen terhadap je.id
+    // (setiap join source_id+source_type hanya menghasilkan 1 baris).
+    // Ini menghilangkan sorting besar yang menyebabkan
+    // "Out of sort memory, consider increasing server sort buffer size".
     const [journalRows] = await db.query(
       `
         SELECT
@@ -221,21 +230,32 @@ router.get('/', async (req, res) => {
             ELSE NULL
           END AS party_name,
 
-          COALESCE(SUM(jl.debit), 0) AS total_debit,
-          COALESCE(SUM(jl.credit), 0) AS total_credit,
-          GROUP_CONCAT(
-            CASE WHEN jl.debit > 0 THEN CONCAT('Dr ', acc.code, ' - ', acc.name) END
-            ORDER BY jl.id ASC SEPARATOR '||'
-          ) AS debit_allocations,
-          GROUP_CONCAT(
-            CASE WHEN jl.credit > 0 THEN CONCAT('Cr ', acc.code, ' - ', acc.name) END
-            ORDER BY jl.id ASC SEPARATOR '||'
-          ) AS credit_allocations
+          COALESCE(line_agg.total_debit, 0) AS total_debit,
+          COALESCE(line_agg.total_credit, 0) AS total_credit,
+          line_agg.debit_allocations AS debit_allocations,
+          line_agg.credit_allocations AS credit_allocations
+
         FROM journal_entries je
         LEFT JOIN users creator ON creator.id = je.created_by
         LEFT JOIN users approver ON approver.id = je.approved_by
-        LEFT JOIN journal_lines jl ON jl.journal_entry_id = je.id
-        LEFT JOIN accounts acc ON acc.id = jl.account_id
+
+        LEFT JOIN (
+          SELECT
+            jl.journal_entry_id,
+            SUM(jl.debit) AS total_debit,
+            SUM(jl.credit) AS total_credit,
+            GROUP_CONCAT(
+              CASE WHEN jl.debit > 0 THEN CONCAT('Dr ', acc.code, ' - ', acc.name) END
+              ORDER BY jl.id ASC SEPARATOR '||'
+            ) AS debit_allocations,
+            GROUP_CONCAT(
+              CASE WHEN jl.credit > 0 THEN CONCAT('Cr ', acc.code, ' - ', acc.name) END
+              ORDER BY jl.id ASC SEPARATOR '||'
+            ) AS credit_allocations
+          FROM journal_lines jl
+          INNER JOIN accounts acc ON acc.id = jl.account_id
+          GROUP BY jl.journal_entry_id
+        ) line_agg ON line_agg.journal_entry_id = je.id
 
         LEFT JOIN invoice_payments invoice_payment
           ON invoice_payment.id = je.source_id AND je.source_type = 'invoice_payment'
@@ -277,19 +297,6 @@ router.get('/', async (req, res) => {
           ON vat_closing.id = je.source_id AND je.source_type = 'vat_closing'
 
         WHERE ${conditions.join(' AND ')}
-        GROUP BY
-          je.id, je.voucher_number, je.transaction_date, je.description,
-          je.source_type, je.source_id, je.status, je.posted_at, je.created_at,
-          je.created_by, je.approved_by, je.approved_at,
-          creator.name, approver.name,
-          inv.status, inv.invoice_number, inv_client.company_name,
-          bill.status, bill.bill_number, bill.vendor_name,
-          tax.status, tax.tax_number, tax.tax_type, tax.tax_period,
-          payroll.status, payroll.payroll_period, payroll.employee_code, payroll.employee_name,
-          payroll_tax.status, payroll_tax.tax_period, payroll_tax.employee_nik, payroll_tax.employee_name,
-          subscription.id, subscription.subscription_name, subscription.provider_name,
-          asset.status, asset.asset_code, asset.asset_name,
-          depreciation.status, vat_closing.status, vat_closing.tax_period
         ORDER BY je.transaction_date DESC, je.id DESC
       `,
       params,
