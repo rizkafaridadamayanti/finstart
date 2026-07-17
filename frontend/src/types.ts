@@ -26,7 +26,7 @@ export interface AnggotaTim {
 interface MilestoneProyek {
   title: string;
   due_date?: string | null;
-  status?: "planned" | "in_progress" | "completed";
+  status?: "planned" | "in_progress" | "completed" | "cancelled";
 }
 export interface Proyek {
   id: string;
@@ -37,7 +37,7 @@ export interface Proyek {
     | "Tender Terbatas"
     | "Penunjukan Langsung"
     | "Pengadaan Langsung";
-  status: "Planning" | "Ongoing" | "Completed";
+  status: "Planning" | "Ongoing" | "Completed" | "Cancelled";
   tanggalMulai: string;
   tanggalSelesai: string;
   klienId: string;

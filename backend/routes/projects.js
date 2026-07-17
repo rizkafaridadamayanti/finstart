@@ -1017,6 +1017,7 @@ router.post('/:id/close', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const projectId = Number(req.params.id)
+    const force = req.query.force === 'true' || req.query.force === '1'
 
     if (!Number.isInteger(projectId) || projectId <= 0) {
       return res.status(400).json({
@@ -1037,20 +1038,56 @@ router.delete('/:id', async (req, res) => {
       })
     }
 
-    const usage = await getProjectUsage(projectId)
-    const reasons = [
-      usage.invoice_count > 0 ? `${usage.invoice_count} invoice` : '',
-      usage.bill_count > 0 ? `${usage.bill_count} tagihan vendor` : '',
-      usage.member_count > 0 ? `${usage.member_count} anggota proyek` : '',
-    ].filter(Boolean)
+    if (!force) {
+      const usage = await getProjectUsage(projectId)
+      const reasons = [
+        usage.invoice_count > 0 ? `${usage.invoice_count} invoice` : '',
+        usage.bill_count > 0 ? `${usage.bill_count} tagihan vendor` : '',
+        usage.member_count > 0 ? `${usage.member_count} anggota proyek` : '',
+      ].filter(Boolean)
 
-    if (reasons.length > 0) {
-      return res.status(409).json({
-        success: false,
-        code: 'PROJECT_IN_USE',
-        message: `Project masih terhubung dengan ${reasons.join(', ')}. Record terpakai tidak boleh dihapus; ubah status project menjadi cancelled/completed atau lepaskan data terkait terlebih dahulu.`,
-        data: usage,
-      })
+      if (reasons.length > 0) {
+        return res.status(409).json({
+          success: false,
+          code: 'PROJECT_IN_USE',
+          message: `Project masih terhubung dengan ${reasons.join(', ')}. Record terpakai tidak boleh dihapus; ubah status project menjadi cancelled/completed atau lepaskan data terkait terlebih dahulu.`,
+          data: usage,
+        })
+      }
+    }
+
+    if (force) {
+      const conn = await db.getConnection()
+      try {
+        await conn.beginTransaction()
+        const [invoiceRows] = await conn.query('SELECT id FROM invoices WHERE project_id = ?', [projectId])
+        const invoiceIds = invoiceRows.map(r => r.id)
+        if (invoiceIds.length > 0) {
+          await conn.query('DELETE FROM invoice_items WHERE invoice_id IN (?)', [invoiceIds])
+          const [invPayRows] = await conn.query('SELECT journal_entry_id FROM invoice_payments WHERE invoice_id IN (?)', [invoiceIds])
+          const invJournalIds = invPayRows.map(r => r.journal_entry_id).filter(Boolean)
+          await conn.query('DELETE FROM invoice_payments WHERE invoice_id IN (?)', [invoiceIds])
+          if (invJournalIds.length > 0) await conn.query('DELETE FROM journal_entries WHERE id IN (?)', [invJournalIds])
+          await conn.query('DELETE FROM invoices WHERE id IN (?)', [invoiceIds])
+        }
+        const [billRows] = await conn.query('SELECT id FROM bills WHERE project_id = ?', [projectId])
+        const billIds = billRows.map(r => r.id)
+        if (billIds.length > 0) {
+          await conn.query('DELETE FROM bill_items WHERE bill_id IN (?)', [billIds])
+          const [billPayRows] = await conn.query('SELECT journal_entry_id FROM bill_payments WHERE bill_id IN (?)', [billIds])
+          const billJournalIds = billPayRows.map(r => r.journal_entry_id).filter(Boolean)
+          await conn.query('DELETE FROM bill_payments WHERE bill_id IN (?)', [billIds])
+          if (billJournalIds.length > 0) await conn.query('DELETE FROM journal_entries WHERE id IN (?)', [billJournalIds])
+          await conn.query('DELETE FROM bills WHERE id IN (?)', [billIds])
+        }
+        await conn.query('DELETE FROM project_members WHERE project_id = ?', [projectId])
+        await conn.commit()
+      } catch (txErr) {
+        await conn.rollback()
+        throw txErr
+      } finally {
+        conn.release()
+      }
     }
 
     const [result] = await db.query(

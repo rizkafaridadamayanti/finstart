@@ -1211,6 +1211,95 @@ await test('error tengah pembayaran invoice memicu rollback tanpa commit', async
   assert.ok(!connection.calls.some((call) => call.sql.startsWith('UPDATE invoices')))
 })
 
+await test('pembayaran draft tagihan vendor memposting jurnal tagihan saat klik bayar', async () => {
+  const connection = makeFakeConnection((sql, params) => {
+    if (sql.includes('SELECT * FROM bills WHERE id = ? FOR UPDATE')) {
+      return [[{
+        id: 44,
+        bill_number: 'SUB-44-20260817',
+        vendor_name: 'Claude',
+        bill_date: '2026-08-17',
+        due_date: '2026-08-17',
+        total_amount: 100000,
+        paid_amount: 0,
+        status: 'draft',
+      }]]
+    }
+    if (sql.includes("tax_type = 'PPH23'") && sql.includes('LIMIT 1')) return [[]]
+    if (sql.includes("FROM journal_entries WHERE source_type = 'bill'")) return [[]]
+    if (sql.includes("FROM transaction_taxes WHERE source_type = 'bill'")) return [[]]
+    if (sql.includes('FROM accounts') && sql.includes('WHERE code = ?')) {
+      const accountByCode = {
+        2100: { id: 210, code: '2100', name: 'Utang Usaha', type: 'liability', normal_balance: 'credit' },
+        5100: { id: 510, code: '5100', name: 'Beban Gaji', type: 'expense', normal_balance: 'debit' },
+      }
+      return [[accountByCode[params[0]]]]
+    }
+    if (sql.includes('FROM accounts') && sql.includes('WHERE id = ?') && !sql.includes('FOR UPDATE')) {
+      return [[{ id: params[0], code: '1120', name: 'Bank', type: 'asset', normal_balance: 'debit' }]]
+    }
+    if (sql.startsWith('INSERT INTO bill_payments')) return [{ insertId: 77 }]
+    if (sql.startsWith('INSERT INTO journal_entries')) {
+      return [{ insertId: String(params[0]).startsWith('AP-BIL-') ? 880 : 881 }]
+    }
+    if (sql.startsWith('INSERT INTO journal_lines')) return [{}]
+    if (sql.includes('FROM accounts') && sql.includes('FOR UPDATE')) {
+      const normal = Number(params[0]) === 210 ? 'credit' : 'debit'
+      return [[{ id: params[0], normal_balance: normal }]]
+    }
+    if (sql.startsWith('UPDATE accounts')) return [{}]
+    if (sql.startsWith('UPDATE bill_payments SET journal_entry_id')) return [{}]
+    if (sql.startsWith('UPDATE bills SET paid_amount')) return [{}]
+    return [{}]
+  })
+
+  const response = await withMockQuery((sql) => {
+    if (sql.includes('FROM bills LEFT JOIN projects')) {
+      return [[{
+        id: 44,
+        bill_number: 'SUB-44-20260817',
+        vendor_name: 'Claude',
+        bill_date: '2026-08-17',
+        due_date: '2026-08-17',
+        total_amount: 100000,
+        paid_amount: 100000,
+        status: 'paid',
+        display_status: 'paid',
+      }]]
+    }
+    if (sql.includes('FROM bill_items')) {
+      return [[{ id: 1, description: 'Langganan Claude', quantity: 1, unit_price: 100000, line_total: 100000 }]]
+    }
+    if (sql.includes('FROM bill_payments')) {
+      return [[{ id: 77, bill_id: 44, payment_date: '2026-08-17', amount: 100000, journal_voucher_number: 'AP-PAY-44-77' }]]
+    }
+    if (sql.includes('FROM transaction_taxes')) return [[]]
+    return [[]]
+  }, () => withMockConnection(connection, () => invokeRoute(
+    billsRouter,
+    '/:id/payments',
+    'POST',
+    {
+      params: { id: '44' },
+      body: {
+        payment_date: '2026-08-17',
+        amount: 100000,
+        cash_account_id: 1120,
+      },
+    },
+  )))
+
+  assert.equal(response.statusCode, 200)
+  assert.equal(response.body.success, true)
+  assert.equal(connection.commitCount, 1)
+  assert.equal(connection.rollbackCount, 0)
+  const voucherNumbers = connection.calls
+    .filter((call) => call.sql.startsWith('INSERT INTO journal_entries'))
+    .map((call) => call.params[0])
+  assert.deepEqual(voucherNumbers, ['AP-BIL-44', 'AP-PAY-44-77'])
+  assert.ok(connection.calls.some((call) => call.sql.startsWith('UPDATE bills SET paid_amount')))
+})
+
 await test('error tengah posting jurnal memicu rollback tanpa mengubah status posted', async () => {
   let accountUpdateCount = 0
   const connection = makeFakeConnection((sql) => {

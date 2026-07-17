@@ -119,26 +119,29 @@ async function request(path, options = {}) {
   }
 
   const task = (async () => {
-    const response = await fetch(url, {
-      method: normalizedMethod,
-      headers: {
-        Accept: "application/json",
-        ...(getStoredToken()
-          ? { Authorization: `Bearer ${getStoredToken()}` }
-          : {}),
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
-        ...headers,
-      },
-      body: requestBody,
-    });
-
-    let payload = null;
     try {
-      payload = await response.json();
-    } catch {
-      // Endpoint non-JSON tetap dilaporkan dengan pesan yang jelas.
-    }
+      const response = await fetch(url, {
+        method: normalizedMethod,
+        headers: {
+          Accept: "application/json",
+          ...(getStoredToken()
+            ? { Authorization: `Bearer ${getStoredToken()}` }
+            : {}),
+          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+          ...headers,
+        },
+        body: requestBody,
+      });
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        // Endpoint non-JSON tetap dilaporkan dengan pesan yang jelas.
+      }
+
+      console.log(`API request to ${url}`, { method: normalizedMethod, responseStatus: response.status, responsePayload: payload });
 
     if (!response.ok || payload?.success === false) {
       const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -157,10 +160,15 @@ async function request(path, options = {}) {
       );
       error.status = response.status;
       error.payload = payload;
+      console.error("API Error Details:", { error, payload, response }); // Log full details!
       throw error;
     }
 
-    return payload?.data;
+      return payload?.data;
+    } catch (networkError) {
+      console.error("Network error in API request:", networkError);
+      throw networkError;
+    }
   })();
 
   if (mutationKey) {

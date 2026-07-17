@@ -1469,12 +1469,6 @@ router.post('/:id/payments', async (req, res) => {
       throw new Error('Tagihan tidak ditemukan.')
     }
 
-    if (bill.status === 'draft') {
-      throw new Error(
-        'Terbitkan tagihan terlebih dahulu sebelum mencatat pembayaran.',
-      )
-    }
-
     if (bill.status === 'cancelled' || bill.status === 'paid') {
       throw new Error('Tagihan ini tidak dapat menerima pembayaran lagi.')
     }

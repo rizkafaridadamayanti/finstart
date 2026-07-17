@@ -724,16 +724,6 @@ router.post('/', async (req, res) => {
       subscription,
       req.user?.id,
     )
-    const nextDate = nextRenewalDate(payload.renewalDate, payload.billingCycle)
-
-    await connection.query(
-      `
-        UPDATE subscriptions
-        SET renewal_date = ?
-        WHERE id = ?
-      `,
-      [nextDate, subscriptionId],
-    )
 
     await connection.commit()
 
@@ -743,7 +733,7 @@ router.post('/', async (req, res) => {
       data: {
         id: subscriptionId,
         journal_entry_id: journalId,
-        next_renewal_date: nextDate,
+        renewal_date: payload.renewalDate,
       },
     })
   } catch (error) {

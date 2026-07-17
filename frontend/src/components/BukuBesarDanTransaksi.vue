@@ -30,11 +30,11 @@
           class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0"
           @click="activeTab === 'ledger'
                 ? openAccountForm()
-                : updateIsJournalModalOpen(true)"
+                : openJournalModal()"
         >
           <Plus class="w-4 h-4" /><template v-if="activeTab === 'ledger'"
             >Tambah Akun COA</template
-          ><template v-else>Entri Jurnal Baru</template>
+          ><template v-else>Jurnal Umum</template>
         </button>
       </div>
     </div>
@@ -227,10 +227,10 @@
                   :key="t.id"
                   class="hover:bg-slate-50 transition-colors"
                 >
-                  <td class="p-4 font-mono font-medium text-slate-600">
+                  <td class="p-4 font-mono font-medium text-slate-600 whitespace-nowrap">
                     {{ t.tanggal }}
                   </td>
-                  <td class="p-4 font-mono font-bold text-[#0B1F4A]">
+                  <td class="p-4 font-mono font-bold text-[#0B1F4A] whitespace-nowrap">
                     {{ t.refVoucher }}
                   </td>
                   <td class="p-4">
@@ -263,7 +263,7 @@
                     >
                   </td>
                   <td
-                    class="p-4 text-right font-mono font-bold text-[#0B1F4A] text-sm"
+                    class="p-4 text-right font-mono font-bold text-[#0B1F4A] text-sm whitespace-nowrap"
                   >
                     {{ formatRupiah(t.nominal) }}
                   </td>
@@ -274,40 +274,43 @@
                     >
                   </td>
                   <td class="p-4">
-                    <div class="flex items-center justify-center gap-1">
+                    <div class="flex items-center justify-center gap-1.5 flex-wrap">
                       <template v-if="!t.source_type || t.source_type === 'manual'">
+                        <button
+                          v-if="t.journal_status === 'draft' && ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                          type="button"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
+                          title="Setujui jurnal draft"
+                          @click="approveJournal(t)"
+                        >
+                          <ShieldCheck class="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          v-if="t.journal_status !== null && t.journal_status !== 'posted' && !['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '')) && ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                          type="button"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+                          title="Posting jurnal"
+                          @click="postJournal(t)"
+                        >
+                          <Send class="w-3.5 h-3.5" />
+                        </button>
+                      </template>
                       <button
-                        v-if="t.journal_status === 'draft' &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
+                        v-if="t.journal_status !== null && !['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '').toLowerCase()) && ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase()) && (!t.source_type || t.source_type === 'manual')"
                         type="button"
-                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-sky-50 px-2 text-[10px] font-bold text-sky-700 hover:bg-sky-100"
-                        title="Setujui jurnal draft"
-                        @click="approveJournal(t)"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                        title="Hapus jurnal"
+                        @click="requestCancelJournal(t)"
                       >
-                        <ShieldCheck class="h-3.5 w-3.5" />Setujui</button
-                      ><button
-                        v-if="t.journal_status === 'approved' &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
-                        type="button"
-                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-50 px-2 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100"
-                        title="Posting jurnal"
-                        @click="postJournal(t)"
-                      >
-                        <Send class="h-3.5 w-3.5" />Posting</button
-                      ><button
-                        v-if="!['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '')) &amp;&amp; t.journal_status !== null &amp;&amp; ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
-                        type="button"
-                        class="inline-flex h-8 items-center gap-1 rounded-lg bg-rose-50 px-2 text-[10px] font-bold text-rose-700 hover:bg-rose-100"
-                        title="Batalkan jurnal"
-                        @click="cancelJournal(t)"
-                      >
-                        <Ban class="h-3.5 w-3.5" />Batal</button
-                      ></template>
+                        <Trash2 class="w-3.5 h-3.5" />
+                      </button>
                       <button
                         type="button"
-                        class="p-2 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 rounded-xl"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 transition-colors"
                         title="Unduh Slip Bukti"
                         @click="downloadJournalVoucher(t)"
                       >
-                        <Download class="w-4 h-4" />
+                        <Download class="w-3 h-3" />
                       </button>
                     </div>
                   </td></tr
@@ -561,7 +564,7 @@
         >
           <div>
             <h3 class="text-xl font-extrabold tracking-tight text-[#0B1F4A]">
-              Entri Jurnal Umum Baru
+              Jurnal Umum
             </h3>
             <span class="mt-1 block text-sm font-semibold text-slate-500"
               >Pastikan saldo debit dan kredit seimbang.</span
@@ -577,22 +580,7 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <!-- Quick Templates Selector -->
-        <div
-          class="px-7 py-3 bg-blue-50/50 border-b border-blue-150 flex flex-wrap items-center gap-3 shrink-0 text-sm"
-        >
-          <span class="font-bold text-slate-600">Template Cepat:</span
-          ><button
-            v-for="tmpl in ['Umum', 'Pendapatan', 'Bayar Gaji', 'Langganan']"
-            :id="`tmpl-select-${tmpl}`"
-            :key="tmpl"
-            type="button"
-            :class="`inline-flex h-10 min-w-[104px] items-center justify-center rounded-xl px-4 text-sm font-bold transition-all ${selectedTemplate === tmpl ? 'bg-[#0B1F4A] text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`"
-            @click="handleTemplateChange(tmpl)"
-          >
-            {{ tmpl }}
-          </button>
-        </div>
+
         <div class="p-6 text-sm space-y-4 h-0 min-h-0 flex-1 overflow-y-auto">
           <div
             v-if="journalErrorCount > 0"
@@ -707,6 +695,11 @@
                 </button>
               </div>
               <div class="space-y-2">
+                <div class="hidden md:grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_auto] md:items-center px-1 mb-1">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400">Akun</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400">Nominal</span>
+                  <span></span>
+                </div>
                 <div
                   v-for="(line, idx) in debitLines"
                   :key="idx"
@@ -724,6 +717,7 @@
                     ]"
                     @change="handleDebitRowChange(idx, 'kode', eventValue($event))"
                   >
+                    <option value="">Pilih akun debit...</option>
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
                       {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
                     </option                   ></select
@@ -789,6 +783,11 @@
                 </button>
               </div>
               <div class="space-y-2">
+                <div class="hidden md:grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_auto] md:items-center px-1 mb-1">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Akun</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nominal</span>
+                  <span></span>
+                </div>
                 <div
                   v-for="(line, idx) in creditLines"
                   :key="idx"
@@ -806,6 +805,7 @@
                     ]"
                     @change="handleCreditRowChange(idx, 'kode', eventValue($event))"
                   >
+                    <option value="">Pilih akun kredit...</option>
                     <option v-for="a in akun" :key="a.id" :value="a.kode">
                       {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
                     </option></select
@@ -1052,6 +1052,23 @@
       @cancel="closeDeleteConfirm"
       @confirm="confirmDeleteAccount"
     />
+    <ConfirmDialog
+      :open="!!cancelConfirm"
+      eyebrow="Konfirmasi Pembatalan"
+      :title="cancelConfirm?.title || 'Batalkan transaksi?'"
+      :message="cancelConfirm?.message || 'Transaksi akan dibatalkan dan status berubah menjadi canceled.'"
+      :details="cancelConfirm?.details || []"
+      :impact-items="[
+        'Status transaksi akan berubah menjadi canceled.',
+        'Jurnal terkait akan dibatalkan atau dibalik.',
+      ]"
+      :confirm-label="cancelConfirm?.confirmLabel || 'Batalkan'"
+      require-reason
+      reason-label="Alasan Pembatalan"
+      reason-placeholder="Tulis alasan pembatalan..."
+      @cancel="closeCancelConfirm"
+      @confirm="confirmCancelDocument"
+    />
   </div>
 </template>
 
@@ -1086,7 +1103,6 @@ import {
 } from "../services/financeMappers.js";
 import { AkunBukuBesar, Transaksi, TipeAkun } from "../types.ts";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
-import { todayIso } from "../utils/localDate";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
@@ -1115,6 +1131,10 @@ const {
     approveJournal,
     postJournal,
     cancelJournal,
+  },
+  receivables: {
+    cancelInvoice,
+    cancelBill,
   },
 } = useFinStartContext();
 const activeTab = computed(() =>
@@ -1379,7 +1399,7 @@ const voucherNo = ref(
     voucherNo.value = next;
     clearJournalError("voucherNo");
   };
-const journalDateInput = ref(todayIso()),
+const journalDateInput = ref(new Date().toISOString().split("T")[0]),
   updateJournalDateInput = (next) => {
     journalDateInput.value = next;
     clearJournalError("journalDate");
@@ -1393,9 +1413,7 @@ const memo = ref(""),
   updateMemo = (next) => {
     memo.value = next;
     clearJournalError("memo");
-  };
-const selectedTemplate = ref("Umum"),
-  updateSelectedTemplate = (next) => (selectedTemplate.value = next); // Multi-row Debit & Credit lines
+  }; // Multi-row Debit & Credit lines
 const debitLines = ref([
     {
       kode: "1001",
@@ -1423,6 +1441,28 @@ const clearJournalError = (...keys: string[]) => {
 };
 const resetJournalFormErrors = () => {
   journalFormErrors.value = {};
+};
+
+const openJournalModal = () => {
+  const year = new Date().getFullYear();
+  const prefix = `RV-${year}`;
+  
+  // Find all vouchers with the current year prefix
+  const existingVouchers = props.transaksi
+    .map(t => t.refVoucher)
+    .filter(v => v && v.startsWith(prefix))
+    .map(v => {
+      const numberPart = v.replace(prefix, '');
+      return Number(numberPart);
+    })
+    .filter(n => !isNaN(n));
+  
+  const maxNumber = existingVouchers.length > 0 ? Math.max(...existingVouchers) : 100;
+  const nextNumber = maxNumber + 1;
+  
+  voucherNo.value = `${prefix}${nextNumber}`;
+  resetJournalFormErrors();
+  updateIsJournalModalOpen(true);
 };
 
 const closeJournalModal = () => {
@@ -1524,71 +1564,7 @@ const resetJournalForm = () => {
       nominal: 0,
     },
   ]);
-  updateSelectedTemplate("Umum");
   updateVoucherNo(`RV-${new Date().getFullYear()}${transaksi.length + 102}`);
-};
-
-// Handle template switch for fast entries
-const handleTemplateChange = (tmpl: string) => {
-  resetJournalFormErrors();
-  updateSelectedTemplate(tmpl);
-  if (tmpl === "Pendapatan") {
-    updateMemo("Penerimaan termin pembayaran proyek teknologi klien");
-    updateDebitLines([
-      {
-        kode: "1001",
-        nominal: 150000000,
-      },
-    ]);
-    updateCreditLines([
-      {
-        kode: "4001",
-        nominal: 150000000,
-      },
-    ]);
-  } else if (tmpl === "Bayar Gaji") {
-    updateMemo("Pembayaran gaji tim pengembang & operasional Kedata");
-    updateDebitLines([
-      {
-        kode: "5001",
-        nominal: 45000000,
-      },
-    ]);
-    updateCreditLines([
-      {
-        kode: "1001",
-        nominal: 45000000,
-      },
-    ]);
-  } else if (tmpl === "Langganan") {
-    updateMemo("Pembayaran rutin tagihan lisensi cloud (AWS/OpenAI)");
-    updateDebitLines([
-      {
-        kode: "5002",
-        nominal: 12500000,
-      },
-    ]);
-    updateCreditLines([
-      {
-        kode: "1001",
-        nominal: 12500000,
-      },
-    ]);
-  } else {
-    updateMemo("");
-    updateDebitLines([
-      {
-        kode: "1001",
-        nominal: 0,
-      },
-    ]);
-    updateCreditLines([
-      {
-        kode: "1001",
-        nominal: 0,
-      },
-    ]);
-  }
 };
 
 // Debit/Credit line modifiers
@@ -1790,8 +1766,8 @@ const handleSaveJournal = async () => {
 
 // Filters
 const filteredLedgers = computed(() =>
-  latestFirst(
-    (props.akun || []).filter((a: any) => {
+  [...(props.akun || [])]
+    .filter((a: any) => {
       const query = ledgerSearch.value.toLowerCase();
       return (
         String(a.kode || "")
@@ -1804,8 +1780,12 @@ const filteredLedgers = computed(() =>
           .toLowerCase()
           .includes(query)
       );
+    })
+    .sort((a: any, b: any) => {
+      const ka = String(a.kode || "");
+      const kb = String(b.kode || "");
+      return ka.localeCompare(kb, undefined, { numeric: true, sensitivity: "base" });
     }),
-  ),
 );
 const filteredJournals = computed(() =>
   latestFirst(
@@ -2068,5 +2048,95 @@ function selectedAccountFundingRows() {
 function closeDeleteConfirm() {
   deleteConfirm.value = null;
 }
+
+const cancelConfirm = ref<any>(null);
+
+function closeCancelConfirm() {
+  cancelConfirm.value = null;
+}
+
+function getSourceId(transaction: any) {
+  if (transaction._raw?.source_id) return Number(transaction._raw.source_id);
+  if (transaction._raw?.id) return Number(transaction._raw.id);
+  const match = String(transaction.id || "").match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+const requestCancelJournal = (transaction: any) => {
+  console.log("requestCancelJournal transaction:", transaction);
+  cancelConfirm.value = {
+    type: "journal",
+    item: transaction,
+    title: "Batalkan jurnal?",
+    message:
+      "Jurnal akan dibatalkan dan status berubah menjadi canceled. Jika sudah diposting, saldo akun akan dibalik.",
+    details: [
+      { label: "Voucher", value: transaction.refVoucher || "-" },
+      { label: "Keterangan", value: transaction.keterangan || "-" },
+      { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
+    ],
+    confirmLabel: "Batalkan Jurnal",
+    reasonLabel: "Alasan Pembatalan",
+    reasonPlaceholder: "Contoh: Jurnal salah dibuat",
+  };
+};
+
+const requestCancelTransaction = (transaction: any) => {
+  const sourceType = transaction.source_type || "";
+  if (["invoice", "invoice_draft"].includes(sourceType)) {
+    cancelConfirm.value = {
+      type: "invoice",
+      item: transaction,
+      title: "Batalkan transaksi invoice?",
+      message:
+        "Invoice akan dibatalkan dan jurnal sumber akan dibalik.",
+      details: [
+        { label: "Voucher", value: transaction.refVoucher || "-" },
+        { label: "Keterangan", value: transaction.keterangan || "-" },
+        { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
+      ],
+      confirmLabel: "Batalkan Invoice",
+    };
+  } else if (["bill", "bill_draft"].includes(sourceType)) {
+    cancelConfirm.value = {
+      type: "bill",
+      item: transaction,
+      title: "Batalkan transaksi tagihan?",
+      message:
+        "Tagihan akan dibatalkan dan jurnal sumber akan dibalik.",
+      details: [
+        { label: "Voucher", value: transaction.refVoucher || "-" },
+        { label: "Keterangan", value: transaction.keterangan || "-" },
+        { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
+      ],
+      confirmLabel: "Batalkan Tagihan",
+    };
+  }
+};
+
+const confirmCancelDocument = async (reason = "") => {
+  const action = cancelConfirm.value;
+  if (!action) return;
+  cancelConfirm.value = null;
+  if (action.type === "journal") {
+    await cancelJournal(action.item, reason);
+  } else if (action.type === "invoice") {
+    const sourceId = getSourceId(action.item);
+    if (sourceId) {
+      await cancelInvoice(
+        { id: sourceId, nomor: action.item.source_number || action.item.refVoucher },
+        reason,
+      );
+    }
+  } else if (action.type === "bill") {
+    const sourceId = getSourceId(action.item);
+    if (sourceId) {
+      await cancelBill(
+        { id: sourceId, nomorTagihan: action.item.source_number || action.item.refVoucher },
+        reason,
+      );
+    }
+  }
+};
 
 </script>

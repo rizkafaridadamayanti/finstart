@@ -52,7 +52,7 @@
             class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
           />
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs text-[#6B7A90]"
             ><Filter class="mr-1 inline h-3.5 w-3.5" />Status:</span
           ><button
@@ -63,6 +63,18 @@
             @click="setStatusFilter(status)"
           >
             {{ status }}
+          </button>
+          <button
+            type="button"
+            class="h-9 rounded-lg px-3 text-[11px] font-medium transition border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center gap-1.5"
+            @click="showProjectHistory = true"
+          >
+            <Clock class="w-3.5 h-3.5" />
+            Riwayat Proyek
+            <span
+              v-if="cancelledProjects.length > 0"
+              class="ml-0.5 bg-rose-200 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+            >{{ cancelledProjects.length }}</span>
           </button>
         </div>
       </div>
@@ -134,7 +146,7 @@
                 </td>
                 <td class="p-4 text-center">
                   <span
-                    :class="`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${proj.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : proj.status === 'Ongoing' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`"
+                    :class="`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${proj.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : proj.status === 'Ongoing' ? 'bg-blue-50 text-blue-700 border border-blue-200' : proj.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`"
                     >{{ proj.status }}</span
                   >
                 </td>
@@ -350,7 +362,7 @@
                     >
                       <div class="space-y-1.5">
                         <span
-                          :class="`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${renderContext.selectedProject.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : renderContext.selectedProject.status === 'Ongoing' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`"
+                          :class="`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${renderContext.selectedProject.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : renderContext.selectedProject.status === 'Ongoing' ? 'bg-blue-50 text-blue-700' : renderContext.selectedProject.status === 'Cancelled' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`"
                           >{{ renderContext.selectedProject.status }}</span
                         >
                         <p
@@ -948,6 +960,7 @@
                     min="0"
                     placeholder="0"
                     :value="newProj.anggaran || ''"
+                    :aria-invalid="Boolean(projectStepErrors.anggaran)"
                     style="padding-left: 2.75rem !important"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white py-0 pl-12 pr-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                     @change="handleBudgetValueChange"
@@ -957,6 +970,7 @@
                   Realisasi biaya otomatis dihitung dari bill yang dipilihkan ke
                   proyek ini.
                 </p>
+                <p v-if="projectStepErrors.anggaran" class="form-field-warning">{{ projectStepErrors.anggaran }}</p>
               </div>
               <div
                 class="grid grid-cols-1 gap-y-4 gap-x-5 sm:grid-cols-2 xl:grid-cols-[minmax(190px,1.35fr)_minmax(150px,0.95fr)_minmax(150px,0.9fr)_minmax(150px,0.9fr)]"
@@ -1510,9 +1524,11 @@
           <div class="crm-delete-header border-b border-slate-200 px-6 py-5">
             <div>
               <p
-                class="crm-delete-eyebrow text-[11px] font-bold uppercase tracking-[0.16em] text-rose-500"
+                class="crm-delete-eyebrow text-[11px] font-bold uppercase tracking-[0.16em]"
+                :class="deleteConfirm.type === 'proyek' ? 'text-amber-600' : 'text-rose-500'"
               >
-                Konfirmasi Penghapusan
+                <template v-if="deleteConfirm.type === 'proyek'">Konfirmasi Pembatalan</template>
+                <template v-else>Konfirmasi Penghapusan</template>
               </p>
               <h3
                 class="crm-delete-title mt-1 text-lg font-extrabold leading-tight text-[#102A56]"
@@ -1525,8 +1541,14 @@
             </div>
           </div>
           <div class="crm-delete-body space-y-4 p-6">
-            <p class="crm-delete-message text-sm leading-6 text-slate-600">
-              <template v-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
+              <p class="crm-delete-message text-sm leading-6 text-slate-600">
+              <template v-if="deleteConfirm.type === 'proyek'">
+                Konfirmasi penghapusan proyek: jika Anda memilih "Hapus", proyek
+                akan dipindahkan ke Riwayat Proyek dan tidak akan
+                muncul di daftar aktif. Anda dapat memulihkan, melihat detail,
+                atau menghapus permanen melalui Riwayat Proyek.
+              </template>
+              <template v-else-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
                 Record ini masih dipakai oleh proyek CRM, sehingga tidak boleh
                 dihapus. Nonaktifkan klien agar tidak dipilih untuk proyek baru.
               </template>
@@ -1594,12 +1616,11 @@
                 v-if="deleteConfirm.type === 'proyek'"
                 class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5"
               >
-                <li>Proyek hilang dari daftar CRM.</li>
+                <li>Proyek dipindahkan ke Riwayat Proyek.</li>
                 <li>
-                  Detail kontrak, status, periode, catatan, dan alokasi tim ikut
-                  terhapus.
+                  Tidak akan muncul di daftar proyek aktif.
                 </li>
-                <li>Riwayat ini tidak bisa dipulihkan melalui aplikasi.</li>
+                <li>Dapat dipulihkan kapan saja melalui Riwayat Proyek.</li>
               </ul>
               <ul v-else class="crm-delete-impact-list mt-2 list-disc space-y-1 pl-5">
                 <template v-if="(deleteConfirm.projectCount || 0) > 0">
@@ -1632,11 +1653,11 @@
                 <template v-if="deleteConfirm.type === 'klien' && (deleteConfirm.projectCount || 0) > 0">
                   Nonaktifkan Klien
                 </template>
+                <template v-else-if="deleteConfirm.type === 'proyek'">
+                  Hapus &amp; Pindahkan ke Riwayat
+                </template>
                 <template v-else>
-                  Hapus
-                  <template v-if="deleteConfirm.type === 'proyek'"
-                    >Proyek</template
-                  ><template v-else>Klien</template>
+                  Hapus Klien
                 </template>
               </button>
             </div>
@@ -1644,6 +1665,143 @@
         </div>
       </div></Teleport
     >
+      <!-- Riwayat Proyek (Cancelled Projects) Modal -->
+      <Teleport to="body">
+        <div
+          v-if="showProjectHistory"
+          class="crm-modal-layer fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+          @click.self="showProjectHistory = false"
+        >
+          <div class="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div class="border-b border-slate-200 px-5 py-4 flex items-center justify-between">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-500">
+                  Riwayat Proyek
+                </p>
+                <h3 class="mt-0.5 text-base font-extrabold leading-tight text-[#102A56]">
+                  Proyek Dibatalkan
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  {{ cancelledProjects.length }} proyek dibatalkan. Pilih tindakan untuk memulihkan atau menghapus permanen.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                @click="showProjectHistory = false"
+              >
+                <X class="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div class="max-h-[60vh] overflow-y-auto p-4">
+              <div v-if="cancelledProjects.length === 0" class="py-10 text-center text-xs text-slate-400">
+                Tidak ada proyek yang dibatalkan.
+              </div>
+              <div v-else class="space-y-2">
+                <div
+                  v-for="proj in cancelledProjects"
+                  :key="proj.id"
+                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition hover:bg-slate-100"
+                >
+                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <p class="font-bold text-xs text-[#0B1F4A] truncate">{{ proj.nama }}</p>
+                      <div class="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
+                        <span class="font-semibold">{{ proj.tipeTender }}</span>
+                        <span>·</span>
+                        <span class="font-mono">{{ proj.tanggalMulai }} s/d {{ proj.tanggalSelesai }}</span>
+                        <span>·</span>
+                        <span class="font-bold text-slate-500">{{ formatRupiah(proj.nilaiKontrak) }}</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 transition hover:bg-blue-100"
+                        title="Lihat Detail"
+                        @click="returnToHistory = true; showProjectHistory = false; showProjectDetails(proj)"
+                      >
+                        <Eye class="w-3 h-3" />
+                        Detail
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                        title="Pulihkan ke Planning"
+                        @click="handleRestoreProject(proj.id)"
+                      >
+                        <RotateCcw class="w-3 h-3" />
+                        Pulihkan
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100"
+                        title="Hapus Permanen"
+                        @click="openPermDeleteConfirm(proj)"
+                      >
+                        <Trash2 class="w-3 h-3" />
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+      <!-- Permanent Delete Confirmation -->
+      <Teleport to="body">
+        <div
+          v-if="permDeleteConfirm"
+          class="crm-modal-layer fixed inset-0 z-[10001] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+          @click.self="closePermDeleteConfirm"
+        >
+          <div class="w-full max-w-md overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-2xl">
+            <div class="border-b border-rose-200 bg-rose-50 px-5 py-4">
+              <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-500">
+                Konfirmasi Hapus Permanen
+              </p>
+              <h3 class="mt-0.5 text-base font-extrabold leading-tight text-[#102A56]">
+                Hapus Proyek Secara Permanen?
+              </h3>
+            </div>
+            <div class="space-y-3 p-5">
+              <p class="text-xs leading-5 text-slate-700">
+                Proyek <strong class="text-slate-900">{{ permDeleteConfirm.name }}</strong> akan dihapus secara permanen dari database. Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">ID</p>
+                <p class="mt-0.5 font-mono text-xs font-semibold text-slate-800">{{ permDeleteConfirm.id }}</p>
+              </div>
+              <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">
+                <p class="font-bold text-rose-700">Yang akan terdampak</p>
+                <ul class="mt-1.5 list-disc space-y-0.5 pl-4">
+                  <li>Semua data proyek hilang permanen.</li>
+                  <li>Alokasi tim dan milestone ikut terhapus.</li>
+                  <li>Tidak bisa dipulihkan melalui aplikasi.</li>
+                </ul>
+              </div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  class="rounded-xl border border-slate-200 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                  @click="closePermDeleteConfirm"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  class="rounded-xl bg-rose-600 py-2 text-xs font-bold text-white transition-colors hover:bg-rose-700"
+                  @click="handlePermanentDeleteProject"
+                >
+                  Hapus Permanen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Teleport>
   </div>
 </template>
 
@@ -1669,6 +1827,8 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  RotateCcw,
+  Clock,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, Pegawai, AnggotaTim } from "../types.ts";
@@ -1700,6 +1860,7 @@ const PROJECT_STATUS_TO_API: Record<string, string> = {
   Planning: "planning",
   Ongoing: "ongoing",
   Completed: "completed",
+  Cancelled: "cancelled",
 };
 
 function clientPayload(item: Klien) {
@@ -1843,6 +2004,46 @@ const deleteProject = async (id: string) =>
     "Gagal menghapus proyek.",
     notify,
   );
+
+const cancelProject = async (id: string) =>
+  withApiFeedback(
+    async () => {
+      const target = proyek.find((p) => p.id === id);
+      if (!target) throw new Error("Proyek tidak ditemukan.");
+      await financeApi.put(`/projects/${id}`, projectPayload({ ...target, status: 'Cancelled' }));
+      await refreshData();
+      notify("Proyek dipindahkan ke riwayat dibatalkan.");
+      return true;
+    },
+    "Gagal membatalkan proyek.",
+    notify,
+  );
+
+const restoreProject = async (id: string) =>
+  withApiFeedback(
+    async () => {
+      const target = proyek.find((p) => p.id === id);
+      if (!target) throw new Error("Proyek tidak ditemukan.");
+      await financeApi.put(`/projects/${id}`, projectPayload({ ...target, status: 'Planning' }));
+      await refreshData();
+      notify("Proyek berhasil dipulihkan ke status Planning.");
+      return true;
+    },
+    "Gagal memulihkan proyek.",
+    notify,
+  );
+
+const permanentDeleteProject = async (id: string) =>
+  withApiFeedback(
+    async () => {
+      await financeApi.delete(`/projects/${id}?force=true`);
+      await refreshData();
+      notify("Proyek berhasil dihapus permanen dari database.");
+      return true;
+    },
+    "Gagal menghapus proyek secara permanen.",
+    notify,
+  );
 type CrmSubTab = "proyek" | "klien";
 type ProjectStatusFilter = "All" | "Planning" | "Ongoing" | "Completed";
 type DeleteTarget = {
@@ -1861,14 +2062,14 @@ function createEmptyProjectForm() {
     milestones: [] as Array<{
       title: string;
       due_date: string | null;
-      status: "planned" | "in_progress" | "completed";
+      status: "planned" | "in_progress" | "completed" | "cancelled";
     }>,
     tipeTender: "Tender Umum" as
       | "Tender Umum"
       | "Tender Terbatas"
       | "Penunjukan Langsung"
       | "Pengadaan Langsung",
-    status: "Ongoing" as "Planning" | "Ongoing" | "Completed",
+    status: "Ongoing" as "Planning" | "Ongoing" | "Completed" | "Cancelled",
     tanggalMulai: todayIso(),
     tanggalSelesai: "",
     klienId: "",
@@ -1902,6 +2103,9 @@ const clientPage = ref(1);
 const editingProjectId = ref<string | null>(null);
 const editingClientId = ref<string | null>(null);
 const deleteConfirm = ref<DeleteTarget | null>(null);
+const showProjectHistory = ref(false);
+const returnToHistory = ref(false);
+const permDeleteConfirm = ref<{ id: string; name: string } | null>(null);
 const isFormOpen = ref(false);
 const isClientFormOpen = ref(false);
 const isProjectSaving = ref(false);
@@ -1970,6 +2174,9 @@ function goToNextProjectStep() {
     }
     if (!newProj.value.tanggalSelesai) {
       errors.tanggalSelesai = "Estimasi selesai wajib dipilih.";
+    }
+    if (Number(newProj.value.anggaran) <= 0) {
+      errors.anggaran = "Anggaran biaya proyek harus lebih dari Rp 0.";
     }
     if (Object.keys(errors).length) {
       projectStepErrors.value = errors;
@@ -2309,6 +2516,10 @@ function showClientDetails(client: Klien) {
 function closeDetailModal() {
   selectedProjectDetailId.value = null;
   selectedClientDetailId.value = null;
+  if (returnToHistory.value) {
+    returnToHistory.value = false;
+    showProjectHistory.value = true;
+  }
 }
 
 function openProjectDeleteConfirm(project: Proyek) {
@@ -2359,13 +2570,35 @@ function closeDeleteConfirm() {
   deleteConfirm.value = null;
 }
 
+function openPermDeleteConfirm(project: Proyek) {
+  permDeleteConfirm.value = { id: project.id, name: project.nama };
+}
+
+function closePermDeleteConfirm() {
+  permDeleteConfirm.value = null;
+}
+
+async function handleRestoreProject(id: string) {
+  const restored = await restoreProject(id);
+  if (restored) showProjectHistory.value = false;
+}
+
+async function handlePermanentDeleteProject() {
+  if (!permDeleteConfirm.value) return;
+  const deleted = await permanentDeleteProject(permDeleteConfirm.value.id);
+  if (deleted) {
+    permDeleteConfirm.value = null;
+    showProjectHistory.value = false;
+  }
+}
+
 async function handleConfirmDelete() {
   const target = deleteConfirm.value;
   if (!target) return;
 
   if (target.type === "proyek") {
-    const deleted = await deleteProject(target.id);
-    if (!deleted) return;
+    const cancelled = await cancelProject(target.id);
+    if (!cancelled) return;
   } else if ((target.projectCount || 0) > 0) {
     const deactivated = await deactivateClient(target.id);
     if (!deactivated) return;
@@ -2382,6 +2615,7 @@ async function handleConfirmDelete() {
 const filteredProjectsList = computed(() =>
   latestFirst(
     proyek.filter((p) => {
+      if (p.status === "Cancelled") return false;
       const targetClient = klien.find((k) => k.id === p.klienId);
       const matchesSearch =
         p.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -2405,6 +2639,9 @@ const filteredClientsList = computed(() =>
       );
     }),
   ),
+);
+const cancelledProjects = computed(() =>
+  latestFirst(proyek.filter((p) => p.status === "Cancelled")),
 );
 const pagedProjectsList = computed(() =>
   pageRows(filteredProjectsList.value, projectPage.value),

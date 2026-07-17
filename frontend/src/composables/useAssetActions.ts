@@ -17,63 +17,55 @@ const SUBSCRIPTION_EXPENSE_CODES: Record<string, string> = {
 
 const CASH_BANK_CODES = ["1001", "1110", "1120", "1130"];
 
-interface AssetActionOptions {
-  subscriptions: Ref<any[]>;
-  accounts: Ref<any[]>;
-  refreshData: () => Promise<void> | void;
-  notify: (message: string) => void;
-}
-
 export function useAssetActions({
   subscriptions,
   accounts,
   refreshData,
   notify,
-}: AssetActionOptions) {
-  const addSubscription = async (item: any) =>
-    withApiFeedback(
-      async () => {
-        const cycle = item.siklus === "Tahunan" ? "yearly" : "monthly";
-        const amount = toNumber(item.biayaIDR || item.biaya);
-        const startDay =
-          item.tanggalTagihan || todayIso();
-        await financeApi.post("/subscriptions", {
-          subscription_name: item.nama,
-          provider_name: item.provider,
-          category: item.kategori,
-          amount,
-          billing_cycle: cycle,
-          start_date: startDay,
-          renewal_date: startDay,
-          payment_terms_days: 0,
-          status: "active",
-          notes:
-            item.mataUang && item.mataUang !== "IDR"
-              ? `Nominal asli: ${item.mataUang} ${item.biaya}. Kurs input: ${item.kurs || "-"}.`
-              : "",
-        });
+}: {
+  subscriptions: Ref<any[]>;
+  accounts: Ref<any[]>;
+  refreshData: () => Promise<void> | void;
+  notify: (msg: string) => void;
+}) {
 
-        await refreshData();
-        notify(
-          "Langganan berhasil disimpan, aktif, dan jurnal pembayaran langsung posted/paid.",
-        );
-        return true;
-      },
-      "Gagal menyimpan langganan.",
-      notify,
-    );
+  const addSubscription = async (item: any) => {
+    const billingCycle = item.siklus === "Tahunan" ? "yearly" : "monthly";
+    const payload = {
+      subscription_name: item.nama,
+      provider_name: item.provider,
+      category: item.kategori,
+      amount: toNumber(item.biayaIDR || item.biaya),
+      billing_cycle: billingCycle,
+      start_date: item.tanggalTagihan || todayIso(),
+      renewal_date: item.tanggalTagihan || todayIso(),
+      payment_terms_days: 0,
+      status: "active",
+      notes:
+        item.mataUang && item.mataUang !== "IDR"
+          ? `Nominal asli: ${item.mataUang} ${item.biaya}. Kurs input: ${item.kurs || "-"}.`
+          : "",
+    };
+
+    try {
+      await financeApi.post("/subscriptions", payload);
+      await refreshData();
+      notify("Langganan berhasil disimpan. Tagihan vendor berikutnya akan muncul saat jatuh tempo.");
+    } catch (err) {
+      console.error(err);
+      notify("Gagal menyimpan langganan.");
+      throw err;
+    }
+
+    return true;
+  };
 
   const createSubscriptionBill = async (subscription: any) =>
     withApiFeedback(
       async () => {
-        const result = await financeApi.post(
-          `/subscriptions/${subscription.id}/create-bill`,
-          {},
-        );
+        const result = await financeApi.post(`/subscriptions/${subscription.id}/create-bill`, {});
         await refreshData();
-        notify(
-          `Draft tagihan ${subscription.nama} berhasil dibuat. Posting untuk membuat jurnal utang.`,
-        );
+        notify(`Draft tagihan ${subscription.nama} berhasil dibuat. Posting untuk membuat jurnal utang.`);
         return result;
       },
       "Gagal membuat draft tagihan langganan.",
@@ -84,20 +76,12 @@ export function useAssetActions({
     withApiFeedback(
       async () => {
         const billId = subscription.latestBillId || subscription._raw?.latest_bill_id;
-        if (!billId) {
-          throw new Error("Draft tagihan langganan belum tersedia.");
-        }
-        const expenseCode =
-          SUBSCRIPTION_EXPENSE_CODES[subscription.kategori] || "5001";
+        if (!billId) throw new Error("Draft tagihan langganan belum tersedia.");
+        const expenseCode = SUBSCRIPTION_EXPENSE_CODES[subscription.kategori] || "5001";
         const expense = pickAccount(accounts, expenseCode, "Beban");
-        await financeApi.post(
-          `/bills/${billId}/issue`,
-          expense ? { expense_account_id: Number(expense.id) } : {},
-        );
+        await financeApi.post(`/bills/${billId}/issue`, expense ? { expense_account_id: Number(expense.id) } : {});
         await refreshData();
-        notify(
-          `Tagihan ${subscription.nama} diposting dan jurnal utang otomatis dibuat.`,
-        );
+        notify(`Tagihan ${subscription.nama} diposting dan jurnal utang otomatis dibuat.`);
         return true;
       },
       "Gagal memposting tagihan langganan.",
@@ -107,31 +91,26 @@ export function useAssetActions({
   const paySubscriptionBill = async (subscription: any) =>
     withApiFeedback(
       async () => {
-        const billId = subscription.latestBillId || subscription._raw?.latest_bill_id;
+        let billId = subscription.latestBillId || subscription._raw?.latest_bill_id;
+        let billAmount = toNumber(
+          subscription.latestBillOutstandingAmount || subscription._raw?.latest_bill_outstanding_amount || subscription.latestBillTotalAmount || subscription.biayaIDR || subscription.biaya,
+        );
+
         if (!billId) {
-          throw new Error("Tagihan langganan belum tersedia.");
+          const billResult = await financeApi.post(`/subscriptions/${subscription.id}/create-bill`, {});
+          billId = billResult?.bill_id || billResult?.id || billResult?.bill?.id || null;
+          billAmount = toNumber(billResult?.amount || billResult?.bill?.outstanding_amount || billAmount);
+          if (!billId) throw new Error("Tagihan langganan belum tersedia.");
         }
+
         const cash = CASH_BANK_CODES.map((code) =>
-          accounts.value.find(
-            (account) =>
-              String(account.kode) === code && account.status === "active",
-          ),
+          accounts.value.find((account) => String(account.kode) === code && account.status === "active"),
         ).find(Boolean);
-        if (!cash) {
-          throw new Error(
-            "Akun kas/bank (1001/1110/1120) belum tersedia. Silakan buat akun kas terlebih dahulu di Buku Besar.",
-          );
-        }
+        if (!cash) throw new Error("Akun kas/bank (1001/1110/1120) belum tersedia. Silakan buat akun kas terlebih dahulu di Buku Besar.");
         await financeApi.post(`/bills/${billId}/payments`, {
           payment_date: todayIso(),
           payment_method: "transfer",
-          amount: toNumber(
-            subscription.latestBillOutstandingAmount ||
-              subscription._raw?.latest_bill_outstanding_amount ||
-              subscription.latestBillTotalAmount ||
-              subscription.biayaIDR ||
-              subscription.biaya,
-          ),
+          amount: billAmount,
           reference_number: `PAY-SUB-${billId}`,
           notes: `Pembayaran langganan ${subscription.nama}`,
           cash_account_id: Number(cash.id),
@@ -147,9 +126,7 @@ export function useAssetActions({
   const deleteSubscription = async (id: string) =>
     withApiFeedback(
       async () => {
-        const subscription = subscriptions.value.find(
-          (item) => String(item.id) === String(id),
-        );
+        const subscription = subscriptions.value.find((item) => String(item.id) === String(id));
         const raw = subscription?._raw;
         if (!raw) throw new Error("Data langganan tidak ditemukan.");
         await financeApi.put(`/subscriptions/${id}`, {
@@ -176,28 +153,18 @@ export function useAssetActions({
     withApiFeedback(
       async () => {
         const cash = CASH_BANK_CODES.map((code) =>
-          accounts.value.find(
-            (account) =>
-              String(account.kode) === code && account.status === "active",
-          ),
+          accounts.value.find((account) => String(account.kode) === code && account.status === "active"),
         ).find(Boolean);
-        if (!cash) {
-          throw new Error(
-            "Akun kas/bank belum tersedia. Silakan buat akun kas (1001) atau bank (1110/1120) di Buku Besar terlebih dahulu.",
-          );
-        }
+        if (!cash) throw new Error("Akun kas/bank belum tersedia. Silakan buat akun kas (1001) atau bank (1110/1120) di Buku Besar terlebih dahulu.");
         await financeApi.post("/assets", {
           asset_name: item.nama,
           category: item.kategori,
-          acquisition_date:
-            item.tanggalBeli || todayIso(),
+          acquisition_date: item.tanggalBeli || todayIso(),
           acquisition_cost: toNumber(item.hargaBeli),
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
           payment_account_id: Number(cash.id),
-          notes: item.penanggungJawab
-            ? `Penanggung jawab: ${item.penanggungJawab}`
-            : "",
+          notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : "",
         });
         await refreshData();
         notify("Aset berhasil diregistrasi dan dijurnal ke database.");
@@ -216,14 +183,10 @@ export function useAssetActions({
           category: item.kategori,
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
-          notes: item.penanggungJawab
-            ? `Penanggung jawab: ${item.penanggungJawab}`
-            : raw.notes || "",
+          notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : raw.notes || "",
         });
         await refreshData();
-        notify(
-          "Data aset berhasil diperbarui. Harga perolehan tidak diubah agar jurnal akuisisi tetap konsisten.",
-        );
+        notify("Data aset berhasil diperbarui. Harga perolehan tidak diubah agar jurnal akuisisi tetap konsisten.");
         return true;
       },
       "Gagal memperbarui aset.",

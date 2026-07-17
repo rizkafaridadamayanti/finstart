@@ -147,7 +147,9 @@ export function useLedgerActions({
     );
 
   const journalId = (item: any) => {
+    console.log("journalId item:", item);
     const id = Number(item?.journal_id || item?.id);
+    console.log("journalId id:", id);
     if (!Number.isInteger(id) || id <= 0) {
       throw new Error("ID jurnal tidak valid. Muat ulang data lalu coba kembali.");
     }
@@ -176,10 +178,20 @@ export function useLedgerActions({
       notify,
     );
 
-  const cancelJournal = async (item: any) =>
+  const cancelJournal = async (item: any, reason = "") =>
     withApiFeedback(
       async () => {
-        await financeApi.post(`/journals/${journalId(item)}/void`, {});
+        console.log("cancelJournal item:", item);
+        const id = journalId(item);
+        console.log("cancelJournal calling API with id:", id);
+        console.log("cancelJournal journal_status:", item.journal_status);
+        console.log("cancelJournal source_type:", item.source_type);
+        console.log("cancelJournal _raw:", item._raw);
+        const result = await financeApi.post(`/journals/${id}/void`, {
+          reason,
+          cancellation_date: todayIso(),
+        });
+        console.log("cancelJournal API result:", result);
         await refreshData();
         notify("Jurnal berhasil dibatalkan.");
       },
