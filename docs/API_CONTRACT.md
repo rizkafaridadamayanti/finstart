@@ -7,7 +7,7 @@
 - Database: MySQL
 - Base URL lokal: `http://localhost:4000/api`
 - Respons sukses: `{ "success": true, "message": "...", "data": ... }`
-- Semua endpoint selain health, login, dan reset password membutuhkan header:
+- Semua endpoint selain health dan login membutuhkan header:
 
 ```text
 Authorization: Bearer <token-sesi>
@@ -22,9 +22,6 @@ Authorization: Bearer <token-sesi>
 | POST | `/auth/logout` | Mencabut sesi aktif saat ini |
 | GET | `/auth/sessions` | Daftar sesi pengguna saat ini |
 | DELETE | `/auth/sessions/:id` | Mencabut sesi tertentu |
-| POST | `/auth/password/change` | Ganti password pengguna login |
-| POST | `/auth/password/request-reset` | Membuat token reset (untuk alur internal/development) |
-| POST | `/auth/password/reset` | Menggunakan token reset untuk menetapkan password baru |
 | GET/PUT | `/auth/security-settings` | Preferensi alert keamanan |
 
 ## Role, pengguna, audit
@@ -32,7 +29,7 @@ Authorization: Bearer <token-sesi>
 | Method | Endpoint | Keterangan |
 |---|---|---|
 | GET | `/roles` | Daftar role dan hak akses |
-| GET/POST | `/users` | Daftar/tambah pengguna (admin) |
+| GET | `/users` | Daftar pengguna |
 | GET/PUT | `/users/:id` | Detail dan perubahan pengguna (admin) |
 | GET | `/audit` | Aktivitas keamanan/transaksi (admin/auditor sesuai hak akses) |
 | GET | `/notifications` | Notifikasi pengguna login |

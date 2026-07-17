@@ -12,8 +12,6 @@ const PUBLIC_PATHS = new Set([
   '/api/status',
   '/api/health',
   '/api/auth/login',
-  '/api/auth/password/request-reset',
-  '/api/auth/password/reset',
 ])
 
 /**

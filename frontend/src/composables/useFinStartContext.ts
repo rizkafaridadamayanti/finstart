@@ -30,6 +30,9 @@ interface FinStartContext {
   };
   assets: {
     addSubscription: AsyncAction;
+    createSubscriptionBill: AsyncAction;
+    issueSubscriptionBill: AsyncAction;
+    paySubscriptionBill: AsyncAction;
     deleteSubscription: AsyncAction;
     addAsset: AsyncAction;
     updateAsset: AsyncAction;

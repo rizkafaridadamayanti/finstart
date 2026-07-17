@@ -157,14 +157,6 @@ ALTER TABLE `notifications`
 
 --> statement-breakpoint
 
-ALTER TABLE `password_reset_tokens`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `token_hash` (`token_hash`),
-  ADD KEY `idx_password_reset_user` (`user_id`),
-  ADD KEY `idx_password_reset_expiry` (`expires_at`);
-
---> statement-breakpoint
-
 ALTER TABLE `payroll_records`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_payroll_records_employee_period` (`employee_id`,`payroll_period`),
@@ -379,11 +371,6 @@ ALTER TABLE `notifications`
 
 --> statement-breakpoint
 
-ALTER TABLE `password_reset_tokens`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
-
---> statement-breakpoint
-
 ALTER TABLE `payroll_records`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
@@ -517,11 +504,6 @@ ALTER TABLE `journal_lines`
 
 ALTER TABLE `notifications`
   ADD CONSTRAINT `fk_notifications_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---> statement-breakpoint
-
-ALTER TABLE `password_reset_tokens`
-  ADD CONSTRAINT `fk_password_reset_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --> statement-breakpoint
 

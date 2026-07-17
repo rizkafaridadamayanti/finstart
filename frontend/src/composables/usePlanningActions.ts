@@ -59,6 +59,7 @@ export function usePlanningActions({
         });
         await refreshData();
         notify("Target proyeksi berhasil disimpan ke database.");
+        return true;
       },
       "Gagal menyimpan proyeksi.",
       notify,

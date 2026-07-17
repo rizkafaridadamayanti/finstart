@@ -210,80 +210,6 @@
           >
             {{ error }}
           </div>
-          <div
-            v-if="resetNotice"
-            class="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-semibold leading-5 text-sky-800"
-            role="status"
-          >
-            {{ resetNotice }}
-          </div>
-
-          <form
-            v-if="resetToken"
-            class="mt-5 space-y-3 rounded-2xl border border-[#DCE7F4] bg-[#F8FBFE] p-4"
-            aria-label="Form reset kata sandi"
-            @submit.prevent="handleResetPassword"
-          >
-            <div class="space-y-2">
-              <label
-                for="reset-token"
-                class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]"
-                >Token Reset</label
-              >
-              <input
-                id="reset-token"
-                v-model="resetToken"
-                class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 font-mono text-xs font-semibold text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
-              />
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="space-y-2">
-                <label
-                  for="reset-password"
-                  class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]"
-                  >Password Baru</label
-                >
-                <input
-                  id="reset-password"
-                  v-model="resetPassword"
-                  type="password"
-                  placeholder="Minimal 8 karakter"
-                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
-                />
-              </div>
-              <div class="space-y-2">
-                <label
-                  for="reset-password-confirm"
-                  class="text-[10px] font-bold uppercase tracking-[0.12em] text-[#53658A]"
-                  >Konfirmasi</label
-                >
-                <input
-                  id="reset-password-confirm"
-                  v-model="resetPasswordConfirm"
-                  type="password"
-                  placeholder="Ulangi password"
-                  class="h-11 w-full rounded-xl border border-[#D1DFEF] bg-white px-3 text-sm font-medium text-[#182338] outline-none transition focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              :disabled="isResettingPassword"
-              class="flex h-11 w-full items-center justify-center rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {{
-                isResettingPassword
-                  ? "Menyimpan Password..."
-                  : "Simpan Password Baru"
-              }}
-            </button>
-            <p class="text-[11px] leading-5 text-[#70819B]">
-              Token ini dibuat oleh sistem, bukan diverifikasi oleh role lain.
-              Untuk produksi, token sebaiknya dikirim lewat email atau kanal
-              administrator.
-            </p>
-          </form>
-
           <form
             class="mt-4 space-y-3"
             novalidate
@@ -312,21 +238,11 @@
             </div>
 
             <div class="space-y-2">
-              <div class="flex items-center justify-between gap-3">
-                <label
-                  for="login-password"
-                  class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#53658A]"
-                  >Kata Sandi</label
-                >
-                <button
-                  id="btn-request-password-reset"
-                  type="button"
-                  class="text-xs font-semibold text-[#1E5AA8] hover:text-[#0B1F4A]"
-                  @click="handleRequestReset"
-                >
-                  Lupa sandi?
-                </button>
-              </div>
+              <label
+                for="login-password"
+                class="text-[11px] font-bold uppercase tracking-[0.08em] text-[#53658A]"
+                >Kata Sandi</label
+              >
               <div class="relative">
                 <Lock
                   class="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[#8A9AB0]"
@@ -439,85 +355,9 @@ const showPassword = ref(false);
 const rememberBrowser = ref(true);
 const isLoading = ref(false);
 const error = ref("");
-const resetNotice = ref("");
-const resetToken = ref("");
-const resetPassword = ref("");
-const resetPasswordConfirm = ref("");
-const isResettingPassword = ref(false);
-
-function clearResetForm() {
-  resetNotice.value = "";
-  resetToken.value = "";
-  resetPassword.value = "";
-  resetPasswordConfirm.value = "";
-}
 
 function goBack() {
   emit("back");
-}
-
-async function handleRequestReset() {
-  error.value = "";
-  clearResetForm();
-
-  const normalizedEmail = email.value.trim().toLowerCase();
-  if (!normalizedEmail) {
-    error.value =
-      "Masukkan email akun terlebih dahulu untuk meminta reset kata sandi.";
-    return;
-  }
-
-  try {
-    const result = await financeApi.requestPasswordReset(normalizedEmail);
-    const token = result?.reset_token;
-    resetToken.value = token || "";
-    resetNotice.value = token
-      ? "Token reset lokal diterima. Buat kata sandi baru melalui form di bawah ini."
-      : "Permintaan reset diterima. Hubungi administrator bila kanal reset belum dikonfigurasi.";
-  } catch (requestError) {
-    error.value = getApiErrorMessage(
-      requestError,
-      "Gagal mengajukan reset kata sandi.",
-    );
-  }
-}
-
-async function handleResetPassword() {
-  error.value = "";
-  resetNotice.value = "";
-
-  if (!resetToken.value.trim()) {
-    error.value = "Token reset wajib diisi.";
-    return;
-  }
-
-  if (resetPassword.value.length < 8) {
-    error.value = "Kata sandi baru minimal 8 karakter.";
-    return;
-  }
-
-  if (resetPassword.value !== resetPasswordConfirm.value) {
-    error.value = "Konfirmasi kata sandi baru belum sama.";
-    return;
-  }
-
-  isResettingPassword.value = true;
-  try {
-    await financeApi.resetPassword(
-      resetToken.value.trim(),
-      resetPassword.value,
-    );
-    resetToken.value = "";
-    resetPassword.value = "";
-    resetPasswordConfirm.value = "";
-    password.value = "";
-    resetNotice.value =
-      "Kata sandi berhasil direset. Silakan login memakai kata sandi baru.";
-  } catch (resetError) {
-    error.value = getApiErrorMessage(resetError, "Gagal reset kata sandi.");
-  } finally {
-    isResettingPassword.value = false;
-  }
 }
 
 async function handleSubmit() {

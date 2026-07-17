@@ -3,7 +3,9 @@ import { financeApi } from "../services/financeApi.js";
 import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 
 const SUBSCRIPTION_EXPENSE_CODES: Record<string, string> = {
+  Infrastruktur: "5002",
   Software: "5001",
+  Marketing: "5001",
   "Hosting / Cloud": "5001",
   "Internet & Jaringan": "5002",
   "Layanan Profesional": "5003",
@@ -50,6 +52,64 @@ export function useAssetActions({
               : "",
         });
 
+        await refreshData();
+        notify(
+          "Langganan berhasil disimpan, aktif, dan jurnal pembayaran langsung posted/paid.",
+        );
+        return true;
+      },
+      "Gagal menyimpan langganan.",
+      notify,
+    );
+
+  const createSubscriptionBill = async (subscription: any) =>
+    withApiFeedback(
+      async () => {
+        const result = await financeApi.post(
+          `/subscriptions/${subscription.id}/create-bill`,
+          {},
+        );
+        await refreshData();
+        notify(
+          `Draft tagihan ${subscription.nama} berhasil dibuat. Posting untuk membuat jurnal utang.`,
+        );
+        return result;
+      },
+      "Gagal membuat draft tagihan langganan.",
+      notify,
+    );
+
+  const issueSubscriptionBill = async (subscription: any) =>
+    withApiFeedback(
+      async () => {
+        const billId = subscription.latestBillId || subscription._raw?.latest_bill_id;
+        if (!billId) {
+          throw new Error("Draft tagihan langganan belum tersedia.");
+        }
+        const expenseCode =
+          SUBSCRIPTION_EXPENSE_CODES[subscription.kategori] || "5001";
+        const expense = pickAccount(accounts, expenseCode, "Beban");
+        await financeApi.post(
+          `/bills/${billId}/issue`,
+          expense ? { expense_account_id: Number(expense.id) } : {},
+        );
+        await refreshData();
+        notify(
+          `Tagihan ${subscription.nama} diposting dan jurnal utang otomatis dibuat.`,
+        );
+        return true;
+      },
+      "Gagal memposting tagihan langganan.",
+      notify,
+    );
+
+  const paySubscriptionBill = async (subscription: any) =>
+    withApiFeedback(
+      async () => {
+        const billId = subscription.latestBillId || subscription._raw?.latest_bill_id;
+        if (!billId) {
+          throw new Error("Tagihan langganan belum tersedia.");
+        }
         const cash = CASH_BANK_CODES.map((code) =>
           accounts.value.find(
             (account) =>
@@ -61,43 +121,25 @@ export function useAssetActions({
             "Akun kas/bank (1001/1110/1120) belum tersedia. Silakan buat akun kas terlebih dahulu di Buku Besar.",
           );
         }
-        const expenseCode =
-          SUBSCRIPTION_EXPENSE_CODES[item.kategori] || "5001";
-        const expense = pickAccount(accounts, expenseCode, "Beban");
-        if (!expense) {
-          throw new Error(
-            `Akun beban langganan (${expenseCode}) belum tersedia di database.`,
-          );
-        }
-        await financeApi.post("/journals", {
-          voucher_number: `SUB-${Date.now()}`,
-          transaction_date: startDay,
-          description: `Langganan ${item.nama} (${item.provider || "-"})`,
-          source_type: "subscription",
-          source_id: null,
-          lines: [
-            {
-              account_id: Number(expense.id),
-              description: `Beban langganan: ${item.nama}`,
-              debit: amount,
-              credit: 0,
-            },
-            {
-              account_id: Number(cash.id),
-              description: `Pembayaran langganan: ${item.nama}`,
-              debit: 0,
-              credit: amount,
-            },
-          ],
+        await financeApi.post(`/bills/${billId}/payments`, {
+          payment_date: new Date().toISOString().slice(0, 10),
+          payment_method: "transfer",
+          amount: toNumber(
+            subscription.latestBillOutstandingAmount ||
+              subscription._raw?.latest_bill_outstanding_amount ||
+              subscription.latestBillTotalAmount ||
+              subscription.biayaIDR ||
+              subscription.biaya,
+          ),
+          reference_number: `PAY-SUB-${billId}`,
+          notes: `Pembayaran langganan ${subscription.nama}`,
+          cash_account_id: Number(cash.id),
         });
-
         await refreshData();
-        notify(
-          "Langganan berhasil disimpan dan jurnal pengeluaran dibuat.",
-        );
+        notify(`Pembayaran langganan ${subscription.nama} berhasil dibukukan.`);
         return true;
       },
-      "Gagal menyimpan langganan.",
+      "Gagal membayar tagihan langganan.",
       notify,
     );
 
@@ -204,6 +246,9 @@ export function useAssetActions({
 
   return {
     addSubscription,
+    createSubscriptionBill,
+    issueSubscriptionBill,
+    paySubscriptionBill,
     deleteSubscription,
     addAsset,
     updateAsset,

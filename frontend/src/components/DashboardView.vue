@@ -366,7 +366,7 @@
             </p>
           </div>
             <div class="relative z-10 flex min-h-0 flex-1 flex-col">
-              <div class="cfo-sidebar border-b p-3">
+              <div v-if="!isChatHistoryOpen" class="cfo-sidebar border-b p-3">
               <p
                 class="cfo-section-label mb-2 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
               >
@@ -387,7 +387,7 @@
               </div>
             </div>
             <div class="cfo-ai-workspace flex min-h-0 flex-1">
-              <div class="flex min-w-0 flex-1 flex-col">
+              <div v-if="!isChatHistoryOpen" class="flex min-w-0 flex-1 flex-col">
                 <div
                   class="cfo-chat-top flex items-center justify-between gap-3 border-b px-4 py-3"
                 >
@@ -498,9 +498,9 @@
                 </form>
               </div>
               <aside
-                v-if="isChatHistoryOpen"
+                v-else
                 id="cfo-chat-history-panel"
-                class="cfo-inline-history"
+                class="cfo-inline-history cfo-history-page"
                 aria-label="Riwayat percakapan AI CFO"
               >
                 <div class="cfo-inline-history-header">
@@ -1091,12 +1091,15 @@ const normalizeCfoTemplate = (reply: string) => {
     "- Buka modul terkait dari sidebar, cek data yang disebut, lalu posting atau simpan transaksi dari form resmi modul.",
   ].join("\n");
 };
+const createChatTitle = (prompt: string) => {
+  const title = prompt.replace(/\s+/g, " ").trim();
+  return title.length > 88 ? `${title.slice(0, 85)}...` : title;
+};
 const handleFastQuestion = async (prompt: string) => {
   if (isAiLoading.value) return;
   const targetChatId = activeChatId.value;
   const shouldUpdateTitle = activeChat.value?.title === "Chat baru";
-  const generatedTitle =
-    prompt.length > 34 ? `${prompt.slice(0, 34)}...` : prompt;
+  const generatedTitle = createChatTitle(prompt);
   appendMessageToChat(
     targetChatId,
     {
@@ -1679,8 +1682,8 @@ function confirmDeleteChat() {
 
 .cfo-inline-history {
   display: flex;
-  flex: 0 0 280px;
-  width: 280px;
+  flex: 0 0 320px;
+  width: 320px;
   min-width: 0;
   min-height: 0;
   padding: 16px;
@@ -1691,6 +1694,13 @@ function confirmDeleteChat() {
   background: #f7f9fc;
   box-shadow: none;
   overflow-y: auto;
+}
+
+.cfo-history-page {
+  flex: 1 1 auto;
+  width: 100%;
+  border-left: 0;
+  background: var(--cfo-white);
 }
 
 .cfo-inline-history-header {
@@ -1738,7 +1748,7 @@ function confirmDeleteChat() {
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   padding-right: 3px;
   overscroll-behavior: contain;
@@ -1746,10 +1756,11 @@ function confirmDeleteChat() {
   scrollbar-width: thin;
 }
 
-.cfo-inline-history-list {
+.cfo-history-page .cfo-inline-history-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   align-content: start;
+  gap: 12px;
 }
 
 .cfo-inline-session {
@@ -1775,27 +1786,31 @@ function confirmDeleteChat() {
   flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 12px 8px 12px 12px;
+  gap: 5px;
+  padding: 12px 10px 12px 13px;
   text-align: left;
 }
 
 .cfo-inline-session-title,
 .cfo-inline-session-preview {
-  display: block;
+  display: -webkit-box;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
 }
 
 .cfo-inline-session-title {
+  -webkit-line-clamp: 2;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
 }
 
 .cfo-inline-session-preview {
+  -webkit-line-clamp: 2;
   color: #6b7a90;
   font-size: 10px;
   line-height: 1.45;

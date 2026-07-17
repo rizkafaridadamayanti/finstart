@@ -336,6 +336,147 @@ async function postAutomaticJournal(connection, payload) {
   return journalId
 }
 
+async function hasGeneratedTaxSource(connection, taxId) {
+  const [rows] = await connection.query(
+    `
+      SELECT
+        EXISTS(SELECT 1 FROM payroll_tax_calculations WHERE tax_record_id = ?) AS payroll_linked,
+        EXISTS(SELECT 1 FROM payroll_records WHERE tax_record_id = ?) AS payroll_record_linked,
+        EXISTS(SELECT 1 FROM transaction_taxes WHERE tax_record_id = ?) AS transaction_linked,
+        EXISTS(SELECT 1 FROM vat_period_closings WHERE tax_record_id = ?) AS vat_linked
+    `,
+    [taxId, taxId, taxId, taxId],
+  )
+
+  const row = rows[0] || {}
+  return Boolean(
+    Number(row.payroll_linked) ||
+      Number(row.payroll_record_linked) ||
+      Number(row.transaction_linked) ||
+      Number(row.vat_linked),
+  )
+}
+
+async function updateTaxObligationJournal(connection, record) {
+  const [journalRows] = await connection.query(
+    `
+      SELECT id
+      FROM journal_entries
+      WHERE source_type = 'tax_record'
+        AND source_id = ?
+        AND status = 'posted'
+      LIMIT 1
+    `,
+    [record.id],
+  )
+
+  const journal = journalRows[0]
+  if (!journal) return
+
+  const [lines] = await connection.query(
+    `
+      SELECT journal_lines.id, journal_lines.account_id, journal_lines.debit, journal_lines.credit, accounts.normal_balance
+      FROM journal_lines
+      INNER JOIN accounts ON accounts.id = journal_lines.account_id
+      WHERE journal_lines.journal_entry_id = ?
+      ORDER BY journal_lines.id ASC
+    `,
+    [journal.id],
+  )
+
+  if (!lines.length) {
+    throw new Error('Baris jurnal pajak tidak ditemukan.')
+  }
+
+  for (const line of lines) {
+    const wasDebitLine = numberValue(line.debit) > 0
+    const nextDebit = wasDebitLine ? numberValue(record.amount) : 0
+    const nextCredit = wasDebitLine ? 0 : numberValue(record.amount)
+    const previousEffect =
+      line.normal_balance === 'debit'
+        ? numberValue(line.debit) - numberValue(line.credit)
+        : numberValue(line.credit) - numberValue(line.debit)
+    const nextEffect =
+      line.normal_balance === 'debit'
+        ? nextDebit - nextCredit
+        : nextCredit - nextDebit
+
+    await connection.query(
+      'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?',
+      [nextEffect - previousEffect, line.account_id],
+    )
+
+    await connection.query(
+      'UPDATE journal_lines SET description = ?, debit = ?, credit = ? WHERE id = ?',
+      [
+        `${wasDebitLine ? 'Beban' : 'Utang'} ${record.tax_type}`.slice(0, 255),
+        nextDebit,
+        nextCredit,
+        line.id,
+      ],
+    )
+  }
+
+  await connection.query(
+    `
+      UPDATE journal_entries
+      SET
+        transaction_date = ?,
+        description = ?,
+        voucher_number = ?
+      WHERE id = ?
+    `,
+    [
+      getToday(),
+      `Kewajiban ${record.tax_type} periode ${record.tax_period}`,
+      `TAX-OBL-${record.id}`,
+      journal.id,
+    ],
+  )
+}
+
+async function reverseTaxObligationJournal(connection, taxId, reason) {
+  const [voidRows] = await connection.query(
+    "SELECT id FROM journal_entries WHERE source_type = 'tax_void' AND source_id = ? LIMIT 1",
+    [taxId],
+  )
+  if (voidRows[0]) return
+
+  const [journalRows] = await connection.query(
+    `
+      SELECT id, voucher_number
+      FROM journal_entries
+      WHERE source_type = 'tax_record'
+        AND source_id = ?
+        AND status = 'posted'
+      LIMIT 1
+    `,
+    [taxId],
+  )
+  const journal = journalRows[0]
+  if (!journal) return
+
+  const [lines] = await connection.query(
+    'SELECT account_id, description, debit, credit FROM journal_lines WHERE journal_entry_id = ? ORDER BY id',
+    [journal.id],
+  )
+  if (!lines.length) throw new Error('Baris jurnal pajak tidak ditemukan.')
+
+  await postAutomaticJournal(connection, {
+    voucher_number: `VOID-${journal.voucher_number}`.slice(0, 100),
+    transaction_date: getToday(),
+    description: `Pembatalan pajak ${taxId}: ${reason || 'dihapus'}`,
+    source_type: 'tax_void',
+    source_id: taxId,
+    lines: lines.map((line) => ({
+      account_id: line.account_id,
+      description: `Balik jurnal ${line.description || ''}`.slice(0, 255),
+      debit: numberValue(line.credit),
+      credit: numberValue(line.debit),
+    })),
+  })
+}
+
 async function getTaxDetail(executor, taxId) {
   const [rows] = await executor.query(
     `
@@ -1111,40 +1252,195 @@ router.post('/', async (req, res) => {
   }
 })
 
-router.delete('/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
+  let connection
+
   try {
-    const [rows] = await db.query(
-      'SELECT id, status FROM tax_records WHERE id = ? LIMIT 1',
+    const {
+      tax_type,
+      tax_period,
+      tax_number,
+      amount,
+      due_date,
+      notes,
+    } = req.body || {}
+
+    const taxType = normalizeTaxType(tax_type)
+    const taxPeriod = String(tax_period || '').trim()
+    const taxNumber = String(tax_number || '').trim() || null
+    const taxAmount = numberValue(amount)
+    const dueDate = due_date || null
+    const note = String(notes || '').trim() || null
+
+    if (!taxType) {
+      return res.status(400).json({
+        success: false,
+        message: 'Jenis pajak wajib dipilih.',
+      })
+    }
+
+    if (!isValidPeriod(taxPeriod)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Periode pajak harus berformat YYYY-MM.',
+      })
+    }
+
+    if (taxAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nominal pajak harus lebih dari Rp0.',
+      })
+    }
+
+    if (dueDate && !isValidDate(dueDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tanggal jatuh tempo tidak valid.',
+      })
+    }
+
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+
+    const [rows] = await connection.query(
+      'SELECT * FROM tax_records WHERE id = ? FOR UPDATE',
+      [req.params.id],
+    )
+    const record = rows[0]
+
+    if (!record) {
+      throw new Error('Kewajiban pajak tidak ditemukan.')
+    }
+
+    if (record.status === 'paid') {
+      throw new Error('Kewajiban pajak yang sudah disetor tidak dapat diedit.')
+    }
+
+    if (await hasGeneratedTaxSource(connection, record.id)) {
+      throw new Error('Pajak ini berasal dari modul lain. Ubah dari modul sumber agar jurnal tetap sinkron.')
+    }
+
+    const nextStatus =
+      record.status === 'draft'
+        ? 'draft'
+        : dueDate && dueDate < getToday()
+          ? 'overdue'
+          : 'unpaid'
+
+    await connection.query(
+      `
+        UPDATE tax_records
+        SET
+          tax_type = ?,
+          tax_period = ?,
+          tax_number = ?,
+          amount = ?,
+          due_date = ?,
+          status = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        taxType,
+        taxPeriod,
+        taxNumber,
+        taxAmount,
+        dueDate,
+        nextStatus,
+        note,
+        record.id,
+      ],
+    )
+
+    await updateTaxObligationJournal(connection, {
+      id: record.id,
+      tax_type: taxType,
+      tax_period: taxPeriod,
+      amount: taxAmount,
+    })
+
+    await connection.commit()
+
+    res.json({
+      success: true,
+      message: 'Kewajiban pajak berhasil diperbarui.',
+      data: await getTaxDetail(db, record.id),
+    })
+  } catch (error) {
+    if (connection) await connection.rollback()
+
+    res.status(400).json({
+      success: false,
+      message: safePublicMessage(error, 'Gagal memperbarui kewajiban pajak.'),
+    })
+  } finally {
+    if (connection) connection.release()
+  }
+})
+
+router.delete('/:id', async (req, res) => {
+  let connection
+
+  try {
+    connection = await db.getConnection()
+    await connection.beginTransaction()
+
+    const [rows] = await connection.query(
+      'SELECT * FROM tax_records WHERE id = ? FOR UPDATE',
       [req.params.id],
     )
 
     const record = rows[0]
 
     if (!record) {
-      return res.status(404).json({
-        success: false,
-        message: 'Kewajiban pajak tidak ditemukan.',
-      })
+      throw new Error('Kewajiban pajak tidak ditemukan.')
+    }
+
+    if (record.status === 'paid') {
+      throw new Error('Kewajiban pajak yang sudah disetor tidak dapat dihapus.')
+    }
+
+    if (await hasGeneratedTaxSource(connection, record.id)) {
+      throw new Error('Pajak ini berasal dari modul lain. Hapus atau koreksi dari modul sumber agar jurnal tetap sinkron.')
+    }
+
+    const [paymentJournalRows] = await connection.query(
+      `
+        SELECT id
+        FROM journal_entries
+        WHERE source_type = 'tax_payment'
+          AND source_id = ?
+        LIMIT 1
+      `,
+      [record.id],
+    )
+
+    if (paymentJournalRows[0]) {
+      throw new Error('Pajak yang sudah memiliki jurnal setoran tidak dapat dihapus.')
     }
 
     if (record.status !== 'draft') {
-      return res.status(400).json({
-        success: false,
-        message: 'Hanya draft pajak yang dapat dihapus.',
-      })
+      await reverseTaxObligationJournal(connection, record.id, 'Dihapus dari tabel pajak')
     }
 
-    await db.query('DELETE FROM tax_records WHERE id = ?', [record.id])
+    await connection.query('DELETE FROM tax_records WHERE id = ?', [record.id])
+
+    await connection.commit()
 
     res.json({
       success: true,
-      message: 'Draft pajak berhasil dihapus.',
+      message: 'Kewajiban pajak berhasil dihapus.',
     })
   } catch (error) {
-    res.status(500).json({
+    if (connection) await connection.rollback()
+
+    res.status(400).json({
       success: false,
-      message: 'Gagal menghapus draft pajak',
+      message: safePublicMessage(error, 'Gagal menghapus kewajiban pajak.'),
     })
+  } finally {
+    if (connection) connection.release()
   }
 })
 

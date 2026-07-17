@@ -76,6 +76,13 @@ function makeUnpostedRow({
   amount,
   raw,
 }) {
+  const status = getTransactionStatus({
+    journalId: null,
+    journalStatus: null,
+    sourceType,
+    sourceStatus,
+  })
+
   return {
     id: `${prefix}-${id}`,
     journal_id: null,
@@ -93,7 +100,7 @@ function makeUnpostedRow({
     kreditAkun: '',
     debit_allocations: [],
     credit_allocations: [],
-    status: 'unposted',
+    status,
     journal_status: null,
     approved_at: null,
     created_by_name: '-',
@@ -137,6 +144,8 @@ router.get('/', async (req, res) => {
           OR payroll.employee_name LIKE ?
           OR payroll.employee_code LIKE ?
           OR payroll_tax.employee_name LIKE ?
+          OR subscription.subscription_name LIKE ?
+          OR subscription.provider_name LIKE ?
           OR asset.asset_name LIKE ?
           OR asset.asset_code LIKE ?
           OR EXISTS (
@@ -155,6 +164,7 @@ router.get('/', async (req, res) => {
       params.push(
         pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern,
         pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern,
+        pattern, pattern,
       )
     }
 
@@ -182,6 +192,7 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('tax_record', 'tax_payment') THEN tax.status
             WHEN je.source_type = 'payroll' THEN payroll.status
             WHEN je.source_type = 'employee_payroll' THEN payroll_tax.status
+            WHEN je.source_type = 'subscription' THEN 'paid'
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal') THEN asset.status
             WHEN je.source_type = 'asset_depreciation' THEN depreciation.status
             WHEN je.source_type = 'vat_closing' THEN vat_closing.status
@@ -194,6 +205,7 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('tax_record', 'tax_payment') THEN COALESCE(tax.tax_number, CONCAT(tax.tax_type, ' ', tax.tax_period))
             WHEN je.source_type = 'payroll' THEN CONCAT('PAYROLL-', payroll.payroll_period, '-', payroll.employee_code)
             WHEN je.source_type = 'employee_payroll' THEN CONCAT('PPH21-', payroll_tax.tax_period, '-', payroll_tax.employee_nik)
+            WHEN je.source_type = 'subscription' THEN CONCAT('SUB-', subscription.id)
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal', 'asset_depreciation') THEN asset.asset_code
             WHEN je.source_type = 'vat_closing' THEN CONCAT('PPN-', vat_closing.tax_period)
             ELSE NULL
@@ -204,6 +216,7 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('bill', 'bill_payment', 'bill_void') THEN bill.vendor_name
             WHEN je.source_type = 'payroll' THEN payroll.employee_name
             WHEN je.source_type = 'employee_payroll' THEN payroll_tax.employee_name
+            WHEN je.source_type = 'subscription' THEN CONCAT(subscription.subscription_name, ' - ', subscription.provider_name)
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal', 'asset_depreciation') THEN asset.asset_name
             ELSE NULL
           END AS party_name,
@@ -249,6 +262,8 @@ router.get('/', async (req, res) => {
           ON payroll.id = je.source_id AND je.source_type = 'payroll'
         LEFT JOIN payroll_tax_calculations payroll_tax
           ON payroll_tax.id = je.source_id AND je.source_type = 'employee_payroll'
+        LEFT JOIN subscriptions subscription
+          ON subscription.id = je.source_id AND je.source_type = 'subscription'
 
         LEFT JOIN asset_depreciations depreciation
           ON depreciation.id = je.source_id AND je.source_type = 'asset_depreciation'
@@ -272,6 +287,7 @@ router.get('/', async (req, res) => {
           tax.status, tax.tax_number, tax.tax_type, tax.tax_period,
           payroll.status, payroll.payroll_period, payroll.employee_code, payroll.employee_name,
           payroll_tax.status, payroll_tax.tax_period, payroll_tax.employee_nik, payroll_tax.employee_name,
+          subscription.id, subscription.subscription_name, subscription.provider_name,
           asset.status, asset.asset_code, asset.asset_name,
           depreciation.status, vat_closing.status, vat_closing.tax_period
         ORDER BY je.transaction_date DESC, je.id DESC
@@ -289,12 +305,13 @@ router.get('/', async (req, res) => {
             inv.issue_date,
             inv.created_at,
             inv.total_amount,
+            inv.status,
             client.company_name AS client_name,
             project.project_name
           FROM invoices inv
           INNER JOIN clients client ON client.id = inv.client_id
           LEFT JOIN projects project ON project.id = inv.project_id
-          WHERE inv.status = 'draft'
+          WHERE inv.status IN ('draft', 'cancelled')
             AND NOT EXISTS (
               SELECT 1 FROM journal_entries je2
               WHERE je2.source_type = 'invoice' AND je2.source_id = inv.id
@@ -310,9 +327,9 @@ router.get('/', async (req, res) => {
       ),
       db.query(
         `
-          SELECT id, bill_number, bill_date, created_at, total_amount, vendor_name, notes
+          SELECT id, bill_number, bill_date, created_at, total_amount, vendor_name, notes, status
           FROM bills
-          WHERE status = 'draft'
+          WHERE status IN ('draft', 'cancelled')
             AND NOT EXISTS (
               SELECT 1 FROM journal_entries je2
               WHERE je2.source_type = 'bill' AND je2.source_id = bills.id
@@ -354,6 +371,7 @@ router.get('/', async (req, res) => {
         voucher: invoice.invoice_number,
         description: `Piutang ${invoice.client_name || '-'}${invoice.project_name ? ` (${invoice.project_name})` : ''}`,
         sourceType: 'invoice_draft',
+        sourceStatus: invoice.status,
         sourceNumber: invoice.invoice_number,
         partyName: invoice.client_name,
         amount: invoice.total_amount,
@@ -369,6 +387,7 @@ router.get('/', async (req, res) => {
         voucher: bill.bill_number,
         description: bill.notes || `Utang ${bill.vendor_name || '-'}`,
         sourceType: 'bill_draft',
+        sourceStatus: bill.status,
         sourceNumber: bill.bill_number,
         partyName: bill.vendor_name,
         amount: bill.total_amount,

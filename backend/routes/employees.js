@@ -364,6 +364,72 @@ router.get('/', async (req, res) => {
   }
 })
 
+router.get('/:id/usage', async (req, res) => {
+  const employeeId = Number(req.params.id)
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  try {
+    const existing = await getEmployeeById(employeeId)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pegawai tidak ditemukan.',
+      })
+    }
+
+    const [payrollRows] = await db.query(
+      'SELECT COUNT(*) AS total FROM payroll_records WHERE employee_id = ?',
+      [employeeId],
+    )
+    const [projectRows] = await db.query(
+      `
+        SELECT COUNT(DISTINCT project_id) AS total
+        FROM project_members
+        WHERE employee_id = ?
+      `,
+      [employeeId],
+    )
+    const [projectSamples] = await db.query(
+      `
+        SELECT projects.project_name
+        FROM project_members
+        INNER JOIN projects ON projects.id = project_members.project_id
+        WHERE project_members.employee_id = ?
+        ORDER BY projects.id DESC
+        LIMIT 3
+      `,
+      [employeeId],
+    )
+
+    const payrollCount = Number(payrollRows?.[0]?.total || 0)
+    const projectCount = Number(projectRows?.[0]?.total || 0)
+
+    res.json({
+      success: true,
+      message: 'Pemakaian pegawai berhasil diambil.',
+      data: {
+        employee_id: employeeId,
+        payroll_count: payrollCount,
+        project_count: projectCount,
+        can_delete: payrollCount === 0 && projectCount === 0,
+        project_names: projectSamples.map((row) => row.project_name).filter(Boolean),
+      },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil pemakaian pegawai.',
+    })
+  }
+})
+
 router.get('/:id', async (req, res) => {
   try {
     const employee = await getEmployeeById(req.params.id)
@@ -666,13 +732,34 @@ router.delete('/:id', async (req, res) => {
       'SELECT COUNT(*) AS total FROM payroll_records WHERE employee_id = ?',
       [employeeId],
     )
+    const [projectRows] = await connection.query(
+      `
+        SELECT COUNT(DISTINCT project_id) AS total
+        FROM project_members
+        WHERE employee_id = ?
+      `,
+      [employeeId],
+    )
 
-    if (Number(payrollRows?.[0]?.total || 0) > 0) {
+    const payrollCount = Number(payrollRows?.[0]?.total || 0)
+    const projectCount = Number(projectRows?.[0]?.total || 0)
+
+    if (payrollCount > 0 || projectCount > 0) {
+      const reasons = [
+        payrollCount > 0 ? `${payrollCount} riwayat payroll` : '',
+        projectCount > 0 ? `${projectCount} proyek CRM` : '',
+      ].filter(Boolean).join(' dan ')
+
       await connection.rollback()
       return res.status(409).json({
         success: false,
+        code: 'EMPLOYEE_IN_USE',
         message:
-          'Pegawai tidak dapat dihapus karena sudah memiliki riwayat payroll. Ubah statusnya menjadi Nonaktif agar riwayat tetap aman.',
+          `Pegawai tidak dapat dihapus karena masih terhubung dengan ${reasons}. Ubah statusnya menjadi Nonaktif agar riwayat tetap aman.`,
+        data: {
+          payroll_count: payrollCount,
+          project_count: projectCount,
+        },
       })
     }
 

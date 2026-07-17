@@ -366,18 +366,6 @@ const notifications = mysqlTable("notifications", {
   index("idx_notifications_read").on(table.isRead),
 ]);
 
-const passwordResetTokens = mysqlTable("password_reset_tokens", {
-  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
-  userId: bigint("user_id", { mode: "number", unsigned: true }).notNull(),
-  tokenHash: varchar("token_hash", { length: 128 }).unique().notNull(),
-  expiresAt: datetime("expires_at").notNull(),
-  usedAt: datetime("used_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_password_reset_user").on(table.userId),
-  index("idx_password_reset_expiry").on(table.expiresAt),
-]);
-
 const payrollRecords = mysqlTable("payroll_records", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
   employeeId: bigint("employee_id", { mode: "number", unsigned: true }).notNull(),
@@ -671,7 +659,6 @@ module.exports = {
   journalEntries,
   journalLines,
   notifications,
-  passwordResetTokens,
   payrollRecords,
   payrollTaxCalculations,
   positions,

@@ -267,9 +267,21 @@ async function syncProjectMembers(executor, projectId, members, assignedAt = nul
   let validEmployeeIds = new Set()
   if (employeeIds.length) {
     const [employees] = await executor.query(
-      'SELECT id FROM employees WHERE id IN (?)',
+      'SELECT id, full_name, name, employment_status FROM employees WHERE id IN (?)',
       [[...new Set(employeeIds)]],
     )
+    const inactiveEmployee = employees.find(
+      (employee) => String(employee.employment_status || 'active').toLowerCase() !== 'active',
+    )
+
+    if (inactiveEmployee) {
+      const error = new Error(
+        `Pegawai ${inactiveEmployee.full_name || inactiveEmployee.name || inactiveEmployee.id} berstatus nonaktif dan tidak bisa dimasukkan ke proyek.`,
+      )
+      error.status = 422
+      throw error
+    }
+
     validEmployeeIds = new Set(employees.map((employee) => Number(employee.id)))
   }
 
@@ -605,7 +617,7 @@ router.post('/', async (req, res) => {
 
 
     const [clients] = await db.query(
-      'SELECT id FROM clients WHERE id = ?',
+      'SELECT id, status FROM clients WHERE id = ?',
       [clientId],
     )
 
@@ -613,6 +625,13 @@ router.post('/', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Client yang dipilih tidak ditemukan',
+      })
+    }
+
+    if (String(clients[0].status || 'active').toLowerCase() !== 'active') {
+      return res.status(422).json({
+        success: false,
+        message: 'Klien berstatus nonaktif dan tidak bisa dipilih untuk proyek.',
       })
     }
 
@@ -680,6 +699,13 @@ router.post('/', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Kode project sudah digunakan',
+      })
+    }
+
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: safePublicMessage(error, 'Permintaan tidak dapat diproses.'),
       })
     }
 
@@ -780,7 +806,7 @@ router.put('/:id', async (req, res) => {
 
 
     const [clients] = await db.query(
-      'SELECT id FROM clients WHERE id = ?',
+      'SELECT id, status FROM clients WHERE id = ?',
       [clientId],
     )
 
@@ -788,6 +814,13 @@ router.put('/:id', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Client yang dipilih tidak ditemukan',
+      })
+    }
+
+    if (String(clients[0].status || 'active').toLowerCase() !== 'active') {
+      return res.status(422).json({
+        success: false,
+        message: 'Klien berstatus nonaktif dan tidak bisa dipilih untuk proyek.',
       })
     }
 
@@ -856,6 +889,13 @@ router.put('/:id', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Kode project sudah digunakan',
+      })
+    }
+
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: safePublicMessage(error, 'Permintaan tidak dapat diproses.'),
       })
     }
 

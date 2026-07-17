@@ -240,7 +240,7 @@ router.post('/', async (req, res) => {
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(422).json({
         success: false,
-        message: 'Kode akun sudah digunakan',
+        message: 'Kode sudah digunakan.',
       })
     }
 
@@ -384,7 +384,7 @@ router.put('/:id', async (req, res) => {
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(422).json({
         success: false,
-        message: 'Kode akun sudah digunakan',
+        message: 'Kode sudah digunakan.',
       })
     }
 

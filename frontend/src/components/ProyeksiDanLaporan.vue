@@ -209,10 +209,11 @@
                       })" /></label
               ><button
                 type="button"
-                class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#102A56]"
+                :disabled="isScenarioSaving"
+                class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
                 @click="saveScenario"
               >
-                Simpan Parameter
+                {{ isScenarioSaving ? "Menyimpan..." : "Simpan Parameter" }}
               </button>
             </div>
           </div>
@@ -381,6 +382,102 @@
           :total="orderedTargets.length"
           @page-change="targetPage = safePage($event, orderedTargets.length)"
         />
+      </div>
+      <div
+        ref="savedTargetSectionRef"
+        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+      >
+        <div
+          class="flex flex-col gap-2 border-b border-[#E8EEF7] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p
+              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
+            >
+              Target Tersimpan
+            </p>
+            <h2 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
+              Daftar Target Proyeksi
+            </h2>
+            <p class="mt-1 text-sm text-[#6B7A90]">
+              Semua target yang disimpan dari form masuk ke tabel ini.
+            </p>
+          </div>
+          <span class="text-xs font-semibold text-[#6B7A90]">
+            {{ savedProjectionTargets.length }} target tersimpan
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <div
+            v-if="savedTargetMonth"
+            class="border-b border-emerald-100 bg-emerald-50 px-6 py-3 text-xs font-semibold text-emerald-800"
+          >
+            Target {{ savedTargetMonthLabel }} berhasil disimpan di tabel ini.
+          </div>
+          <table class="w-full min-w-[860px] text-left text-sm">
+            <thead
+              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+            >
+              <tr>
+                <th class="px-6 py-4">Bulan Target</th>
+                <th class="px-6 py-4 text-right">Target Pendapatan</th>
+                <th class="px-6 py-4 text-right">Target Beban</th>
+                <th class="px-6 py-4 text-right">Target Laba</th>
+                <th class="px-6 py-4">Catatan</th>
+                <th class="px-6 py-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#EDF2F7]">
+              <tr v-if="savedProjectionTargets.length === 0">
+                <td
+                  colspan="6"
+                  class="px-6 py-10 text-center text-sm text-[#8A98AB]"
+                >
+                  Belum ada target tersimpan. Klik Tambah Target untuk membuat target baru.
+                </td>
+              </tr>
+              <tr
+                v-for="target in savedProjectionTargets"
+                v-else
+                :key="`saved-target-${target.month}`"
+                :class="[
+                  'hover:bg-[#FBFDFF]',
+                  Number(target.month) === savedTargetMonth
+                    ? 'target-month-row-saved bg-emerald-50/70'
+                    : '',
+                ]"
+              >
+                <td class="px-6 py-4">
+                  <p class="font-semibold text-[#0B1F4A]">{{ target.label }}</p>
+                  <p class="mt-1 text-xs text-[#8A98AB]">
+                    {{ projectionData?.year || new Date().getFullYear() }}
+                  </p>
+                </td>
+                <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
+                  {{ formatRupiah(Number(target.revenue_target || 0)) }}
+                </td>
+                <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
+                  {{ formatRupiah(Number(target.expense_target || 0)) }}
+                </td>
+                <td class="px-6 py-4 text-right font-extrabold text-[#047857]">
+                  {{ formatRupiah(Number(target.profit_target || 0)) }}
+                </td>
+                <td class="max-w-[240px] px-6 py-4 text-xs text-[#6B7A90]">
+                  {{ target.notes || "-" }}
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <button
+                    type="button"
+                    class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
+                    @click="openTargetModal(target)"
+                  >
+                    <Pencil class="h-3.5 w-3.5" /> Edit
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div
         class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
@@ -613,7 +710,7 @@
             </div>
             <div class="divide-y divide-[#E8EEF7]">
               <div
-                v-for="item in roadmapRows"
+                v-for="item in roadmapMilestones"
                 :key="item.label"
                 class="flex items-center justify-between px-5 py-4"
               >
@@ -621,7 +718,7 @@
                   item.label
                 }}</span
                 ><span class="text-sm font-semibold text-[#0B1F4A]"
-                  >Rp {{ item.value }}B</span
+                  >{{ formatRupiah(item.value) }}</span
                 >
               </div>
             </div>
@@ -783,9 +880,11 @@
           <div class="flex items-end gap-2">
             <button
               type="submit"
-              class="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0B1F4A] px-3 text-sm font-semibold text-white hover:bg-[#102A56]"
+              :disabled="isBudgetSaving"
+              class="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0B1F4A] px-3 text-sm font-semibold text-white hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
             >
-              <template v-if="budgetForm.id">Perbarui</template
+              <template v-if="isBudgetSaving">Menyimpan...</template
+              ><template v-else-if="budgetForm.id">Perbarui</template
               ><template v-else>Simpan</template></button
             ><button
               v-if="budgetForm.id"
@@ -908,6 +1007,13 @@
           >
         </div>
         <div class="overflow-x-auto">
+          <div
+            v-if="savedTargetMonth"
+            class="border-b border-emerald-100 bg-emerald-50 px-6 py-3 text-xs font-semibold text-emerald-800"
+          >
+            Target {{ savedTargetMonthLabel }} tersimpan dan tampil di tabel ini.
+            Klik ikon pensil pada baris tersebut untuk mengubah target.
+          </div>
           <table class="w-full min-w-[980px] text-left text-sm">
             <thead
               class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
@@ -936,7 +1042,12 @@
                 v-for="month in pagedProjectionMonths"
                 v-else
                 :key="`projection-month-${month.month}`"
-                class="hover:bg-[#FBFDFF]"
+                :class="[
+                  'hover:bg-[#FBFDFF]',
+                  Number(month.month) === savedTargetMonth
+                    ? 'target-month-row-saved bg-emerald-50/70'
+                    : '',
+                ]"
               >
                 <td class="px-6 py-4">
                   <p class="font-medium text-[#182338]">{{ month.label }}</p>
@@ -1211,30 +1322,38 @@
               ><span
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
                 >Target Pendapatan</span
-              ><input
-                type="number"
-                min="0"
-                :value="newTarget.revenueTarget || ''"
-                placeholder="0"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      revenueTarget: Number(eventValue($event)),
-                    })" /></label
+              ><span class="relative block"
+                ><span
+                  class="pointer-events-none absolute inset-y-0 left-4 z-10 flex items-center text-sm font-bold text-[#8A98AB]"
+                  >Rp</span
+                ><input
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="false"
+                  :value="targetRevenueInputValue"
+                  placeholder="0"
+                  class="target-money-input h-12 w-full rounded-xl border border-[#D8E5F4] bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338]"
+                  @input="handleTargetRevenueInput"
+                  @change="handleTargetRevenueInput" /></span
+            ></label
             ><label class="space-y-2"
               ><span
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
                 >Target Beban</span
-              ><input
-                type="number"
-                min="0"
-                :value="newTarget.expenseTarget || ''"
-                placeholder="0"
-                class="h-12 w-full rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-medium text-[#182338]"
-                @change="updateNewTarget({
-                      ...newTarget,
-                      expenseTarget: Number(eventValue($event)),
-                    })" /></label
+              ><span class="relative block"
+                ><span
+                  class="pointer-events-none absolute inset-y-0 left-4 z-10 flex items-center text-sm font-bold text-[#8A98AB]"
+                  >Rp</span
+                ><input
+                  type="text"
+                  inputmode="numeric"
+                  data-rupiah="false"
+                  :value="targetExpenseInputValue"
+                  placeholder="0"
+                  class="target-money-input h-12 w-full rounded-xl border border-[#D8E5F4] bg-white py-0 pl-14 pr-4 text-sm font-medium text-[#182338]"
+                  @input="handleTargetExpenseInput"
+                  @change="handleTargetExpenseInput" /></span
+            ></label
             ><label class="space-y-2 md:col-span-2"
               ><span
                 class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
@@ -1255,9 +1374,12 @@
           >
             <button
               type="submit"
-              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]"
+              :disabled="isTargetSaving"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] disabled:cursor-wait disabled:opacity-60"
             >
-              <CheckCircle2 class="h-4 w-4" /><template v-if="editingTargetId"
+              <CheckCircle2 class="h-4 w-4" /><template v-if="isTargetSaving"
+                >Menyimpan...</template
+              ><template v-else-if="editingTargetId"
                 >Simpan Perubahan Target</template
               ><template v-else>Simpan Target</template>
             </button>
@@ -1388,8 +1510,8 @@
 
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
-import { parseRupiahInput } from "../utils/rupiahInputs.js";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import {
   AlertCircle,
   BarChart3,
@@ -1407,7 +1529,12 @@ import {
 import { formatRupiah } from "../data.ts";
 import { AkunBukuBesar, Proyek, Transaksi } from "../types.ts";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
-import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
+import {
+  TABLE_PAGE_SIZE,
+  latestFirst,
+  pageRows,
+  safePage,
+} from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 interface ProyeksiDanLaporanProps {
@@ -1447,6 +1574,17 @@ const currencyOrUnit = (value: number, unit: AnnualTarget["satuan"]) => {
   if (unit === "Persen") return `${value.toLocaleString("id-ID")}%`;
   return `${value.toLocaleString("id-ID")} Klien`;
 };
+const projectionMonthLabel = (month: number) =>
+  new Intl.DateTimeFormat("id-ID", {
+    month: "long",
+    year: "numeric",
+  }).format(
+    new Date(
+      Number(props.projectionData?.year || new Date().getFullYear()),
+      Math.max(0, Number(month || 1) - 1),
+      1,
+    ),
+  );
 const reportTabs: {
   id: ReportType;
   label: string;
@@ -1510,6 +1648,9 @@ const selectReportType = (reportType: ReportType) => {
 };
 const isTargetModalOpen = ref(false),
   updateIsTargetModalOpen = (next) => (isTargetModalOpen.value = next);
+const isScenarioSaving = ref(false);
+const isBudgetSaving = ref(false);
+const isTargetSaving = ref(false);
 const editingTargetId = ref("");
 const isPrintModalOpen = ref(false),
   updateIsPrintModalOpen = (next) => (isPrintModalOpen.value = next);
@@ -1539,7 +1680,12 @@ const deleteBudgetConfirm = ref<any>(null);
 const targetPage = ref(1);
 const budgetPage = ref(1);
 const targetDetailPage = ref(1);
+const savedTargetSectionRef = ref<HTMLElement | null>(null);
+const savedTargetMonth = ref<number | null>(null);
 const reportPage = ref(1);
+const savedTargetMonthLabel = computed(() =>
+  savedTargetMonth.value ? projectionMonthLabel(savedTargetMonth.value) : "",
+);
 const projectionSummary = computed(() => props.projectionData?.summary || {});
 const targets = computed<AnnualTarget[]>(() => [
   {
@@ -1571,6 +1717,24 @@ const newTarget = ref({
     bulanProyeksi: currentMonthIso(),
   }),
   updateNewTarget = (next) => (newTarget.value = next);
+const targetRevenueInputValue = computed(() =>
+  formatRupiahInput(newTarget.value.revenueTarget, false, false),
+);
+const targetExpenseInputValue = computed(() =>
+  formatRupiahInput(newTarget.value.expenseTarget, false, false),
+);
+function handleTargetRevenueInput(event: Event) {
+  updateNewTarget({
+    ...newTarget.value,
+    revenueTarget: parseRupiahInput(eventValue(event)),
+  });
+}
+function handleTargetExpenseInput(event: Event) {
+  updateNewTarget({
+    ...newTarget.value,
+    expenseTarget: parseRupiahInput(eventValue(event)),
+  });
+}
 const achievementAverage = computed(() => {
   if (!targets.value.length) return 0;
   return Math.round(
@@ -1613,6 +1777,9 @@ const targetStatusBadgeClass = (target: AnnualTarget) => {
 const projectionMonths = computed(() => Array.isArray(props.projectionData?.months)
   ? props.projectionData.months
   : []);
+const savedProjectionTargets = computed(() =>
+  projectionMonths.value.filter((month: any) => Boolean(month?.has_target)),
+);
 const projectionScenarios = computed(() => Array.isArray(props.projectionData?.scenarios)
   ? props.projectionData.scenarios
   : []);
@@ -1650,6 +1817,7 @@ const selectScenario = async (scenario: any) => {
   await selectProjectionScenario(key);
 };
 const saveScenario = async () => {
+  if (isScenarioSaving.value) return;
   if (
     Number(scenarioForm.value.revenue_factor) <= 0 ||
     Number(scenarioForm.value.expense_factor) <= 0
@@ -1657,10 +1825,15 @@ const saveScenario = async () => {
     notify("Faktor pendapatan dan beban harus lebih dari 0.");
     return;
   }
-  await updateProjectionScenario({
-    ...scenarioForm.value,
-    scenario_key: selectedScenarioKey.value,
-  });
+  isScenarioSaving.value = true;
+  try {
+    await updateProjectionScenario({
+      ...scenarioForm.value,
+      scenario_key: selectedScenarioKey.value,
+    });
+  } finally {
+    isScenarioSaving.value = false;
+  }
 };
 const resetBudgetForm = () =>
   updateBudgetForm({
@@ -1690,6 +1863,7 @@ const editBudget = (budget: any) =>
   });
 const saveBudget = async (event: Event) => {
   event.preventDefault();
+  if (isBudgetSaving.value) return;
   if (!budgetForm.value.account_id) {
     notify("Pilih akun buku besar untuk budget.");
     return;
@@ -1698,11 +1872,16 @@ const saveBudget = async (event: Event) => {
     notify("Nilai budget tidak boleh negatif.");
     return;
   }
-  await saveBudgetAllocation({
-    ...budgetForm.value,
-    scenario_key: selectedScenarioKey.value || budgetForm.value.scenario_key,
-  });
-  resetBudgetForm();
+  isBudgetSaving.value = true;
+  try {
+    await saveBudgetAllocation({
+      ...budgetForm.value,
+      scenario_key: selectedScenarioKey.value || budgetForm.value.scenario_key,
+    });
+    resetBudgetForm();
+  } finally {
+    isBudgetSaving.value = false;
+  }
 };
 const deleteBudget = async (budget: any) => {
   deleteBudgetConfirm.value = budget;
@@ -1729,7 +1908,7 @@ const roadmapBase = computed(() =>
       ],
 );
 const roadmapRows = computed(() =>
-  roadmapBase.value.slice(0, 6).map((item: any, index: number) => {
+  roadmapBase.value.map((item: any, index: number) => {
     const revenueTarget = Number(
       item.revenue_target || item.forecast_revenue || 0,
     );
@@ -1750,21 +1929,30 @@ const roadmapRows = computed(() =>
       expenseTarget,
       expenseForecast,
       expenseActual,
-      value: Number(
-        (
-          Math.max(
-            revenueTarget,
-            revenueForecast,
-            revenueActual,
-            expenseTarget,
-            expenseForecast,
-            expenseActual,
-          ) / 1000000000
-        ).toFixed(1),
+      value: Math.max(
+        revenueTarget,
+        revenueForecast,
+        revenueActual,
+        expenseTarget,
+        expenseForecast,
+        expenseActual,
       ),
     };
   }),
 );
+const roadmapMilestones = computed(() => {
+  const filledRows = roadmapRows.value.filter((item) =>
+    [
+      item.revenueTarget,
+      item.revenueForecast,
+      item.revenueActual,
+      item.expenseTarget,
+      item.expenseForecast,
+      item.expenseActual,
+    ].some((value) => Number(value || 0) > 0),
+  );
+  return filledRows.length ? filledRows : roadmapRows.value;
+});
 const roadmapMax = computed(() =>
   Math.max(
     ...roadmapRows.value.flatMap((item) => [
@@ -1842,8 +2030,22 @@ const closeTargetModal = () => {
   editingTargetId.value = "";
   updateIsTargetModalOpen(false);
 };
+const showSavedTargetInTable = async (month: number) => {
+  savedTargetMonth.value = month;
+  const targetPageForMonth = Math.ceil(Math.max(1, month) / TABLE_PAGE_SIZE);
+  targetDetailPage.value = safePage(
+    targetPageForMonth,
+    projectionMonths.value.length,
+  );
+  await nextTick();
+  savedTargetSectionRef.value?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+};
 const handleSaveTarget = async (event: Event) => {
   event.preventDefault();
+  if (isTargetSaving.value) return;
   const revenueTarget = Number(newTarget.value.revenueTarget || 0);
   const expenseTarget = Number(newTarget.value.expenseTarget || 0);
 
@@ -1862,20 +2064,29 @@ const handleSaveTarget = async (event: Event) => {
     return;
   }
 
-  await saveProjection({
-    revenueTarget,
-    expenseTarget,
-    catatan: String(newTarget.value.notes || ""),
-    month: Number(String(newTarget.value.bulanProyeksi || "").slice(-2)),
-  });
-  updateNewTarget({
-    revenueTarget: 0,
-    expenseTarget: 0,
-    notes: "",
-    bulanProyeksi: currentMonthIso(),
-  });
-  editingTargetId.value = "";
-  updateIsTargetModalOpen(false);
+  const targetMonth = Number(String(newTarget.value.bulanProyeksi || "").slice(-2));
+
+  isTargetSaving.value = true;
+  try {
+    const isSaved = await saveProjection({
+      revenueTarget,
+      expenseTarget,
+      catatan: String(newTarget.value.notes || ""),
+      month: targetMonth,
+    });
+    if (!isSaved) return;
+    updateNewTarget({
+      revenueTarget: 0,
+      expenseTarget: 0,
+      notes: "",
+      bulanProyeksi: currentMonthIso(),
+    });
+    editingTargetId.value = "";
+    updateIsTargetModalOpen(false);
+    await showSavedTargetInTable(targetMonth);
+  } finally {
+    isTargetSaving.value = false;
+  }
 };
 
 const reportPeriodLabel =
@@ -2215,3 +2426,23 @@ function closeDeleteBudgetConfirm() {
 }
 
 </script>
+
+<style scoped>
+.target-money-input {
+  padding-left: 58px !important;
+  padding-right: 16px !important;
+}
+
+.target-month-row-saved {
+  animation: target-saved-highlight 1.6s ease-out;
+}
+
+@keyframes target-saved-highlight {
+  0% {
+    box-shadow: inset 4px 0 0 #10b981;
+  }
+  100% {
+    box-shadow: inset 4px 0 0 rgba(16, 185, 129, 0);
+  }
+}
+</style>
