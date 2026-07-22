@@ -10,7 +10,7 @@ import {
 
 interface TaxActionOptions {
   accounts: Ref<any[]>;
-  refreshData: () => Promise<void> | void;
+  refreshData: (options?: { bumpVersion?: boolean }) => Promise<void> | void;
   notify: (message: string) => void;
 }
 
@@ -34,7 +34,7 @@ export function useTaxActions({
           `/taxes/${created.id}/issue`,
           expense ? { expense_account_id: Number(expense.id) } : {},
         );
-        await refreshData();
+        await refreshData({ bumpVersion: false });
         notify("Kewajiban pajak berhasil disimpan dan diposting.");
       },
       "Gagal menyimpan kewajiban pajak.",
@@ -58,7 +58,7 @@ export function useTaxActions({
           tax_number: payment.taxNumber || tax.ntpn || "",
           notes: payment.notes || "",
         });
-        await refreshData();
+        await refreshData({ bumpVersion: false });
         notify(`Setoran ${tax.jenis} berhasil dibukukan.`);
         return true;
       },

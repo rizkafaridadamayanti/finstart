@@ -83,7 +83,7 @@
       </div>
       <!-- Invoices listings -->
       <div
-        class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm"
+        class="bg-white border border-slate-200/80 overflow-hidden shadow-sm"
       >
         <div class="p-4 bg-slate-50 border-b border-slate-150">
           <div
@@ -259,7 +259,7 @@
       </div>
       <!-- Bills Listings -->
       <div
-        class="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm"
+        class="bg-white border border-slate-200/80 overflow-hidden shadow-sm"
       >
         <div class="p-4 bg-slate-50 border-b border-slate-150">
           <div
@@ -1002,7 +1002,6 @@
                 ]"
                 @change="setPaymentAccount(eventValue($event))"
               >
-                <option value="1001">Bank (1110)</option>
                 <option
                   v-for="a in paymentAssetAccounts"
                   :key="a.id"
@@ -1886,6 +1885,7 @@ function openPaymentModal() {
 
   resetPaymentErrors();
   updateSelectedBillId("");
+  updatePaymentAccount(paymentAssetAccounts.value[0]?.kode || "1001");
   updatePaymentForm({
     vendor: "",
     buktiBayar: `PAY/${new Date().getFullYear()}/001`,
@@ -1898,7 +1898,10 @@ function openPaymentModal() {
 
 const paymentAssetAccounts = computed(() =>
   (props.akun || []).filter(
-    (account) => account.tipe === "Aset" && account.kode !== "1001",
+    (account) =>
+      account.tipe === "Aset" &&
+      String(account.status || "active") === "active" &&
+      /\b(kas|bank)\b/i.test(account.nama || ""),
   ),
 );
 

@@ -6,23 +6,40 @@
     >
       <div class="min-w-0">
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
-          Langganan Digital &amp; Aset Teknologi
+          <template v-if="isRiwayatTransaksiView">Riwayat Transaksi</template
+          ><template v-else-if="isTagihanView">Tagihan Berikutnya</template
+          ><template v-else-if="isRiwayatKadaluarsaView"
+            >Riwayat Kadaluarsa</template
+          ><template v-else-if="isAsetKategoriView">Kategori Aset</template
+          ><template v-else-if="isRiwayatAsetView">Riwayat Aset</template
+          ><template v-else-if="activeTab === 'assets'"
+            >Aset Teknologi</template
+          ><template v-else>Kelola Langganan</template>
         </h1>
         <p class="text-xs text-slate-400 font-light mt-1">
-          Lacak pengeluaran operational burn rate SaaS serta database penyusutan
-          depresiasi hardware infrastruktur korporat.
+          <template v-if="isRiwayatTransaksiView"
+            >Ringkasan status tagihan terakhir dari semua layanan.</template
+          ><template v-else-if="isTagihanView"
+            >Langganan muncul mulai H-3 dari tanggal tagihan berikutnya.
+            Tagihan yang sudah paid tidak ditampilkan di tabel ini.</template
+          ><template v-else-if="isRiwayatKadaluarsaView"
+            >Menampung layanan yang tanggal perpanjangannya sudah lewat atau
+            statusnya dihentikan/nonaktif.</template
+          ><template v-else-if="isAsetKategoriView"
+            >Kelola kategori aset yang dipakai untuk mengelompokkan aset
+            tetap.</template
+          ><template v-else-if="isRiwayatAsetView"
+            >Aset yang sudah dilepas dari inventaris aset tetap.</template
+          ><template v-else
+            >Lacak pengeluaran operational burn rate SaaS serta database
+            penyusutan depresiasi hardware infrastruktur korporat.</template
+          >
         </p>
       </div>
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3 ml-auto">
-        <div
-          class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-bold text-[#0B1F4A]"
-        >
-          <Cloud v-if="activeTab === 'subs'" class="w-4 h-4 text-sky-500" /><Box
-            v-else
-            class="w-4 h-4 text-[#0B1F4A]"
-          /><template v-if="activeTab === 'subs'">SaaS &amp; Langganan</template
-          ><template v-else>Aset Teknologi</template>
-        </div>
+      <div
+        v-if="!isLanggananFullPageView && !isAsetKategoriView && !isRiwayatAsetView"
+        class="flex flex-col sm:flex-row sm:items-center gap-3 ml-auto"
+      >
         <button
           id="btn-add-subs-asset"
           class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow transition-all hover:bg-[#1E3A8A] whitespace-nowrap"
@@ -38,7 +55,10 @@
       </div>
     </div>
     <!-- 1. LAYANAN LANGGANA DIGITAL view -->
-    <div v-if="activeTab === 'subs'" class="space-y-6">
+    <div
+      v-if="activeTab === 'subs' && !isLanggananFullPageView"
+      class="space-y-6"
+    >
       <!-- Burn rate calculation block card -->
       <div
         class="bg-[#102A56] text-white p-6 rounded-3xl relative overflow-hidden shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
@@ -80,61 +100,40 @@
       </div>
       <!-- Subs Log Table -->
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
       >
         <div
-          class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+          class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4"
         >
-          <div class="relative w-full lg:w-80">
-            <span
-              class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"
-              ><Search class="w-4 h-4" /></span
-            ><input
-              id="subs-search-box"
-              type="text"
-              :value="searchQuery"
-              placeholder="Cari layanan langganan..."
-              class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
-              @input="updateSearchQuery(eventValue($event))"
-            />
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs text-[#6B7A90]">Kategori:</span
-            ><button
-              v-for="cat in ['All', 'Infrastruktur', 'Software', 'Marketing']"
-              :id="`sub-cat-filter-${cat}`"
-              :key="cat"
-              type="button"
-              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${subCategoryFilter === cat ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
-              @click="updateSubCategoryFilter(cat)"
-            >
-              {{ cat }}</button
-            ><button
-              id="btn-subscription-transactions"
-              type="button"
-              class="inline-flex h-9 items-center gap-2 rounded-lg border border-[#BFD7F5] bg-[#F4F9FF] px-3 text-[11px] font-bold text-[#0B3A78] transition hover:bg-[#EAF4FF]"
-              @click="showSubscriptionTransactions = true"
-            >
-              <History class="h-3.5 w-3.5" /> Riwayat Transaksi</button
-            ><button
-              id="btn-due-bills"
-              type="button"
-              class="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100"
-              @click="showDueBills = true"
-            >
-              <Wallet class="h-3.5 w-3.5" /> Tagihan Berikutnya ({{
-                dueSubs.length
-              }})</button
-            ><button
-              id="btn-expired-subscriptions"
-              type="button"
-              class="inline-flex h-9 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100"
-              @click="showExpiredSubscriptions = true"
-            >
-              <History class="h-3.5 w-3.5" /> Riwayat Kadaluarsa ({{
-                expiredSubs.length
-              }})
-            </button>
+          <div
+            class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+          >
+            <div class="relative w-full lg:w-80">
+              <span
+                class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"
+                ><Search class="w-4 h-4" /></span
+              ><input
+                id="subs-search-box"
+                type="text"
+                :value="searchQuery"
+                placeholder="Cari layanan langganan..."
+                class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
+                @input="updateSearchQuery(eventValue($event))"
+              />
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs text-[#6B7A90]">Kategori:</span
+              ><button
+                v-for="cat in ['All', 'Infrastruktur', 'Software', 'Marketing']"
+                :id="`sub-cat-filter-${cat}`"
+                :key="cat"
+                type="button"
+                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${subCategoryFilter === cat ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+                @click="updateSubCategoryFilter(cat)"
+              >
+                {{ cat }}</button
+              >
+            </div>
           </div>
         </div>
         <div class="overflow-x-auto">
@@ -146,8 +145,8 @@
                 <th class="p-5">Nama Layanan</th>
                 <th class="p-5">Klasifikasi Kategori</th>
                 <th class="p-5">Biaya Rutin (Siklus)</th>
-                <th class="p-5">Est. Nominal Rupiah</th>
-                <th class="p-5">Tagihan Berikutnya</th>
+                <th class="p-5 text-center">Est. Nominal Rupiah</th>
+                <th class="p-5 text-center">Tagihan Berikutnya</th>
                 <th class="p-5 text-center">Aksi</th>
               </tr>
             </thead>
@@ -178,10 +177,10 @@
                     item.siklus
                   }})
                 </td>
-                <td class="p-5 font-mono font-bold text-slate-800 text-sm">
+                <td class="p-5 text-center font-mono font-bold text-slate-800 text-sm">
                   {{ formatRupiah(item.biayaIDR) }}
                 </td>
-                <td class="p-5">
+                <td class="p-5 text-center">
                   <span class="block font-mono">{{ item.tanggalTagihan }}</span>
                   <span
                     v-if="item.latestBillNumber"
@@ -222,8 +221,226 @@
         />
       </div>
     </div>
+    <!-- 3. RIWAYAT TRANSAKSI LANGGANAN full-page view -->
+    <div
+      v-if="isRiwayatTransaksiView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-500">
+          <thead
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+          >
+            <tr>
+              <th class="p-5">Layanan</th>
+              <th class="p-5">Mata Uang</th>
+              <th class="p-5 text-center">Nominal</th>
+              <th class="p-5 text-center">Tagihan Berikutnya</th>
+              <th class="p-5 text-center">Status Terakhir</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-150">
+            <tr
+              v-for="item in pagedSubHistory"
+              :key="`sub-history-${item.id}`"
+              class="hover:bg-slate-50 transition-colors"
+            >
+              <td class="p-5">
+                <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
+                <p class="mt-0.5 text-[10px] text-[#8A98AB]">
+                  {{ item.provider || "-" }}
+                </p>
+              </td>
+              <td class="p-5 font-mono">
+                {{ item.mataUang || item._raw?.currency || "IDR" }}
+              </td>
+              <td
+                class="whitespace-nowrap p-5 text-center font-mono font-bold text-[#0B1F4A]"
+              >
+                {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
+              </td>
+              <td class="whitespace-nowrap p-5 text-center font-mono">
+                {{ subscriptionDueDisplayDate(item) || "-" }}
+              </td>
+              <td class="p-5 text-center">
+                <span
+                  :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
+                >
+                  {{ subscriptionBillingStatusLabel(item) }}
+                </span>
+                <span
+                  v-if="subscriptionBillingSummary(item)"
+                  class="mt-1 block text-[10px] font-semibold text-[#64748B]"
+                >
+                  {{ subscriptionBillingSummary(item) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <TablePagination
+        :page="subHistoryPage"
+        :total="(langganan || []).length"
+        @page-change="subHistoryPage = safePage($event, (langganan || []).length)"
+      />
+    </div>
+    <!-- 4. TAGIHAN BERIKUTNYA full-page view -->
+    <div
+      v-if="isTagihanView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="overflow-x-auto">
+        <table
+          v-if="dueSubs.length"
+          class="w-full text-left text-xs text-slate-500"
+        >
+          <thead
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+          >
+            <tr>
+              <th class="p-5">Layanan</th>
+              <th class="p-5">Kategori</th>
+              <th class="p-5 text-center">Nominal</th>
+              <th class="p-5 text-center">Tagihan Berikutnya</th>
+              <th class="p-5 text-center">Status</th>
+              <th class="p-5 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-150">
+            <tr
+              v-for="item in pagedDueSubs"
+              :key="`due-${item.id}`"
+              class="hover:bg-slate-50 transition-colors"
+            >
+              <td class="p-5">
+                <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
+                <p class="mt-0.5 text-[10px] text-[#8A98AB]">
+                  {{ item.provider || "-" }} · {{ item.latestBillNumber || item.id }}
+                </p>
+              </td>
+              <td class="p-5">{{ item.kategori || "-" }}</td>
+              <td
+                class="whitespace-nowrap p-5 text-center font-mono font-bold text-[#0B1F4A]"
+              >
+                {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
+              </td>
+              <td class="whitespace-nowrap p-5 text-center font-mono">
+                {{ subscriptionDueDisplayDate(item) || "-" }}
+              </td>
+              <td class="p-5 text-center">
+                <span
+                  :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
+                >
+                  {{ subscriptionBillingStatusLabel(item) }}
+                </span>
+                <span
+                  v-if="subscriptionBillingSummary(item)"
+                  class="mt-1 block text-[10px] font-semibold text-[#64748B]"
+                >
+                  {{ subscriptionBillingSummary(item) }}
+                </span>
+              </td>
+              <td class="p-5 text-center">
+                <button
+                  type="button"
+                  :disabled="payingSubId === item.id"
+                  class="tax-payment-action inline-flex items-center gap-1.5 text-[11px] font-bold transition-all disabled:cursor-wait disabled:opacity-60"
+                  @click="handlePayBill(item)"
+                >
+                  <CheckCircle2 class="h-3.5 w-3.5" />
+                  {{ payingSubId === item.id ? 'Memproses...' : 'Bayar' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p
+          v-else
+          class="py-16 text-center text-xs text-slate-400"
+        >
+          Tidak ada tagihan yang belum dibayar.
+        </p>
+      </div>
+      <TablePagination
+        v-if="dueSubs.length > 0"
+        :page="dueSubsPage"
+        :total="dueSubs.length"
+        @page-change="dueSubsPage = safePage($event, dueSubs.length)"
+      />
+    </div>
+    <!-- 5. RIWAYAT KADALUARSA full-page view -->
+    <div
+      v-if="isRiwayatKadaluarsaView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="overflow-x-auto">
+        <table
+          v-if="expiredSubs.length"
+          class="w-full text-left text-xs text-slate-500"
+        >
+          <thead
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+          >
+            <tr>
+              <th class="p-5">Layanan</th>
+              <th class="p-5">Kategori</th>
+              <th class="p-5 text-center">Nominal</th>
+              <th class="p-5 text-center">Tanggal</th>
+              <th class="p-5 text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-150">
+            <tr
+              v-for="item in pagedExpiredSubs"
+              :key="`expired-${item.id}`"
+              class="hover:bg-slate-50 transition-colors"
+            >
+              <td class="p-5">
+                <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
+                <p class="mt-0.5 text-[10px] text-[#8A98AB]">
+                  {{ item.provider || "-" }}
+                </p>
+              </td>
+              <td class="p-5">{{ item.kategori || "-" }}</td>
+              <td
+                class="whitespace-nowrap p-5 text-center font-mono font-bold text-[#0B1F4A]"
+              >
+                {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
+              </td>
+              <td class="whitespace-nowrap p-5 text-center font-mono">
+                {{ item.tanggalTagihan || "-" }}
+              </td>
+              <td class="p-5 text-center">
+                <span
+                  class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700"
+                  >{{ subscriptionStatusLabel(item) }}</span
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p
+          v-else
+          class="py-16 text-center text-xs text-slate-400"
+        >
+          Belum ada langganan yang kadaluarsa atau dihentikan.
+        </p>
+      </div>
+      <TablePagination
+        v-if="expiredSubs.length > 0"
+        :page="expiredPage"
+        :total="expiredSubs.length"
+        @page-change="expiredPage = safePage($event, expiredSubs.length)"
+      />
+    </div>
     <!-- 2. ASET TEKNOLOGI INVENTORY view -->
-    <div v-if="activeTab === 'assets'" class="space-y-6">
+    <div
+      v-if="
+        activeTab === 'assets' &amp;&amp; !isAsetKategoriView &amp;&amp; !isRiwayatAsetView
+      "
+      class="space-y-6"
+    >
       <!-- Asset statistics overview summary -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div
@@ -261,7 +478,7 @@
       </div>
       <!-- Asset table listing -->
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
       >
         <div
           class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
@@ -280,13 +497,6 @@
             />
           </div>
           <div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-            <button
-              type="button"
-              :class="`asset-toolbar-button inline-flex h-10 min-w-[146px] shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-xs font-extrabold transition ${showAssetArchive ? 'border border-amber-300 bg-amber-100 text-amber-800 shadow-sm' : 'border border-[#D8E5F4] bg-white text-[#0B1F4A] hover:bg-[#F8FBFE]'}`"
-              @click="showAssetArchive = !showAssetArchive"
-            >
-              <Archive class="h-4 w-4" /> Arsip ({{ archivedAssets.length }})
-            </button>
             <div
               class="flex shrink-0 items-center gap-2"
             >
@@ -378,24 +588,23 @@
                       @click="showDepreciationHistory(asset)"
                     >
                       <History class="h-3.5 w-3.5" /></button
-                    ><template v-if="asset._raw?.status !== 'disposed'"
-                      ><button
-                        type="button"
-                        :aria-label="`Ubah aset ${asset.nama}`"
-                        title="Ubah"
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
-                        @click="openAssetForm(asset)"
-                      >
-                        <Pencil class="h-3.5 w-3.5" /></button
-                      ><button
-                        type="button"
-                        :aria-label="`Lepas aset ${asset.nama}`"
-                        title="Lepas aset"
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
-                        @click="requestDisposeAsset(asset)"
-                      >
-                        <Trash2 class="h-3.5 w-3.5" /></button
-                    ></template>
+                    ><button
+                      type="button"
+                      :aria-label="`Ubah aset ${asset.nama}`"
+                      title="Ubah"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
+                      @click="openAssetForm(asset)"
+                    >
+                      <Pencil class="h-3.5 w-3.5" /></button
+                    ><button
+                      type="button"
+                      :aria-label="`Lepas aset ${asset.nama}`"
+                      title="Lepas aset"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                      @click="requestDisposeAsset(asset)"
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -409,13 +618,379 @@
         />
       </div>
     </div>
+    <!-- 2b. RIWAYAT ASET full-page view -->
+    <div
+      v-if="isRiwayatAsetView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div
+        class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+      >
+        <div class="relative w-full lg:w-80">
+          <span
+            class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"
+            ><Search class="w-4 h-4" /></span
+          ><input
+            id="asset-archive-search-box"
+            type="text"
+            :value="assetArchiveSearch"
+            placeholder="Cari aset atau penanggung jawab..."
+            class="h-10 w-full rounded-xl border border-[#D8E5F4] bg-[#FBFCFE] pl-9 pr-4 text-xs text-[#182338] outline-none placeholder:text-[#9AA9BC] focus:border-[#1E5AA8] focus:bg-white"
+            @input="assetArchiveSearch = eventValue($event)"
+          />
+        </div>
+      </div>
+      <div class="asset-table-scroll overflow-x-auto">
+        <table
+          v-if="filteredArchivedAssets.length"
+          class="w-full min-w-[860px] table-fixed text-center text-xs text-slate-500"
+        >
+          <colgroup>
+            <col style="width: 18%" />
+            <col style="width: 14%" />
+            <col style="width: 14%" />
+            <col style="width: 15%" />
+            <col style="width: 15%" />
+            <col style="width: 15%" />
+            <col style="width: 9%" />
+          </colgroup>
+          <thead
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+          >
+            <tr>
+              <th class="px-3 py-4 text-center">Aset Hardware &amp; Cloud</th>
+              <th class="px-3 py-4 text-center">Kategori Aset</th>
+              <th class="px-3 py-4 text-center font-mono">Tgl Perolehan</th>
+              <th class="px-3 py-4 text-center">Harga Perolehan</th>
+              <th class="px-3 py-4 text-center">Nilai Buku Neto</th>
+              <th class="px-3 py-4 text-center">Penanggung Jawab</th>
+              <th class="px-3 py-4 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-150">
+            <tr
+              v-for="asset in pagedArchivedAssets"
+              :key="asset.id"
+              class="hover:bg-slate-50 transition-colors"
+            >
+              <td class="px-3 py-4 text-center">
+                <span class="font-bold text-[#0B1F4A] block text-sm">{{
+                  asset.nama
+                }}</span
+                ><span class="text-[10px] text-slate-400 font-mono">{{
+                  asset.id
+                }}</span>
+              </td>
+              <td
+                class="px-3 py-4 text-center text-slate-700 font-semibold break-words"
+              >
+                {{ asset.kategori }}
+              </td>
+              <td class="px-3 py-4 text-center font-mono">
+                {{ asset.tanggalBeli }}
+              </td>
+              <td
+                class="px-3 py-4 text-center font-mono font-medium text-slate-600"
+              >
+                {{ formatRupiah(asset.hargaBeli) }}
+              </td>
+              <td
+                class="px-3 py-4 text-center font-mono font-bold text-emerald-600 text-sm"
+              >
+                {{ formatRupiah(asset.nilaiBuku) }}
+              </td>
+              <td
+                class="px-3 py-4 text-center font-medium text-slate-700 break-words"
+              >
+                {{ asset.penanggungJawab }}
+              </td>
+              <td class="px-3 py-4 text-center">
+                <div class="flex justify-center gap-1">
+                  <button
+                    type="button"
+                    :aria-label="`Riwayat penyusutan ${asset.nama}`"
+                    title="Riwayat penyusutan"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
+                    @click="showDepreciationHistory(asset)"
+                  >
+                    <History class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="py-16 text-center text-xs text-slate-400">
+          Belum ada aset yang dilepas dari inventaris.
+        </p>
+      </div>
+      <TablePagination
+        v-if="filteredArchivedAssets.length > 0"
+        :page="assetArchivePage"
+        :total="filteredArchivedAssets.length"
+        @page-change="
+          assetArchivePage = safePage($event, filteredArchivedAssets.length)
+        "
+      />
+    </div>
+    <!-- 2c. KATEGORI ASET full-page view -->
+    <div
+      v-if="isAsetKategoriView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <section class="min-w-0 p-5 lg:p-8">
+        <div
+          class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p class="text-[13px] font-extrabold text-[#102A56]">
+              Daftar Kategori Aset
+            </p>
+            <p class="mt-1 text-[11px] text-[#7A8CA8]">
+              Gunakan ikon untuk ubah atau hapus data.
+            </p>
+          </div>
+          <button
+            id="btn-add-asset-category"
+            type="button"
+            class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
+            @click="openAssetCategoryForm()"
+          >
+            <Plus class="h-3.5 w-3.5" /> Tambah Kategori
+          </button>
+        </div>
+        <div class="relative mb-4">
+          <Search
+            class="pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-y-1/2 left-3.5 text-[#0B1F4A]"
+          />
+          <input
+            id="asset-category-search"
+            :value="assetCategorySearch"
+            placeholder="Cari kode, nama, atau keterangan kategori..."
+            class="h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pl-10 pr-3 text-[12px] font-medium text-[#243650] outline-none transition placeholder:text-[#8FA0B8] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+            @input="assetCategorySearch = eventValue($event)"
+          />
+        </div>
+        <div class="overflow-hidden border border-[#DCE7F4]">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead
+                class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"
+              >
+                <tr>
+                  <th class="px-5 py-3 text-left">Kode / Nama</th>
+                  <th class="px-5 py-3 text-center">Dipakai</th>
+                  <th class="px-5 py-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#EDF2F7] bg-white">
+                <template v-if="filteredAssetCategories.length"
+                  ><tr
+                    v-for="item in pagedAssetCategories"
+                    :key="item.id"
+                    class="hover:bg-[#FAFCFF]"
+                  >
+                    <td class="px-4 py-3">
+                      <p class="font-extrabold text-[#102A56]">
+                        {{ item.name }}
+                      </p>
+                      <p class="mt-1 text-[10px] text-[#7A8CA8]">
+                        {{ item.code || "Kode otomatis"
+                        }}<template v-if="item.description">{{
+                          ` · ${item.description}`
+                        }}</template
+                        ><template v-else></template>
+                      </p>
+                    </td>
+                    <td
+                      class="px-4 py-3 text-center font-bold text-[#53658A]"
+                    >
+                      {{ item.usage_count || 0 }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="flex justify-center gap-1.5">
+                        <button
+                          type="button"
+                          title="Ubah kategori"
+                          aria-label="Ubah kategori"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F2D49B] bg-[#FFF9EE] text-[#B86A00] hover:bg-[#FFF1D7]"
+                          @click="openAssetCategoryForm(item)"
+                        >
+                          <Pencil class="h-3.5 w-3.5" /></button
+                        ><button
+                          type="button"
+                          title="Hapus kategori"
+                          aria-label="Hapus kategori"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                          @click="requestDeleteAssetCategory(item)"
+                        >
+                          <Trash2 class="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td></tr
+                ></template>
+                <tr v-else>
+                  <td
+                    colspan="3"
+                    class="px-4 py-12 text-center text-xs text-[#8190A5]"
+                  >
+                    Belum ada kategori aset yang sesuai.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <TablePagination
+          :page="assetCategoriesPage"
+          :total="filteredAssetCategories.length"
+          @page-change="
+            assetCategoriesPage = safePage(
+              $event,
+              filteredAssetCategories.length,
+            )
+          "
+        />
+      </section>
+    </div>
+    <!-- 2c. ADD/EDIT ASET CATEGORY MODAL -->
+    <Teleport to="body">
+      <div
+        v-if="isAssetCategoryEditorOpen"
+        class="asset-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+        <div
+          class="my-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+        >
+          <div
+            class="px-6 py-5 border-b border-slate-100 flex justify-between items-start"
+          >
+            <div>
+              <h3 class="font-extrabold text-lg text-[#111827] tracking-tight">
+                <template v-if="assetCategoryForm.id">Ubah Kategori</template
+                ><template v-else>Tambah Kategori</template>
+              </h3>
+              <span class="text-[11px] text-[#53658A] block mt-0.5"
+                >Kategori dipakai untuk mengelompokkan aset pada tabel Kelola
+                Aset.</span
+              >
+            </div>
+            <button
+              id="btn-close-asset-category-modal"
+              type="button"
+              class="w-10 h-10 flex items-center justify-center rounded-2xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors"
+              @click="closeAssetCategoryEditor"
+            >
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+          <form
+            class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs"
+            @submit="saveAssetCategory"
+          >
+            <div class="space-y-2">
+              <label
+                class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
+                for="asset-category-code"
+                >Kode</label
+              >
+              <input
+                id="asset-category-code"
+                :value="assetCategoryForm.code"
+                placeholder="Contoh: ELEKTRONIK-IT"
+                :class="assetInputClass"
+                @input="
+                  assetCategoryForm = {
+                    ...assetCategoryForm,
+                    code: eventValue($event),
+                  };
+                  assetCategorySaveWarning = '';
+                "
+              />
+              <p class="text-[10px] text-[#8A98AB]">
+                Gunakan kode pendek yang mudah dikenali (opsional).
+              </p>
+              <p v-if="assetCategorySaveWarning" class="form-field-warning">
+                {{ assetCategorySaveWarning }}
+              </p>
+            </div>
+            <div class="space-y-2">
+              <label
+                class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
+                for="asset-category-name"
+                >Nama Kategori</label
+              >
+              <input
+                id="asset-category-name"
+                required
+                :value="assetCategoryForm.name"
+                placeholder="Contoh: Elektronik / IT"
+                :class="assetInputClass"
+                @input="
+                  assetCategoryForm = {
+                    ...assetCategoryForm,
+                    name: eventValue($event),
+                  }
+                "
+              />
+              <p
+                v-if="assetCategoryFormErrors.name"
+                class="form-field-warning"
+              >
+                {{ assetCategoryFormErrors.name }}
+              </p>
+            </div>
+            <div class="space-y-2">
+              <label
+                class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
+                for="asset-category-description"
+                >Keterangan</label
+              >
+              <textarea
+                id="asset-category-description"
+                :value="assetCategoryForm.description"
+                :rows="3"
+                placeholder="Keterangan singkat (opsional)"
+                class="w-full resize-none rounded-xl border border-[#D8E5F4] bg-[#F8FAFC] px-4 py-3 text-xs font-semibold text-[#111827] outline-none transition-all focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20"
+                @input="
+                  assetCategoryForm = {
+                    ...assetCategoryForm,
+                    description: eventValue($event),
+                  }
+                "
+              />
+            </div>
+            <div class="grid gap-3 pt-1 sm:grid-cols-2">
+              <button
+                id="btn-cancel-asset-category"
+                type="button"
+                class="h-11 rounded-xl border border-[#DCE7F4] bg-white px-4 text-xs font-bold text-[#53658A] transition hover:bg-[#F4F8FD]"
+                @click="closeAssetCategoryEditor"
+              >
+                Batal
+              </button>
+              <button
+                id="btn-save-asset-category"
+                type="submit"
+                :disabled="assetCategoryBusy"
+                class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save class="h-4 w-4" />
+                <template v-if="assetCategoryBusy">Menyimpan...</template>
+                <template v-else>Simpan</template>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
     <Teleport to="body">
       <div
         v-if="isDepreciationModalOpen"
         class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
         <div
-          class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-[#D8E5F4] bg-white shadow-2xl"
+          class="depreciation-modal-card flex w-full max-w-4xl flex-col overflow-hidden border border-[#D8E5F4] bg-white shadow-2xl"
         >
           <div
             class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-4"
@@ -654,7 +1229,7 @@
       class="asset-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
     >
       <div
-        class="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-2xl"
+        class="w-full max-w-2xl overflow-hidden bg-white shadow-2xl"
       >
         <div
           class="flex items-start justify-between border-b border-[#E8EEF7] px-6 py-5"
@@ -1184,336 +1759,6 @@
     </Teleport>
     <Teleport to="body">
       <div
-        v-if="showExpiredSubscriptions"
-        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
-      >
-      <div
-        class="w-full max-w-3xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-600"
-            >
-              Arsip Langganan
-            </p>
-            <h3
-              class="mt-1 text-lg font-extrabold tracking-tight text-[#111827]"
-            >
-              Riwayat Langganan Kadaluarsa
-            </h3>
-            <p class="mt-0.5 text-[11px] text-[#53658A]">
-              Menampung layanan yang tanggal perpanjangannya sudah lewat atau
-              statusnya dihentikan/nonaktif.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-slate-600"
-            @click="showExpiredSubscriptions = false"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="max-h-[60vh] overflow-auto p-6">
-          <table v-if="expiredSubs.length" class="w-full min-w-[760px] table-fixed text-left text-xs">
-            <colgroup>
-              <col style="width: 28%" />
-              <col style="width: 18%" />
-              <col style="width: 21%" />
-              <col style="width: 20%" />
-              <col style="width: 13%" />
-            </colgroup>
-            <thead
-              class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
-            >
-              <tr>
-                <th class="pb-3">Layanan</th>
-                <th class="pb-3">Kategori</th>
-                <th class="pb-3 pr-8 text-right">Nominal</th>
-                <th class="pb-3 pl-8">Tanggal</th>
-                <th class="pb-3 pl-4">Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
-              <tr v-for="item in pagedExpiredSubs" :key="`expired-${item.id}`">
-                <td class="py-3">
-                  <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
-                  <p class="mt-0.5 text-[10px] text-[#8A98AB]">
-                    {{ item.provider || "-" }}
-                  </p>
-                </td>
-                <td class="py-3">{{ item.kategori || "-" }}</td>
-                <td class="whitespace-nowrap py-3 pr-8 text-right font-mono font-bold text-[#0B1F4A]">
-                  {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
-                </td>
-                <td class="whitespace-nowrap py-3 pl-8 font-mono">{{ item.tanggalTagihan || "-" }}</td>
-                <td class="py-3 pl-4">
-                  <span
-                    class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700"
-                    >{{ subscriptionStatusLabel(item) }}</span
-                  >
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p
-            v-else
-            class="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FBFE] p-6 text-center text-sm text-[#6B7A90]"
-          >
-            Belum ada langganan yang kadaluarsa atau dihentikan.
-          </p>
-        </div>
-        <TablePagination
-          v-if="expiredSubs.length > 0"
-          :page="expiredPage"
-          :total="expiredSubs.length"
-          @page-change="expiredPage = safePage($event, expiredSubs.length)"
-        />
-        <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4">
-          <button
-            type="button"
-            class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
-            @click="showExpiredSubscriptions = false"
-          >
-            Tutup
-          </button>
-        </div>
-      </div>
-      </div>
-    </Teleport>
-    <Teleport to="body">
-      <div
-        v-if="showSubscriptionTransactions"
-        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
-      >
-      <div
-        class="w-full max-w-4xl rounded-[24px] border border-slate-100 bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Langganan
-            </p>
-            <h3
-              class="mt-1 text-lg font-extrabold tracking-tight text-[#111827]"
-            >
-              Riwayat Transaksi Langganan
-            </h3>
-            <p class="mt-0.5 text-[11px] text-[#53658A]">
-              Ringkasan status tagihan terakhir dari semua layanan.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-slate-600"
-            @click="showSubscriptionTransactions = false"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="max-h-[60vh] overflow-auto p-6">
-          <table class="w-full min-w-[820px] table-fixed text-left text-xs">
-            <colgroup>
-              <col style="width: 24%" />
-              <col style="width: 12%" />
-              <col style="width: 22%" />
-              <col style="width: 22%" />
-              <col style="width: 20%" />
-            </colgroup>
-            <thead
-              class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
-            >
-              <tr>
-                <th class="pb-3">Layanan</th>
-                <th class="pb-3">Mata Uang</th>
-                <th class="pb-3 pr-6 text-right">Nominal</th>
-                <th class="pb-3 pl-6">Tagihan Berikutnya</th>
-                <th class="pb-3 pl-4">Status Terakhir</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
-              <tr
-                v-for="item in pagedSubHistory"
-                :key="`sub-history-${item.id}`"
-              >
-                <td class="py-3">
-                  <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
-                  <p class="mt-0.5 text-[10px] text-[#8A98AB]">
-                    {{ item.provider || "-" }}
-                  </p>
-                </td>
-                <td class="py-3 font-mono">
-                  {{ item.mataUang || item._raw?.currency || "IDR" }}
-                </td>
-                <td class="whitespace-nowrap py-3 pr-6 text-right font-mono font-bold text-[#0B1F4A]">
-                  {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
-                </td>
-                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ subscriptionDueDisplayDate(item) || "-" }}</td>
-                <td class="py-3 pl-4">
-                  <span
-                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
-                  >
-                    {{ subscriptionBillingStatusLabel(item) }}
-                  </span>
-                  <span
-                    v-if="subscriptionBillingSummary(item)"
-                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
-                  >
-                    {{ subscriptionBillingSummary(item) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <TablePagination
-          :page="subHistoryPage"
-          :total="(langganan || []).length"
-          @page-change="subHistoryPage = safePage($event, (langganan || []).length)"
-        />
-        <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4">
-          <button
-            type="button"
-            class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
-            @click="showSubscriptionTransactions = false"
-          >
-            Tutup
-          </button>
-        </div>
-      </div>
-      </div>
-    </Teleport>
-    <!-- TAGIHAN BERIKUTNYA modal -->
-    <Teleport to="body">
-      <div
-        v-if="showDueBills"
-        class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
-      >
-      <div
-        class="w-full max-w-4xl overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-start justify-between border-b border-slate-100 px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600"
-            >
-              Pembayaran Tagihan Vendor
-            </p>
-            <h3
-              class="mt-1 text-lg font-extrabold tracking-tight text-[#111827]"
-            >
-              Tagihan Berikutnya
-            </h3>
-            <p class="mt-0.5 text-[11px] text-[#53658A]">
-              Langganan muncul mulai H-3 dari tanggal tagihan berikutnya. Tagihan yang sudah paid tidak ditampilkan di tabel ini.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-slate-600"
-            @click="showDueBills = false"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="max-h-[60vh] overflow-auto p-6">
-          <table v-if="dueSubs.length" class="w-full min-w-[800px] table-fixed text-left text-xs">
-            <colgroup>
-              <col style="width: 25%" />
-              <col style="width: 15%" />
-              <col style="width: 12%" />
-              <col style="width: 18%" />
-              <col style="width: 15%" />
-              <col style="width: 15%" />
-            </colgroup>
-            <thead
-              class="border-b border-[#E8EEF7] text-[10px] font-extrabold uppercase tracking-wider text-[#70819B]"
-            >
-              <tr>
-                <th class="pb-3">Layanan</th>
-                <th class="pb-3">Kategori</th>
-                <th class="pb-3 pr-6 text-right">Nominal</th>
-                <th class="pb-3 pl-6">Tagihan Berikutnya</th>
-                <th class="pb-3 pl-4">Status</th>
-                <th class="pb-3 pl-4 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
-              <tr v-for="item in pagedDueSubs" :key="`due-${item.id}`">
-                <td class="py-3">
-                  <p class="font-bold text-[#0B1F4A]">{{ item.nama }}</p>
-                  <p class="mt-0.5 text-[10px] text-[#8A98AB]">
-                    {{ item.provider || "-" }} · {{ item.latestBillNumber || item.id }}
-                  </p>
-                </td>
-                <td class="py-3">{{ item.kategori || "-" }}</td>
-                <td class="whitespace-nowrap py-3 pr-6 text-right font-mono font-bold text-[#0B1F4A]">
-                  {{ formatRupiah(item.biayaIDR || item.biaya || 0) }}
-                </td>
-                <td class="whitespace-nowrap py-3 pl-6 font-mono">{{ subscriptionDueDisplayDate(item) || "-" }}</td>
-                <td class="py-3 pl-4">
-                  <span
-                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${subscriptionBillingStatusClass(item)}`"
-                  >
-                    {{ subscriptionBillingStatusLabel(item) }}
-                  </span>
-                  <span
-                    v-if="subscriptionBillingSummary(item)"
-                    class="mt-1 block text-[10px] font-semibold text-[#64748B]"
-                  >
-                    {{ subscriptionBillingSummary(item) }}
-                  </span>
-                </td>
-                <td class="py-3 pl-4 text-center">
-                  <button
-                    type="button"
-                    :disabled="payingSubId === item.id"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
-                    @click="handlePayBill(item)"
-                  >
-                    <CheckCircle2 class="h-3.5 w-3.5" />
-                    {{ payingSubId === item.id ? 'Memproses...' : 'Bayar' }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p
-            v-else
-            class="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FBFE] p-6 text-center text-sm text-[#6B7A90]"
-          >
-            Tidak ada tagihan yang belum dibayar.
-          </p>
-        </div>
-        <TablePagination
-          v-if="dueSubs.length > 0"
-          :page="dueSubsPage"
-          :total="dueSubs.length"
-          @page-change="dueSubsPage = safePage($event, dueSubs.length)"
-        />
-        <div class="flex justify-end border-t border-[#E8EEF7] px-6 py-4">
-          <button
-            type="button"
-            class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
-            @click="showDueBills = false"
-          >
-            Tutup
-          </button>
-        </div>
-      </div>
-      </div>
-    </Teleport>
-    <Teleport to="body">
-      <div
         v-if="subscriptionHistory"
         class="fixed inset-0 z-[120000] flex items-start justify-center overflow-y-auto bg-[#0B1220]/60 p-4 pt-[4vh] pb-[4vh] backdrop-blur-sm"
       >
@@ -1928,10 +2173,8 @@
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
 import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import {
-  Cloud,
-  Box,
   Plus,
   Search,
   Trash2,
@@ -1944,10 +2187,8 @@ import {
   Info,
   Pencil,
   History,
-  Archive,
   CheckCircle2,
   CircleAlert,
-  Wallet,
   Eye,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
@@ -1969,7 +2210,14 @@ interface AsetTeknologi {
   penanggungJawab: string;
 }
 interface LanggananDanAsetProps {
-  activeSection: "langganan" | "aset";
+  activeSection:
+    | "langganan"
+    | "aset"
+    | "aset-kategori"
+    | "aset-riwayat"
+    | "langganan-riwayat-transaksi"
+    | "langganan-tagihan"
+    | "langganan-riwayat-kadaluarsa";
   langganan: Langganan[];
   assets: AsetTeknologi[];
 }
@@ -1990,7 +2238,32 @@ const {
   },
 } = useFinStartContext();
 const activeTab = computed(() =>
-  props.activeSection === "langganan" ? "subs" : "assets",
+  props.activeSection === "aset" ||
+  props.activeSection === "aset-kategori" ||
+  props.activeSection === "aset-riwayat"
+    ? "assets"
+    : "subs",
+);
+const isRiwayatTransaksiView = computed(
+  () => props.activeSection === "langganan-riwayat-transaksi",
+);
+const isTagihanView = computed(
+  () => props.activeSection === "langganan-tagihan",
+);
+const isRiwayatKadaluarsaView = computed(
+  () => props.activeSection === "langganan-riwayat-kadaluarsa",
+);
+const isAsetKategoriView = computed(
+  () => props.activeSection === "aset-kategori",
+);
+const isRiwayatAsetView = computed(
+  () => props.activeSection === "aset-riwayat",
+);
+const isLanggananFullPageView = computed(
+  () =>
+    isRiwayatTransaksiView.value ||
+    isTagihanView.value ||
+    isRiwayatKadaluarsaView.value,
 );
 // Filter category state (Aligned with 'Infrastruktur' | 'Software' | 'Marketing')
 const subCategoryFilter = ref("All"),
@@ -2023,12 +2296,8 @@ const currencyOptions: { value: CurrencyCode; label: string }[] = [
   { value: "GBP", label: "GBP - Pound Inggris" },
 ];
 const subscriptionHistory = ref<any>(null);
-const showSubscriptionTransactions = ref(false);
-const showExpiredSubscriptions = ref(false);
-const showDueBills = ref(false);
 const dueSubsPage = ref(1);
 const payingSubId = ref<string | null>(null);
-const showAssetArchive = ref(false);
 const assetHistory = ref<any>(null);
 const assetHistoryViewMode = ref<"monthly" | "yearly">("monthly");
 const subscriptionRateConfirmed = ref(true);
@@ -2207,12 +2476,139 @@ const subscriptionIdrSummary = computed(() => {
   if (!subscriptionRateConfirmed.value) return "Tekan OK untuk akumulasi";
   return formatRupiah(convertToIdr(amount, newSub.value.mataUang, rate));
 });
-const assetCategoryOptions = [
-  "Elektronik / IT",
-  "Furniture",
-  "Kendaraan",
-  "Gedung & Kantor",
-];
+const assetCategories = ref<any[]>([]);
+const assetCategorySearch = ref("");
+const assetCategoriesPage = ref(1);
+const isAssetCategoryEditorOpen = ref(false);
+const assetCategoryBusy = ref(false);
+const assetCategorySaveWarning = ref("");
+const assetCategoryForm = ref({
+  id: "",
+  code: "",
+  name: "",
+  description: "",
+});
+const assetCategoryFormErrors = ref({ name: "" });
+
+const assetCategoryOptions = computed(() =>
+  assetCategories.value.map((item: any) => item.name).filter(Boolean),
+);
+
+const filteredAssetCategories = computed(() => {
+  const keyword = String(assetCategorySearch.value || "")
+    .trim()
+    .toLowerCase();
+  const source = latestFirst(assetCategories.value);
+  if (!keyword) return source;
+  return source.filter((item: any) =>
+    [item.code, item.name, item.description].some((value: any) =>
+      String(value || "")
+        .toLowerCase()
+        .includes(keyword),
+    ),
+  );
+});
+
+const pagedAssetCategories = computed(() =>
+  pageRows(filteredAssetCategories.value, assetCategoriesPage.value),
+);
+
+async function fetchAssetCategories() {
+  try {
+    const response = await financeApi.get("/asset-categories");
+    assetCategories.value = Array.isArray(response) ? response : [];
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal memuat kategori aset."));
+  }
+}
+
+onMounted(() => {
+  fetchAssetCategories();
+});
+
+function openAssetCategoryForm(item: any = null) {
+  assetCategorySaveWarning.value = "";
+  assetCategoryFormErrors.value = { name: "" };
+  assetCategoryForm.value = {
+    id: item ? String(item.id) : "",
+    code: item ? String(item.code || "") : "",
+    name: item ? String(item.name || "") : "",
+    description: item ? String(item.description || "") : "",
+  };
+  isAssetCategoryEditorOpen.value = true;
+}
+
+function closeAssetCategoryEditor() {
+  if (assetCategoryBusy.value) return;
+  isAssetCategoryEditorOpen.value = false;
+}
+
+async function saveAssetCategory(event?: Event) {
+  event?.preventDefault();
+  if (assetCategoryBusy.value) return;
+  const name = assetCategoryForm.value.name.trim();
+  if (!name) {
+    assetCategoryFormErrors.value = { name: "Nama kategori wajib diisi." };
+    return;
+  }
+  assetCategoryBusy.value = true;
+  try {
+    const payload = {
+      code: assetCategoryForm.value.code,
+      name,
+      description: assetCategoryForm.value.description,
+    };
+    if (assetCategoryForm.value.id) {
+      await financeApi.put(
+        `/asset-categories/${assetCategoryForm.value.id}`,
+        payload,
+      );
+      notify("Kategori aset berhasil diperbarui.");
+    } else {
+      await financeApi.post("/asset-categories", payload);
+      notify("Kategori aset berhasil ditambahkan.");
+    }
+    isAssetCategoryEditorOpen.value = false;
+    await fetchAssetCategories();
+  } catch (error) {
+    assetCategorySaveWarning.value = getApiErrorMessage(
+      error,
+      "Gagal menyimpan kategori aset.",
+    );
+  } finally {
+    assetCategoryBusy.value = false;
+  }
+}
+
+function requestDeleteAssetCategory(item: any) {
+  confirmDialog.value = {
+    type: "delete-asset-category",
+    item,
+    eyebrow: "Konfirmasi Penghapusan",
+    title: "Hapus kategori ini?",
+    message: `Kategori ${item.name} akan dihapus dari master data aset.`,
+    details: [
+      { label: "Kategori", value: item.name },
+      { label: "Kode", value: item.code || "-" },
+      { label: "Dipakai", value: `${item.usage_count || 0} aset` },
+    ],
+    impactItems: [
+      "Kategori tidak bisa dihapus jika masih dipakai aset.",
+      "Pindahkan kategori aset terkait terlebih dahulu sebelum menghapus.",
+    ],
+    confirmLabel: "Hapus Kategori",
+  };
+}
+
+async function deleteAssetCategory(item: any) {
+  try {
+    await financeApi.delete(`/asset-categories/${item.id}`);
+    notify("Kategori aset berhasil dihapus.");
+    await fetchAssetCategories();
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal menghapus kategori aset."));
+  }
+}
 const formatAssetCurrencyInput = (amount: number) =>
   formatRupiahInput(amount, false, false);
 
@@ -2568,6 +2964,10 @@ const handleConfirmDialog = async (reason = "") => {
   }
   if (action.type === "dispose-asset") {
     await disposeAsset(action.item, reason || "Aset tidak lagi digunakan");
+    return;
+  }
+  if (action.type === "delete-asset-category") {
+    await deleteAssetCategory(action.item);
   }
 };
 
@@ -2807,6 +3207,27 @@ const activeAssets = computed(() =>
     ),
   ),
 );
+const assetArchiveSearch = ref("");
+const assetArchivePage = ref(1);
+const filteredArchivedAssets = computed(() => {
+  const query = assetArchiveSearch.value.toLowerCase();
+  if (!query) return archivedAssets.value;
+  return archivedAssets.value.filter(
+    (a: any) =>
+      String(a.nama || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(a.penanggungJawab || "")
+        .toLowerCase()
+        .includes(query) ||
+      String(a.kategori || "")
+        .toLowerCase()
+        .includes(query),
+  );
+});
+const pagedArchivedAssets = computed(() =>
+  pageRows(filteredArchivedAssets.value, assetArchivePage.value),
+);
 const isAssetDepreciatedInActivePeriod = (asset: any) =>
   Boolean(
     depreciationPeriod.value &&
@@ -2859,7 +3280,7 @@ const depreciationPreviewTotal = computed(() =>
 );
 const filteredAssets = computed(() =>
   latestFirst(
-    (showAssetArchive.value ? archivedAssets.value : activeAssets.value).filter(
+    activeAssets.value.filter(
       (a: any) => {
         const query = searchQuery.value.toLowerCase();
         return (

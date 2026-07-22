@@ -14,17 +14,6 @@
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <div
-          class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3 py-2 text-xs font-bold text-[#0B1F4A]"
-        >
-          <BookOpen
-            v-if="activeTab === 'ledger'"
-            class="w-3.5 h-3.5"
-          /><ArrowLeftRight v-else class="w-3.5 h-3.5" /><template
-            v-if="activeTab === 'ledger'"
-            >Chart of Accounts</template
-          ><template v-else>Jurnal Transaksi</template>
-        </div>
         <button
           id="btn-open-modal-primary"
           class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0"
@@ -41,12 +30,12 @@
     <!-- 1. CHART OF ACCOUNTS view -->
     <div v-if="activeTab === 'ledger'" class="space-y-4">
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
       >
         <div
-          class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
         >
-          <div class="relative w-full sm:w-80">
+          <div class="relative w-full lg:w-80">
             <span
               class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#8A98AB]"
               ><Search class="w-4 h-4" /></span
@@ -59,19 +48,45 @@
               @input="updateLedgerSearch(eventValue($event))"
             />
           </div>
-          <span class="text-xs text-[#6B7A90]"
-            >Menampilkan {{ filteredLedgers.length }} akun</span
-          >
+          <div class="flex flex-col items-start gap-1.5 lg:items-end">
+            <span class="text-xs text-[#6B7A90]"
+              >Menampilkan {{ filteredLedgers.length }} akun</span
+            >
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <span class="text-xs text-[#6B7A90]"
+                ><Filter class="mr-1 inline h-3.5 w-3.5" />Tipe:</span
+              ><button
+                v-for="type in LEDGER_TYPE_FILTERS"
+                :id="`ledger-type-filter-${type}`"
+                :key="type"
+                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${ledgerTypeFilter === type ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+                @click="setLedgerTypeFilter(type)"
+              >
+                {{ type }}
+              </button>
+            </div>
+          </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-500">
+          <table
+            class="w-full text-left text-xs text-slate-500"
+            style="table-layout: fixed"
+          >
+            <colgroup>
+              <col style="width: 11%" />
+              <col style="width: 29%" />
+              <col style="width: 14%" />
+              <col style="width: 18%" />
+              <col style="width: 12%" />
+              <col style="width: 16%" />
+            </colgroup>
             <thead
               class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
             >
               <tr>
                 <th class="p-4">Kode Akun</th>
                 <th class="p-4">Nama Akun Buku Besar</th>
-                <th class="p-4">Tipe Klasifikasi</th>
+                <th class="p-4 text-center">Tipe Klasifikasi</th>
                 <th class="p-4 text-right">Saldo Berjalan</th>
                 <th class="p-4 text-center">Status</th>
                 <th class="p-4 text-center">Aksi</th>
@@ -87,11 +102,13 @@
                   {{ item.kode }}
                 </td>
                 <td class="p-4">
-                  <span class="font-bold text-[#0B1F4A] block text-sm">{{
-                    item.nama
-                  }}</span>
+                  <span
+                    class="block truncate font-bold text-[#0B1F4A] text-sm"
+                    :title="item.nama"
+                    >{{ item.nama }}</span
+                  >
                 </td>
-                <td class="p-4">
+                <td class="p-4 text-center">
                   <span
                     :class="`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md ${item.tipe === 'Aset' ? 'bg-blue-50 text-blue-700' : item.tipe === 'Kewajiban' ? 'bg-rose-50 text-rose-700' : item.tipe === 'Modal' ? 'bg-purple-50 text-purple-700' : item.tipe === 'Pendapatan' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`"
                     >{{ item.tipe }}</span
@@ -157,7 +174,7 @@
     <!-- 2. JURNAL TRANSAKSI view -->
     <div v-if="activeTab === 'journal'" class="space-y-4">
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
       >
         <div
           class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
@@ -175,7 +192,18 @@
               @input="updateJournalSearch(eventValue($event))"
             />
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center justify-end gap-2">
+            <span class="text-xs text-[#6B7A90]"
+              ><Filter class="mr-1 inline h-3.5 w-3.5" />Status:</span
+            ><button
+              v-for="statusOption in JOURNAL_STATUS_FILTERS"
+              :id="`journal-status-filter-${statusOption}`"
+              :key="statusOption"
+              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${journalStatusFilter === statusOption ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              @click="setJournalStatusFilter(statusOption)"
+            >
+              {{ statusOption }}
+            </button>
             <span class="text-xs text-[#6B7A90]"
               ><Calendar class="mr-1 inline h-3.5 w-3.5" />Tanggal:</span
             ><input
@@ -307,7 +335,7 @@
                       <button
                         type="button"
                         class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-[#0B1F4A] hover:bg-slate-100 transition-colors"
-                        title="Unduh Slip Bukti"
+                        title="Cetak Bukti Jurnal"
                         @click="downloadJournalVoucher(t)"
                       >
                         <Download class="w-3 h-3" />
@@ -380,10 +408,17 @@
               id="acc-form-code"
               type="text"
               required
+              :readonly="!editingAccount"
+              :disabled="!editingAccount"
               placeholder="Contoh: 1102, 5004"
-              :value="newAccount.kode"
+              :value="
+                editingAccount
+                  ? newAccount.kode
+                  : nextAccountCodePreview || 'Memuat kode...'
+              "
               :class="[
                 accountInputClass,
+                !editingAccount && 'cursor-not-allowed bg-slate-100 text-slate-500',
                 { 'form-control-invalid': accountFormErrors.kode },
               ]"
               @input="setAccountField('kode', eventValue($event))"
@@ -433,52 +468,24 @@
               {{ accountFormErrors.tipe }}
             </p>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="relative space-y-1.5">
-              <label class="font-bold text-slate-700">Akun Induk</label
-              ><div
-                class="relative"
-                @focusout="closeParentAccountDropdownSoon"
-                @keydown.escape.prevent="closeParentAccountDropdown"
-              >
-                <input
-                  id="acc-form-parent"
-                  type="hidden"
-                  :value="newAccount.parentId"
-                />
-                <button
-                  ref="parentAccountButtonRef"
-                  type="button"
-                  class="flex w-full h-12 items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-5 text-left text-sm font-semibold text-slate-700 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/10"
-                  @click="toggleParentAccountDropdown"
-                >
-                  <span class="truncate">{{ selectedParentAccountLabel }}</span>
-                  <ChevronDown
-                    class="h-4 w-4 shrink-0 text-slate-500 transition"
-                    :class="{ 'rotate-180': isParentAccountDropdownOpen }"
-                  />
-                </button>
-              </div>
-            </div>
-            <div class="space-y-1.5">
-              <label class="font-bold text-slate-700">Status</label
-              ><select
-                id="acc-form-status"
-                required
-                :value="newAccount.status"
-                :class="[
-                  accountInputClass,
-                  { 'form-control-invalid': accountFormErrors.status },
-                ]"
-                @change="setAccountField('status', eventValue($event))"
-              >
-                <option value="active">Aktif</option>
-                <option value="inactive">Nonaktif</option>
-              </select>
-              <p v-if="accountFormErrors.status" class="form-field-warning">
-                {{ accountFormErrors.status }}
-              </p>
-            </div>
+          <div v-if="editingAccount" class="space-y-1.5">
+            <label class="font-bold text-slate-700">Status</label
+            ><select
+              id="acc-form-status"
+              required
+              :value="newAccount.status"
+              :class="[
+                accountInputClass,
+                { 'form-control-invalid': accountFormErrors.status },
+              ]"
+              @change="setAccountField('status', eventValue($event))"
+            >
+              <option value="active">Aktif</option>
+              <option value="inactive">Nonaktif</option>
+            </select>
+            <p v-if="accountFormErrors.status" class="form-field-warning">
+              {{ accountFormErrors.status }}
+            </p>
           </div>
           <div class="space-y-1.5">
             <label class="font-bold text-slate-700">Saldo Awal (Rupiah)</label>
@@ -515,38 +522,6 @@
             {{ isAccountSaving ? "Menyimpan..." : "Simpan Akun Buku Besar" }}
           </button>
         </form>
-      </div>
-      <div
-        v-if="isParentAccountDropdownOpen"
-        class="fixed overflow-y-auto rounded-xl border border-slate-200 bg-white py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.10)]"
-        :style="parentAccountDropdownStyle"
-      >
-        <button
-          type="button"
-          :class="[
-            'w-full px-3.5 py-2 text-left text-[12px] font-semibold leading-snug transition',
-            !newAccount.parentId
-              ? 'bg-slate-50 text-[#102A56]'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-[#102A56]',
-          ]"
-          @mousedown.prevent="selectParentAccount('')"
-        >
-          Tidak ada
-        </button>
-        <button
-          v-for="a in availableParentAccounts"
-          :key="a.id"
-          type="button"
-          :class="[
-            'w-full px-3.5 py-2 text-left text-[12px] font-semibold leading-snug transition',
-            String(newAccount.parentId) === String(a.id)
-              ? 'bg-slate-50 text-[#102A56]'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-[#102A56]',
-          ]"
-          @mousedown.prevent="selectParentAccount(String(a.id))"
-        >
-          {{ a.kode }} - {{ a.nama }}
-        </button>
       </div>
     </div>
     </Teleport>
@@ -590,7 +565,7 @@
             <span>Lengkapi {{ journalErrorCount }} kolom yang ditandai di bawah ini.</span>
           </div>
           <!-- Core Voucher & Date -->
-          <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-4">
             <div class="space-y-2">
               <label class="text-sm font-bold text-slate-700"
                 >Nomor Voucher Ref</label
@@ -676,7 +651,7 @@
               {{ journalFormErrors.memo }}
             </p>
           </div>
-          <div class="grid gap-4 xl:grid-cols-2">
+          <div class="space-y-4">
             <!-- DEBIT ENTRIES (Multi Row) -->
             <div
               class="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/30 p-4"
@@ -857,7 +832,7 @@
         </div>
         <!-- Total balance indicators -->
         <div
-          class="p-4 bg-[#F8FAFC] border-y border-slate-200/80 shrink-0 grid grid-cols-2 gap-4 font-mono"
+          class="p-4 bg-[#F8FAFC] border-y border-slate-200/80 shrink-0 space-y-3 font-mono"
         >
           <div
             class="space-y-1 rounded-2xl border border-slate-200 bg-white p-3"
@@ -912,7 +887,7 @@
       @click.self="closeAccountDetail"
     >
       <div
-        class="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-2xl"
+        class="flex w-full max-w-[760px] flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl"
         :style="{ maxHeight: 'calc(100dvh - 32px)' }"
       >
         <div
@@ -1075,13 +1050,11 @@
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
 import { formatRupiahInput, parseRupiahInput } from "../utils/rupiahInputs.js";
-import { computed, nextTick, onBeforeUnmount, ref } from "vue";
-import type { CSSProperties } from "vue";
+import { financeApi } from "../services/financeApi.js";
+import { computed, ref } from "vue";
 import {
   Search,
   Plus,
-  BookOpen,
-  ArrowLeftRight,
   Check,
   Trash2,
   Pencil,
@@ -1093,10 +1066,14 @@ import {
   ShieldCheck,
   Eye,
   X,
-  Ban,
-  ChevronDown,
+  Filter,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
+import {
+  buildPrintDocumentHtml,
+  escapeHtml,
+  openPrintPopup,
+} from "../utils/printDocument.js";
 import {
   getJournalStatusDisplay,
   getJournalStatusColor,
@@ -1132,10 +1109,6 @@ const {
     postJournal,
     cancelJournal,
   },
-  receivables: {
-    cancelInvoice,
-    cancelBill,
-  },
 } = useFinStartContext();
 const activeTab = computed(() =>
   props.activeSection === "bukubesar" ? "ledger" : "journal",
@@ -1143,8 +1116,27 @@ const activeTab = computed(() =>
 // Search and Filters
 const ledgerSearch = ref(""),
   updateLedgerSearch = (next) => (ledgerSearch.value = next);
+const LEDGER_TYPE_FILTERS = ["Semua", "Aset", "Kewajiban", "Modal", "Pendapatan", "Beban"] as const;
+const ledgerTypeFilter = ref<(typeof LEDGER_TYPE_FILTERS)[number]>("Semua"),
+  setLedgerTypeFilter = (next: (typeof LEDGER_TYPE_FILTERS)[number]) => {
+    ledgerTypeFilter.value = next;
+    ledgerPage.value = 1;
+  };
 const journalSearch = ref(""),
   updateJournalSearch = (next) => (journalSearch.value = next);
+const JOURNAL_STATUS_FILTERS = [
+  "Semua",
+  "Unposted",
+  "Posted",
+  "Posted-Unpaid",
+  "Posted-Paid",
+  "Canceled",
+] as const;
+const journalStatusFilter = ref<(typeof JOURNAL_STATUS_FILTERS)[number]>("Semua"),
+  setJournalStatusFilter = (next: (typeof JOURNAL_STATUS_FILTERS)[number]) => {
+    journalStatusFilter.value = next;
+    journalPage.value = 1;
+  };
 function normalizeJournalDate(value: any) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -1183,20 +1175,13 @@ const isAccountSaving = ref(false);
 const isJournalSaving = ref(false);
 const deleteConfirm = ref<any>(null);
 const selectedAccountDetail = ref<any>(null);
-const isParentAccountDropdownOpen = ref(false);
-const parentAccountButtonRef = ref<HTMLElement | null>(null);
-const parentAccountDropdownPosition = ref({
-  top: 0,
-  left: 0,
-  width: 0,
-});
+const nextAccountCodePreview = ref("");
 const newAccount = ref({
     kode: "",
     nama: "",
     tipe: "Aset" as TipeAkun,
     saldo: 0,
     status: "active",
-    parentId: "",
   }),
   updateNewAccount = (next) => (newAccount.value = next);
 
@@ -1227,7 +1212,9 @@ const accountRequiredFields: Array<{
   { key: "kode", id: "acc-form-code", label: "Kode akun" },
   { key: "nama", id: "acc-form-name", label: "Nama akun buku besar" },
   { key: "tipe", id: "acc-form-type", label: "Tipe klasifikasi akun" },
-  { key: "status", id: "acc-form-status", label: "Status" },
+  // Status isn't shown while adding a new account (it always defaults to
+  // "active" in newAccount's initial state) - only editable once editing an
+  // existing account, so it's never required-checked against the DOM here.
   {
     key: "saldo",
     id: "acc-form-val",
@@ -1244,24 +1231,6 @@ const accountFormErrorMessages = computed(() =>
 const accountOpeningBalanceInputValue = computed(() =>
   formatRupiahInput(newAccount.value.saldo, false, false),
 );
-
-const selectedParentAccountLabel = computed(() => {
-  const selectedParent = availableParentAccounts.value.find(
-    (account) => String(account.id) === String(newAccount.value.parentId),
-  );
-  return selectedParent
-    ? `${selectedParent.kode} - ${selectedParent.nama}`
-    : "Tidak ada";
-});
-
-const parentAccountDropdownStyle = computed<CSSProperties>(() => ({
-  top: `${parentAccountDropdownPosition.value.top}px`,
-  left: `${parentAccountDropdownPosition.value.left}px`,
-  width: `${parentAccountDropdownPosition.value.width}px`,
-  maxHeight: "128px",
-  overflowY: "auto",
-  zIndex: 130001,
-}));
 
 function resetAccountFormErrors() {
   accountFormErrors.value = emptyAccountFormErrors();
@@ -1282,6 +1251,9 @@ function setAccountField(key: keyof typeof newAccount.value, value: any) {
   });
   if (key in accountFormErrors.value)
     clearAccountFormError(key as AccountFormFieldKey);
+  if (key === "tipe" && !editingAccount.value) {
+    fetchNextAccountCode(value as TipeAkun);
+  }
 }
 
 function handleAccountOpeningBalanceInput(event: Event) {
@@ -1289,39 +1261,24 @@ function handleAccountOpeningBalanceInput(event: Event) {
   setAccountField("saldo", parseRupiahInput(rawValue));
 }
 
-function toggleParentAccountDropdown() {
-  if (isParentAccountDropdownOpen.value) {
-    closeParentAccountDropdown();
-    return;
+const ACCOUNT_TYPE_TO_API: Record<TipeAkun, string> = {
+  Aset: "asset",
+  Kewajiban: "liability",
+  Modal: "equity",
+  Pendapatan: "revenue",
+  Beban: "expense",
+};
+
+async function fetchNextAccountCode(tipe: TipeAkun) {
+  try {
+    const result = await financeApi.get("/accounts/next-code", {
+      type: ACCOUNT_TYPE_TO_API[tipe] || "asset",
+    });
+    nextAccountCodePreview.value = result?.code || "";
+  } catch {
+    nextAccountCodePreview.value = "";
   }
-  isParentAccountDropdownOpen.value = true;
-  nextTick(updateParentAccountDropdownPosition);
 }
-
-function closeParentAccountDropdown() {
-  isParentAccountDropdownOpen.value = false;
-}
-
-function closeParentAccountDropdownSoon() {
-  window.setTimeout(closeParentAccountDropdown, 80);
-}
-
-function selectParentAccount(parentId: string) {
-  setAccountField("parentId", parentId);
-  closeParentAccountDropdown();
-}
-
-function updateParentAccountDropdownPosition() {
-  const rect = parentAccountButtonRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  parentAccountDropdownPosition.value = {
-    top: rect.bottom + 6,
-    left: rect.left,
-    width: rect.width,
-  };
-}
-
-onBeforeUnmount(closeParentAccountDropdown);
 
 function accountRawInputValue(id: string) {
   return (
@@ -1416,14 +1373,14 @@ const memo = ref(""),
   }; // Multi-row Debit & Credit lines
 const debitLines = ref([
     {
-      kode: "1001",
+      kode: "",
       nominal: 0,
     },
   ]),
   updateDebitLines = (next) => (debitLines.value = next);
 const creditLines = ref([
     {
-      kode: "4001",
+      kode: "",
       nominal: 0,
     },
   ]),
@@ -1572,7 +1529,7 @@ const handleAddDebitRow = () => {
   updateDebitLines([
     ...debitLines.value,
     {
-      kode: "1001",
+      kode: "",
       nominal: 0,
     },
   ]);
@@ -1600,7 +1557,7 @@ const handleAddCreditRow = () => {
   updateCreditLines([
     ...creditLines.value,
     {
-      kode: "1001",
+      kode: "",
       nominal: 0,
     },
   ]);
@@ -1639,13 +1596,13 @@ const isBalanced = computed(
 const resetAccountForm = () => {
   editingAccount.value = null;
   resetAccountFormErrors();
+  nextAccountCodePreview.value = "";
   updateNewAccount({
     kode: "",
     nama: "",
     tipe: "Aset",
     saldo: 0,
     status: "active",
-    parentId: "",
   });
 };
 
@@ -1660,9 +1617,11 @@ const openAccountForm = (account: any = null) => {
       tipe: account.tipe,
       saldo: Number(raw.opening_balance ?? account.saldo ?? 0),
       status: raw.status || account.status || "active",
-      parentId: raw.parent_id ? String(raw.parent_id) : "",
     });
-  } else resetAccountForm();
+  } else {
+    resetAccountForm();
+    fetchNextAccountCode("Aset");
+  }
   updateIsAccountModalOpen(true);
 };
 
@@ -1683,6 +1642,11 @@ const closeAccountModal = () => {
 const handleSaveAccount = async (e: Event) => {
   e.preventDefault();
   if (isAccountSaving.value) return;
+  if (!editingAccount.value) {
+    // Kode is auto-generated and read-only for new accounts; pull in
+    // whatever the preview last resolved to right before submitting.
+    setAccountField("kode", nextAccountCodePreview.value);
+  }
   if (!validateAccountForm()) {
     notify("Lengkapi seluruh data akun sebelum menyimpan.");
     return;
@@ -1768,6 +1732,9 @@ const handleSaveJournal = async () => {
 const filteredLedgers = computed(() =>
   [...(props.akun || [])]
     .filter((a: any) => {
+      if (ledgerTypeFilter.value !== "Semua" && a.tipe !== ledgerTypeFilter.value) {
+        return false;
+      }
       const query = ledgerSearch.value.toLowerCase();
       return (
         String(a.kode || "")
@@ -1790,6 +1757,12 @@ const filteredLedgers = computed(() =>
 const filteredJournals = computed(() =>
   latestFirst(
     (props.transaksi || []).filter((t: any) => {
+      if (
+        journalStatusFilter.value !== "Semua" &&
+        getJournalStatusDisplay(t.status) !== journalStatusFilter.value
+      ) {
+        return false;
+      }
       const query = journalSearch.value.toLowerCase();
       const matchesSearch =
         String(t.keterangan || "")
@@ -1821,152 +1794,46 @@ const pagedLedgers = computed(() =>
 const pagedJournals = computed(() =>
   pageRows(filteredJournals.value, journalPage.value),
 );
-const downloadBlobFile = (filename: string, blob: Blob) => {
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-};
-
-const pdfEscape = (value: any) =>
-  String(value ?? "-")
-    .normalize("NFKD")
-    .replace(/[^\x20-\x7E]/g, " ")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
-
-const wrapPdfText = (value: any, maxLength = 78) => {
-  const words = String(value ?? "-").replace(/\s+/g, " ").trim().split(" ");
-  const lines: string[] = [];
-  let current = "";
-
-  words.forEach((word) => {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxLength && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  });
-
-  if (current) lines.push(current);
-  return lines.length ? lines : ["-"];
-};
-
-const buildJournalVoucherPdf = (transaction: Transaksi) => {
-  const debitAccount = akun.find((item) => item.kode === transaction.debitAkun);
-  const creditAccount = akun.find(
-    (item) => item.kode === transaction.kreditAkun,
-  );
-  const content: string[] = [];
-  const drawText = (
-    text: any,
-    x: number,
-    y: number,
-    size = 11,
-    font = "F1",
-  ) => {
-    content.push(
-      `BT /${font} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${pdfEscape(text)}) Tj ET`,
-    );
-  };
-  const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
-    content.push(`${x1} ${y1} m ${x2} ${y2} l S`);
-  };
-
-  content.push("0.05 w");
-  drawText("PT KEDATA INDONESIA DIGITAL", 52, 790, 16, "F2");
-  drawText("Bukti Jurnal Umum", 52, 768, 11);
-  drawLine(52, 752, 543, 752);
-  drawText(`No. Voucher: ${transaction.refVoucher || transaction.id}`, 52, 724, 11, "F2");
-  drawText(`Tanggal: ${transaction.tanggal || "-"}`, 52, 704, 11);
-  let memoY = 684;
-  wrapPdfText(`Keterangan: ${transaction.keterangan || "-"}`, 82).forEach(
-    (line) => {
-      drawText(line, 52, memoY, 11);
-      memoY -= 16;
-    },
-  );
-
-  const tableTop = memoY - 18;
-  drawLine(52, tableTop, 543, tableTop);
-  drawText("POSISI", 62, tableTop - 20, 9, "F2");
-  drawText("AKUN", 170, tableTop - 20, 9, "F2");
-  drawText("NILAI", 468, tableTop - 20, 9, "F2");
-  drawLine(52, tableTop - 32, 543, tableTop - 32);
-
-  const rows = [
-    {
-      posisi: "Debit",
-      akun: `${transaction.debitAkun || "-"} - ${debitAccount?.nama || "-"}`,
-      nilai: formatRupiah(transaction.nominal || 0),
-    },
-    {
-      posisi: "Kredit",
-      akun: `${transaction.kreditAkun || "-"} - ${creditAccount?.nama || "-"}`,
-      nilai: formatRupiah(transaction.nominal || 0),
-    },
-  ];
-  let rowY = tableTop - 54;
-  rows.forEach((row) => {
-    drawText(row.posisi, 62, rowY, 10);
-    drawText(row.akun, 170, rowY, 10);
-    drawText(row.nilai, 444, rowY, 10, "F2");
-    drawLine(52, rowY - 14, 543, rowY - 14);
-    rowY -= 34;
-  });
-
-  drawText(`Status: ${transaction.status || "-"}`, 52, rowY - 12, 10);
-  drawText(`Diunduh: ${new Date().toLocaleDateString("id-ID")}`, 52, rowY - 30, 10);
-
-  const stream = content.join("\n");
-  const objects = [
-    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n",
-    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
-    `6 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object) => {
-    offsets.push(pdf.length);
-    pdf += object;
-  });
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return new Blob([pdf], { type: "application/pdf" });
-};
-
 const downloadJournalVoucher = (transaction: Transaksi) => {
   if (!transaction.journal_id || !transaction.refVoucher || transaction.refVoucher === '-') {
     notify("Tidak ada bukti jurnal untuk transaksi draft.");
     return;
   }
-  downloadBlobFile(
-    `bukti-jurnal-${transaction.refVoucher || transaction.id}.pdf`,
-    buildJournalVoucherPdf(transaction),
-  );
-  notify(`PDF bukti jurnal ${transaction.refVoucher} berhasil diunduh.`);
+  const debitAccount = akun.find((item) => item.kode === transaction.debitAkun);
+  const creditAccount = akun.find((item) => item.kode === transaction.kreditAkun);
+  const nominal = formatRupiah(transaction.nominal || 0);
+  const bodyHtml = `
+    <p class="doc-note">Keterangan: ${escapeHtml(transaction.keterangan || "-")}</p>
+    <table>
+      <thead><tr><th>Posisi</th><th>Akun</th><th class="numeric">Nilai</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Debit</td>
+          <td>${escapeHtml(transaction.debitAkun || "-")} - ${escapeHtml(debitAccount?.nama || "-")}</td>
+          <td class="numeric">${escapeHtml(nominal)}</td>
+        </tr>
+        <tr>
+          <td>Kredit</td>
+          <td>${escapeHtml(transaction.kreditAkun || "-")} - ${escapeHtml(creditAccount?.nama || "-")}</td>
+          <td class="numeric">${escapeHtml(nominal)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  const html = buildPrintDocumentHtml({
+    documentLabel: "Bukti Jurnal",
+    title: "Bukti Jurnal Umum",
+    subtitle: `Voucher ${transaction.refVoucher || transaction.id}`,
+    metaItems: [
+      { label: "No. Voucher", value: transaction.refVoucher || String(transaction.id) },
+      { label: "Tanggal", value: transaction.tanggal || "-" },
+      { label: "Status", value: transaction.status || "-" },
+    ],
+    bodyHtml,
+  });
+  if (openPrintPopup(html, { notify, blockedMessage: "Popup print diblokir browser. Izinkan popup untuk mencetak bukti jurnal." })) {
+    notify(`Dialog cetak bukti jurnal ${transaction.refVoucher} dibuka.`);
+  }
 };
-const availableParentAccounts = computed(() =>
-  (props.akun || []).filter(
-    (account) => String(account.id) !== String(editingAccount.value?.id),
-  ),
-);
-
 const activeDivisions = computed(() =>
   (props.divisions || []).filter(
     (division) => String(division.status || "active") === "active",
@@ -2055,15 +1922,7 @@ function closeCancelConfirm() {
   cancelConfirm.value = null;
 }
 
-function getSourceId(transaction: any) {
-  if (transaction._raw?.source_id) return Number(transaction._raw.source_id);
-  if (transaction._raw?.id) return Number(transaction._raw.id);
-  const match = String(transaction.id || "").match(/\d+/);
-  return match ? Number(match[0]) : null;
-}
-
 const requestCancelJournal = (transaction: any) => {
-  console.log("requestCancelJournal transaction:", transaction);
   cancelConfirm.value = {
     type: "journal",
     item: transaction,
@@ -2081,62 +1940,11 @@ const requestCancelJournal = (transaction: any) => {
   };
 };
 
-const requestCancelTransaction = (transaction: any) => {
-  const sourceType = transaction.source_type || "";
-  if (["invoice", "invoice_draft"].includes(sourceType)) {
-    cancelConfirm.value = {
-      type: "invoice",
-      item: transaction,
-      title: "Batalkan transaksi invoice?",
-      message:
-        "Invoice akan dibatalkan dan jurnal sumber akan dibalik.",
-      details: [
-        { label: "Voucher", value: transaction.refVoucher || "-" },
-        { label: "Keterangan", value: transaction.keterangan || "-" },
-        { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
-      ],
-      confirmLabel: "Batalkan Invoice",
-    };
-  } else if (["bill", "bill_draft"].includes(sourceType)) {
-    cancelConfirm.value = {
-      type: "bill",
-      item: transaction,
-      title: "Batalkan transaksi tagihan?",
-      message:
-        "Tagihan akan dibatalkan dan jurnal sumber akan dibalik.",
-      details: [
-        { label: "Voucher", value: transaction.refVoucher || "-" },
-        { label: "Keterangan", value: transaction.keterangan || "-" },
-        { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
-      ],
-      confirmLabel: "Batalkan Tagihan",
-    };
-  }
-};
-
 const confirmCancelDocument = async (reason = "") => {
   const action = cancelConfirm.value;
   if (!action) return;
   cancelConfirm.value = null;
-  if (action.type === "journal") {
-    await cancelJournal(action.item, reason);
-  } else if (action.type === "invoice") {
-    const sourceId = getSourceId(action.item);
-    if (sourceId) {
-      await cancelInvoice(
-        { id: sourceId, nomor: action.item.source_number || action.item.refVoucher },
-        reason,
-      );
-    }
-  } else if (action.type === "bill") {
-    const sourceId = getSourceId(action.item);
-    if (sourceId) {
-      await cancelBill(
-        { id: sourceId, nomorTagihan: action.item.source_number || action.item.refVoucher },
-        reason,
-      );
-    }
-  }
+  await cancelJournal(action.item, reason);
 };
 
 </script>

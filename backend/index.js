@@ -37,6 +37,8 @@ const taxesRouter = require('./routes/taxes')
 const taxEngineRouter = require('./routes/tax-engine')
 const projectionsRouter = require('./routes/projections')
 const assetsRouter = require('./routes/assets')
+const assetCategoriesRouter = require('./routes/asset-categories')
+const aiCopilotRouter = require('./routes/ai-copilot')
 
 // Route master data operasional dan payroll
 const divisionsRouter = require('./routes/divisions')
@@ -146,6 +148,8 @@ app.use('/api/taxes', taxesRouter)
 app.use('/api/tax-engine', taxEngineRouter)
 app.use('/api/projections', projectionsRouter)
 app.use('/api/assets', assetsRouter)
+app.use('/api/asset-categories', assetCategoriesRouter)
+app.use('/api/ai-copilot', aiCopilotRouter)
 
 // API master data operasional
 app.use('/api/divisions', divisionsRouter)

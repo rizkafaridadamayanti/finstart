@@ -81,13 +81,6 @@
                 class="w-full rounded-xl px-3 py-2.5 text-left font-semibold text-slate-600 transition-colors hover:bg-[#EEF5FC] hover:text-[#102A56]"
                 @click="openSettings"
               >
-                Ubah Password
-              </button>
-              <button
-                type="button"
-                class="w-full rounded-xl px-3 py-2.5 text-left font-semibold text-slate-600 transition-colors hover:bg-[#EEF5FC] hover:text-[#102A56]"
-                @click="openSettings"
-              >
                 Profil & Keamanan
               </button>
             </div>

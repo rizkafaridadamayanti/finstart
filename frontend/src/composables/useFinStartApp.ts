@@ -22,18 +22,41 @@ const ACTIVE_TAB_KEY = "finstart-ui-active-tab";
 const VALID_TABS = [
   "dashboard",
   "crm",
+  "crm-riwayat",
   "bukubesar",
   "transaksi",
   "piutang",
   "utang",
   "langganan",
+  "langganan-riwayat-transaksi",
+  "langganan-tagihan",
+  "langganan-riwayat-kadaluarsa",
   "aset",
+  "aset-kategori",
+  "aset-riwayat",
   "master-klien",
   "sdm",
+  "sdm-bpjs",
+  "sdm-divisi-jabatan",
+  "sdm-riwayat-penggajian",
+  "sdm-proses-payroll",
   "perpajakan",
   "proyeksi",
+  "proyeksi-roadmap",
+  "proyeksi-anggaran",
   "laporan",
+  "laporan-neraca",
+  "laporan-aruskas",
+  "laporan-trialbalance",
+  "laporan-bukubesar",
+  "laporan-umurtagih",
+  "laporan-umurutang",
+  "laporan-pajak",
+  "laporan-payroll",
+  "laporan-aset",
+  "laporan-profitproyek",
   "pengaturan",
+  "pengaturan-keamanan",
 ];
 
 function currentPeriod() {
@@ -104,6 +127,57 @@ function normalizeAllowedTabs(tabs: string[]) {
   const allowed = tabs.filter((tab: string) => VALID_TABS.includes(tab));
   if (allowed.includes("crm") && !allowed.includes("master-klien")) {
     allowed.push("master-klien");
+  }
+  if (allowed.includes("crm") && !allowed.includes("crm-riwayat")) {
+    allowed.push("crm-riwayat");
+  }
+  if (allowed.includes("langganan")) {
+    for (const tab of [
+      "langganan-riwayat-transaksi",
+      "langganan-tagihan",
+      "langganan-riwayat-kadaluarsa",
+    ]) {
+      if (!allowed.includes(tab)) allowed.push(tab);
+    }
+  }
+  if (allowed.includes("sdm")) {
+    for (const tab of [
+      "sdm-bpjs",
+      "sdm-divisi-jabatan",
+      "sdm-riwayat-penggajian",
+      "sdm-proses-payroll",
+    ]) {
+      if (!allowed.includes(tab)) allowed.push(tab);
+    }
+  }
+  if (allowed.includes("aset")) {
+    for (const tab of ["aset-kategori", "aset-riwayat"]) {
+      if (!allowed.includes(tab)) allowed.push(tab);
+    }
+  }
+  if (allowed.includes("proyeksi")) {
+    for (const tab of ["proyeksi-roadmap", "proyeksi-anggaran"]) {
+      if (!allowed.includes(tab)) allowed.push(tab);
+    }
+  }
+  if (allowed.includes("laporan")) {
+    for (const tab of [
+      "laporan-neraca",
+      "laporan-aruskas",
+      "laporan-trialbalance",
+      "laporan-bukubesar",
+      "laporan-umurtagih",
+      "laporan-umurutang",
+      "laporan-pajak",
+      "laporan-payroll",
+      "laporan-aset",
+      "laporan-profitproyek",
+    ]) {
+      if (!allowed.includes(tab)) allowed.push(tab);
+    }
+  }
+  if (allowed.includes("pengaturan") && !allowed.includes("pengaturan-keamanan")) {
+    allowed.push("pengaturan-keamanan");
   }
   return allowed;
 }

@@ -6,7 +6,13 @@
       <div class="flex items-start gap-4">
         <span
           class="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#D7E5F5] bg-white text-[#0B1F4A] shadow-[0_8px_20px_rgba(11,31,74,0.05)]"
-          ><TrendingUp v-if="isForecast" class="h-5 w-5" /><FileSpreadsheet
+          ><LineChart
+            v-if="isForecast && forecastView === 'roadmap'"
+            class="h-5 w-5"
+          /><PiggyBank
+            v-else-if="isForecast && forecastView === 'anggaran'"
+            class="h-5 w-5"
+          /><TrendingUp v-else-if="isForecast" class="h-5 w-5" /><FileSpreadsheet
             v-else
             class="h-5 w-5"
         /></span>
@@ -19,13 +25,24 @@
           <h1
             class="mt-1 text-[20px] sm:text-[26px] font-semibold tracking-tight text-[#0B1F4A]"
           >
-            <template v-if="isForecast">Proyeksi Bisnis Tahunan</template
+            <template v-if="isForecast && forecastView === 'roadmap'"
+              >Roadmap Pertumbuhan</template
+            ><template v-else-if="isForecast && forecastView === 'anggaran'"
+              >Kontrol Anggaran</template
+            ><template v-else-if="isForecast"
+              >Skenario &amp; Target Bisnis</template
             ><template v-else>Laporan Keuangan</template>
           </h1>
           <p class="mt-1 max-w-2xl text-sm leading-6 text-[#6B7A90]">
-            <template v-if="isForecast"
-              >Pantau target bisnis, realisasi performa, dan roadmap pertumbuhan
-              finansial secara terstruktur.</template
+            <template v-if="isForecast && forecastView === 'roadmap'"
+              >Grafik target dan realisasi pendapatan-beban bulanan sepanjang
+              tahun berjalan.</template
+            ><template v-else-if="isForecast && forecastView === 'anggaran'"
+              >Bandingkan alokasi budget dengan realisasi per akun dan divisi
+              dari jurnal posted.</template
+            ><template v-else-if="isForecast"
+              >Pantau target bisnis, realisasi performa, dan skenario
+              pertumbuhan finansial secara terstruktur.</template
             ><template v-else
               >Tinjau laporan keuangan utama dalam format tabel yang siap
               digunakan untuk evaluasi manajemen.</template
@@ -35,13 +52,13 @@
       </div>
       <div class="flex w-full flex-wrap gap-3 lg:w-auto">
         <button
-          v-if="isForecast"
+          v-if="isForecast && forecastView === 'target'"
           id="btn-open-target-modal"
           class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56]"
           @click="openTargetModal()"
         >
           <Plus class="h-4 w-4" /> Tambah Target</button
-        ><template v-else
+        ><template v-else-if="!isForecast"
           ><button
             class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
             @click="exportCurrentReportExcel"
@@ -59,46 +76,6 @@
     </header>
     <section v-if="!isForecast" class="space-y-4">
       <div
-        class="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white px-5 py-4 shadow-[0_12px_30px_rgba(11,31,74,0.04)] sm:flex-row sm:items-end sm:justify-between"
-      >
-        <div>
-          <p
-            class="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1E5AA8]"
-          >
-            Sumber Data API
-          </p>
-          <p class="mt-1 text-sm text-[#53658A]">
-            Pilih periode dari jurnal yang sudah berstatus
-            <strong>posted</strong>. Laporan tidak lagi memakai angka Rp0 saat
-            API gagal.
-          </p>
-        </div>
-        <label class="flex w-full flex-col gap-1 sm:w-[220px]"
-          ><span
-            class="text-[10px] font-bold uppercase tracking-[0.13em] text-[#70819B]"
-            >Periode laporan</span
-          ><select
-            :value="reportPeriod"
-            class="h-10 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#182338]"
-            @change="selectReportPeriod(eventValue($event))"
-          >
-            <option
-              v-if="reportPeriods.length === 0"
-              :value="reportPeriod || ''"
-            >
-              {{ reportPeriod || "Tidak ada periode posted" }}
-            </option>
-            <option
-              v-for="item in reportPeriods"
-              :key="item.period"
-              :value="item.period"
-            >
-              {{ item.label || item.period }}
-            </option>
-          </select></label
-        >
-      </div>
-      <div
         v-if="reportError"
         class="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700"
       >
@@ -111,6 +88,7 @@
     </section>
     <section v-if="isForecast" class="space-y-5">
       <div
+        v-if="forecastView === 'target'"
         class="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]"
       >
         <div
@@ -277,7 +255,8 @@
         </div>
       </div>
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+        v-if="forecastView === 'target'"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
           class="flex flex-col gap-4 border-b border-[#E8EEF7] px-6 py-5 lg:flex-row lg:items-center lg:justify-between"
@@ -384,8 +363,9 @@
         />
       </div>
       <div
+        v-if="forecastView === 'target'"
         ref="savedTargetSectionRef"
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
           class="flex flex-col gap-2 border-b border-[#E8EEF7] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
@@ -468,10 +448,11 @@
                 <td class="px-6 py-4 text-center">
                   <button
                     type="button"
-                    class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
+                    title="Edit target"
                     @click="openTargetModal(target)"
                   >
-                    <Pencil class="h-3.5 w-3.5" /> Edit
+                    <Pencil class="h-3.5 w-3.5" />
                   </button>
                 </td>
               </tr>
@@ -480,6 +461,7 @@
         </div>
       </div>
       <div
+        v-if="forecastView === 'roadmap'"
         class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
@@ -726,7 +708,8 @@
         </div>
       </div>
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+        v-if="forecastView === 'anggaran'"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
           class="flex flex-col gap-4 border-b border-[#E8EEF7] px-6 py-5 lg:flex-row lg:items-center lg:justify-between"
@@ -1046,7 +1029,8 @@
         />
       </div>
       <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+        v-if="forecastView === 'target'"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
           class="flex flex-col gap-2 border-b border-[#E8EEF7] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
@@ -1155,67 +1139,7 @@
     </section>
     <section v-else class="space-y-5">
       <div
-        class="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3 shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
-      >
-        <div
-          class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.14em] text-[#70819B]"
-            >
-              Jenis Laporan
-            </p>
-            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
-              {{ activeReportTab.label }}
-            </p>
-          </div>
-          <div ref="reportTypeDropdownRef" class="relative w-full md:w-[360px]">
-            <button
-              id="report-type-dropdown"
-              type="button"
-              aria-haspopup="listbox"
-              :aria-expanded="isReportTypeMenuOpen ? 'true' : 'false'"
-              class="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] px-4 text-left text-sm font-semibold text-[#0B1F4A] transition hover:border-[#BFD4EC] hover:bg-white"
-              @click="isReportTypeMenuOpen = !isReportTypeMenuOpen"
-            >
-              <span class="truncate">{{ activeReportTab.label }}</span
-              ><ChevronDown
-                :class="`h-4 w-4 shrink-0 text-[#53658A] transition ${isReportTypeMenuOpen ? 'rotate-180' : ''}`"
-              />
-            </button>
-            <div
-              v-if="isReportTypeMenuOpen"
-              class="absolute right-0 z-30 mt-2 w-full overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white p-2 shadow-[0_18px_44px_rgba(11,31,74,0.16)]"
-              role="listbox"
-              aria-labelledby="report-type-dropdown"
-            >
-              <div class="grid gap-1 sm:grid-cols-2">
-                <button
-                  v-for="tab in reportTabs"
-                  :id="`report-type-${tab.id}`"
-                  :key="tab.id"
-                  type="button"
-                  role="option"
-                  :aria-selected="
-                    activeReportType === tab.id ? 'true' : 'false'
-                  "
-                  :class="`flex min-h-[40px] items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition ${activeReportType === tab.id ? 'bg-[#0B1F4A] text-white' : 'text-[#53658A] hover:bg-[#F4F8FC] hover:text-[#0B1F4A]'}`"
-                  @click="selectReportType(tab.id)"
-                >
-                  <span class="leading-tight">{{ tab.label }}</span
-                  ><CheckCircle2
-                    v-if="activeReportType === tab.id"
-                    class="h-4 w-4 shrink-0"
-                  />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div class="border-b border-[#E8EEF7] px-6 py-6 text-center">
           <p
@@ -1486,7 +1410,7 @@
       class="fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
     >
       <div
-        class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_24px_70px_rgba(11,31,74,0.22)]"
+        class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgba(11,31,74,0.22)]"
       >
         <div
           class="flex items-center justify-between border-b border-[#E8EEF7] px-7 py-5"
@@ -1508,49 +1432,12 @@
             <X class="h-5 w-5" />
           </button>
         </div>
-        <div class="flex-1 overflow-y-auto p-8">
-            <div class="border border-slate-200 overflow-x-auto p-8">
-            <div class="border-b-2 border-[#0B1F4A] pb-4 text-center">
-              <h4 class="text-lg font-semibold text-[#0B1F4A]">
-                PT KEDATA INDONESIA DIGITAL
-              </h4>
-              <p class="mt-1 text-xs text-[#6B7A90]">
-                Laporan {{ currentReport.title }} · {{ currentReport.subtitle }}
-              </p>
-            </div>
-            <table class="mt-6 w-full text-left text-sm">
-              <thead
-                class="border-b border-slate-300 text-xs uppercase text-slate-500"
-              >
-                <tr>
-                  <th class="py-3">Uraian</th>
-                  <th class="py-3">Kelompok</th>
-                  <th class="py-3 text-right">Nilai</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="row in currentReport.rows"
-                  :key="row.join('-')"
-                  class="border-b border-slate-100"
-                >
-                  <td class="py-3">{{ row[0] }}</td>
-                  <td class="py-3">{{ row[1] }}</td>
-                  <td class="py-3 text-right">{{ row[2] }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="mt-6 space-y-2 border-t border-slate-300 pt-4">
-              <div
-                v-for="total in currentReport.totals"
-                :key="total[0]"
-                class="flex justify-between font-semibold"
-              >
-                <span>{{ total[0] }}</span
-                ><span>{{ total[1] }}</span>
-              </div>
-            </div>
-          </div>
+        <div class="flex-1 overflow-hidden bg-[#F1F5F9] p-4">
+          <iframe
+            title="Pratinjau cetak laporan"
+            :srcdoc="reportPrintHtml"
+            class="h-[65vh] w-full rounded-lg border border-slate-200 bg-white"
+          ></iframe>
         </div>
         <div class="flex justify-end gap-3 border-t border-[#E8EEF7] px-7 py-5">
           <button
@@ -1604,14 +1491,20 @@
 import { eventValue } from "../utils/domEvents";
 import { currentMonthIso as localCurrentMonthIso, todayIso } from "../utils/localDate";
 import { spreadsheetSafeText } from "../utils/spreadsheetExport.js";
-import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
+import {
+  buildPrintDocumentHtml,
+  escapeHtml,
+  openPrintPopup,
+} from "../utils/printDocument.js";
+import { computed, nextTick, ref, watch } from "vue";
 import {
   AlertCircle,
   BarChart3,
   CheckCircle2,
-  ChevronDown,
   FileSpreadsheet,
+  LineChart,
   Pencil,
+  PiggyBank,
   Plus,
   Printer,
   Target,
@@ -1631,7 +1524,7 @@ import {
 import TablePagination from "./common/TablePagination.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 interface ProyeksiDanLaporanProps {
-  activeSection: "proyeksi" | "laporan";
+  activeSection: string;
   akun: AkunBukuBesar[];
   transaksi: Transaksi[];
   proyek: Proyek[];
@@ -1639,7 +1532,6 @@ interface ProyeksiDanLaporanProps {
   projectionData?: any;
   reportData?: any;
   reportPeriod?: string;
-  reportPeriods?: any[];
   reportError?: string;
 }
 interface AnnualTarget {
@@ -1704,14 +1596,12 @@ const {
   transaksi,
   reportData,
   reportPeriod = "",
-  reportPeriods = [],
   reportError = "",
 }: ProyeksiDanLaporanProps = props as ProyeksiDanLaporanProps;
 
 const {
   notify,
   planning: {
-    selectReportPeriod: requestReportPeriod,
     saveProjection,
     selectProjectionScenario,
     updateProjectionScenario,
@@ -1719,28 +1609,28 @@ const {
     deleteBudgetAllocation,
   },
 } = useFinStartContext();
-const isForecast = activeSection === "proyeksi";
-const activeReportType = ref<ReportType>("labarugi"),
-  updateActiveReportType = (next) => (activeReportType.value = next);
-const isReportTypeMenuOpen = ref(false);
-const reportTypeDropdownRef = ref<HTMLElement | null>(null);
-function handleReportTypeOutsideClick(e: MouseEvent) {
-  if (reportTypeDropdownRef.value && !reportTypeDropdownRef.value.contains(e.target as Node)) {
-    isReportTypeMenuOpen.value = false;
-  }
-}
-onMounted(() => document.addEventListener("click", handleReportTypeOutsideClick, true));
-onUnmounted(() => document.removeEventListener("click", handleReportTypeOutsideClick, true));
-const activeReportTab = computed(
-  () =>
-    reportTabs.find((tab) => tab.id === activeReportType.value) ||
-    reportTabs[0],
-);
-const selectReportType = (reportType: ReportType) => {
-  updateActiveReportType(reportType);
-  isReportTypeMenuOpen.value = false;
+const isForecast =
+  activeSection === "proyeksi" || activeSection.startsWith("proyeksi-");
+// Sub-halaman Proyeksi Bisnis kini datang dari sidebar ("proyeksi" -> Skenario
+// & Target, "proyeksi-roadmap" -> Roadmap, "proyeksi-anggaran" -> Anggaran).
+const forecastView =
+  activeSection === "proyeksi-roadmap"
+    ? "roadmap"
+    : activeSection === "proyeksi-anggaran"
+      ? "anggaran"
+      : "target";
+// Report type now comes from which sidebar sub-item is active ("laporan" ->
+// default Laba Rugi, "laporan-neraca" -> Neraca, etc.) instead of in-page state.
+const activeReportType = computed<ReportType>(() => {
+  const suffix = activeSection.replace(/^laporan-?/, "") || "labarugi";
+  return (reportTabs.some((tab) => tab.id === suffix)
+    ? suffix
+    : "labarugi") as ReportType;
+});
+watch(activeReportType, () => {
   reportPage.value = 1;
-};
+});
+
 const isTargetModalOpen = ref(false),
   updateIsTargetModalOpen = (next) => (isTargetModalOpen.value = next);
 const isBudgetModalOpen = ref(false),
@@ -2380,10 +2270,6 @@ const reportPeriodLabel =
       }).format(new Date(`${reportPeriod}-01T00:00:00`))
     : "periode berjalan");
 const hasReportData = () => Boolean(reportData?.period && !reportError);
-const selectReportPeriod = async (period: string) => {
-  if (!/^\d{4}-\d{2}$/.test(String(period || ""))) return;
-  await requestReportPeriod(period);
-};
 const reportRows = () => {
   const income = reportData?.income_statement || {};
   const balance = reportData?.balance_sheet || {};
@@ -2622,13 +2508,6 @@ const downloadTextFile = (
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 };
-const escapeHtml = (value: any) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 const escapeSpreadsheetHtml = (value: any) =>
   escapeHtml(typeof value === "number" ? value : spreadsheetSafeText(value));
 const exportCurrentReportExcel = () => {
@@ -2646,56 +2525,36 @@ const exportCurrentReportExcel = () => {
   );
   notify("File Excel laporan berhasil dibuat.");
 };
-const printCurrentReport = () => {
+const reportPrintHtml = computed(() => {
   const report = currentReport.value;
-  const popup = window.open("", "_blank", "width=960,height=720");
-
-  if (!popup) {
-    notify(
-      "Popup print diblokir browser. Izinkan popup untuk mencetak laporan.",
-    );
-    return;
+  const lastIndex = report.columns.length - 1;
+  const bodyHtml = `
+    <table>
+      <thead><tr>${report.columns.map((column: string, index: number) => `<th${index === lastIndex ? ' class="numeric"' : ""}>${escapeHtml(column)}</th>`).join("")}</tr></thead>
+      <tbody>${report.rows.map((row: any[]) => `<tr>${row.map((cell, index) => `<td${index === lastIndex ? ' class="numeric"' : ""}>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table>`;
+  return buildPrintDocumentHtml({
+    documentLabel: "Laporan Keuangan",
+    title: report.title,
+    subtitle: report.subtitle,
+    bodyHtml,
+    summaryItems: report.totals.map((total: any, index: number) => ({
+      label: total[0],
+      value: total[1],
+      emphasize: index === report.totals.length - 1,
+    })),
+  });
+});
+const printCurrentReport = () => {
+  if (openPrintPopup(reportPrintHtml.value, { notify })) {
+    notify("Dialog cetak laporan dibuka.");
   }
-
-  popup.document.write(`<!doctype html>
-        <html>
-          <head>
-            <title>${escapeHtml(report.title)} - FinStart</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 32px; color: #102A56; }
-              h1, h2, p { margin: 0; }
-              .header { border-bottom: 2px solid #0B1F4A; padding-bottom: 14px; text-align: center; }
-              .meta { margin-top: 6px; color: #64748B; font-size: 12px; }
-              table { border-collapse: collapse; margin-top: 24px; width: 100%; font-size: 12px; }
-              th, td { border-bottom: 1px solid #E2E8F0; padding: 10px; text-align: left; }
-              th { background: #F8FBFE; color: #53658A; text-transform: uppercase; font-size: 10px; }
-              td:last-child, th:last-child { text-align: right; }
-              .totals { margin-top: 18px; border-top: 1px solid #CBD5E1; padding-top: 12px; }
-              .total-row { display: flex; justify-content: space-between; padding: 6px 0; font-weight: 700; }
-              @media print { body { margin: 18mm; } }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>PT KEDATA INDONESIA DIGITAL</h1>
-              <p class="meta">${escapeHtml(report.title)} - ${escapeHtml(report.subtitle)}</p>
-              <p class="meta">Dicetak ${escapeHtml(new Date().toLocaleDateString("id-ID"))}</p>
-            </div>
-            <table>
-              <thead><tr>${report.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>
-              <tbody>${report.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
-            </table>
-            <div class="totals">${report.totals.map((total) => `<div class="total-row"><span>${escapeHtml(total[0])}</span><span>${escapeHtml(total[1])}</span></div>`).join("")}</div>
-          </body>
-        </html>`);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-  notify("Dialog cetak laporan dibuka.");
 };
 const budgetAccounts = computed(() =>
-  (props.akun || []).filter((account) =>
-    ["Pendapatan", "Beban"].includes(account.tipe),
+  (props.akun || []).filter(
+    (account) =>
+      ["Pendapatan", "Beban"].includes(account.tipe) &&
+      String(account.status || "active") === "active",
   ),
 );
 

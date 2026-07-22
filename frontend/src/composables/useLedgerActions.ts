@@ -38,9 +38,10 @@ export function useLedgerActions({
   const addAccount = async (item: any) =>
     withApiFeedback(
       async () => {
-        await financeApi.post("/accounts", accountPayload(item));
+        const created = await financeApi.post("/accounts", accountPayload(item));
         await refreshData();
         notify("Akun buku besar berhasil disimpan ke database.");
+        return created;
       },
       "Gagal menyimpan akun buku besar.",
       notify,

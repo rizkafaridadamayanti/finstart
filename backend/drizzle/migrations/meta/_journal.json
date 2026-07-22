@@ -281,6 +281,27 @@
       "when": 1784217600000,
       "tag": "0104_drop_obsolete_auth_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784217600001,
+      "tag": "0105_fix_journal_status_enum",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784217600002,
+      "tag": "0106_create_asset_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784217600003,
+      "tag": "0107_add_client_code",
+      "breakpoints": true
     }
   ]
 }

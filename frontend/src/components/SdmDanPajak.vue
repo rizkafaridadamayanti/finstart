@@ -2,80 +2,83 @@
   <div class="space-y-6 font-sans">
     <!-- Header switches -->
     <div
-      v-if="activeTab === 'sdm'"
-      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+      v-if="activeTab === 'sdm' &amp;&amp; !isSdmFullPageView"
+      class="workspace-page-header flex flex-col justify-between gap-4 md:flex-row md:items-center"
     >
       <div>
         <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
-          Database SDM &amp; Payroll
+          Kelola Pegawai
         </h1>
         <p class="text-sm text-[#53658A] mt-1">
           Integrasi HR Compliance, BPJS, dan Manajemen Dokumen Digital.
         </p>
       </div>
-      <div class="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5 2xl:w-auto">
+      <div class="flex items-center">
         <button
-          id="btn-open-bpjs-rates"
-          type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-extrabold text-[#1F2A44] shadow-sm transition-all hover:bg-slate-50"
-          @click="updateIsBpjsModalOpen(true)"
-        >
-          <Calculator class="h-4 w-4" /> Atur BPJS
-        </button>
-        <button
-          id="btn-manage-master-data"
-          type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#BFD7F5] bg-[#F4F9FF] px-4 text-xs font-extrabold text-[#0B3A78] shadow-sm transition-all hover:bg-[#EAF4FF]"
-          @click="openMasterData('division')"
-        >
-          <Building2 class="w-4 h-4" /> Kelola Divisi &amp; Jabatan</button
-        ><button
           id="btn-register-employee"
           type="button"
           class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white shadow-lg shadow-[#0B1F4A]/20 transition-all hover:bg-[#102A56]"
           @click="openEmployeeForm()"
         >
-          <Plus class="w-4 h-4" /> Tambah Pegawai</button
-        ><button
-          id="btn-open-payroll-history"
-          type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#BFD7F5] bg-[#F4F9FF] px-4 text-xs font-extrabold text-[#0B3A78] shadow-sm transition-all hover:bg-[#EAF4FF]"
-          @click="isPayrollHistoryOpen = true"
-        >
-          <History class="w-4 h-4" /> Riwayat Penggajian</button
-        ><button
-          id="btn-open-payroll"
-          type="button"
-          class="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#10182C] px-4 text-xs font-extrabold text-white shadow-lg shadow-[#10182C]/20 transition-all hover:bg-[#0B1120]"
-          @click="openPayrollModal"
-        >
-          <DollarSign class="w-4 h-4" /> Proses Payroll
+          <Plus class="w-4 h-4" /> Tambah Pegawai
         </button>
       </div>
     </div>
-    <!-- 1. DIRECTORI SDM & BPJS SETTING view -->
-    <div v-if="activeTab === 'sdm'" class="space-y-6">
-      <div
-        class="rounded-2xl border border-[#D8E5F4] bg-white px-5 py-4 shadow-sm"
-      >
-        <div
-          class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-        >
-          <div>
-            <p
-              class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Alur cepat
-            </p>
-            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
-              Tarif awal BPJS sudah tersedia; akuntan dapat menyesuaikan bila diperlukan.
-            </p>
-          </div>
-          <p class="text-[11px] leading-5 text-[#6B7A90]">
-            Tarif dapat direset ke nilai resmi kapan saja tanpa mengubah payroll lama.
-          </p>
-        </div>
+    <div
+      v-else-if="isBpjsView"
+      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+    >
+      <div>
+        <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
+          Pengaturan Tarif BPJS
+        </h1>
+        <p class="text-sm text-[#53658A] mt-1">
+          Diatur sekali oleh admin dan dipakai untuk payroll berikutnya.
+        </p>
       </div>
+    </div>
+    <div
+      v-else-if="isDivisiJabatanView"
+      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+    >
+      <div>
+        <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
+          Kelola Divisi &amp; Jabatan
+        </h1>
+        <p class="text-sm text-[#53658A] mt-1">
+          Tambahkan, ubah, atau hapus master data. Data yang masih digunakan
+          pegawai tidak dapat dihapus secara langsung.
+        </p>
+      </div>
+    </div>
+    <div
+      v-else-if="isRiwayatPenggajianView"
+      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+    >
+      <div>
+        <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
+          Riwayat Penggajian
+        </h1>
+        <p class="text-sm text-[#53658A] mt-1">
+          Payroll yang sudah diproses dan diposting ke jurnal.
+        </p>
+      </div>
+    </div>
+    <div
+      v-else-if="isProsesPayrollView"
+      class="workspace-page-header flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-end"
+    >
+      <div>
+        <h1 class="text-2xl font-extrabold text-[#020B2D] tracking-tight">
+          Proses Payroll
+        </h1>
+        <p class="text-sm text-[#53658A] mt-1">
+          Pilih pegawai, periode, dan akun pembayaran.
+        </p>
+      </div>
+    </div>
+    <!-- 1. DIRECTORI SDM & BPJS SETTING view -->
+    <div v-if="activeTab === 'sdm' &amp;&amp; !isSdmFullPageView" class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div
           class="bg-white border border-slate-100 rounded-[26px] p-6 shadow-sm flex items-center gap-4"
@@ -133,7 +136,7 @@
         </div>
       </div>
       <div
-        class="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm"
+        class="bg-white border border-slate-100 overflow-hidden shadow-sm"
       >
         <div class="border-b border-slate-100 p-5">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -179,7 +182,7 @@
                 <th class="px-7 py-5">Jabatan</th>
                 <th class="px-7 py-5 text-center">Status Aktif</th>
                 <th class="px-7 py-5 text-center">Compliance</th>
-                <th class="px-7 py-5 text-[#0B1F4A]">Gaji Bersih (Net)</th>
+                <th class="px-7 py-5 text-center text-[#0B1F4A]">Gaji Bersih (Net)</th>
                 <th class="px-7 py-5 text-center">Aksi</th>
               </tr>
             </thead>
@@ -225,7 +228,7 @@
                     >
                   </div>
                 </td>
-                <td class="px-7 py-4 font-mono font-bold text-[#0B1F4A]">
+                <td class="px-7 py-4 text-center font-mono font-bold text-[#0B1F4A]">
                   {{ formatRupiah(staff.gajiBersih) }}
                 </td>
                 <td class="px-7 py-4 text-center">
@@ -267,351 +270,9 @@
           @page-change="employeePage = safePage($event, filteredEmployees.length)"
         />
       </div>
-      <Teleport to="body">
-      <div
-        v-if="isPayrollHistoryOpen"
-        class="sdm-form-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-      <div
-        class="payroll-history-card flex w-full flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl"
-        :style="{
-          width: 'min(1080px, calc(100vw - 32px))',
-          height: 'min(720px, calc(100dvh - 32px))',
-          maxHeight: 'calc(100dvh - 32px)',
-        }"
-      >
-        <div class="shrink-0 border-b border-slate-100 px-7 py-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-extrabold text-[#102A56]">Riwayat Penggajian</h2>
-              <p class="mt-1 text-[11px] text-[#6B7A90]">Payroll yang sudah diproses dan diposting ke jurnal.</p>
-            </div>
-            <button type="button" aria-label="Tutup riwayat penggajian" class="flex h-10 w-10 items-center justify-center rounded-2xl text-[#94A3B8] hover:bg-slate-50 hover:text-slate-600" @click="isPayrollHistoryOpen = false">
-              <X class="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div
-          class="payroll-history-scroll min-h-0 flex-1"
-          tabindex="0"
-          :style="{
-            flex: '1 1 0%',
-            minHeight: 0,
-            overflowX: 'auto',
-            overflowY: 'scroll',
-            overscrollBehavior: 'contain',
-            touchAction: 'pan-x pan-y',
-            scrollbarGutter: 'stable',
-          }"
-        >
-          <table class="payroll-history-table w-full min-w-[960px] text-left">
-            <thead class="sticky top-0 z-10 bg-[#EEF5FC] shadow-[0_1px_0_#D8E5F4]">
-              <tr>
-                <th class="px-6 py-4">Periode</th>
-                <th class="px-6 py-4">Pegawai</th>
-                <th class="px-6 py-4">Tanggal Bayar</th>
-                <th class="px-6 py-4 text-right">Gaji Bersih</th>
-                <th class="px-6 py-4">Voucher</th>
-                <th class="px-6 py-4 text-center">Status</th>
-                <th class="px-6 py-4 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              <tr v-for="record in payrollHistory" :key="record.id">
-                <td class="px-6 py-4 font-semibold text-[#102A56]">{{ formatPeriodLabel(record.payroll_period) }}</td>
-                <td class="px-6 py-4"><span class="block font-semibold text-[#182338]">{{ record.employee_name }}</span><span class="text-[10px] text-slate-400">{{ record.employee_code || '—' }}</span></td>
-                <td class="px-6 py-4 text-[#64748B]">{{ record.payment_date || '—' }}</td>
-                <td class="px-6 py-4 text-right font-mono font-bold text-[#0B1F4A]">{{ formatRupiah(asNumber(record.net_pay)) }}</td>
-                <td class="px-6 py-4 text-[#64748B]">{{ record.voucher_number || '—' }}</td>
-                <td class="px-6 py-4 text-center"><span class="inline-flex rounded-full bg-[#EEF5FC] px-3 py-1 text-[10px] font-bold text-[#1E5AA8]">{{ record.status === 'posted' ? 'Diposting' : record.status }}</span></td>
-                <td class="px-6 py-4 text-center">
-                  <button
-                    type="button"
-                    class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-[#0B1F4A] bg-white px-3 text-xs font-semibold text-[#0B1F4A] hover:bg-[#F8FBFE]"
-                    @click="downloadPayrollPdf(record)"
-                  >
-                    <FileText class="h-4 w-4" /> PDF
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="payrollHistory.length === 0"><td colspan="7" class="px-6 py-10 text-center text-sm text-[#7A8CA8]">Belum ada riwayat penggajian.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="flex shrink-0 items-center justify-between border-t border-slate-100 px-7 py-4">
-          <p class="text-[11px] font-medium text-[#6B7A90]">{{ payrollHistory.length }} riwayat payroll</p>
-          <div class="flex flex-wrap items-center justify-end gap-2">
-            <button type="button" class="h-10 rounded-xl bg-[#0B1F4A] px-5 text-xs font-semibold text-white hover:bg-[#102A56]" @click="isPayrollHistoryOpen = false">Tutup</button>
-          </div>
-        </div>
-      </div>
-      </div>
-      </Teleport>
-      <Teleport v-if="isMasterDataModalOpen" to="body"
-        ><div
-          class="master-data-modal-layer bg-[#0B1220]/60 backdrop-blur-sm"
-          :style="{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 2147483000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100vw',
-            height: '100dvh',
-            padding: '24px',
-            overflowY: 'auto',
-          }"
-        >
+    </div>
+      <Teleport v-if="masterDeleteConfirm" to="body">
           <div
-            class="relative flex flex-col overflow-hidden rounded-[28px] border border-[#DCE7F4] bg-white shadow-[0_28px_90px_rgba(8,25,60,0.38)]"
-            :style="{
-              width: 'min(92vw, 1180px)',
-              maxHeight: 'calc(100dvh - 48px)',
-            }"
-          >
-            <div
-              class="shrink-0 flex items-start justify-between gap-4 border-b border-[#E8EEF7] px-5 py-4 sm:px-7 sm:py-5"
-            >
-              <div>
-                <p
-                  class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-                >
-                  Master Data SDM
-                </p>
-                <h3
-                  class="mt-1 text-lg font-extrabold tracking-tight text-[#102A56]"
-                >
-                  Kelola Divisi &amp; Jabatan
-                </h3>
-                <p class="mt-1 max-w-2xl text-[12px] leading-5 text-[#6B7A90]">
-                  Tambahkan, ubah, atau hapus master data. Data yang masih
-                  digunakan pegawai tidak dapat dihapus secara langsung.
-                </p>
-              </div>
-              <button
-                id="btn-close-master-data"
-                type="button"
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#94A3B8] transition hover:bg-slate-50 hover:text-[#102A56]"
-                aria-label="Tutup kelola divisi dan jabatan"
-                @click="closeMasterDataModal"
-              >
-                <X class="h-5 w-5" />
-              </button>
-            </div>
-            <div
-              class="shrink-0 flex flex-wrap gap-2 border-b border-[#E8EEF7] bg-[#FAFCFF] px-5 py-3 sm:px-7"
-            >
-              <button
-                type="button"
-                :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'division' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
-                @click="changeMasterTab('division')"
-              >
-                <Building2 class="h-3.5 w-3.5" /> Divisi
-                <span
-                  :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'division' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
-                  >{{ divisions.length }}</span
-                ></button
-              ><button
-                type="button"
-                :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
-                @click="changeMasterTab('position')"
-              >
-                <BriefcaseBusiness class="h-3.5 w-3.5" /> Jabatan
-                <span
-                  :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
-                  >{{ positions.length }}</span
-                >
-              </button>
-            </div>
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <section class="min-w-0 p-5 lg:p-6">
-                <div
-                  class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p class="text-[13px] font-extrabold text-[#102A56]">
-                      Daftar {{ masterLabel() }}
-                    </p>
-                    <p class="mt-1 text-[11px] text-[#7A8CA8]">
-                      Gunakan ikon untuk ubah atau hapus data.
-                    </p>
-                  </div>
-                  <button
-                    id="btn-add-master-data"
-                    type="button"
-                    class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
-                    @click="resetMasterDataForm(masterDataTab, true)"
-                  >
-                    <Plus class="h-3.5 w-3.5" /> Tambah {{ masterLabel() }}
-                  </button>
-                </div>
-                <div class="master-search-field relative mb-4">
-                  <Search
-                    class="master-search-icon pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B1F4A]"
-                  />
-                  <input
-                    id="master-data-search"
-                    :value="masterSearch"
-                    :placeholder="`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`"
-                    class="master-search-input h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pr-3 text-[12px] font-medium text-[#243650] outline-none transition placeholder:text-[#8FA0B8] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
-                    @input="masterSearch = eventValue($event)"
-                  />
-                </div>
-                <div
-                  class="overflow-hidden rounded-2xl border border-[#E1EAF5]"
-                >
-                  <div
-                    class="max-h-[min(48dvh,420px)] overflow-y-auto overflow-x-auto"
-                  >
-                    <table
-                      class="master-data-table w-full min-w-[720px] table-fixed text-left text-xs"
-                      :style="{ width: '100%' }"
-                    >
-                      <colgroup v-if="masterDataTab === 'position'">
-                        <col :style="{ width: '42%' }" />
-                        <col :style="{ width: '24%' }" />
-                        <col :style="{ width: '13%' }" />
-                        <col :style="{ width: '9%' }" />
-                        <col :style="{ width: '12%' }" />
-                      </colgroup>
-                      <colgroup v-else>
-                        <col :style="{ width: '62%' }" />
-                        <col :style="{ width: '16%' }" />
-                        <col :style="{ width: '22%' }" />
-                      </colgroup>
-                      <thead
-                        class="sticky top-0 z-10 bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"
-                      >
-                        <tr>
-                          <th class="px-5 py-3 text-left">Kode / Nama</th>
-                          <th
-                            v-if="masterDataTab === 'position'"
-                            class="px-5 py-3 text-left"
-                          >
-                            Divisi
-                          </th>
-                          <th
-                            v-if="masterDataTab === 'position'"
-                            class="px-5 py-3 text-left"
-                          >
-                            Status
-                          </th>
-                          <th class="px-5 py-3 text-center">Dipakai</th>
-                          <th class="px-5 py-3 text-right">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-[#EDF2F7] bg-white">
-                        <template v-if="masterRows().length"
-                          ><tr
-                            v-for="item in pagedMasterRows()"
-                            :key="`${masterDataTab}-${item.id}`"
-                            class="hover:bg-[#FAFCFF]"
-                          >
-                            <td class="px-4 py-3">
-                              <p class="font-extrabold text-[#102A56]">
-                                {{ item.name }}
-                              </p>
-                              <p class="mt-1 text-[10px] text-[#7A8CA8]">
-                                {{ item.code || "Kode otomatis"
-                                }}<template v-if="item.description">{{
-                                  ` · ${item.description}`
-                                }}</template
-                                ><template v-else></template>
-                              </p>
-                            </td>
-                            <td
-                              v-if="masterDataTab === 'position'"
-                              class="px-4 py-3 text-[#53658A]"
-                            >
-                              {{ item.division_name || "Semua divisi" }}
-                            </td>
-                            <td
-                              v-if="masterDataTab === 'position'"
-                              class="px-4 py-3"
-                            >
-                              <span
-                                :class="`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${String(item.status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`"
-                                ><template
-                                  v-if="
-                                    String(
-                                      item.status || 'active',
-                                    ).toLowerCase() === 'active'
-                                  "
-                                  >Aktif</template
-                                ><template v-else>Nonaktif</template></span
-                              >
-                            </td>
-                            <td
-                              class="px-4 py-3 text-center font-bold text-[#53658A]"
-                            >
-                              {{ masterUsageCount(item) }}
-                            </td>
-                            <td class="px-4 py-3">
-                              <div class="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  :title="`Ubah ${masterLabel().toLowerCase()}`"
-                                  :aria-label="`Ubah ${masterLabel().toLowerCase()}`"
-                                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F2D49B] bg-[#FFF9EE] text-[#B86A00] hover:bg-[#FFF1D7]"
-                                  @click="editMasterData(item)"
-                                >
-                                  <Pencil class="h-3.5 w-3.5" /></button
-                                ><button
-                                  v-if="masterDataTab === 'position'"
-                                  type="button"
-                                  :title="
-                                    String(
-                                      item.status || 'active',
-                                    ).toLowerCase() === 'active'
-                                      ? 'Nonaktifkan'
-                                      : 'Aktifkan'
-                                  "
-                                  :aria-label="
-                                    String(
-                                      item.status || 'active',
-                                    ).toLowerCase() === 'active'
-                                      ? 'Nonaktifkan'
-                                      : 'Aktifkan'
-                                  "
-                                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C9DBF4] bg-[#F4F9FF] text-[#1E5AA8] hover:bg-[#EAF4FF]"
-                                  @click="toggleMasterStatus(item)"
-                                >
-                                  <Power class="h-3.5 w-3.5" /></button
-                                ><button
-                                  type="button"
-                                  :title="`Hapus ${masterLabel().toLowerCase()}`"
-                                  :aria-label="`Hapus ${masterLabel().toLowerCase()}`"
-                                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                                  @click="deleteMasterData(item)"
-                                >
-                                  <Trash2 class="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </td></tr
-                        ></template>
-                        <tr v-else>
-                          <td
-                            :colspan="masterDataTab === 'position' ? 5 : 3"
-                            class="px-4 py-12 text-center text-xs text-[#8190A5]"
-                          >
-                            Belum ada data
-                            {{ masterLabel().toLowerCase() }} yang sesuai.
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <TablePagination
-                  :page="masterPage"
-                  :total="masterRows().length"
-                  @page-change="masterPage = safePage($event, masterRows().length)"
-                />
-              </section>
-            </div>
-          <div
-            v-if="masterDeleteConfirm"
             class="master-confirm-layer"
             role="dialog"
             aria-modal="true"
@@ -686,8 +347,9 @@
               </footer>
             </section>
           </div>
+      </Teleport>
+      <Teleport v-if="isMasterEditorOpen" to="body">
           <div
-            v-if="isMasterEditorOpen"
             class="master-editor-layer"
             :style="{
               position: 'fixed',
@@ -882,9 +544,8 @@
               </form>
             </div>
           </div>
-          </div>
-        </div></Teleport
-      ><Teleport v-if="employeeDeleteConfirm" to="body">
+      </Teleport>
+      <Teleport v-if="employeeDeleteConfirm" to="body">
         <div
           class="employee-confirm-layer"
           role="dialog"
@@ -1140,6 +801,279 @@
           </div>
         </div></Teleport
       >
+    <!-- 3. RIWAYAT PENGGAJIAN full-page view -->
+    <div
+      v-if="isRiwayatPenggajianView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-500">
+          <thead
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+          >
+            <tr>
+              <th class="p-5">Periode</th>
+              <th class="p-5 text-center">Pegawai</th>
+              <th class="p-5 text-center">Tanggal Bayar</th>
+              <th class="p-5 text-center">Gaji Bersih</th>
+              <th class="p-5 text-center">Voucher</th>
+              <th class="p-5 text-center">Status</th>
+              <th class="p-5 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-150">
+            <tr
+              v-for="record in pagedPayrollHistory"
+              :key="record.id"
+              class="hover:bg-slate-50 transition-colors"
+            >
+              <td class="p-5 font-semibold text-[#102A56]">
+                {{ formatPeriodLabel(record.payroll_period) }}
+              </td>
+              <td class="p-5 text-center">
+                <span class="block font-semibold text-[#182338]">{{
+                  record.employee_name
+                }}</span
+                ><span class="text-[10px] text-slate-400">{{
+                  record.employee_code || "—"
+                }}</span>
+              </td>
+              <td class="p-5 text-center text-[#64748B]">
+                {{ record.payment_date || "—" }}
+              </td>
+              <td class="p-5 text-center font-mono font-bold text-[#0B1F4A]">
+                {{ formatRupiah(asNumber(record.net_pay)) }}
+              </td>
+              <td class="p-5 text-center text-[#64748B]">
+                {{ record.voucher_number || "—" }}
+              </td>
+              <td class="p-5 text-center">
+                <span
+                  class="inline-flex rounded-full bg-[#EEF5FC] px-3 py-1 text-[10px] font-bold text-[#1E5AA8]"
+                  >{{
+                    record.status === "posted" ? "Diposting" : record.status
+                  }}</span
+                >
+              </td>
+              <td class="p-5 text-center">
+                <button
+                  type="button"
+                  class="table-outline-action inline-flex items-center justify-center gap-2 text-xs font-semibold"
+                  @click="printPayslip(record)"
+                >
+                  <FileText class="h-4 w-4" /> PDF
+                </button>
+              </td>
+            </tr>
+            <tr v-if="payrollHistory.length === 0">
+              <td colspan="7" class="p-10 text-center text-sm text-[#7A8CA8]">
+                Belum ada riwayat penggajian.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <TablePagination
+        v-if="payrollHistory.length > 0"
+        :page="payrollHistoryPage"
+        :total="payrollHistory.length"
+        @page-change="
+          payrollHistoryPage = safePage($event, payrollHistory.length)
+        "
+      />
+    </div>
+    <!-- 4. KELOLA DIVISI & JABATAN full-page view -->
+    <div
+      v-if="isDivisiJabatanView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div
+        class="shrink-0 flex flex-wrap gap-2 border-b border-[#E8EEF7] bg-[#FAFCFF] px-5 py-3"
+      >
+        <button
+          type="button"
+          :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'division' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
+          @click="changeMasterTab('division')"
+        >
+          <Building2 class="h-3.5 w-3.5" /> Divisi
+          <span
+            :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'division' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
+            >{{ divisions.length }}</span
+          ></button
+        ><button
+          type="button"
+          :class="`inline-flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition ${masterDataTab === 'position' ? 'bg-[#0B1F4A] text-white shadow-lg shadow-[#0B1F4A]/15' : 'border border-[#DCE7F4] bg-white text-[#53658A] hover:bg-[#F4F8FD]'}`"
+          @click="changeMasterTab('position')"
+        >
+          <BriefcaseBusiness class="h-3.5 w-3.5" /> Jabatan
+          <span
+            :class="`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${masterDataTab === 'position' ? 'bg-white/15 text-white' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
+            >{{ positions.length }}</span
+          >
+        </button>
+      </div>
+      <section class="min-w-0 p-5 lg:p-8">
+        <div
+          class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p class="text-[13px] font-extrabold text-[#102A56]">
+              Daftar {{ masterLabel() }}
+            </p>
+            <p class="mt-1 text-[11px] text-[#7A8CA8]">
+              Gunakan ikon untuk ubah atau hapus data.
+            </p>
+          </div>
+          <button
+            id="btn-add-master-data"
+            type="button"
+            class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
+            @click="resetMasterDataForm(masterDataTab, true)"
+          >
+            <Plus class="h-3.5 w-3.5" /> Tambah {{ masterLabel() }}
+          </button>
+        </div>
+        <div class="master-search-field relative mb-4">
+          <Search
+            class="master-search-icon pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#0B1F4A]"
+          />
+          <input
+            id="master-data-search"
+            :value="masterSearch"
+            :placeholder="`Cari kode, nama, atau keterangan ${masterLabel().toLowerCase()}...`"
+            class="master-search-input h-10 w-full rounded-xl border border-[#DCE7F4] bg-[#FBFDFF] pr-3 text-[12px] font-medium text-[#243650] outline-none transition placeholder:text-[#8FA0B8] focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+            @input="masterSearch = eventValue($event)"
+          />
+        </div>
+        <div class="overflow-hidden border border-[#DCE7F4]">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead
+                class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"
+              >
+                <tr>
+                  <th class="px-5 py-3 text-left">Kode / Nama</th>
+                  <th
+                    v-if="masterDataTab === 'position'"
+                    class="px-5 py-3 text-center"
+                  >
+                    Divisi
+                  </th>
+                  <th
+                    v-if="masterDataTab === 'position'"
+                    class="px-5 py-3 text-center"
+                  >
+                    Status
+                  </th>
+                  <th class="px-5 py-3 text-center">Dipakai</th>
+                  <th class="px-5 py-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#EDF2F7] bg-white">
+                <template v-if="masterRows().length"
+                  ><tr
+                    v-for="item in pagedMasterRows()"
+                    :key="`${masterDataTab}-${item.id}`"
+                    class="hover:bg-[#FAFCFF]"
+                  >
+                    <td class="px-4 py-3">
+                      <p class="font-extrabold text-[#102A56]">
+                        {{ item.name }}
+                      </p>
+                      <p class="mt-1 text-[10px] text-[#7A8CA8]">
+                        {{ item.code || "Kode otomatis"
+                        }}<template v-if="item.description">{{
+                          ` · ${item.description}`
+                        }}</template
+                        ><template v-else></template>
+                      </p>
+                    </td>
+                    <td
+                      v-if="masterDataTab === 'position'"
+                      class="px-4 py-3 text-center text-[#53658A]"
+                    >
+                      {{ item.division_name || "Semua divisi" }}
+                    </td>
+                    <td
+                      v-if="masterDataTab === 'position'"
+                      class="px-4 py-3 text-center"
+                    >
+                      <span
+                        :class="`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${String(item.status || 'active').toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`"
+                        ><template
+                          v-if="
+                            String(item.status || 'active').toLowerCase() ===
+                            'active'
+                          "
+                          >Aktif</template
+                        ><template v-else>Nonaktif</template></span
+                      >
+                    </td>
+                    <td
+                      class="px-4 py-3 text-center font-bold text-[#53658A]"
+                    >
+                      {{ masterUsageCount(item) }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="flex justify-center gap-1.5">
+                        <button
+                          type="button"
+                          :title="`Ubah ${masterLabel().toLowerCase()}`"
+                          :aria-label="`Ubah ${masterLabel().toLowerCase()}`"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#F2D49B] bg-[#FFF9EE] text-[#B86A00] hover:bg-[#FFF1D7]"
+                          @click="editMasterData(item)"
+                        >
+                          <Pencil class="h-3.5 w-3.5" /></button
+                        ><button
+                          v-if="masterDataTab === 'position'"
+                          type="button"
+                          :title="
+                            String(item.status || 'active').toLowerCase() ===
+                            'active'
+                              ? 'Nonaktifkan'
+                              : 'Aktifkan'
+                          "
+                          :aria-label="
+                            String(item.status || 'active').toLowerCase() ===
+                            'active'
+                              ? 'Nonaktifkan'
+                              : 'Aktifkan'
+                          "
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C9DBF4] bg-[#F4F9FF] text-[#1E5AA8] hover:bg-[#EAF4FF]"
+                          @click="toggleMasterStatus(item)"
+                        >
+                          <Power class="h-3.5 w-3.5" /></button
+                        ><button
+                          type="button"
+                          :title="`Hapus ${masterLabel().toLowerCase()}`"
+                          :aria-label="`Hapus ${masterLabel().toLowerCase()}`"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                          @click="deleteMasterData(item)"
+                        >
+                          <Trash2 class="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td></tr
+                ></template>
+                <tr v-else>
+                  <td
+                    :colspan="masterDataTab === 'position' ? 5 : 3"
+                    class="px-4 py-12 text-center text-xs text-[#8190A5]"
+                  >
+                    Belum ada data {{ masterLabel().toLowerCase() }} yang
+                    sesuai.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <TablePagination
+          :page="masterPage"
+          :total="masterRows().length"
+          @page-change="masterPage = safePage($event, masterRows().length)"
+        />
+      </section>
     </div>
     <!-- 2. KEPATUHAN PERPAJAKAN view -->
     <div v-if="activeTab === 'pajak'" class="space-y-5">
@@ -1332,7 +1266,7 @@
                 Dasar {{ taxCalculation.base }}
               </p>
               <p class="mt-1 text-sm font-semibold text-[#102A56]">
-                {{ formatRupiah(taxCalculationBase) }}
+                {{ hasCalculatedDraft ? formatRupiah(taxCalculationBase) : "–" }}
               </p>
             </div>
             <div
@@ -1342,7 +1276,7 @@
                 Tarif Dipilih
               </p>
               <p class="mt-1 text-sm font-semibold text-[#102A56]">
-                {{ taxCalculation.rate }}%
+                {{ hasCalculatedDraft ? `${taxCalculation.rate}%` : "–" }}
               </p>
             </div>
             <div
@@ -1352,7 +1286,7 @@
                 Estimasi {{ taxCalculation.jenis }}
               </p>
               <p class="mt-1 text-sm font-semibold text-[#1E5AA8]">
-                {{ formatRupiah(calculatedTax) }}
+                {{ hasCalculatedDraft ? formatRupiah(calculatedTax) : "–" }}
               </p>
             </div>
           </div>
@@ -1423,7 +1357,7 @@
         </p>
       </section>
       <section
-        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_10px_28px_rgba(16,42,86,0.045)]"
+        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_10px_28px_rgba(16,42,86,0.045)]"
       >
         <div
           class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
@@ -1587,7 +1521,7 @@
                           <Pencil class="h-3.5 w-3.5" />
                         </button>
                         <button
-                          v-if="taxTableTab === 'unpaid'"
+                          v-if="taxTableTab === 'unpaid' && tax.rawStatus === 'draft'"
                           type="button"
                           class="tax-action-button border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
                           title="Hapus pajak"
@@ -1835,44 +1769,13 @@
         </div>
       </div>
     </Teleport>
-    <!-- 3. SET RATE BPJS MODAL -->
-    <Teleport to="body">
-      <div
-        v-if="isBpjsModalOpen"
-        class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-        <div
-          class="my-4 flex w-full max-w-[560px] flex-col overflow-hidden rounded-[34px] border border-slate-100 bg-white shadow-2xl"
-          :style="{ maxHeight: 'calc(100dvh - 32px)' }"
-        >
-        <div
-          class="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-7"
-        >
-          <div>
-            <p
-              class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Langkah 1 dari 3
-            </p>
-            <h3
-              class="mt-1 font-extrabold text-lg text-[#111827] tracking-tight"
-            >
-              Pengaturan Tarif BPJS
-            </h3>
-            <p class="mt-1 text-xs text-[#64748B]">
-              Diatur sekali oleh admin dan dipakai untuk payroll berikutnya.
-            </p>
-          </div>
-          <button
-            id="btn-close-bpjs"
-            class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-slate-50 transition-colors"
-            @click="updateIsBpjsModalOpen(false)"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
+    <!-- 5. ATUR BPJS full-page view -->
+    <div
+      v-if="isBpjsView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
+    >
         <form
-          class="min-h-0 flex-1 space-y-7 overflow-y-auto px-8 py-8 text-xs"
+          class="w-full space-y-6 p-6 text-xs lg:p-8"
           novalidate
           @submit="handleSaveBpjs"
         >
@@ -1889,7 +1792,7 @@
               <FileText class="mt-0.5 h-4 w-4 shrink-0 text-[#1E5AA8]" />
               <div>
                 <p class="font-extrabold text-[#102A56]">Cara mengisi tarif</p>
-                <ul class="mt-2 list-disc space-y-1.5 pl-4 text-[11px] leading-5">
+                <ul class="mt-2 grid grid-cols-1 gap-y-2 list-disc pl-4 text-[11px] leading-5">
                   <li>Masukkan angka persen langsung: <strong>4</strong> berarti 4%, bukan 0,04 atau 90.</li>
                   <li><strong>Porsi perusahaan</strong> adalah kontribusi perusahaan dan tidak mengurangi gaji bersih pegawai.</li>
                   <li><strong>Porsi pegawai</strong> adalah potongan yang mengurangi gaji bersih saat payroll diproses.</li>
@@ -1899,13 +1802,14 @@
               </div>
             </div>
           </div>
-          <div class="space-y-5">
+          <div class="grid grid-cols-1 gap-6">
+          <div class="space-y-5 rounded-2xl border border-[#DCE7F4] p-5">
             <h4
               class="text-[10px] text-[#1E5AA8] font-extrabold uppercase tracking-widest flex items-center gap-2"
             >
               <HeartPulse class="w-3.5 h-3.5" /> BPJS Kesehatan (%)
             </h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="grid grid-cols-1 gap-4">
               <div class="space-y-2">
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
@@ -1968,13 +1872,13 @@
               </div>
             </div>
           </div>
-          <div class="space-y-5">
+          <div class="space-y-5 rounded-2xl border border-[#DCE7F4] p-5">
             <h4
               class="text-[10px] text-[#0B1F4A] font-extrabold uppercase tracking-widest flex items-center gap-2"
             >
               <ShieldCheck class="w-3.5 h-3.5" /> BPJS Ketenagakerjaan (%)
             </h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="grid grid-cols-1 gap-4">
               <div class="space-y-2">
                 <label
                   class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
@@ -2093,27 +1997,28 @@
               </div>
             </div>
           </div>
-          <button
-            id="btn-save-bpjs-rates"
-            type="submit"
-            :disabled="isBpjsSaving || isBpjsResetting"
-            class="w-full h-12 bg-[#10182C] hover:bg-[#0B1120] text-white font-extrabold rounded-2xl transition-all uppercase tracking-widest text-xs"
-          >
-            {{ isBpjsSaving ? "Menyimpan..." : "Simpan Tarif BPJS" }}
-          </button>
-          <button
-            id="btn-reset-bpjs-rates"
-            type="button"
-            :disabled="isBpjsSaving || isBpjsResetting"
-            class="w-full h-11 border border-[#0B1F4A] bg-white text-[#0B1F4A] font-extrabold rounded-2xl transition-all text-xs"
-            @click="handleResetBpjs"
-          >
-            {{ isBpjsResetting ? "Mereset..." : "Reset ke Tarif Resmi" }}
-          </button>
+          </div>
+          <div class="flex flex-col gap-3">
+            <button
+              id="btn-save-bpjs-rates"
+              type="submit"
+              :disabled="isBpjsSaving || isBpjsResetting"
+              class="h-12 w-full rounded-2xl bg-[#10182C] text-xs font-extrabold uppercase tracking-widest text-white transition-all hover:bg-[#0B1120]"
+            >
+              {{ isBpjsSaving ? "Menyimpan..." : "Simpan Tarif BPJS" }}
+            </button>
+            <button
+              id="btn-reset-bpjs-rates"
+              type="button"
+              :disabled="isBpjsSaving || isBpjsResetting"
+              class="h-12 w-full rounded-2xl border border-[#0B1F4A] bg-white text-xs font-extrabold text-[#0B1F4A] transition-all"
+              @click="handleResetBpjs"
+            >
+              {{ isBpjsResetting ? "Mereset..." : "Reset ke Tarif Resmi" }}
+            </button>
+          </div>
         </form>
-        </div>
-      </div>
-    </Teleport>
+    </div>
     <!-- 4. EMPLOYEE REGISTRATION MODAL -->
     <Teleport to="body">
     <div
@@ -2535,50 +2440,20 @@
       </div>
     </div>
     </Teleport>
-    <!-- 5. PROCESS PAYROLL MODAL -->
-    <Teleport to="body">
+    <!-- 6. PROSES PAYROLL full-page view -->
     <div
-      v-if="isPayrollModalOpen"
-      class="sdm-form-modal-layer fixed inset-0 z-[10080] flex items-start justify-center overflow-y-auto bg-[#111827]/55 px-4 py-4 backdrop-blur-sm"
+      v-if="isProsesPayrollView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
     >
-      <div
-        class="payroll-form-modal-card my-2 flex max-h-[calc(100dvh-32px)] w-full max-w-[640px] flex-col overflow-hidden rounded-[28px] border border-[#0B1F4A] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#0B1F4A] bg-white px-8 py-7"
-        >
-          <div>
-            <p
-              class="text-[9px] font-extrabold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Langkah 3 dari 3
-            </p>
-            <h3 class="mt-1 text-2xl font-extrabold text-[#0B1F4A]">
-              Proses Payroll
-            </h3>
-            <span class="text-[11px] font-medium text-[#7A8CA8]"
-              >Pilih pegawai, periode, dan akun pembayaran.</span
-            >
-          </div>
-          <button
-            id="btn-close-payroll"
-            type="button"
-            class="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white hover:text-slate-600"
-            @click="closePayrollModal"
-            aria-label="Tutup modal payroll"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
         <form
           novalidate
           data-manual-validation="true"
-          class="grid min-h-0 grid-cols-1 gap-4 overflow-y-auto px-8 py-7 text-xs md:grid-cols-12"
+          class="grid w-full grid-cols-1 gap-4 p-6 text-xs lg:p-8"
           @submit.prevent="handleProcessPayroll"
         >
           <div
             v-if="payrollFormErrorMessages.length"
-            class="form-validation-summary md:col-span-12"
+            class="form-validation-summary"
             role="alert"
           >
             <strong>Lengkapi seluruh data payroll.</strong>
@@ -2586,12 +2461,12 @@
           </div>
           <div
             v-if="payrollProcessError"
-            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 md:col-span-12"
+            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700"
             role="alert"
           >
             <p>{{ payrollProcessError }}</p>
           </div>
-          <div class="space-y-1.5 md:col-span-5">
+          <div class="space-y-1.5">
             <label class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B1F4A]">Pegawai yang Diproses</label
             ><select
               id="payroll-employee"
@@ -2619,7 +2494,7 @@
               {{ payrollFormErrors.employeeId }}
             </p>
           </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:col-span-7">
+          <div class="grid grid-cols-1 gap-3">
             <div class="space-y-1.5">
               <label class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B1F4A]">Periode Payroll</label
               ><input
@@ -2662,7 +2537,7 @@
             </div>
           </div>
           <div
-            class="space-y-2 rounded-xl border border-[#BFD7F5] bg-blue-50 p-4 text-[12px] leading-5 text-blue-900 md:col-span-6"
+            class="space-y-2 rounded-xl border border-[#BFD7F5] bg-blue-50 p-4 text-[12px] leading-5 text-blue-900"
           >
             <p class="font-bold">Estimasi Payroll Terpilih:</p>
             <div class="font-mono space-y-1 text-xs">
@@ -2697,13 +2572,13 @@
               </p>
             </div>
           </div>
-          <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4 md:col-span-6">
+          <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
             <p
               class="mb-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1E5AA8]"
             >
               Komponen Payroll &amp; Potongan
             </p>
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="grid grid-cols-1 gap-3">
               <label class="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#0B1F4A]"
                 >Lembur<input
                   id="payroll-overtime"
@@ -2832,7 +2707,7 @@
               >
             </div>
           </div>
-          <div class="space-y-1.5 md:col-span-6">
+          <div class="space-y-1.5">
             <label class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B1F4A]"
               >Sumber Rekening Dana Payout</label
             ><select
@@ -2862,18 +2737,18 @@
             </p>
           </div>
           <div
-            class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4 text-[11px] font-medium leading-5 text-[#53658A] md:col-span-6"
+            class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4 text-[11px] font-medium leading-5 text-[#53658A]"
           >
             BPJS dan PPh 21 dihitung otomatis saat payroll diproses. Untuk masa
             terakhir, sistem merekonsiliasi penghasilan dan pajak tahun berjalan,
             lalu mencatat hasilnya sebagai potongan payroll dan utang terkait.
           </div>
-          <div class="grid gap-3 md:col-span-6">
+          <div class="flex flex-col gap-3">
             <button
               id="btn-confirm-payout"
               type="button"
               :disabled="isPayrollProcessing"
-              class="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] text-[13px] font-extrabold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-70"
+              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] text-[13px] font-extrabold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-70"
               @click="handleProcessPayroll"
             >
               <CheckCircle2 class="w-4 h-4 text-[#38BDF8]" />
@@ -2881,23 +2756,21 @@
             </button
             ><button
               type="button"
-              class="h-11 w-full rounded-xl border border-[#0B1F4A] bg-white text-[13px] font-semibold text-[#0B1F4A] transition-all"
+              class="h-12 w-full rounded-xl border border-[#0B1F4A] bg-white text-[13px] font-semibold text-[#0B1F4A] transition-all"
               :disabled="isPayrollProcessing"
               @click="handleProcessPayrollBulk"
             >
               {{ isPayrollProcessing ? "Menyiapkan Konfirmasi..." : "Proses Semua Pegawai" }}</button
             ><button
               type="button"
-              class="w-full px-4 py-1 text-center text-[13px] font-semibold leading-5 text-[#1E5AA8]"
+              class="h-12 w-full rounded-xl border border-[#1E5AA8] bg-[#EEF5FC] text-[13px] font-extrabold text-[#1E5AA8] shadow-sm transition-all hover:shadow-md"
               @click="downloadPayrollBankTransfer"
             >
               Unduh File Transfer Bank Periode Ini
             </button>
           </div>
         </form>
-      </div>
     </div>
-    </Teleport>
     <Teleport to="body">
       <div
         v-if="payrollConfirmation"
@@ -2941,7 +2814,7 @@
         v-if="payrollBulkConfirmation"
         class="sdm-form-modal-layer fixed inset-0 z-[10096] flex items-center justify-center overflow-y-auto bg-[#111827]/70 p-4 backdrop-blur-sm"
       >
-        <div class="payroll-bulk-modal-card my-4 flex flex-col overflow-hidden rounded-[22px] border border-[#DCE7F4] bg-white shadow-2xl">
+        <div class="payroll-bulk-modal-card my-4 flex flex-col overflow-hidden border border-[#DCE7F4] bg-white shadow-2xl">
           <div class="flex shrink-0 items-start justify-between border-b border-[#E8EEF7] px-5 py-4">
             <div>
               <p class="text-[9px] font-extrabold uppercase tracking-[0.16em] text-[#1E5AA8]">Konfirmasi Payroll Massal</p>
@@ -3148,7 +3021,7 @@
             class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
             @click="openPayslipPrint"
           >
-            <FileText class="h-4 w-4" /> Unduh PDF
+            <FileText class="h-4 w-4" /> Cetak PDF
           </button>
         </div>
       </div>
@@ -3570,7 +3443,7 @@
               @change="updateTaxPaymentAccount(eventValue($event))"
             >
               <option
-                v-for="a in assetAccounts"
+                v-for="a in taxPaymentCashAccounts"
                 :key="a.id"
                 :value="a.kode"
               >
@@ -3635,7 +3508,6 @@ import {
   Building2,
   BriefcaseBusiness,
   Power,
-  History,
   Banknote,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
@@ -3643,12 +3515,23 @@ import { Pegawai, AkunBukuBesar } from "../types.ts";
 import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
 import { currentMonthIso, todayIso } from "../utils/localDate";
 import { csvEscape } from "../utils/spreadsheetExport.js";
+import {
+  buildPrintDocumentHtml,
+  escapeHtml,
+  openPrintPopup,
+} from "../utils/printDocument.js";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
 import SdmField from "./sdm/SdmField.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 interface SdmDanPajakProps {
-  activeSection: "sdm" | "perpajakan";
+  activeSection:
+    | "sdm"
+    | "sdm-bpjs"
+    | "sdm-divisi-jabatan"
+    | "sdm-riwayat-penggajian"
+    | "sdm-proses-payroll"
+    | "perpajakan";
   pegawai: Pegawai[];
   akun: AkunBukuBesar[];
   taxes: PajakKewajiban[];
@@ -3731,7 +3614,24 @@ const {
   refreshData,
   tax: { createTax, payTax },
 } = useFinStartContext();
-const activeTab = ref(activeSection === "sdm" ? "sdm" : "pajak");
+const activeTab = ref(activeSection === "perpajakan" ? "pajak" : "sdm");
+const isBpjsView = computed(() => activeSection === "sdm-bpjs");
+const isDivisiJabatanView = computed(
+  () => activeSection === "sdm-divisi-jabatan",
+);
+const isRiwayatPenggajianView = computed(
+  () => activeSection === "sdm-riwayat-penggajian",
+);
+const isProsesPayrollView = computed(
+  () => activeSection === "sdm-proses-payroll",
+);
+const isSdmFullPageView = computed(
+  () =>
+    isBpjsView.value ||
+    isDivisiJabatanView.value ||
+    isRiwayatPenggajianView.value ||
+    isProsesPayrollView.value,
+);
 type EmployeeStatusFilter = "all" | "active" | "inactive";
 const searchQuery = ref("");
 const employeeStatusFilter = ref<EmployeeStatusFilter>("all");
@@ -3767,6 +3667,10 @@ const employeeStatusFilterButtonClass = (value: EmployeeStatusFilter) => {
 };
 const masterPage = ref(1);
 const taxPage = ref(1);
+const payrollHistoryPage = ref(1);
+const pagedPayrollHistory = computed(() =>
+  pageRows(payrollHistory.value, payrollHistoryPage.value),
+);
 const isBpjsModalOpen = ref(false);
 const isBpjsSaving = ref(false);
 const isBpjsResetting = ref(false);
@@ -3888,7 +3792,11 @@ const taxCalculation = ref({
     rate: 2,
     dueDate: currentTaxDueDate(),
   }),
-  updateTaxCalculation = (next) => (taxCalculation.value = next);
+  hasCalculatedDraft = ref(false),
+  updateTaxCalculation = (next) => {
+    taxCalculation.value = next;
+    hasCalculatedDraft.value = false;
+  };
 const manualTaxForm = ref({
   jenis: "PPh 21" as PajakKewajiban["jenis"],
   period: currentPayrollPeriod(),
@@ -4608,10 +4516,6 @@ const payrollFormErrorMessages = computed(() =>
   Object.values(payrollFormErrors.value).filter(Boolean),
 );
 
-function resetPayrollFormErrors() {
-  payrollFormErrors.value = emptyPayrollFormErrors();
-}
-
 function clearPayrollFormError(key: PayrollFormFieldKey) {
   if (!payrollFormErrors.value[key]) return;
   payrollFormErrors.value = {
@@ -4685,6 +4589,7 @@ const selectedTaxId = ref(""),
   updateSelectedTaxId = (next) => (selectedTaxId.value = next);
 const openTaxPaymentForTax = (tax: any) => {
   updateSelectedTaxId(tax.id);
+  updateTaxPaymentAccount(taxPaymentCashAccounts.value[0]?.kode || "1001");
   updateIsTaxPayModalOpen(true);
 };
 const taxInputPeriod = (tax: any) => {
@@ -4988,18 +4893,6 @@ function resetMasterDataForm(
     divisionId: "",
   };
   isMasterEditorOpen.value = openEditor;
-}
-
-async function openMasterData(type: "division" | "position" = "division") {
-  masterDataTab.value = type;
-  masterSearch.value = "";
-  resetMasterDataForm(type, false);
-  isMasterDataModalOpen.value = true;
-  try {
-    await refreshMasterData();
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Data master SDM belum dapat dimuat."));
-  }
 }
 
 function changeMasterTab(type: "division" | "position") {
@@ -5627,19 +5520,7 @@ function selectedPayrollEmployee() {
   );
 }
 
-function buildPayrollPdf(detail: any) {
-  const escapePdf = (value: any) =>
-    String(value ?? "-")
-      .replace(/\\/g, "\\\\")
-      .replace(/\(/g, "\\(")
-      .replace(/\)/g, "\\)");
-  const content: string[] = [];
-  const text = (value: any, x: number, y: number, size = 10, bold = false) => {
-    content.push(
-      `BT /${bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${escapePdf(value)}) Tj ET`,
-    );
-  };
-  const line = (y: number) => content.push(`52 ${y} m 543 ${y} l S`);
+function printPayslip(detail: any) {
   const gross =
     asNumber(detail.gross_salary) ||
     asNumber(detail.base_salary) +
@@ -5656,70 +5537,49 @@ function buildPayrollPdf(detail: any) {
     ["PPh 21 otomatis", `- ${formatRupiah(asNumber(detail.pph21_amount))}`],
     ["Kasbon", `- ${formatRupiah(asNumber(detail.loan_deduction))}`],
     ["Potongan lain", `- ${formatRupiah(asNumber(detail.other_deduction))}`],
-    ["Gaji bersih diterima", formatRupiah(asNumber(detail.net_pay))],
   ];
-  content.push("0.05 w");
-  text("PT KEDATA INDONESIA DIGITAL", 52, 790, 16, true);
-  text("Rincian Payroll - Sudah Diposting", 52, 768, 11);
-  line(752);
-  text(`Pegawai: ${detail.employee_name || "-"}`, 52, 724, 11, true);
-  text(`Periode: ${detail.payroll_period || "-"}`, 52, 704, 10);
-  text(`Tanggal bayar: ${detail.payment_date || "-"}`, 52, 686, 10);
-  text(`Voucher: ${detail.voucher_number || "-"}`, 52, 668, 10);
-  line(650);
-  let y = 626;
-  rows.forEach((row, index) => {
-    const isTotal = index === rows.length - 1;
-    text(row[0], 62, y, isTotal ? 11 : 10, isTotal);
-    text(row[1], 390, y, isTotal ? 11 : 10, true);
-    line(y - 12);
-    y -= 34;
+  const bodyHtml = `
+    <table>
+      <thead><tr><th>Komponen</th><th class="numeric">Nominal</th></tr></thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) => `<tr>
+          <td>${escapeHtml(row[0])}</td>
+          <td class="numeric">${escapeHtml(row[1])}</td>
+        </tr>`,
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+  const html = buildPrintDocumentHtml({
+    documentLabel: "Slip Gaji",
+    title: "Rincian Payroll - Sudah Diposting",
+    subtitle: `${detail.employee_name || "-"} - ${detail.payroll_period || "-"}`,
+    metaItems: [
+      { label: "Pegawai", value: detail.employee_name || "-" },
+      { label: "Periode", value: detail.payroll_period || "-" },
+      { label: "Tanggal Bayar", value: detail.payment_date || "-" },
+      { label: "Voucher", value: detail.voucher_number || "-" },
+    ],
+    bodyHtml,
+    summaryItems: [
+      {
+        label: "Gaji Bersih Diterima",
+        value: formatRupiah(asNumber(detail.net_pay)),
+        emphasize: true,
+      },
+    ],
   });
-  text("Dokumen dibuat otomatis oleh FinStart dan telah masuk riwayat penggajian.", 52, y - 10, 9);
-
-  const stream = content.join("\n");
-  const objects = [
-    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
-    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n",
-    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
-    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n",
-    `6 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`,
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object) => {
-    offsets.push(pdf.length);
-    pdf += object;
-  });
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-  return new Blob([pdf], { type: "application/pdf" });
-}
-
-function downloadPayrollPdf(detail: any) {
-  const employee = String(detail.employee_name || "pegawai")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  const url = URL.createObjectURL(buildPayrollPdf(detail));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `payroll-${employee || "pegawai"}-${detail.payroll_period || "periode"}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  if (openPrintPopup(html, { notify, blockedMessage: "Popup print diblokir browser. Izinkan popup untuk mencetak slip gaji." })) {
+    notify(`Dialog cetak slip gaji ${detail.employee_name || ""} dibuka.`);
+  }
 }
 
 function openPayslipPrint() {
   const slip = payslipPreview.value;
   if (!slip) return;
-  downloadPayrollPdf(slip);
+  printPayslip(slip);
 }
 
 function closePayrollResult() {
@@ -5813,7 +5673,7 @@ async function confirmProcessPayroll(downloadAfterPosting = false) {
     } catch {
       payslipPreview.value = result;
     }
-    if (downloadAfterPosting) downloadPayrollPdf(payslipPreview.value);
+    if (downloadAfterPosting) printPayslip(payslipPreview.value);
     await refreshAllData();
     notify(
       `Payroll ${result.employee_name || "pegawai"} berhasil diposting. Payslip tersedia untuk dicetak.`,
@@ -5956,12 +5816,17 @@ const filteredEmployees = computed(() =>
 const pagedEmployees = computed(() =>
   pageRows(filteredEmployees.value, employeePage.value),
 );
-const totalTaxesOwed = taxes.value
-  .filter((t) => t.status === "Belum Setor")
-  .reduce((acc, t) => acc + t.nominal, 0);
-const overdueTaxCount = taxes.value.filter(
-  (t) => t.status === "Belum Setor" && new Date(t.jatuhTempo) < new Date(),
-).length;
+const totalTaxesOwed = computed(() =>
+  taxes.value
+    .filter((t) => t.status === "Belum Setor")
+    .reduce((acc, t) => acc + t.nominal, 0),
+);
+const overdueTaxCount = computed(
+  () =>
+    taxes.value.filter(
+      (t) => t.status === "Belum Setor" && new Date(t.jatuhTempo) < new Date(),
+    ).length,
+);
 const getOutstandingTax = (jenis: PajakKewajiban["jenis"]) =>
   taxes.value.find((t) => t.jenis === jenis && t.status === "Belum Setor");
 const getOutstandingTaxAmount = (jenis: PajakKewajiban["jenis"]) =>
@@ -6028,13 +5893,6 @@ const downloadTextFile = (
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 };
-const escapeHtml = (value: any) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 const currentTaxDocumentRows = () =>
   filteredTaxRows.value.length ? filteredTaxRows.value : taxes.value;
 const exportTaxCsv = () => {
@@ -6068,67 +5926,43 @@ const exportTaxCsv = () => {
 };
 const printTaxReport = () => {
   const rows = currentTaxDocumentRows();
-  const popup = window.open("", "_blank", "width=960,height=720");
-
-  if (!popup) {
-    notify(
-      "Popup print diblokir browser. Izinkan popup untuk mencetak laporan pajak.",
-    );
-    return;
+  const bodyHtml = `
+    <table>
+      <thead>
+        <tr><th>Jenis</th><th>Periode</th><th>Keterangan</th><th class="numeric">Nominal</th><th>Jatuh Tempo</th><th>Status</th><th>NTPN</th></tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (tax: any) => `<tr>
+          <td>${escapeHtml(tax.jenis)}</td>
+          <td>${escapeHtml(tax.masaPajak)}</td>
+          <td>${escapeHtml(taxDescription(tax.jenis, tax.masaPajak))}</td>
+          <td class="numeric">${escapeHtml(formatRupiah(tax.nominal))}</td>
+          <td>${escapeHtml(formatTaxDate(tax.jatuhTempo))}</td>
+          <td>${escapeHtml(tax.status)}</td>
+          <td>${escapeHtml(tax.ntpn || "-")}</td>
+        </tr>`,
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+  const html = buildPrintDocumentHtml({
+    documentLabel: "Laporan Pajak",
+    title: "Laporan Kewajiban Pajak",
+    subtitle: `${rows.length} kewajiban pajak tercatat`,
+    bodyHtml,
+    summaryItems: [
+      {
+        label: "Total Belum Dibayar",
+        value: formatRupiah(totalTaxesOwed.value),
+        emphasize: true,
+      },
+    ],
+  });
+  if (openPrintPopup(html, { notify, blockedMessage: "Popup print diblokir browser. Izinkan popup untuk mencetak laporan pajak." })) {
+    notify("Dialog cetak laporan pajak dibuka.");
   }
-
-  popup.document.write(`<!doctype html>
-        <html>
-          <head>
-            <title>Laporan Pajak - FinStart</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 32px; color: #102A56; }
-              h1, p { margin: 0; }
-              .header { border-bottom: 2px solid #0B1F4A; padding-bottom: 14px; text-align: center; }
-              .meta { margin-top: 6px; color: #64748B; font-size: 12px; }
-              .summary { display: flex; justify-content: space-between; margin-top: 18px; border: 1px solid #DCE7F4; padding: 12px; }
-              table { border-collapse: collapse; margin-top: 20px; width: 100%; font-size: 12px; }
-              th, td { border-bottom: 1px solid #E2E8F0; padding: 10px; text-align: left; vertical-align: top; }
-              th { background: #F8FBFE; color: #53658A; text-transform: uppercase; font-size: 10px; }
-              td:nth-child(4), th:nth-child(4) { text-align: right; }
-              @media print { body { margin: 18mm; } }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>PT KEDATA INDONESIA DIGITAL</h1>
-              <p class="meta">Laporan Kewajiban Pajak - ${escapeHtml(new Date().toLocaleDateString("id-ID"))}</p>
-            </div>
-            <div class="summary">
-              <strong>Total Belum Dibayar</strong>
-              <strong>${escapeHtml(formatRupiah(totalTaxesOwed))}</strong>
-            </div>
-            <table>
-              <thead>
-                <tr><th>Jenis</th><th>Periode</th><th>Keterangan</th><th>Nominal</th><th>Jatuh Tempo</th><th>Status</th><th>NTPN</th></tr>
-              </thead>
-              <tbody>
-                ${rows
-                  .map(
-                    (tax: any) => `<tr>
-                  <td>${escapeHtml(tax.jenis)}</td>
-                  <td>${escapeHtml(tax.masaPajak)}</td>
-                  <td>${escapeHtml(taxDescription(tax.jenis, tax.masaPajak))}</td>
-                  <td>${escapeHtml(formatRupiah(tax.nominal))}</td>
-                  <td>${escapeHtml(formatTaxDate(tax.jatuhTempo))}</td>
-                  <td>${escapeHtml(tax.status)}</td>
-                  <td>${escapeHtml(tax.ntpn || "-")}</td>
-                </tr>`,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          </body>
-        </html>`);
-  popup.document.close();
-  popup.focus();
-  popup.print();
-  notify("Dialog cetak laporan pajak dibuka.");
 };
 const taxPerformanceCards = () => [
   ["Pendapatan Posted", formatRupiah(Number(taxCalculationData?.revenue || 0))],
@@ -6140,24 +5974,29 @@ const taxPerformanceCards = () => [
   ],
 ];
 const taxPeriodOptions = () => recentTaxPeriods();
-const taxCalculationBase =
+const taxCalculationBase = computed(() =>
   taxCalculation.value.base === "Pendapatan"
     ? Number(taxCalculationData?.revenue || 0)
     : taxCalculation.value.base === "Laba Bersih"
       ? Math.max(Number(taxCalculationData?.net_profit || 0), 0)
-      : Number(taxCalculationData?.expense || taxSummary?.total_unpaid || 0);
-const calculatedTax = Math.round(
-  (taxCalculationBase * (Number(taxCalculation.value.rate) || 0)) / 100,
+      : Number(taxCalculationData?.expense || taxSummary?.total_unpaid || 0),
+);
+const calculatedTax = computed(() =>
+  Math.round(
+    (taxCalculationBase.value * (Number(taxCalculation.value.rate) || 0)) /
+      100,
+  ),
 );
 const handleCreateTaxDraft = async () => {
-  if (!calculatedTax || !taxCalculation.value.dueDate) {
+  if (!calculatedTax.value || !taxCalculation.value.dueDate) {
     notify("Nominal hasil kalkulasi dan jatuh tempo harus tersedia.");
     return;
   }
+  hasCalculatedDraft.value = true;
   await createTax({
     jenis: taxCalculation.value.jenis,
     masaPajak: taxCalculation.value.period,
-    nominal: calculatedTax,
+    nominal: calculatedTax.value,
     jatuhTempo: taxCalculation.value.dueDate,
     catatan: `Dibuat dari kalkulasi dengan dasar ${taxCalculation.value.base}.`,
   });
@@ -6173,7 +6012,7 @@ const resetTaxCalculation = () => {
   });
   notify("Dasar kalkulasi pajak telah diperbarui.");
 };
-const taxCards = [
+const taxCards = computed(() => [
   {
     code: "GL-2200",
     title: "PPN Kurang Bayar",
@@ -6198,7 +6037,7 @@ const taxCards = [
     desc: "Pajak atas jasa vendor/pihak ketiga yang dipotong perusahaan.",
     accent: "rose",
   },
-];
+]);
 const inputClass =
   "w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0B1F4A]/20 text-[#111827] font-bold text-xs transition-all";
 // Konten field disusun melalui slot bawaan Vue.
@@ -6247,37 +6086,6 @@ const currentPayrollEstimatedNet = () =>
 onMounted(() => {
   refreshMasterData();
 });
-function openPayrollModal() {
-  const activeEmployees = pegawai.filter(
-    (item) =>
-      String(item?._raw?.employment_status || "active").toLowerCase() ===
-      "active",
-  );
-  if (!activeEmployees.length) {
-    notify("Tambahkan pegawai aktif terlebih dahulu.");
-    return;
-  }
-  refreshMasterData();
-  resetPayrollFormErrors();
-  payrollProcessError.value = "";
-  payrollConfirmation.value = null;
-  payrollBulkConfirmation.value = null;
-  updateIsPayrollModalOpen(true);
-}
-
-function closePayrollModal() {
-  resetPayrollFormErrors();
-  payrollProcessError.value = "";
-  payrollConfirmation.value = null;
-  payrollBulkConfirmation.value = null;
-  updateIsPayrollModalOpen(false);
-}
-
-function closeMasterDataModal() {
-  isMasterDataModalOpen.value = false;
-  resetMasterDataForm(masterDataTab.value, false);
-}
-
 function openManualTaxModal() {
   resetManualTaxForm();
   updateIsTaxManualModalOpen(true);
@@ -6306,8 +6114,13 @@ const outstandingTaxes = computed(() =>
   (props.taxes || []).filter((tax) => tax.status !== "Sudah Setor"),
 );
 
-const assetAccounts = computed(() =>
-  (props.akun || []).filter((account) => account.tipe === "Aset"),
+const taxPaymentCashAccounts = computed(() =>
+  (props.akun || []).filter(
+    (account) =>
+      account.tipe === "Aset" &&
+      String(account.status || "active") === "active" &&
+      /\b(kas|bank)\b/i.test(account.nama || ""),
+  ),
 );
 
 </script>
