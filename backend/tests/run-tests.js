@@ -623,8 +623,8 @@ await test('bill draft dan pajak draft tampil tanpa duplikasi dan bisa dicari de
 await test('jurnal manual draft dan approved bisa dibatalkan tanpa perubahan saldo', async () => {
   for (const status of ['draft', 'approved']) {
     const connection = makeFakeConnection((sql, params) => {
-      if (sql.includes('SELECT id, status, source_type FROM journal_entries')) {
-        return [[{ id: params[0], status, source_type: 'manual' }]]
+      if (sql.includes('SELECT id, status, source_type, description FROM journal_entries')) {
+        return [[{ id: params[0], status, source_type: 'manual', description: null }]]
       }
       if (sql.startsWith("UPDATE journal_entries SET status = 'cancelled'")) return [{}]
       if (sql.includes('FROM journal_entries') && sql.includes('LEFT JOIN users AS creator')) {
@@ -657,8 +657,8 @@ await test('jurnal manual draft dan approved bisa dibatalkan tanpa perubahan sal
 await test('jurnal posted manual dibatalkan dengan pembalikan saldo tepat satu kali', async () => {
   const balanceUpdates = []
   const connection = makeFakeConnection((sql, params) => {
-    if (sql.includes('SELECT id, status, source_type FROM journal_entries')) {
-      return [[{ id: 201, status: 'posted', source_type: 'manual' }]]
+    if (sql.includes('SELECT id, status, source_type, description FROM journal_entries')) {
+      return [[{ id: 201, status: 'posted', source_type: 'manual', description: null }]]
     }
     if (sql === 'SELECT account_id, debit, credit FROM journal_lines WHERE journal_entry_id = ?') {
       return [[
@@ -707,8 +707,8 @@ await test('jurnal posted manual dibatalkan dengan pembalikan saldo tepat satu k
   assert.equal(connection.rollbackCount, 0)
 
   const secondConnection = makeFakeConnection((sql) => {
-    if (sql.includes('SELECT id, status, source_type FROM journal_entries')) {
-      return [[{ id: 201, status: 'cancelled', source_type: 'manual' }]]
+    if (sql.includes('SELECT id, status, source_type, description FROM journal_entries')) {
+      return [[{ id: 201, status: 'cancelled', source_type: 'manual', description: null }]]
     }
     throw new Error(`Query tidak boleh lanjut setelah status cancelled: ${sql}`)
   })
@@ -730,12 +730,34 @@ await test('jurnal posted manual dibatalkan dengan pembalikan saldo tepat satu k
   assert.equal(secondConnection.rollbackCount, 1)
 })
 
-await test('jurnal otomatis ditolak saat dibatalkan dari route jurnal', async () => {
+await test('jurnal otomatis tetap dapat dibatalkan dari route jurnal (validasi source_type dinonaktifkan)', async () => {
+  const balanceUpdates = []
   const connection = makeFakeConnection((sql, params) => {
-    if (sql.includes('SELECT id, status, source_type FROM journal_entries')) {
-      return [[{ id: params[0], status: 'posted', source_type: 'invoice' }]]
+    if (sql.includes('SELECT id, status, source_type, description FROM journal_entries')) {
+      return [[{ id: params[0], status: 'posted', source_type: 'invoice', description: null }]]
     }
-    throw new Error(`Query tidak boleh lanjut untuk jurnal otomatis: ${sql}`)
+    if (sql === 'SELECT account_id, debit, credit FROM journal_lines WHERE journal_entry_id = ?') {
+      return [[
+        { account_id: 1, debit: 500000, credit: 0 },
+        { account_id: 2, debit: 0, credit: 500000 },
+      ]]
+    }
+    if (sql.includes('FROM accounts') && sql.includes('WHERE id IN (?)') && sql.includes('FOR UPDATE')) {
+      return [[
+        { id: 1, code: '1120', name: 'Bank', normal_balance: 'debit', status: 'active' },
+        { id: 2, code: '1130', name: 'Piutang Usaha', normal_balance: 'debit', status: 'active' },
+      ]]
+    }
+    if (sql.startsWith('UPDATE accounts SET current_balance')) {
+      balanceUpdates.push({ amount: params[0], accountId: params[1] })
+      return [{}]
+    }
+    if (sql.startsWith("UPDATE journal_entries SET status = 'cancelled'")) return [{}]
+    if (sql.includes('FROM journal_entries') && sql.includes('LEFT JOIN users AS creator')) {
+      return [[{ id: params[0], status: 'cancelled', source_type: 'invoice' }]]
+    }
+    if (sql.includes('FROM journal_lines') && sql.includes('INNER JOIN accounts')) return [[]]
+    throw new Error(`Query tidak diharapkan: ${sql}`)
   })
 
   const response = await withMockConnection(connection, () => invokeRoute(
@@ -749,12 +771,12 @@ await test('jurnal otomatis ditolak saat dibatalkan dari route jurnal', async ()
     },
   ))
 
-  assert.equal(response.statusCode, 422)
-  assert.match(response.body.message, /halaman transaksi sumber/i)
-  assert.equal(connection.commitCount, 0)
-  assert.equal(connection.rollbackCount, 1)
-  assert.equal(connection.calls.some((call) => call.sql.startsWith('UPDATE journal_entries')), false)
-  assert.equal(connection.calls.some((call) => call.sql.startsWith('UPDATE accounts')), false)
+  assert.equal(response.statusCode, 200)
+  assert.equal(response.body.success, true)
+  assert.equal(response.body.data.status, 'cancelled')
+  assert.equal(connection.commitCount, 1)
+  assert.equal(connection.rollbackCount, 0)
+  assert.equal(balanceUpdates.length, 2)
 })
 
 await test('payload injeksi login tetap menjadi parameter SQL dan error database tidak bocor', async () => {
@@ -881,7 +903,7 @@ await test('hapus project yang punya transaksi atau anggota diblokir tanpa orpha
     projectsRouter,
     '/:id',
     'DELETE',
-    { params: { id: '9' } },
+    { params: { id: '9' }, query: {} },
   ))
 
   assert.equal(response.statusCode, 409)
