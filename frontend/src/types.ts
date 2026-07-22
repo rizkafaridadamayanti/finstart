@@ -40,6 +40,7 @@ export interface Proyek {
     | "Penunjukan Langsung"
     | "Pengadaan Langsung";
   status: "Planning" | "Ongoing" | "Completed" | "Cancelled";
+  statusSebelumDibatalkan?: "Planning" | "Ongoing" | "Completed" | null;
   tanggalMulai: string;
   tanggalSelesai: string;
   klienId: string;

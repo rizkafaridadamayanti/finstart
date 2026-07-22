@@ -12,8 +12,8 @@
         </h1>
         <p class="text-xs text-slate-400 font-light mt-1">
           <template v-if="isRiwayatView">
-            Proyek yang dibatalkan. Pulihkan ke Planning atau hapus secara
-            permanen.
+            Proyek yang dibatalkan. Pulihkan ke status semula atau hapus
+            secara permanen.
           </template>
           <template v-else-if="isClientMasterView">
             Kelola data perusahaan klien yang digunakan dalam proyek, invoice,
@@ -345,7 +345,7 @@
                 <button
                   type="button"
                   class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100"
-                  title="Pulihkan ke Planning"
+                  :title="`Pulihkan ke ${proj.statusSebelumDibatalkan || 'Planning'}`"
                   @click="handleRestoreProject(proj.id)"
                 >
                   <RotateCcw class="w-3.5 h-3.5" />
@@ -2051,9 +2051,10 @@ const restoreProject = async (id: string) =>
     async () => {
       const target = proyek.find((p) => p.id === id);
       if (!target) throw new Error("Proyek tidak ditemukan.");
-      await financeApi.put(`/projects/${id}`, projectPayload({ ...target, status: 'Planning' }));
+      const restoredStatus = target.statusSebelumDibatalkan || "Planning";
+      await financeApi.put(`/projects/${id}`, projectPayload({ ...target, status: restoredStatus }));
       await refreshData();
-      notify("Proyek berhasil dipulihkan ke status Planning.");
+      notify(`Proyek berhasil dipulihkan ke status ${restoredStatus}.`);
       return true;
     },
     "Gagal memulihkan proyek.",

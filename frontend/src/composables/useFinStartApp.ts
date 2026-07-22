@@ -26,7 +26,9 @@ const VALID_TABS = [
   "bukubesar",
   "transaksi",
   "piutang",
+  "piutang-pelunasan",
   "utang",
+  "utang-pembayaran",
   "langganan",
   "langganan-riwayat-transaksi",
   "langganan-tagihan",
@@ -130,6 +132,12 @@ function normalizeAllowedTabs(tabs: string[]) {
   }
   if (allowed.includes("crm") && !allowed.includes("crm-riwayat")) {
     allowed.push("crm-riwayat");
+  }
+  if (allowed.includes("piutang") && !allowed.includes("piutang-pelunasan")) {
+    allowed.push("piutang-pelunasan");
+  }
+  if (allowed.includes("utang") && !allowed.includes("utang-pembayaran")) {
+    allowed.push("utang-pembayaran");
   }
   if (allowed.includes("langganan")) {
     for (const tab of [
