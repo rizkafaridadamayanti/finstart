@@ -184,6 +184,8 @@ import {
   Shield,
   LineChart,
   PiggyBank,
+  Landmark,
+  CreditCard,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -281,16 +283,26 @@ const menuGroups = [
       { id: "bukubesar", label: "Buku Besar", icon: BookOpen },
       { id: "transaksi", label: "Jurnal & Transaksi", icon: ArrowLeftRight },
       {
-        id: "piutang",
+        id: "piutang-group",
         label: "Piutang",
         icon: ArrowDownLeft,
         iconClass: "text-[#1E5AA8]",
+        groupOnly: true,
+        children: [
+          { id: "piutang", label: "Kelola Piutang", icon: FileText },
+          { id: "piutang-pelunasan", label: "Catat Pelunasan", icon: Landmark },
+        ],
       },
       {
-        id: "utang",
+        id: "utang-group",
         label: "Utang",
         icon: ArrowUpRight,
         iconClass: "text-rose-400",
+        groupOnly: true,
+        children: [
+          { id: "utang", label: "Kelola Utang", icon: FileText },
+          { id: "utang-pembayaran", label: "Catat Pembayaran", icon: CreditCard },
+        ],
       },
       { id: "perpajakan", label: "Perpajakan", icon: Percent },
     ],

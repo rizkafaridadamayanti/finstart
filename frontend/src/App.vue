@@ -145,9 +145,22 @@
                 />
 
                 <PiutangDanUtang
-                  v-else-if="activeTab === 'piutang' || activeTab === 'utang'"
+                  v-else-if="
+                    activeTab === 'piutang' ||
+                    activeTab === 'piutang-pelunasan' ||
+                    activeTab === 'utang' ||
+                    activeTab === 'utang-pembayaran'
+                  "
                   :key="`${activeTab}-${dataVersion}`"
-                  :active-section="activeTab"
+                  :active-section="
+                    activeTab.startsWith('piutang') ? 'piutang' : 'utang'
+                  "
+                  :view-mode="
+                    activeTab === 'piutang-pelunasan' ||
+                    activeTab === 'utang-pembayaran'
+                      ? 'settlement'
+                      : 'kelola'
+                  "
                   :proyek="proyek"
                   :klien="klien"
                   :akun="akun"

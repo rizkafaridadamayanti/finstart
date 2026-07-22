@@ -1,5 +1,6 @@
 <template>
   <div class="space-y-6 font-sans">
+    <template v-if="!isSettlementView">
     <!-- Upper header switch -->
     <div
       class="workspace-page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
@@ -23,16 +24,7 @@
             <Plus class="h-4 w-4" /><template v-if="activeTab === 'receivables'"
               >Buat Invoice Baru</template
             ><template v-else>Input Tagihan Baru</template></button
-          ><button
-            id="btn-subledger-settlement"
-            class="inline-flex h-10 items-center gap-2 rounded-xl border border-[#BFE8D6] bg-[#F2FBF7] px-4 text-[13px] font-medium text-[#087A52] transition hover:border-[#8AD7B8] hover:bg-[#E8F8F0]"
-            @click="openPaymentModal"
           >
-            <Landmark class="h-4 w-4" /><template
-              v-if="activeTab === 'receivables'"
-              >Catat Pelunasan</template
-            ><template v-else>Catat Pembayaran</template>
-          </button>
         </div>
       </div>
     </div>
@@ -560,145 +552,106 @@
       </div>
       </div>
     </Teleport>
-    <!-- 4. CLIENT PAYMENT RECEIPT RECORD MODAL -->
-    <Teleport to="body">
-      <div
-        v-if="isReceiptModalOpen"
-        class="receivable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-      <div
-        class="receivable-receipt-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[630px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
-      >
-        <div
-          class="px-9 py-8 bg-emerald-50/60 border-b border-emerald-50 flex justify-between items-center"
-        >
-          <div class="flex items-center gap-3">
-            <div
-              class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/25"
-            >
-              <Landmark class="w-5 h-5" />
-            </div>
-            <h3 class="font-extrabold text-2xl text-emerald-900 tracking-tight">
-              Catat Pelunasan Piutang
-            </h3>
-          </div>
-          <button
-            id="btn-close-receipt-modal"
-            type="button"
-            class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors"
-            @click="closeReceiptModal"
+    </template>
+    <!-- 4. CATAT PELUNASAN PIUTANG (Full Page) -->
+    <div
+      v-if="isSettlementView && activeSection === 'piutang'"
+      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="border-b border-[#E8EEF7] px-8 py-6">
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
           >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-        <form
-          class="h-0 min-h-0 flex-1 overflow-y-auto px-9 py-11 space-y-9 text-sm"
-          @submit.prevent="handleRecordReceipt"
-        >
-          <div v-if="receiptErrorCount > 0" class="form-validation-summary">
-            <strong>Form belum dapat disimpan.</strong>
-            <span>Lengkapi {{ receiptErrorCount }} kolom yang ditandai di bawah ini.</span>
-          </div>
-          <div class="space-y-3">
-            <label
-              class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-              >Invoice yang Dilunasi</label
-            ><select
-              id="receipt-form-invoice"
-              :value="selectedInvoiceId"
-              :class="[
-                'w-full h-12 px-4 bg-white border border-[#0B1F4A] rounded-2xl text-[#0B1F4A] font-semibold text-sm focus:outline-none',
-                { 'form-control-invalid': receiptFormErrors.invoice },
-              ]"
-              @change="selectInvoiceForReceipt(eventValue($event))"
-            >
-              <option value="">Pilih invoice outstanding</option>
-              <option
-                v-for="invoice in invoices.filter(isInvoiceOpen)"
-                :key="invoice.id"
-                :value="String(invoice.id)"
-              >
-                {{ invoice.nomor }} - {{ invoice.klienNama || invoice.proyekNama }}
-                ({{ formatRupiah(getInvoiceOutstanding(invoice)) }})
-              </option>
-            </select>
-            <div v-if="false" class="relative">
-            <button
-              id="receipt-form-invoice"
-              type="button"
-              :class="[
-                'flex w-full h-12 items-center justify-between px-4 bg-white border border-[#0B1F4A] rounded-2xl text-[#0B1F4A] text-left font-semibold text-sm focus:outline-none',
-                { 'form-control-invalid': receiptFormErrors.invoice },
-              ]"
-              @click="receiptDropdownOpen = !receiptDropdownOpen"
-            >
-              <span>{{ selectedReceiptInvoiceLabel }}</span>
-              <ChevronDown class="h-4 w-4 shrink-0" />
-            </button>
-            <div
-              v-if="receiptDropdownOpen"
-              class="absolute bottom-[calc(100%+8px)] left-0 z-[10100] max-h-72 w-full overflow-y-auto rounded-2xl border border-[#0B1F4A] bg-white p-1.5 shadow-2xl"
-            >
-              <button
-                v-for="invoice in invoices.filter(isInvoiceOpen)"
-                :key="invoice.id"
-                type="button"
-                class="block h-auto min-h-0 w-full rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-[#0B1F4A] hover:bg-[#0B1F4A] hover:text-white"
-                @click="selectReceiptInvoiceOption(invoice.id)"
-              >
-                {{ invoice.nomor }} —
-                {{ invoice.klienNama || invoice.proyekNama }} ({{
-                  formatRupiah(getInvoiceOutstanding(invoice))
-                }})
-              </button>
-            </div>
-            </div>
-            <p v-if="receiptFormErrors.invoice" class="form-field-warning">
-              {{ receiptFormErrors.invoice }}
-            </p>
-          </div>
-          <div class="space-y-3">
-            <label
-              class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-              >Jumlah Diterima</label
-            >
-            <div class="currency-input relative">
-              <span
-                class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
-                >Rp</span
-              ><input
-                id="receipt-form-amount"
-                type="number"
-                :min="0"
-                :value="receiptAmount || ''"
-                style="padding-left: 2.75rem !important"
-                :class="[
-                  'w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all',
-                  { 'form-control-invalid': receiptFormErrors.amount },
-                ]"
-                @input="setReceiptAmount(parseRupiahInput(eventValue($event)))"
-              />
-            </div>
-            <p v-if="receiptFormErrors.amount" class="form-field-warning">
-              {{ receiptFormErrors.amount }}
-            </p>
+            <Landmark class="h-5 w-5" />
           </div>
           <div>
-            <button
-              id="btn-receipt-submit"
-              type="button"
-              :disabled="isRecordingReceipt"
-              class="h-[66px] w-full bg-emerald-600 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
-              @click.stop.prevent="handleRecordReceipt"
-            >
-              <Save class="w-4 h-4" />
-              {{ isRecordingReceipt ? "Mencatat..." : "Catat Pelunasan" }}
-            </button>
+            <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
+              Catat Pelunasan Piutang
+            </h1>
+            <p class="text-xs text-slate-400 font-light mt-1">
+              Pilih invoice outstanding lalu catat pelunasan yang diterima dari
+              klien.
+            </p>
           </div>
-        </form>
+        </div>
       </div>
-      </div>
-    </Teleport>
+      <form
+        class="mx-auto max-w-[630px] space-y-9 px-8 py-10 text-sm"
+        @submit.prevent="handleRecordReceipt"
+      >
+        <div v-if="receiptErrorCount > 0" class="form-validation-summary">
+          <strong>Form belum dapat disimpan.</strong>
+          <span>Lengkapi {{ receiptErrorCount }} kolom yang ditandai di bawah ini.</span>
+        </div>
+        <div class="space-y-3">
+          <label
+            class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+            >Invoice yang Dilunasi</label
+          ><select
+            id="receipt-form-invoice"
+            :value="selectedInvoiceId"
+            :class="[
+              'w-full h-12 px-4 bg-white border border-[#0B1F4A] rounded-2xl text-[#0B1F4A] font-semibold text-sm focus:outline-none',
+              { 'form-control-invalid': receiptFormErrors.invoice },
+            ]"
+            @change="selectInvoiceForReceipt(eventValue($event))"
+          >
+            <option value="">Pilih invoice outstanding</option>
+            <option
+              v-for="invoice in invoices.filter(isInvoiceOpen)"
+              :key="invoice.id"
+              :value="String(invoice.id)"
+            >
+              {{ invoice.nomor }} - {{ invoice.klienNama || invoice.proyekNama }}
+              ({{ formatRupiah(getInvoiceOutstanding(invoice)) }})
+            </option>
+          </select>
+          <p v-if="receiptFormErrors.invoice" class="form-field-warning">
+            {{ receiptFormErrors.invoice }}
+          </p>
+        </div>
+        <div class="space-y-3">
+          <label
+            class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+            >Jumlah Diterima</label
+          >
+          <div class="currency-input relative">
+            <span
+              class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
+              >Rp</span
+            ><input
+              id="receipt-form-amount"
+              type="number"
+              :min="0"
+              :value="receiptAmount || ''"
+              style="padding-left: 2.75rem !important"
+              :class="[
+                'w-full h-12 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/20 text-[#111827] font-bold text-sm transition-all',
+                { 'form-control-invalid': receiptFormErrors.amount },
+              ]"
+              @input="setReceiptAmount(parseRupiahInput(eventValue($event)))"
+            />
+          </div>
+          <p v-if="receiptFormErrors.amount" class="form-field-warning">
+            {{ receiptFormErrors.amount }}
+          </p>
+        </div>
+        <div>
+          <button
+            id="btn-receipt-submit"
+            type="button"
+            :disabled="isRecordingReceipt"
+            class="h-[66px] w-full bg-emerald-600 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+            @click.stop.prevent="handleRecordReceipt"
+          >
+            <Save class="w-4 h-4" />
+            {{ isRecordingReceipt ? "Mencatat..." : "Catat Pelunasan" }}
+          </button>
+        </div>
+      </form>
+    </div>
+    <template v-if="!isSettlementView">
     <!-- 5. VENDOR BILL CREATION MODAL -->
     <Teleport to="body">
       <div
@@ -904,218 +857,212 @@
       </div>
       </div>
     </Teleport>
-    <!-- 6. PAY VENDOR BILL MODAL -->
-    <Teleport to="body">
-      <div
-        v-if="isPayBillModalOpen"
-        class="payable-modal-layer fixed inset-0 z-[10080] flex items-start md:items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-      >
-      <div
-        class="payable-payment-modal-card bg-white border border-slate-100 rounded-[34px] w-full max-w-[760px] max-h-[calc(100dvh-2rem)] my-4 overflow-hidden shadow-2xl flex flex-col"
-      >
-        <div
-          class="px-9 py-8 bg-indigo-50/60 border-b border-indigo-50 flex justify-between items-center"
-        >
-          <div class="flex items-center gap-3">
-            <div
-              class="w-9 h-9 rounded-xl bg-[#5146E8] text-white flex items-center justify-center shadow-lg shadow-[#5146E8]/25"
-            >
-              <CreditCard class="w-5 h-5" />
-            </div>
-            <h3 class="font-extrabold text-2xl text-indigo-900 tracking-tight">
-              Catat Pembayaran Vendor
-            </h3>
-          </div>
-          <button
-            id="btn-close-pay-modal"
-            type="button"
-            class="w-10 h-10 flex items-center justify-center rounded-xl text-[#94A3B8] hover:text-slate-600 hover:bg-white/70 transition-colors"
-            @click="closePayBillModal"
+    </template>
+    <!-- 6. CATAT PEMBAYARAN VENDOR (Full Page) -->
+    <div
+      v-if="isSettlementView && activeSection === 'utang'"
+      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="border-b border-[#E8EEF7] px-8 py-6">
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#5146E8] text-white shadow-lg shadow-[#5146E8]/25"
           >
-            <X class="w-5 h-5" />
-          </button>
+            <CreditCard class="h-5 w-5" />
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
+              Catat Pembayaran Vendor
+            </h1>
+            <p class="text-xs text-slate-400 font-light mt-1">
+              Pilih tagihan vendor outstanding lalu catat pembayaran yang
+              dilakukan.
+            </p>
+          </div>
         </div>
-        <form class="h-0 min-h-0 flex-1 overflow-y-auto px-9 py-10 space-y-7 text-sm" @submit.prevent="handlePayBill">
-          <div v-if="paymentErrorCount > 0" class="form-validation-summary">
-            <strong>Form belum dapat disimpan.</strong>
-            <span>Lengkapi {{ paymentErrorCount }} kolom yang ditandai di bawah ini.</span>
+      </div>
+      <form
+        class="mx-auto max-w-[760px] space-y-7 px-8 py-10 text-sm"
+        @submit.prevent="handlePayBill"
+      >
+        <div v-if="paymentErrorCount > 0" class="form-validation-summary">
+          <strong>Form belum dapat disimpan.</strong>
+          <span>Lengkapi {{ paymentErrorCount }} kolom yang ditandai di bawah ini.</span>
+        </div>
+        <div class="space-y-3">
+          <label
+            class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+            >Tagihan yang Dibayar</label
+          ><select
+            id="pay-form-bill"
+            required
+            :value="selectedBillId"
+            :class="[
+              'w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20',
+              { 'form-control-invalid': paymentFormErrors.bill },
+            ]"
+            @change="selectBillForPayment(eventValue($event))"
+          >
+            <option value="">Pilih tagihan vendor outstanding</option>
+            <option
+              v-for="bill in bills.filter(isBillOpen)"
+              :key="bill.id"
+              :value="bill.id"
+            >
+              {{ bill.nomorTagihan }} — {{ bill.vendor }} ({{
+                formatRupiah(getBillOutstanding(bill))
+              }})
+            </option>
+          </select>
+          <p v-if="paymentFormErrors.bill" class="form-field-warning">
+            {{ paymentFormErrors.bill }}
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-3">
+            <label
+              class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+              >Vendor Penerima</label
+            ><input
+              id="pay-form-vendor"
+              type="text"
+              placeholder="Nama vendor..."
+              :value="paymentForm.vendor"
+              :class="[
+                'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all',
+                { 'form-control-invalid': paymentFormErrors.vendor },
+              ]"
+              @change="setPaymentField('vendor', eventValue($event))"
+            />
+            <p v-if="paymentFormErrors.vendor" class="form-field-warning">
+              {{ paymentFormErrors.vendor }}
+            </p>
           </div>
           <div class="space-y-3">
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-              >Tagihan yang Dibayar</label
+              >Sumber Kas / Bank</label
             ><select
-              id="pay-form-bill"
-              required
-              :value="selectedBillId"
+              id="pay-form-bank"
+              :value="paymentAccount"
               :class="[
-                'w-full h-12 px-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl text-[#111827] font-semibold text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20',
-                { 'form-control-invalid': paymentFormErrors.bill },
+                'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm transition-all',
+                { 'form-control-invalid': paymentFormErrors.account },
               ]"
-              @change="selectBillForPayment(eventValue($event))"
+              @change="setPaymentAccount(eventValue($event))"
             >
-              <option value="">Pilih tagihan vendor outstanding</option>
               <option
-                v-for="bill in bills.filter(isBillOpen)"
-                :key="bill.id"
-                :value="bill.id"
+                v-for="a in paymentAssetAccounts"
+                :key="a.id"
+                :value="a.kode"
               >
-                {{ bill.nomorTagihan }} — {{ bill.vendor }} ({{
-                  formatRupiah(getBillOutstanding(bill))
-                }})
+                {{ a.nama }} ({{ a.kode }})
               </option>
             </select>
-            <p v-if="paymentFormErrors.bill" class="form-field-warning">
-              {{ paymentFormErrors.bill }}
+            <p v-if="paymentFormErrors.account" class="form-field-warning">
+              {{ paymentFormErrors.account }}
             </p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-3">
-              <label
-                class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Vendor Penerima</label
-              ><input
-                id="pay-form-vendor"
-                type="text"
-                placeholder="Nama vendor..."
-                :value="paymentForm.vendor"
-                :class="[
-                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm placeholder:text-[#94A3B8] transition-all',
-                  { 'form-control-invalid': paymentFormErrors.vendor },
-                ]"
-                @change="setPaymentField('vendor', eventValue($event))"
-              />
-              <p v-if="paymentFormErrors.vendor" class="form-field-warning">
-                {{ paymentFormErrors.vendor }}
-              </p>
-            </div>
-            <div class="space-y-3">
-              <label
-                class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Sumber Kas / Bank</label
-              ><select
-                id="pay-form-bank"
-                :value="paymentAccount"
-                :class="[
-                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm transition-all',
-                  { 'form-control-invalid': paymentFormErrors.account },
-                ]"
-                @change="setPaymentAccount(eventValue($event))"
-              >
-                <option
-                  v-for="a in paymentAssetAccounts"
-                  :key="a.id"
-                  :value="a.kode"
-                >
-                  {{ a.nama }} ({{ a.kode }})
-                </option>
-              </select>
-              <p v-if="paymentFormErrors.account" class="form-field-warning">
-                {{ paymentFormErrors.account }}
-              </p>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-3">
-              <label
-                class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >No. Bukti Bayar</label
-              ><input
-                id="pay-form-proof"
-                type="text"
-                :value="paymentForm.buktiBayar"
-                :class="[
-                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-mono font-bold text-sm transition-all',
-                  { 'form-control-invalid': paymentFormErrors.buktiBayar },
-                ]"
-                @change="setPaymentField('buktiBayar', eventValue($event))"
-              />
-              <p v-if="paymentFormErrors.buktiBayar" class="form-field-warning">
-                {{ paymentFormErrors.buktiBayar }}
-              </p>
-            </div>
-            <div class="space-y-3">
-              <label
-                class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-                >Tanggal Bayar</label
-              >
-              <div class="relative">
-                <input
-                  id="pay-form-date"
-                  type="date"
-                  :value="paymentForm.tanggalBayar"
-                  :class="[
-                    'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
-                    { 'form-control-invalid': paymentFormErrors.tanggalBayar },
-                  ]"
-                  @change="setPaymentField('tanggalBayar', eventValue($event))"
-                />
-              </div>
-              <p v-if="paymentFormErrors.tanggalBayar" class="form-field-warning">
-                {{ paymentFormErrors.tanggalBayar }}
-              </p>
-            </div>
-          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="space-y-3">
             <label
               class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-              >Jumlah Dibayar (Rp)</label
-            >
-            <div class="currency-input relative">
-              <span
-                class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
-                >Rp</span
-              ><input
-                id="pay-form-amount"
-                type="number"
-                :min="0"
-                :value="paymentForm.jumlah || ''"
-                style="padding-left: 2.75rem !important"
-                :class="[
-                  'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
-                  { 'form-control-invalid': paymentFormErrors.jumlah },
-                ]"
-                @change="setPaymentField('jumlah', parseRupiahInput(eventValue($event)))"
-              />
-            </div>
-            <p v-if="paymentFormErrors.jumlah" class="form-field-warning">
-              {{ paymentFormErrors.jumlah }}
-            </p>
-          </div>
-          <div class="space-y-3">
-            <label
-              class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
-              >Catatan Tambahan</label
-            ><textarea
-              id="pay-form-note"
-              placeholder="Contoh: Pembayaran invoice bulan lalu..."
-              :value="paymentForm.catatan"
+              >No. Bukti Bayar</label
+            ><input
+              id="pay-form-proof"
+              type="text"
+              :value="paymentForm.buktiBayar"
               :class="[
-                'w-full min-h-[86px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y',
-                { 'form-control-invalid': paymentFormErrors.catatan },
+                'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-mono font-bold text-sm transition-all',
+                { 'form-control-invalid': paymentFormErrors.buktiBayar },
               ]"
-              @change="setPaymentField('catatan', eventValue($event))"
+              @change="setPaymentField('buktiBayar', eventValue($event))"
             />
-            <p v-if="paymentFormErrors.catatan" class="form-field-warning">
-              {{ paymentFormErrors.catatan }}
+            <p v-if="paymentFormErrors.buktiBayar" class="form-field-warning">
+              {{ paymentFormErrors.buktiBayar }}
             </p>
           </div>
-          <div class="pt-1">
-            <button
-              id="btn-pay-submit"
-              type="button"
-              :disabled="isPayingBill"
-              class="h-[52px] w-full bg-[#5146E8] hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
-              @click.stop.prevent="handlePayBill"
+          <div class="space-y-3">
+            <label
+              class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+              >Tanggal Bayar</label
             >
-              <Save class="w-4 h-4" />
-              {{ isPayingBill ? "Membayar..." : "Selesaikan Pembayaran" }}
-            </button>
+            <div class="relative">
+              <input
+                id="pay-form-date"
+                type="date"
+                :value="paymentForm.tanggalBayar"
+                :class="[
+                  'w-full h-12 px-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
+                  { 'form-control-invalid': paymentFormErrors.tanggalBayar },
+                ]"
+                @change="setPaymentField('tanggalBayar', eventValue($event))"
+              />
+            </div>
+            <p v-if="paymentFormErrors.tanggalBayar" class="form-field-warning">
+              {{ paymentFormErrors.tanggalBayar }}
+            </p>
           </div>
-        </form>
-      </div>
-      </div>
-    </Teleport>
+        </div>
+        <div class="space-y-3">
+          <label
+            class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+            >Jumlah Dibayar (Rp)</label
+          >
+          <div class="currency-input relative">
+            <span
+              class="absolute left-5 top-1/2 -translate-y-1/2 text-[#94A3B8] font-extrabold text-xs"
+              >Rp</span
+            ><input
+              id="pay-form-amount"
+              type="number"
+              :min="0"
+              :value="paymentForm.jumlah || ''"
+              style="padding-left: 2.75rem !important"
+              :class="[
+                'w-full h-14 pl-14 pr-5 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-bold text-sm transition-all',
+                { 'form-control-invalid': paymentFormErrors.jumlah },
+              ]"
+              @change="setPaymentField('jumlah', parseRupiahInput(eventValue($event)))"
+            />
+          </div>
+          <p v-if="paymentFormErrors.jumlah" class="form-field-warning">
+            {{ paymentFormErrors.jumlah }}
+          </p>
+        </div>
+        <div class="space-y-3">
+          <label
+            class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+            >Catatan Tambahan</label
+          ><textarea
+            id="pay-form-note"
+            placeholder="Contoh: Pembayaran invoice bulan lalu..."
+            :value="paymentForm.catatan"
+            :class="[
+              'w-full min-h-[86px] px-5 py-4 bg-[#F8FAFC] border border-[#D8E5F4] rounded-2xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#5146E8]/20 text-[#111827] font-semibold text-sm placeholder:text-[#94A3B8] transition-all resize-y',
+              { 'form-control-invalid': paymentFormErrors.catatan },
+            ]"
+            @change="setPaymentField('catatan', eventValue($event))"
+          />
+          <p v-if="paymentFormErrors.catatan" class="form-field-warning">
+            {{ paymentFormErrors.catatan }}
+          </p>
+        </div>
+        <div class="pt-1">
+          <button
+            id="btn-pay-submit"
+            type="button"
+            :disabled="isPayingBill"
+            class="h-[52px] w-full bg-[#5146E8] hover:bg-[#4338CA] disabled:cursor-not-allowed disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#5146E8]/20 transition-all flex items-center justify-center gap-2"
+            @click.stop.prevent="handlePayBill"
+          >
+            <Save class="w-4 h-4" />
+            {{ isPayingBill ? "Membayar..." : "Selesaikan Pembayaran" }}
+          </button>
+        </div>
+      </form>
+    </div>
     <ConfirmDialog
       :open="!!cancelConfirm"
       eyebrow="Konfirmasi Pembatalan"
@@ -1156,7 +1103,6 @@ import {
   X,
   Save,
   CreditCard,
-  ChevronDown,
   Search,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
@@ -1189,6 +1135,7 @@ interface TagihanVendor {
 }
 interface PiutangDanUtangProps {
   activeSection: "piutang" | "utang";
+  viewMode?: "kelola" | "settlement";
   proyek: Proyek[];
   klien: Klien[];
   akun: AkunBukuBesar[];
@@ -1198,6 +1145,7 @@ interface PiutangDanUtangProps {
 
 const props = defineProps<PiutangDanUtangProps>();
 const { activeSection, proyek }: PiutangDanUtangProps = props;
+const isSettlementView = (props.viewMode || "kelola") === "settlement";
 
 const {
   notify,
@@ -1239,12 +1187,8 @@ watch(
 );
 const isInvoiceModalOpen = ref(false),
   updateIsInvoiceModalOpen = (next) => (isInvoiceModalOpen.value = next);
-const isReceiptModalOpen = ref(false),
-  updateIsReceiptModalOpen = (next) => (isReceiptModalOpen.value = next);
 const isBillModalOpen = ref(false),
   updateIsBillModalOpen = (next) => (isBillModalOpen.value = next);
-const isPayBillModalOpen = ref(false),
-  updateIsPayBillModalOpen = (next) => (isPayBillModalOpen.value = next);
 const editingInvoice = ref<any>(null);
 const editingBill = ref<any>(null);
 const cancelConfirm = ref<any>(null); // New Invoice form input
@@ -1586,7 +1530,6 @@ const closeInvoiceModal = () => {
 const closeReceiptModal = () => {
   resetReceiptErrors();
   receiptDropdownOpen.value = false;
-  updateIsReceiptModalOpen(false);
 };
 
 const closeBillModal = () => {
@@ -1596,7 +1539,6 @@ const closeBillModal = () => {
 
 const closePayBillModal = () => {
   resetPaymentErrors();
-  updateIsPayBillModalOpen(false);
 };
 
 const openInvoiceForm = (invoice: any = null) => {
@@ -1874,28 +1816,6 @@ const pagedInvoices = computed(() =>
 const pagedBills = computed(() =>
   pageRows(filteredBills.value, billPage.value),
 );
-function openPaymentModal() {
-  if (activeTab === "receivables") {
-    resetReceiptErrors();
-    updateSelectedInvoiceId("");
-    updateReceiptAmount(0);
-    updateIsReceiptModalOpen(true);
-    return;
-  }
-
-  resetPaymentErrors();
-  updateSelectedBillId("");
-  updatePaymentAccount(paymentAssetAccounts.value[0]?.kode || "1001");
-  updatePaymentForm({
-    vendor: "",
-    buktiBayar: `PAY/${new Date().getFullYear()}/001`,
-    tanggalBayar: todayIso(),
-    jumlah: 0,
-    catatan: "",
-  });
-  updateIsPayBillModalOpen(true);
-}
-
 const paymentAssetAccounts = computed(() =>
   (props.akun || []).filter(
     (account) =>
@@ -1904,6 +1824,13 @@ const paymentAssetAccounts = computed(() =>
       /\b(kas|bank)\b/i.test(account.nama || ""),
   ),
 );
+
+// Halaman "Catat Pembayaran" (utang) selalu mulai dari state kosong/segar -
+// komponen ini remount penuh setiap ganti tab (lihat :key di App.vue), jadi
+// cukup diinisialisasi sekali di sini, setara dengan openPaymentModal() lama.
+if (isSettlementView && activeSection === "utang") {
+  updatePaymentAccount(paymentAssetAccounts.value[0]?.kode || "1001");
+}
 
 function closeCancelConfirm() {
   cancelConfirm.value = null;
