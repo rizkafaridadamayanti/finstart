@@ -111,9 +111,30 @@ async function seedClients(db) {
       location: 'Jakarta Pusat', address: 'Jl. MH Thamrin No. 20, Jakarta Pusat',
     },
   ]
+
+  // Kolom "code" nullable & onDuplicateKeyUpdate tidak berguna di sini karena
+  // tidak ada kolom unik yang benar-benar terisi untuk dibandingkan (code selalu
+  // NULL sebelum baris ini ditambahkan) - jadi cek manual by companyName dulu
+  // supaya script ini aman dijalankan berkali-kali tanpa membuat duplikat.
   for (const row of rows) {
-    await db.insert(schema.clients).values({ ...row, status: 'active' })
-      .onDuplicateKeyUpdate({ set: { companyName: row.companyName, picName: row.picName, status: 'active' } })
+    const [existingRows] = await db.execute(
+      'SELECT id, code FROM clients WHERE company_name = ? LIMIT 1',
+      [row.companyName],
+    )
+    const existing = (existingRows || [])[0]
+
+    if (existing) {
+      if (!existing.code) {
+        const code = `KLN-${String(existing.id).padStart(4, '0')}`
+        await db.execute('UPDATE clients SET code = ? WHERE id = ?', [code, existing.id])
+      }
+      continue
+    }
+
+    const [result] = await db.insert(schema.clients).values({ ...row, status: 'active' })
+    const insertId = result.insertId
+    const code = `KLN-${String(insertId).padStart(4, '0')}`
+    await db.execute('UPDATE clients SET code = ? WHERE id = ?', [code, insertId])
   }
   console.log(`${rows.length} klien berhasil disiapkan.`)
 }

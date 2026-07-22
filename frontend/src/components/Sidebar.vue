@@ -24,22 +24,22 @@
             :title="item.label"
             class="group relative flex h-12 w-12 items-center justify-center rounded-2xl transition-all"
             :class="
-              activeTab === item.id
+              isCollapsedItemActive(item)
                 ? 'bg-[#0B3A78] text-white shadow-[0_10px_22px_rgba(11,58,120,0.24)]'
                 : 'text-[#8A99AD] hover:bg-[#F1F7FD] hover:text-[#0E4F9E]'
             "
             :aria-label="item.label"
-            @click="navigate(item.id)"
+            @click="navigate(firstNavigableId(item))"
           >
             <span
-              v-if="activeTab === item.id"
+              v-if="isCollapsedItemActive(item)"
               class="absolute -left-1.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#2BA7FF]"
             />
             <component
               :is="item.icon"
               class="h-[18px] w-[18px] shrink-0"
               :class="
-                activeTab === item.id ? 'text-white' : item.iconClass || ''
+                isCollapsedItemActive(item) ? 'text-white' : item.iconClass || ''
               "
             />
           </button>
@@ -61,31 +61,65 @@
             {{ group.title }}
           </p>
           <div class="space-y-1.5">
-            <button
-              v-for="item in group.items"
-              :id="`desktop-sidebar-item-${item.id}`"
-              :key="item.id"
-              type="button"
-              class="group flex min-h-[48px] w-full items-center gap-3.5 rounded-xl px-5 py-2.5 text-left text-[13px] font-semibold leading-tight transition-all"
-              :class="
-                activeTab === item.id
-                  ? 'bg-[#0B3A78] text-white shadow-[inset_3px_0_0_#2BA7FF,0_14px_30px_rgba(11,58,120,0.22)]'
-                  : 'text-[#52647E] hover:bg-[#F7FAFD] hover:text-[#102A56] hover:shadow-[inset_3px_0_0_rgba(30,90,168,0.28)]'
-              "
-              @click="navigate(item.id)"
-            >
-              <component
-                :is="item.icon"
-                class="h-[18px] w-[18px] shrink-0"
+            <div v-for="item in group.items" :key="item.id" class="space-y-1">
+              <button
+                :id="`desktop-sidebar-item-${item.id}`"
+                type="button"
+                class="group flex min-h-[48px] w-full items-center gap-3.5 rounded-xl px-5 py-2.5 text-left text-[13px] font-semibold leading-tight transition-all"
                 :class="
-                  activeTab === item.id
-                    ? 'text-white'
-                    : item.iconClass ||
-                      'text-[#8A99AD] group-hover:text-[#0E4F9E]'
+                  isItemActive(item)
+                    ? 'bg-[#0B3A78] text-white shadow-[inset_3px_0_0_#2BA7FF,0_14px_30px_rgba(11,58,120,0.22)]'
+                    : 'text-[#52647E] hover:bg-[#F7FAFD] hover:text-[#102A56] hover:shadow-[inset_3px_0_0_rgba(30,90,168,0.28)]'
                 "
-              />
-              <span class="min-w-0 truncate">{{ item.label }}</span>
-            </button>
+                :aria-expanded="hasChildren(item) ? isExpanded(item) : undefined"
+                @click="handleItemClick(item)"
+              >
+                <component
+                  :is="item.icon"
+                  class="h-[18px] w-[18px] shrink-0"
+                  :class="
+                    isItemActive(item)
+                      ? 'text-white'
+                      : item.iconClass ||
+                        'text-[#8A99AD] group-hover:text-[#0E4F9E]'
+                  "
+                />
+                <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+                <template v-if="hasChildren(item)">
+                  <ChevronDown
+                    v-if="isExpanded(item)"
+                    class="h-4 w-4 shrink-0 text-[#8A99AD]"
+                  />
+                  <ChevronRight v-else class="h-4 w-4 shrink-0 text-[#8A99AD]" />
+                </template>
+              </button>
+              <div
+                v-if="hasChildren(item) && isExpanded(item)"
+                class="space-y-1 pl-3"
+                :style="{ marginLeft: '34px', borderLeft: '1px solid #E5EDF6' }"
+              >
+                <button
+                  v-for="child in item.children"
+                  :id="`desktop-sidebar-item-${child.id}`"
+                  :key="child.id"
+                  type="button"
+                  class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12px] font-semibold leading-tight transition-all"
+                  :class="
+                    activeTab === child.id
+                      ? 'bg-[#0B3A78] text-white'
+                      : 'text-[#6B7A90] hover:bg-[#F7FAFD] hover:text-[#102A56]'
+                  "
+                  @click="navigate(child.id)"
+                >
+                  <component
+                    :is="child.icon"
+                    class="h-4 w-4 shrink-0"
+                    :class="activeTab === child.id ? 'text-white' : 'text-[#8A99AD]'"
+                  />
+                  <span class="min-w-0 truncate">{{ child.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -118,7 +152,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   LayoutDashboard,
   Briefcase,
@@ -135,6 +169,21 @@ import {
   FileText,
   Settings,
   LogOut,
+  Clock,
+  ClipboardList,
+  History,
+  Wallet,
+  CalendarX,
+  Calculator,
+  DollarSign,
+  Tags,
+  ChevronRight,
+  ChevronDown,
+  Scale,
+  ListChecks,
+  Shield,
+  LineChart,
+  PiggyBank,
 } from "lucide-vue-next";
 
 const props = defineProps({
@@ -153,11 +202,77 @@ const menuGroups = [
   {
     title: "OPERASIONAL",
     items: [
-      { id: "crm", label: "CRM & Proyek", icon: Briefcase },
+      {
+        id: "crm-group",
+        label: "CRM & Proyek",
+        icon: Briefcase,
+        groupOnly: true,
+        children: [
+          { id: "crm", label: "Kelola Proyek", icon: ClipboardList },
+          { id: "crm-riwayat", label: "Riwayat Proyek", icon: Clock },
+        ],
+      },
       { id: "master-klien", label: "Klien Partner", icon: Building2 },
-      { id: "langganan", label: "Langganan", icon: Cloud },
-      { id: "sdm", label: "SDM & Payroll", icon: Users },
-      { id: "aset", label: "Aset Tetap", icon: Box },
+      {
+        id: "langganan-group",
+        label: "Langganan",
+        icon: Cloud,
+        groupOnly: true,
+        children: [
+          { id: "langganan", label: "Kelola Langganan", icon: ClipboardList },
+          {
+            id: "langganan-riwayat-transaksi",
+            label: "Riwayat Transaksi",
+            icon: History,
+          },
+          {
+            id: "langganan-tagihan",
+            label: "Tagihan Berikutnya",
+            icon: Wallet,
+          },
+          {
+            id: "langganan-riwayat-kadaluarsa",
+            label: "Riwayat Kadaluarsa",
+            icon: CalendarX,
+          },
+        ],
+      },
+      {
+        id: "sdm-group",
+        label: "SDM & Payroll",
+        icon: Users,
+        groupOnly: true,
+        children: [
+          { id: "sdm", label: "Kelola Pegawai", icon: ClipboardList },
+          { id: "sdm-bpjs", label: "Atur BPJS", icon: Calculator },
+          {
+            id: "sdm-divisi-jabatan",
+            label: "Kelola Divisi & Jabatan",
+            icon: Building2,
+          },
+          {
+            id: "sdm-riwayat-penggajian",
+            label: "Riwayat Penggajian",
+            icon: History,
+          },
+          {
+            id: "sdm-proses-payroll",
+            label: "Proses Payroll",
+            icon: DollarSign,
+          },
+        ],
+      },
+      {
+        id: "aset-group",
+        label: "Aset Tetap",
+        icon: Box,
+        groupOnly: true,
+        children: [
+          { id: "aset", label: "Kelola Aset", icon: ClipboardList },
+          { id: "aset-kategori", label: "Kategori Aset", icon: Tags },
+          { id: "aset-riwayat", label: "Riwayat Aset", icon: History },
+        ],
+      },
     ],
   },
   {
@@ -183,18 +298,87 @@ const menuGroups = [
   {
     title: "PERENCANAAN & ANALISIS",
     items: [
-      { id: "proyeksi", label: "Proyeksi Bisnis", icon: TrendingUp },
-      { id: "laporan", label: "Laporan Keuangan", icon: FileText },
+      {
+        id: "proyeksi-group",
+        label: "Proyeksi Bisnis",
+        icon: TrendingUp,
+        groupOnly: true,
+        children: [
+          { id: "proyeksi", label: "Skenario & Target", icon: TrendingUp },
+          {
+            id: "proyeksi-roadmap",
+            label: "Roadmap Pertumbuhan",
+            icon: LineChart,
+          },
+          {
+            id: "proyeksi-anggaran",
+            label: "Kontrol Anggaran",
+            icon: PiggyBank,
+          },
+        ],
+      },
+      {
+        id: "laporan-group",
+        label: "Laporan Keuangan",
+        icon: FileText,
+        groupOnly: true,
+        children: [
+          { id: "laporan", label: "Laba Rugi", icon: ClipboardList },
+          { id: "laporan-neraca", label: "Neraca", icon: Scale },
+          { id: "laporan-aruskas", label: "Arus Kas", icon: Wallet },
+          {
+            id: "laporan-trialbalance",
+            label: "Trial Balance",
+            icon: ListChecks,
+          },
+          { id: "laporan-bukubesar", label: "Buku Besar", icon: BookOpen },
+          {
+            id: "laporan-umurtagih",
+            label: "Umur Piutang",
+            icon: ArrowDownLeft,
+          },
+          {
+            id: "laporan-umurutang",
+            label: "Umur Utang",
+            icon: ArrowUpRight,
+          },
+          { id: "laporan-pajak", label: "Laporan Pajak", icon: Percent },
+          { id: "laporan-payroll", label: "Biaya Payroll", icon: DollarSign },
+          { id: "laporan-aset", label: "Aset & Penyusutan", icon: Box },
+          {
+            id: "laporan-profitproyek",
+            label: "Profit Proyek",
+            icon: Briefcase,
+          },
+        ],
+      },
     ],
   },
   {
     title: "SISTEM",
-    items: [{ id: "pengaturan", label: "Pengaturan", icon: Settings }],
+    items: [
+      {
+        id: "pengaturan-group",
+        label: "Pengaturan",
+        icon: Settings,
+        groupOnly: true,
+        children: [
+          { id: "pengaturan", label: "Profil Perusahaan", icon: Building2 },
+          {
+            id: "pengaturan-keamanan",
+            label: "Keamanan & Akses",
+            icon: Shield,
+          },
+        ],
+      },
+    ],
   },
 ];
 
 const visibleMenuGroups = computed(() => {
-  const allItems = menuGroups.flatMap((group) => group.items);
+  const allItems = menuGroups
+    .flatMap((group) => group.items)
+    .flatMap((item) => [item, ...(item.children || [])]);
   const allowed =
     Array.isArray(props.allowedTabs) && props.allowedTabs.length
       ? props.allowedTabs
@@ -203,10 +387,119 @@ const visibleMenuGroups = computed(() => {
   return menuGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => allowed.includes(item.id)),
+      items: group.items
+        .map((item) =>
+          item.children
+            ? {
+                ...item,
+                children: item.children.filter((child) =>
+                  allowed.includes(child.id),
+                ),
+              }
+            : item,
+        )
+        .filter((item) =>
+          item.children ? item.children.length > 0 : allowed.includes(item.id),
+        ),
     }))
     .filter((group) => group.items.length > 0);
 });
+
+const itemsWithChildren = menuGroups
+  .flatMap((group) => group.items)
+  .filter((item) => item.children && item.children.length);
+
+function parentIdForTab(tab) {
+  const parent = itemsWithChildren.find((item) =>
+    item.children.some((child) => child.id === tab),
+  );
+  return parent ? parent.id : null;
+}
+
+const manuallyExpanded = ref(
+  new Set([parentIdForTab(props.activeTab)].filter(Boolean)),
+);
+
+watch(
+  () => props.activeTab,
+  (tab) => {
+    const next = new Set(manuallyExpanded.value);
+    for (const item of itemsWithChildren) {
+      const childMatches = item.children.some((child) => child.id === tab);
+      if (childMatches) {
+        // Landed directly on a child (e.g. reload, deep link) -> reveal it.
+        next.add(item.id);
+      } else if (item.id !== tab) {
+        // Left this item's section entirely -> collapse it.
+        next.delete(item.id);
+      }
+      // else: tab is this item's own page -> leave expand state as the user left it.
+    }
+    manuallyExpanded.value = next;
+  },
+);
+
+function hasChildren(item) {
+  return !!(item.children && item.children.length);
+}
+
+function isItemActive(item) {
+  if (hasChildren(item)) {
+    if (props.activeTab === item.id) return true;
+    if (isExpanded(item)) return true;
+    return item.children.some((child) => child.id === props.activeTab);
+  }
+  // Leaf item: only show active if it's the current page, and no unrelated
+  // group is expanded right now (only one row should read as selected).
+  if (props.activeTab !== item.id) return false;
+  return !itemsWithChildren.some((group) => isExpanded(group));
+}
+
+function isCollapsedItemActive(item) {
+  if (props.activeTab === item.id) return true;
+  return (item.children || []).some((child) => child.id === props.activeTab);
+}
+
+function firstNavigableId(item) {
+  return hasChildren(item) ? item.children[0].id : item.id;
+}
+
+// Expanding a group inserts new rows above whatever comes after it, shifting
+// those items down. A click landing right after that shift can hit the wrong
+// item (whatever moved under the cursor) instead of the one the user aimed
+// for. Briefly ignore navigation to anything except the group's own new
+// children so a fast second click can't misfire onto a shifted sibling.
+let layoutShiftGuardUntil = 0;
+let layoutShiftGuardExceptIds = null;
+
+function handleItemClick(item) {
+  if (!hasChildren(item)) {
+    navigate(item.id);
+    return;
+  }
+  const wasExpanded = isExpanded(item);
+  toggleExpanded(item.id);
+  if (!wasExpanded) {
+    layoutShiftGuardUntil = Date.now() + 250;
+    layoutShiftGuardExceptIds = new Set(item.children.map((child) => child.id));
+  }
+}
+
+function isExpanded(item) {
+  return manuallyExpanded.value.has(item.id);
+}
+
+function toggleExpanded(id) {
+  if (manuallyExpanded.value.has(id)) {
+    const next = new Set(manuallyExpanded.value);
+    next.delete(id);
+    manuallyExpanded.value = next;
+    return;
+  }
+  // Expanding a group closes whichever other group was open, so only one
+  // sub-sidebar is ever visible at a time.
+  manuallyExpanded.value = new Set([id]);
+}
 
 const desktopSidebarStyle = computed(() => ({
   top: "88px",
@@ -224,6 +517,9 @@ const desktopSidebarClass = computed(() =>
 );
 
 function navigate(id) {
+  const withinGuard = Date.now() < layoutShiftGuardUntil;
+  const isExempt = layoutShiftGuardExceptIds?.has(id);
+  if (withinGuard && !isExempt) return;
   emit("select-tab", id);
 }
 </script>

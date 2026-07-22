@@ -52,6 +52,15 @@ const assets = mysqlTable("assets", {
   index("idx_assets_status").on(table.status),
 ]);
 
+const assetCategories = mysqlTable("asset_categories", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
+  code: varchar("code", { length: 50 }).unique().notNull(),
+  name: varchar("name", { length: 120 }).unique().notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
 const assetDepreciations = mysqlTable("asset_depreciations", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
   assetId: bigint("asset_id", { mode: "number", unsigned: true }).notNull(),
@@ -167,6 +176,7 @@ const budgetAllocations = mysqlTable("budget_allocations", {
 
 const clients = mysqlTable("clients", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
+  code: varchar("code", { length: 30 }).unique(),
   companyName: varchar("company_name", { length: 150 }).notNull(),
   picName: varchar("pic_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 150 }),
@@ -641,6 +651,7 @@ module.exports = {
   accounts,
   activityLogs,
   assets,
+  assetCategories,
   assetDepreciations,
   authSessions,
   bills,

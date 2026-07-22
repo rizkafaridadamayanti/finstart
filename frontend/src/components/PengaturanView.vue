@@ -19,49 +19,7 @@
           benar-benar tersimpan di server.
         </p>
       </div>
-      <div
-        class="inline-flex w-fit items-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-3.5 py-2.5 text-xs font-medium text-[#0B1F4A]"
-      >
-        <Shield class="h-4 w-4 text-[#1E5AA8]" />{{ roleLabel(userRole || "") }}
-      </div>
     </header>
-    <div
-      class="rounded-2xl border border-[#DCE7F4] bg-white p-2 shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
-    >
-      <div class="grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          :class="`flex min-h-[64px] items-center gap-3 rounded-xl px-4 text-left transition ${activeTab === 'profile' ? 'bg-[#0B1F4A] text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]' : 'text-[#53658A] hover:bg-[#F4F8FC]'}`"
-          @click="activeTab = 'profile'"
-        >
-          <span
-            :class="`flex h-10 w-10 items-center justify-center rounded-xl ${activeTab === 'profile' ? 'bg-white/10' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
-            ><Building2 class="h-5 w-5" /></span
-          ><span
-            ><span class="block text-sm font-medium">Profil Perusahaan</span
-            ><span
-              :class="`mt-0.5 block text-xs ${activeTab === 'profile' ? 'text-blue-100/80' : 'text-[#8A98AB]'}`"
-              >Identitas legal dan mata uang operasional</span
-            ></span
-          ><ChevronRight class="ml-auto h-4 w-4" /></button
-        ><button
-          type="button"
-          :class="`flex min-h-[64px] items-center gap-3 rounded-xl px-4 text-left transition ${activeTab === 'security' ? 'bg-[#0B1F4A] text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)]' : 'text-[#53658A] hover:bg-[#F4F8FC]'}`"
-          @click="activeTab = 'security'"
-        >
-          <span
-            :class="`flex h-10 w-10 items-center justify-center rounded-xl ${activeTab === 'security' ? 'bg-white/10' : 'bg-[#EEF5FC] text-[#1E5AA8]'}`"
-            ><Shield class="h-5 w-5" /></span
-          ><span
-            ><span class="block text-sm font-medium">Keamanan &amp; Akses</span
-            ><span
-              :class="`mt-0.5 block text-xs ${activeTab === 'security' ? 'text-blue-100/80' : 'text-[#8A98AB]'}`"
-              >Role, sesi aktif, dan audit trail</span
-            ></span
-          ><ChevronRight class="ml-auto h-4 w-4" />
-        </button>
-      </div>
-    </div>
     <form
       v-if="activeTab === 'profile'"
       class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
@@ -279,7 +237,7 @@
                   <div
                     v-for="user in users"
                     :key="user.id || user.email"
-                    class="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_auto_auto_auto] md:items-center"
+                    class="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_auto_auto] md:items-center"
                   >
                     <div class="flex min-w-0 items-center gap-3">
                       <span
@@ -317,17 +275,6 @@
                         {{ formatTime(user.last_login_at) }}
                       </span>
                     </p>
-                    <div class="flex flex-wrap gap-2 md:justify-end">
-                      <button
-                        type="button"
-                        class="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-xl border border-rose-200 px-3 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        :disabled="isCurrentUser(user)"
-                        @click="openUserDelete(user)"
-                      >
-                        <Trash2 class="h-3.5 w-3.5" />
-                        Hapus
-                      </button>
-                    </div>
                   </div>
                 </div>
 
@@ -502,74 +449,6 @@
         </section>
       </div>
     </div>
-    <Teleport to="body">
-    <div
-      v-if="userDelete.open"
-      class="settings-modal-layer fixed inset-0 z-[120000] flex items-center justify-center overflow-y-auto bg-[#081936]/55 p-4 backdrop-blur-sm"
-    >
-      <div
-        class="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-2xl"
-      >
-        <div
-          class="flex items-center justify-between border-b border-[#F8D7DF] px-6 py-5"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-600"
-            >
-              Konfirmasi Penghapusan
-            </p>
-            <h3 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Hapus Akun?
-            </h3>
-          </div>
-          <button
-            type="button"
-            class="rounded-xl p-2 text-[#6B7A90]"
-            :disabled="isDeletingUser"
-            @click="closeUserDelete"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="space-y-4 p-6">
-          <p class="text-sm leading-6 text-[#53658A]">
-            Akun ini akan dihapus dari daftar pengguna dan tidak bisa dipakai
-            login lagi.
-          </p>
-          <div class="rounded-2xl border border-rose-100 bg-rose-50 p-4">
-            <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-600">
-              Akun terdampak
-            </p>
-            <p class="mt-1 text-sm font-semibold text-[#0B1F4A]">
-              {{ userDelete.user?.name || "-" }}
-            </p>
-            <p class="mt-0.5 text-xs text-[#6B7A90]">
-              {{ userDelete.user?.email || "-" }}
-            </p>
-          </div>
-          <div class="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              class="h-10 rounded-xl border border-[#D8E5F4] px-4 text-xs font-medium"
-              :disabled="isDeletingUser"
-              @click="closeUserDelete"
-            >
-              Batal</button
-            ><button
-              type="button"
-              class="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-600 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isDeletingUser"
-              @click="deleteUser"
-            >
-              <Trash2 class="h-4 w-4" />
-              {{ isDeletingUser ? "Menghapus..." : "Hapus Akun" }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    </Teleport>
   </div>
 </template>
 
@@ -579,22 +458,24 @@ import { computed, onMounted, ref } from "vue";
 import {
   Building2,
   CheckCircle2,
-  ChevronRight,
   CircleAlert,
   Clock3,
   Monitor,
   Save,
   Shield,
   Smartphone,
-  Trash2,
   Users,
-  X,
 } from "lucide-vue-next";
 import SettingsToggle from "./settings/SettingsToggle.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
-import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
+import {
+  clearAuthSession,
+  financeApi,
+  getApiErrorMessage,
+} from "../services/financeApi.js";
 
 interface PengaturanViewProps {
+  activeSection?: string;
   userEmail: string;
   userRole?: string;
 }
@@ -608,32 +489,15 @@ function formatTime(value: any) {
     : date.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function roleLabel(role: string) {
-  const labels: Record<string, string> = {
-    admin: "Keuangan Internal",
-    finance_manager: "Keuangan Internal",
-    finance: "Keuangan Internal",
-    hr: "Keuangan Internal",
-    tax: "Keuangan Internal",
-    project_manager: "Keuangan Internal",
-    director: "Keuangan Internal",
-    auditor: "Keuangan Internal",
-  };
-  return (
-    labels[String(role || "").toLowerCase()] || String(role || "Role internal")
-  );
-}
-
-function sameEmail(left: any, right: any) {
-  return String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
-}
-
 const props = defineProps<PengaturanViewProps>();
 const userEmail = computed(() => props.userEmail);
-const userRole = computed(() => props.userRole);
 
 const { notify } = useFinStartContext();
-const activeTab = ref<SettingsTab>("profile");
+// Which sub-view shows now comes from the sidebar ("pengaturan" -> Profil
+// Perusahaan, "pengaturan-keamanan" -> Keamanan & Akses).
+const activeTab = computed<SettingsTab>(() =>
+  props.activeSection === "pengaturan-keamanan" ? "security" : "profile",
+);
 const profile = ref({
   namaEntitas: "",
   npwp: "",
@@ -652,11 +516,6 @@ const sessions = ref<any[]>([]);
 const activity = ref<any[]>([]);
 const isSavingProfile = ref(false);
 const isSavingSecurity = ref(false);
-const isDeletingUser = ref(false);
-const userDelete = ref({
-  open: false,
-  user: null as any,
-});
 const monthNames = [
   "Januari",
   "Februari",
@@ -770,60 +629,18 @@ async function saveSecurity(next: any) {
 async function closeSession(session: any) {
   try {
     await financeApi.delete(`/auth/sessions/${session.id}`);
+    if (session.current_session) {
+      // The token this tab uses just got revoked server-side; any further
+      // API call would 401. Log out immediately instead of refetching
+      // security data with a now-dead token.
+      clearAuthSession();
+      window.dispatchEvent(new CustomEvent("finstart-auth-expired"));
+      return;
+    }
     await loadSecurityData();
-    notify(
-      session.current_session
-        ? "Sesi ini ditutup. Silakan login kembali."
-        : "Sesi aktif berhasil ditutup.",
-    );
+    notify("Sesi aktif berhasil ditutup.");
   } catch (error) {
     notify(getApiErrorMessage(error, "Gagal menutup sesi."));
-  }
-}
-
-function isCurrentUser(user: any) {
-  return sameEmail(user?.email, userEmail.value);
-}
-
-function openUserDelete(user: any) {
-  if (isCurrentUser(user)) {
-    notify("Akun yang sedang digunakan tidak bisa dihapus.");
-    return;
-  }
-  userDelete.value = {
-    open: true,
-    user,
-  };
-}
-
-function closeUserDelete() {
-  if (isDeletingUser.value) return;
-  userDelete.value = {
-    open: false,
-    user: null,
-  };
-}
-
-async function deleteUser() {
-  if (isDeletingUser.value) return;
-  const target = userDelete.value.user;
-  if (!target?.id) {
-    notify("Pengguna tidak valid.");
-    return;
-  }
-  isDeletingUser.value = true;
-  try {
-    await financeApi.delete(`/users/${target.id}`);
-    notify(`Akun ${target.name || target.email} berhasil dihapus.`);
-    userDelete.value = {
-      open: false,
-      user: null,
-    };
-    await loadSecurityData();
-  } catch (error) {
-    notify(getApiErrorMessage(error, "Gagal menghapus pengguna."));
-  } finally {
-    isDeletingUser.value = false;
   }
 }
 

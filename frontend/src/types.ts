@@ -5,9 +5,11 @@ export interface AkunBukuBesar {
   nama: string;
   tipe: TipeAkun;
   saldo: number;
+  status?: string;
 }
 export interface Klien {
   id: string;
+  kode: string;
   namaPerusahaan: string;
   bidang: string;
   lokasi: string;
@@ -98,42 +100,6 @@ export interface Langganan {
   latestJournalId?: number | null;
   _raw?: any;
 }
-export interface Piutang {
-  id: string;
-  invoiceNo: string;
-  klien: string;
-  proyek: string;
-  nominal: number;
-  tanggalInvoice: string;
-  jatuhTempo: string;
-  status: "Belum Bayar" | "Lunas" | "Overdue";
-  catatan?: string;
-}
-export interface Utang {
-  id: string;
-  vendor: string;
-  proyek: string;
-  invoiceNo: string;
-  tanggalTagihan: string;
-  batasBayar: string;
-  nominal: number;
-  status: "Belum Bayar" | "Lunas" | "Overdue";
-  catatan?: string;
-  historiBayar?: {
-    tanggal: string;
-    buktiBayar: string;
-    kasSumber: string;
-    nominal: number;
-    catatan?: string;
-  }[];
-}
-export interface Proyeksi {
-  id: string;
-  akunId: string; // Kode Akun
-  targetNilai: number;
-  bulan: number; // 1 - 12 (Jan - Dec)
-  catatan?: string;
-}
 export interface Pegawai {
   id: string;
   dbId?: number;
@@ -144,13 +110,4 @@ export interface Pegawai {
   gajiBersih: number;
   compliance: "Patuh" | "Tinjauan";
   _raw?: Record<string, any>;
-}
-export interface Aset {
-  id: string;
-  nama: string;
-  kategori: string;
-  tanggalPerolehan: string;
-  hargaPerolehan: number;
-  akumulasiPenyusutan: number;
-  nilaiBuku: number;
 }

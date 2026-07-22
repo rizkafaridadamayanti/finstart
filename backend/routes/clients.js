@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
     const [clients] = await db.query(`
       SELECT
         id,
+        code,
         company_name,
         pic_name,
         email,
@@ -45,6 +46,36 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal mengambil data client',
+    })
+  }
+})
+
+/*
+  GET /api/clients/next-code
+  Mengambil preview kode klien yang akan otomatis dibuat untuk registrasi berikutnya.
+*/
+router.get('/next-code', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `
+        SELECT AUTO_INCREMENT AS nextId
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clients'
+      `,
+    )
+
+    const nextId = Number(rows[0]?.nextId || 1)
+    const code = `KLN-${String(nextId).padStart(4, '0')}`
+
+    res.json({
+      success: true,
+      message: 'Preview kode klien berikutnya berhasil diambil',
+      data: { code },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil preview kode klien',
     })
   }
 })
@@ -143,6 +174,9 @@ router.post('/', async (req, res) => {
         clientStatus,
       ],
     )
+
+    const code = `KLN-${String(result.insertId).padStart(4, '0')}`
+    await db.query('UPDATE clients SET code = ? WHERE id = ?', [code, result.insertId])
 
     const [newClient] = await db.query(
       'SELECT * FROM clients WHERE id = ?',

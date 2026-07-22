@@ -62,8 +62,8 @@
           "
           @click="toggleSidebar"
         >
-          <ChevronRight v-if="isSidebarCollapsed" class="h-5 w-5" />
-          <ChevronLeft v-else class="h-5 w-5" />
+          <ChevronRight v-if="isSidebarCollapsed" class="h-3 w-3" />
+          <ChevronLeft v-else class="h-3 w-3" />
         </button>
 
         <div
@@ -123,6 +123,15 @@
                   view-mode="client-master"
                 />
 
+                <CrmView
+                  v-else-if="activeTab === 'crm-riwayat'"
+                  :key="`crm-riwayat-${dataVersion}`"
+                  :proyek="proyek"
+                  :klien="klien"
+                  :pegawai="pegawai"
+                  view-mode="riwayat"
+                />
+
                 <BukuBesarDanTransaksi
                   v-else-if="
                     activeTab === 'bukubesar' || activeTab === 'transaksi'
@@ -147,7 +156,15 @@
                 />
 
                 <LanggananDanAset
-                  v-else-if="activeTab === 'langganan' || activeTab === 'aset'"
+                  v-else-if="
+                    activeTab === 'langganan' ||
+                    activeTab === 'aset' ||
+                    activeTab === 'aset-kategori' ||
+                    activeTab === 'aset-riwayat' ||
+                    activeTab === 'langganan-riwayat-transaksi' ||
+                    activeTab === 'langganan-tagihan' ||
+                    activeTab === 'langganan-riwayat-kadaluarsa'
+                  "
                   :key="`${activeTab}-${dataVersion}`"
                   :active-section="activeTab"
                   :langganan="langganan"
@@ -155,7 +172,14 @@
                 />
 
                 <SdmDanPajak
-                  v-else-if="activeTab === 'sdm' || activeTab === 'perpajakan'"
+                  v-else-if="
+                    activeTab === 'sdm' ||
+                    activeTab === 'sdm-bpjs' ||
+                    activeTab === 'sdm-divisi-jabatan' ||
+                    activeTab === 'sdm-riwayat-penggajian' ||
+                    activeTab === 'sdm-proses-payroll' ||
+                    activeTab === 'perpajakan'
+                  "
                   :key="`${activeTab}-${dataVersion}`"
                   :active-section="activeTab"
                   :pegawai="pegawai"
@@ -167,7 +191,10 @@
 
                 <ProyeksiDanLaporan
                   v-else-if="
-                    activeTab === 'proyeksi' || activeTab === 'laporan'
+                    activeTab === 'proyeksi' ||
+                    activeTab.startsWith('proyeksi-') ||
+                    activeTab === 'laporan' ||
+                    activeTab.startsWith('laporan-')
                   "
                   :key="`${activeTab}-${dataVersion}`"
                   :active-section="activeTab"
@@ -178,12 +205,12 @@
                   :projection-data="projectionData"
                   :report-data="reportData"
                   :report-period="selectedReportPeriod"
-                  :report-periods="availableReportPeriods"
                   :report-error="reportError"
                 />
 
                 <PengaturanView
                   v-else
+                  :active-section="activeTab"
                   :user-email="userEmail"
                   :user-role="userRole"
                 />
@@ -303,7 +330,6 @@ const {
   projectionData,
   projectionScenario,
   selectedReportPeriod,
-  availableReportPeriods,
   reportError,
   reportData,
   dataVersion,
@@ -318,8 +344,8 @@ const {
   handleSelectReportPeriod,
 } = app;
 
-const refreshData = async () => {
-  await loadFinancialData({ silent: true });
+const refreshData = async (options: { bumpVersion?: boolean } = {}) => {
+  await loadFinancialData({ silent: true, bumpVersion: options.bumpVersion });
 };
 
 const ledgerActions = useLedgerActions({
@@ -372,15 +398,15 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   top: "50%",
   transform: "translateY(-50%)",
   zIndex: 99999,
-  width: "30px",
-  height: "64px",
+  width: "16px",
+  height: "40px",
   alignItems: "center",
   justifyContent: "center",
   borderTop: "1.5px solid #BFD3EA",
   borderRight: "1.5px solid #BFD3EA",
   borderBottom: "1.5px solid #BFD3EA",
   borderLeft: 0,
-  borderRadius: "0 14px 14px 0",
+  borderRadius: "0 10px 10px 0",
   background: "#E8F0FB",
   color: "#1E5AA8",
   boxShadow: "4px 0 18px rgba(16,42,86,0.12)",

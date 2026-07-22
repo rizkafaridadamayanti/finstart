@@ -6,11 +6,16 @@
     >
       <div>
         <h1 class="text-xl font-extrabold text-[#0B1F4A] tracking-tight">
-          <template v-if="isClientMasterView">Master Data Klien Partner</template>
-          <template v-else>Manajemen CRM &amp; Proyek</template>
+          <template v-if="isRiwayatView">Riwayat Proyek</template>
+          <template v-else-if="isClientMasterView">Data Klien Partner</template>
+          <template v-else>Kelola Proyek</template>
         </h1>
         <p class="text-xs text-slate-400 font-light mt-1">
-          <template v-if="isClientMasterView">
+          <template v-if="isRiwayatView">
+            Proyek yang dibatalkan. Pulihkan ke Planning atau hapus secara
+            permanen.
+          </template>
+          <template v-else-if="isClientMasterView">
             Kelola data perusahaan klien yang digunakan dalam proyek, invoice,
             dan laporan operasional.
           </template>
@@ -20,7 +25,7 @@
           </template>
         </p>
       </div>
-      <div class="flex items-center gap-3">
+      <div v-if="!isRiwayatView" class="flex items-center gap-3">
         <button
           id="btn-tambah-crm"
           class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all"
@@ -34,8 +39,8 @@
     </div>
     <!-- 1. Proyek Sub-Tab layout -->
     <div
-      v-if="activeSubTab === 'proyek'"
-      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+      v-if="activeSubTab === 'proyek' && !isRiwayatView"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
     >
       <div
         class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
@@ -63,18 +68,6 @@
             @click="setStatusFilter(status)"
           >
             {{ status }}
-          </button>
-          <button
-            type="button"
-            class="h-9 rounded-lg px-3 text-[11px] font-medium transition border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center gap-1.5"
-            @click="showProjectHistory = true"
-          >
-            <Clock class="w-3.5 h-3.5" />
-            Riwayat Proyek
-            <span
-              v-if="cancelledProjects.length > 0"
-              class="ml-0.5 bg-rose-200 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-            >{{ cancelledProjects.length }}</span>
           </button>
         </div>
       </div>
@@ -192,7 +185,7 @@
     <!-- 2. Klien Sub-Tab layout -->
     <div
       v-if="activeSubTab === 'klien'"
-      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+      class="overflow-hidden border border-[#DCE7F4] bg-white shadow-sm"
     >
       <div
         class="flex flex-col gap-3 border-b border-[#E8EEF7] px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
@@ -219,16 +212,18 @@
             class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
           >
             <tr>
+              <th class="p-4">Kode</th>
               <th class="p-4">Nama Perusahaan</th>
               <th class="p-4">Kategori Industri</th>
               <th class="p-4">Lokasi Kantor</th>
+              <th class="p-4 text-center">Status</th>
               <th class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-150">
             <tr v-if="renderContext.filteredClients.length === 0">
               <td
-                :colspan="4"
+                :colspan="6"
                 class="p-12 text-center text-slate-400 font-light"
               >
                 Belum ada klien yang terdaftar.
@@ -240,18 +235,13 @@
                 :key="c.id"
                 class="hover:bg-slate-50 transition-colors"
               >
+                <td class="p-4 font-mono text-xs font-bold text-slate-500">
+                  {{ c.kode }}
+                </td>
                 <td class="p-4">
                   <span class="font-bold text-[#0B1F4A] block text-sm">{{
                     c.namaPerusahaan
-                  }}</span
-                  ><span class="text-[10px] text-slate-400 font-mono">{{
-                    c.id
                   }}</span>
-                  <span
-                    :class="`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] ${isClientActive(c) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`"
-                  >
-                    {{ isClientActive(c) ? "Aktif" : "Nonaktif" }}
-                  </span>
                 </td>
                 <td class="p-4 text-slate-600 font-semibold">{{ c.bidang }}</td>
                 <td class="p-4 text-slate-500">
@@ -260,6 +250,13 @@
                       c.lokasi
                     }}</span
                   >
+                </td>
+                <td class="p-4 text-center">
+                  <span
+                    :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${isClientActive(c) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`"
+                  >
+                    {{ isClientActive(c) ? "Aktif" : "Nonaktif" }}
+                  </span>
                 </td>
                 <td class="p-4">
                   <div class="flex items-center justify-center gap-1.5">
@@ -300,6 +297,75 @@
         @page-change="handleClientPageChange"
       />
     </div>
+    <!-- 3. Riwayat Proyek (Cancelled Projects) full-page view -->
+    <div
+      v-if="isRiwayatView"
+      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+    >
+      <div class="border-b border-[#E8EEF7] px-4 py-4">
+        <p class="text-xs text-slate-400">
+          {{ cancelledProjects.length }} proyek dibatalkan. Pilih tindakan
+          untuk memulihkan atau menghapus permanen.
+        </p>
+      </div>
+      <div class="p-4">
+        <div
+          v-if="cancelledProjects.length === 0"
+          class="py-16 text-center text-xs text-slate-400"
+        >
+          Tidak ada proyek yang dibatalkan.
+        </div>
+        <div v-else class="space-y-2">
+          <div
+            v-for="proj in cancelledProjects"
+            :key="proj.id"
+            class="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:bg-slate-100"
+          >
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="font-bold text-sm text-[#0B1F4A] truncate">{{ proj.nama }}</p>
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
+                  <span class="font-semibold">{{ proj.tipeTender }}</span>
+                  <span>·</span>
+                  <span class="font-mono">{{ proj.tanggalMulai }} s/d {{ proj.tanggalSelesai }}</span>
+                  <span>·</span>
+                  <span class="font-bold text-slate-500">{{ formatRupiah(proj.nilaiKontrak) }}</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:shrink-0">
+                <button
+                  type="button"
+                  class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 text-[11px] font-bold text-blue-700 transition hover:bg-blue-100"
+                  title="Lihat Detail"
+                  @click="showProjectDetails(proj)"
+                >
+                  <Eye class="w-3.5 h-3.5" />
+                  Detail
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                  title="Pulihkan ke Planning"
+                  @click="handleRestoreProject(proj.id)"
+                >
+                  <RotateCcw class="w-3.5 h-3.5" />
+                  Pulihkan
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-[11px] font-bold text-rose-700 transition hover:bg-rose-100"
+                  title="Hapus Permanen"
+                  @click="openPermDeleteConfirm(proj)"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                  Hapus
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <Teleport to="body"
       ><div
         v-if="renderContext.selectedProject || renderContext.selectedClient"
@@ -328,6 +394,12 @@
                   renderContext.selectedClient?.namaPerusahaan
                 }}</template>
               </h3>
+              <p
+                v-if="!renderContext.selectedProject"
+                class="mt-1 text-xs font-mono font-semibold text-slate-400"
+              >
+                {{ renderContext.selectedClient?.kode }}
+              </p>
               <p class="mt-2 text-xs text-slate-500 max-w-2xl">
                 <template v-if="renderContext.selectedProject"
                   >Detail lengkap proyek dan alokasi tim dalam CRM.</template
@@ -777,6 +849,13 @@
                     </h4>
                     <p class="mt-3 text-sm font-medium text-[#52647E]">
                       {{ renderContext.selectedClient?.lokasi }}
+                    </p>
+                    <p class="mt-3">
+                      <span
+                        :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${isClientActive(renderContext.selectedClient) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`"
+                      >
+                        {{ isClientActive(renderContext.selectedClient) ? "Aktif" : "Nonaktif" }}
+                      </span>
                     </p>
                   </div>
                   <div class="rounded-[22px] border border-[#D8E5F4] bg-white p-5">
@@ -1421,6 +1500,23 @@
                 <div class="space-y-1.5 md:col-span-2">
                   <label
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Kode Klien</label
+                  ><input
+                    id="client-form-code"
+                    type="text"
+                    readonly
+                    disabled
+                    :value="
+                      editingClientId
+                        ? newClient.kode
+                        : nextClientCodePreview || 'Memuat kode...'
+                    "
+                    class="h-12 w-full min-w-0 cursor-not-allowed rounded-xl border border-[#D8E5F4] bg-slate-100 px-4 font-mono text-sm font-bold text-slate-500"
+                  />
+                </div>
+                <div class="space-y-1.5 md:col-span-2">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >Nama Perusahaan / Kementerian *</label
                   ><input
                     id="client-form-company"
@@ -1483,7 +1579,7 @@
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
                 </div>
-                <div class="space-y-1.5 md:col-span-2">
+                <div class="space-y-1.5">
                   <label
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >Nomor Telepon PIC *</label
@@ -1495,6 +1591,34 @@
                     v-model.trim="newClient.telepon"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
+                </div>
+                <div class="space-y-1.5">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >Status Klien *</label
+                  >
+                  <div class="relative">
+                    <select
+                      id="client-form-status"
+                      required
+                      v-model="newClient.status"
+                      class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                    >
+                      <option value="active">Aktif</option>
+                      <option value="inactive">Nonaktif</option>
+                    </select>
+                    <div
+                      class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[#94A3B8]"
+                    >
+                      <ChevronDown class="w-4 h-4" />
+                    </div>
+                  </div>
+                  <p
+                    v-if="newClient.status === 'inactive'"
+                    class="text-[10px] font-medium text-amber-600"
+                  >
+                    Klien nonaktif tidak bisa dipilih untuk proyek baru.
+                  </p>
                 </div>
               </div>
               <button
@@ -1665,91 +1789,6 @@
         </div>
       </div></Teleport
     >
-      <!-- Riwayat Proyek (Cancelled Projects) Modal -->
-      <Teleport to="body">
-        <div
-          v-if="showProjectHistory"
-          class="crm-modal-layer fixed inset-0 z-[10000] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
-          @click.self="showProjectHistory = false"
-        >
-          <div class="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div class="border-b border-slate-200 px-5 py-4 flex items-center justify-between">
-              <div>
-                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-500">
-                  Riwayat Proyek
-                </p>
-                <h3 class="mt-0.5 text-base font-extrabold leading-tight text-[#102A56]">
-                  Proyek Dibatalkan
-                </h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">
-                  {{ cancelledProjects.length }} proyek dibatalkan. Pilih tindakan untuk memulihkan atau menghapus permanen.
-                </p>
-              </div>
-              <button
-                type="button"
-                class="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-                @click="showProjectHistory = false"
-              >
-                <X class="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div class="max-h-[60vh] overflow-y-auto p-4">
-              <div v-if="cancelledProjects.length === 0" class="py-10 text-center text-xs text-slate-400">
-                Tidak ada proyek yang dibatalkan.
-              </div>
-              <div v-else class="space-y-2">
-                <div
-                  v-for="proj in cancelledProjects"
-                  :key="proj.id"
-                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition hover:bg-slate-100"
-                >
-                  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div class="min-w-0 flex-1">
-                      <p class="font-bold text-xs text-[#0B1F4A] truncate">{{ proj.nama }}</p>
-                      <div class="mt-0.5 flex items-center gap-2 text-[10px] text-slate-400">
-                        <span class="font-semibold">{{ proj.tipeTender }}</span>
-                        <span>·</span>
-                        <span class="font-mono">{{ proj.tanggalMulai }} s/d {{ proj.tanggalSelesai }}</span>
-                        <span>·</span>
-                        <span class="font-bold text-slate-500">{{ formatRupiah(proj.nilaiKontrak) }}</span>
-                      </div>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 transition hover:bg-blue-100"
-                        title="Lihat Detail"
-                        @click="returnToHistory = true; showProjectHistory = false; showProjectDetails(proj)"
-                      >
-                        <Eye class="w-3 h-3" />
-                        Detail
-                      </button>
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-100"
-                        title="Pulihkan ke Planning"
-                        @click="handleRestoreProject(proj.id)"
-                      >
-                        <RotateCcw class="w-3 h-3" />
-                        Pulihkan
-                      </button>
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 transition hover:bg-rose-100"
-                        title="Hapus Permanen"
-                        @click="openPermDeleteConfirm(proj)"
-                      >
-                        <Trash2 class="w-3 h-3" />
-                        Hapus
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Teleport>
       <!-- Permanent Delete Confirmation -->
       <Teleport to="body">
         <div
@@ -1828,7 +1867,6 @@ import {
   ChevronRight,
   CircleAlert,
   RotateCcw,
-  Clock,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, Pegawai, AnggotaTim } from "../types.ts";
@@ -1845,7 +1883,7 @@ interface CrmViewProps {
   proyek: Proyek[];
   klien: Klien[];
   pegawai: Pegawai[];
-  viewMode?: "crm" | "client-master";
+  viewMode?: "crm" | "client-master" | "riwayat";
 }
 
 const props = withDefaults(defineProps<CrmViewProps>(), {
@@ -1853,6 +1891,7 @@ const props = withDefaults(defineProps<CrmViewProps>(), {
 });
 const { proyek, klien, pegawai } = props;
 const isClientMasterView = computed(() => props.viewMode === "client-master");
+const isRiwayatView = computed(() => props.viewMode === "riwayat");
 
 const { notify, refreshData } = useFinStartContext();
 
@@ -1993,18 +2032,6 @@ const updateProject = async (item: Proyek) =>
     notify,
   );
 
-const deleteProject = async (id: string) =>
-  withApiFeedback(
-    async () => {
-      await financeApi.delete(`/projects/${id}`);
-      await refreshData();
-      notify("Proyek berhasil dihapus dari database.");
-      return true;
-    },
-    "Gagal menghapus proyek.",
-    notify,
-  );
-
 const cancelProject = async (id: string) =>
   withApiFeedback(
     async () => {
@@ -2081,6 +2108,7 @@ function createEmptyProjectForm() {
 
 function createEmptyClientForm() {
   return {
+    kode: "",
     namaPerusahaan: "",
     bidang: "",
     lokasi: "",
@@ -2103,11 +2131,10 @@ const clientPage = ref(1);
 const editingProjectId = ref<string | null>(null);
 const editingClientId = ref<string | null>(null);
 const deleteConfirm = ref<DeleteTarget | null>(null);
-const showProjectHistory = ref(false);
-const returnToHistory = ref(false);
 const permDeleteConfirm = ref<{ id: string; name: string } | null>(null);
 const isFormOpen = ref(false);
 const isClientFormOpen = ref(false);
+const nextClientCodePreview = ref("");
 const isProjectSaving = ref(false);
 const isClientSaving = ref(false);
 const shouldAttachNewClientToProject = ref(false);
@@ -2395,6 +2422,7 @@ async function handleSaveClient(e: Event) {
   }
   const clientItem: Klien = {
     id: "",
+    kode: "",
     ...newClient.value,
   };
   const attachToProject =
@@ -2449,6 +2477,15 @@ function openCreateClientModal() {
   resetClientForm();
   shouldAttachNewClientToProject.value = false;
   isClientFormOpen.value = true;
+  nextClientCodePreview.value = "";
+  financeApi
+    .get("/clients/next-code")
+    .then((result) => {
+      nextClientCodePreview.value = result?.code || "";
+    })
+    .catch(() => {
+      nextClientCodePreview.value = "";
+    });
 }
 function openEditProjectModal(project: Proyek) {
   closeDetailModal();
@@ -2516,10 +2553,6 @@ function showClientDetails(client: Klien) {
 function closeDetailModal() {
   selectedProjectDetailId.value = null;
   selectedClientDetailId.value = null;
-  if (returnToHistory.value) {
-    returnToHistory.value = false;
-    showProjectHistory.value = true;
-  }
 }
 
 function openProjectDeleteConfirm(project: Proyek) {
@@ -2579,8 +2612,7 @@ function closePermDeleteConfirm() {
 }
 
 async function handleRestoreProject(id: string) {
-  const restored = await restoreProject(id);
-  if (restored) showProjectHistory.value = false;
+  await restoreProject(id);
 }
 
 async function handlePermanentDeleteProject() {
@@ -2588,7 +2620,6 @@ async function handlePermanentDeleteProject() {
   const deleted = await permanentDeleteProject(permDeleteConfirm.value.id);
   if (deleted) {
     permDeleteConfirm.value = null;
-    showProjectHistory.value = false;
   }
 }
 
@@ -2817,8 +2848,8 @@ const selectedClientProjects = computed(() => {
 
 .crm-detail-modal .crm-client-detail-grid {
   display: grid !important;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
   gap: 14px;
 }
 

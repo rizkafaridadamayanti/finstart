@@ -94,6 +94,55 @@ router.get('/', async (req, res) => {
   }
 })
 
+const TYPE_BASE_CODE = {
+  asset: 1000,
+  liability: 2000,
+  equity: 3000,
+  revenue: 4000,
+  expense: 5000,
+}
+
+/*
+  GET /api/accounts/next-code?type=asset
+  Preview kode akun berikutnya berdasarkan kode tertinggi di dalam tipe yang dipilih.
+*/
+router.get('/next-code', async (req, res) => {
+  try {
+    const type = cleanText(req.query.type) || 'asset'
+
+    if (!allowedTypes.includes(type)) {
+      return res.status(422).json({
+        success: false,
+        message: 'Tipe akun tidak valid',
+      })
+    }
+
+    const [rows] = await db.query(
+      `
+        SELECT MAX(CAST(code AS UNSIGNED)) AS maxCode
+        FROM accounts
+        WHERE type = ? AND code REGEXP '^[0-9]+$'
+      `,
+      [type],
+    )
+
+    const base = TYPE_BASE_CODE[type] || 1000
+    const maxCode = Number(rows[0]?.maxCode || 0)
+    const nextCode = maxCode >= base ? maxCode + 1 : base
+
+    res.json({
+      success: true,
+      message: 'Preview kode akun berikutnya berhasil diambil',
+      data: { code: String(nextCode) },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil preview kode akun',
+    })
+  }
+})
+
 /*
   GET /api/accounts/:id
 */

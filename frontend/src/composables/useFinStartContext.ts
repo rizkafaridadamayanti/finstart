@@ -4,7 +4,7 @@ type AsyncAction = (..._args: any[]) => any;
 
 interface FinStartContext {
   notify: (_message: string) => void;
-  refreshData: () => Promise<void> | void;
+  refreshData: (_options?: { bumpVersion?: boolean }) => Promise<void> | void;
   selectWorkspace: (_tab: string) => void;
   quickAction: (_action: string) => void;
   ledger: {

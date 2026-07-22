@@ -844,6 +844,18 @@ router.put('/:id', async (req, res) => {
       })
     }
 
+    // Simpan status sebelum dibatalkan (supaya bisa dipulihkan ke status yang
+    // sama, bukan selalu jatuh ke "planning") saat project baru dibatalkan;
+    // dan bersihkan field ini lagi saat project keluar dari status cancelled
+    // (dipulihkan atau statusnya diubah manual ke status lain).
+    const wasCancelled = existingProject.status === 'cancelled'
+    const isNowCancelled = projectStatus === 'cancelled'
+    const statusBeforeCancel = isNowCancelled && !wasCancelled
+      ? existingProject.status
+      : isNowCancelled
+        ? existingProject.status_before_cancel
+        : null
+
     connection = await db.getConnection()
     await connection.beginTransaction()
 
@@ -856,6 +868,7 @@ router.put('/:id', async (req, res) => {
           project_code = ?,
           contract_value = ?,
           status = ?,
+          status_before_cancel = ?,
           start_date = ?,
           end_date = ?,
           description = ?,
@@ -869,6 +882,7 @@ router.put('/:id', async (req, res) => {
         projectCode,
         contractValue,
         projectStatus,
+        statusBeforeCancel,
         startDate,
         endDate,
         projectDescription,

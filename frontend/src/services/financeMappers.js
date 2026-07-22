@@ -5,6 +5,7 @@ const dateOnly = (value) => String(value || "").slice(0, 10);
 export function mapClient(row = {}) {
   return {
     id: String(row.id ?? ""),
+    kode: row.code || row.kode || "-",
     namaPerusahaan: row.company_name || row.namaPerusahaan || "-",
     bidang: row.industry || row.category || row.bidang || "-",
     lokasi: row.location || row.address || row.lokasi || "-",
@@ -33,6 +34,9 @@ export function mapProject(row = {}) {
       projectStatus[String(row.status || "").toLowerCase()] ||
       row.status ||
       "Planning",
+    statusSebelumDibatalkan:
+      projectStatus[String(row.status_before_cancel || "").toLowerCase()] ||
+      null,
     tanggalMulai: dateOnly(row.start_date || row.tanggalMulai),
     tanggalSelesai: dateOnly(row.end_date || row.tanggalSelesai),
     klienId: String(row.client_id ?? row.klienId ?? ""),

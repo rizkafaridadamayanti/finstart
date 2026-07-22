@@ -361,26 +361,6 @@
             </p>
           </div>
             <div class="relative z-10 flex min-h-0 flex-1 flex-col">
-              <div v-if="!isChatHistoryOpen" class="cfo-sidebar border-b p-3">
-              <p
-                class="cfo-section-label mb-2 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.12em]"
-              >
-                <FileText class="h-3.5 w-3.5" /> Template
-              </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 min-[1500px]:grid-cols-4">
-                <button
-                  v-for="item in quickQuestions.slice(0, 4)"
-                  :id="`btn-fast-${item.id}`"
-                  :key="item.id"
-                  type="button"
-                  class="cfo-template-button group flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-[11px] font-medium transition"
-                  @click="handleFastQuestion(item.prompt)"
-                >
-                  <span class="min-w-0 truncate">{{ item.label }}</span
-                  ><ArrowUpRight class="h-3.5 w-3.5 shrink-0 opacity-80" />
-                </button>
-              </div>
-            </div>
             <div class="cfo-ai-workspace flex min-h-0 flex-1">
               <div v-if="!isChatHistoryOpen" class="flex min-w-0 flex-1 flex-col">
                 <div
@@ -724,6 +704,7 @@ import {
   PanelRightOpen,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
+import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
 import { useFinStartContext } from "../composables/useFinStartContext";
 import {
   AkunBukuBesar,
@@ -774,89 +755,9 @@ const defaultInsightMessage: InsightMessage = {
 const initialChatSessions: ChatSession[] = [
   {
     id: "chat-current",
-    title: "Prioritas kas & piutang",
+    title: "Chat baru",
     updatedAt: "Baru saja",
-    messages: [
-      {
-        id: "welcome",
-        sender: "ai",
-        text: "Prioritas bulan ini adalah percepatan penagihan piutang dan penyetoran PPN. Kas operasional tetap sehat, namun terdapat dua invoice yang membutuhkan tindak lanjut sebelum pertengahan bulan.",
-      },
-    ],
-  },
-  {
-    id: "chat-pajak",
-    title: "Analisis kewajiban pajak",
-    updatedAt: "Hari ini",
-    messages: [
-      {
-        id: "pajak-1",
-        sender: "ai",
-        text: "Ringkasan sebelumnya: PPh 21 dan PPN perlu dipantau sebelum jatuh tempo agar status kepatuhan tetap patuh.",
-      },
-    ],
-  },
-  {
-    id: "chat-burn",
-    title: "Optimasi burn rate digital",
-    updatedAt: "Kemarin",
-    messages: [
-      {
-        id: "burn-1",
-        sender: "ai",
-        text: "Ringkasan sebelumnya: evaluasi langganan dengan utilisasi rendah dan tinjau pengeluaran cloud bulanan.",
-      },
-    ],
-  },
-];
-const quickQuestions = [
-  {
-    id: "flow",
-    label: "Baca alur finance end-to-end",
-    prompt:
-      "Baca semua alur aplikasi dari operasional sampai keuangan, lalu beri prioritas tindakan minggu ini.",
-  },
-  {
-    id: "cash",
-    label: "Prioritas kas dan piutang",
-    prompt:
-      "Analisis prioritas kas, piutang, dan invoice yang perlu ditagih bulan ini.",
-  },
-  {
-    id: "tax",
-    label: "Analisis kewajiban pajak",
-    prompt:
-      "Analisis kewajiban perpajakan dan risiko kepatuhan berdasarkan data pajak dan jurnal.",
-  },
-  {
-    id: "burn",
-    label: "Optimasi burn rate digital",
-    prompt:
-      "Berapa pengeluaran langganan rutin digital kita dan bagaimana cara optimasinya?",
-  },
-  {
-    id: "project",
-    label: "Status proyek ke invoice",
-    prompt:
-      "Cek proyek aktif, klien, nilai kontrak, dan peluang invoice yang perlu diterbitkan.",
-  },
-  {
-    id: "payable",
-    label: "Risiko utang vendor",
-    prompt:
-      "Analisis utang vendor, jadwal pembayaran, dan dampaknya ke kas operasional.",
-  },
-  {
-    id: "people",
-    label: "SDM dan payroll",
-    prompt:
-      "Ringkas kondisi SDM, payroll, dan kepatuhan karyawan yang perlu dipantau.",
-  },
-  {
-    id: "asset",
-    label: "Aset dan depresiasi",
-    prompt:
-      "Analisis aset, nilai buku, langganan, dan pengeluaran operasional rutin.",
+    messages: [{ ...defaultInsightMessage }],
   },
 ];
 function cloneChatSessions(sessions: ChatSession[] = initialChatSessions) {
@@ -1076,20 +977,6 @@ const appendMessageToChat = (
       : session,
   );
 };
-const normalizeCfoTemplate = (reply: string) => {
-  if (reply.includes("**AI INSIGHT**")) return reply;
-  return [
-    "**AI INSIGHT**",
-    reply,
-    "",
-    "**DATA TERBACA**",
-    `- Modul aktif: ${formatCount(klien.length, "klien")}, ${formatCount(proyek.length, "proyek")}, ${formatCount(transaksi.length, "jurnal")}, ${formatCount(openInvoices.length, "invoice terbuka")}.`,
-    `- Kas, piutang, utang: ${formatRupiah(totalKasBank)} / ${formatRupiah(totalReceivable)} / ${formatRupiah(totalPayable)}.`,
-    "",
-    "**ARAH TINDAKAN**",
-    "- Buka modul terkait dari sidebar, cek data yang disebut, lalu posting atau simpan transaksi dari form resmi modul.",
-  ].join("\n");
-};
 const createChatTitle = (prompt: string) => {
   const title = prompt.replace(/\s+/g, " ").trim();
   return title.length > 88 ? `${title.slice(0, 85)}...` : title;
@@ -1123,6 +1010,9 @@ const handleFastQuestion = async (prompt: string) => {
   const targetChatId = activeChatId.value;
   const shouldUpdateTitle = activeChat.value?.title === "Chat baru";
   const generatedTitle = createChatTitle(prompt);
+  const historyForRequest = (activeChat.value?.messages || []).map(
+    (message) => ({ sender: message.sender, text: message.text }),
+  );
   appendMessageToChat(
     targetChatId,
     {
@@ -1133,14 +1023,29 @@ const handleFastQuestion = async (prompt: string) => {
     shouldUpdateTitle ? generatedTitle : undefined,
   );
   updateIsAiLoading(true);
-  window.setTimeout(() => {
+  try {
+    const result = await financeApi.post("/ai-copilot/copilot", {
+      message: prompt,
+      history: historyForRequest,
+      context: aiContext,
+    });
     appendMessageToChat(targetChatId, {
       id: `ai-${Date.now()}`,
       sender: "ai",
-      text: normalizeCfoTemplate(buildCfoReply(prompt)),
+      text: result?.reply || "AI tidak memberikan jawaban.",
     });
+  } catch (error) {
+    appendMessageToChat(targetChatId, {
+      id: `ai-error-${Date.now()}`,
+      sender: "ai",
+      text: getApiErrorMessage(
+        error,
+        "Gagal menghubungi AI Copilot. Coba lagi sebentar lagi.",
+      ),
+    });
+  } finally {
     updateIsAiLoading(false);
-  }, 360);
+  }
 };
 const handleSendMessage = (event: Event) => {
   event.preventDefault();
@@ -1264,135 +1169,171 @@ const monthlyPayroll = (pegawai || []).reduce(
 );
 const projectionSummary = projectionData?.summary || {};
 const reportSummary = reportData || {};
-function formatCount(count: number, label: string) {
-  return `${count.toLocaleString("id-ID")} ${label}`;
+function resolveKlienName(klienId: string) {
+  return klien.find((item) => item.id === klienId)?.namaPerusahaan || "-";
 }
-function buildCfoContextIntro() {
-  return [
-    `- Operasional CRM: ${formatCount(klien.length, "klien")} dan ${formatCount(proyek.length, "proyek")} (${formatCount(ongoingProjectsCount, "ongoing")}).`,
-    `- Buku besar dan jurnal: ${formatCount(akun.length, "akun COA")} dan ${formatCount(transaksi.length, "jurnal/transaksi")}.`,
-    `- Piutang: ${formatRupiah(totalReceivable)} dari ${formatCount(openInvoices.length, "invoice terbuka")} (${formatCount(overdueInvoices.length, "overdue")}).`,
-    `- Utang vendor: ${formatRupiah(totalPayable)} dari ${formatCount(openBills.length, "tagihan terbuka")}.`,
-    `- Pajak: ${formatCount(unpaidTaxes.length, "kewajiban belum setor")} dengan nilai ${formatRupiah(unpaidTaxes.reduce((sum: number, item: any) => sum + Number(item.nominal || 0), 0))}.`,
-    `- SDM dan operasional rutin: payroll estimasi ${formatRupiah(monthlyPayroll)} dan langganan ${formatRupiah(monthlySubscriptionBurn)}/bulan.`,
-    `- Aset dan laporan: ${formatCount((assets || []).length, "aset")} bernilai buku ${formatRupiah(totalAssetsBookValue)}; data proyeksi ${projectionSummary.year || projectionData?.year || "tahun berjalan"} terhubung.`,
-  ];
+// Model AI lokal (kecil) tidak bisa diandalkan untuk hitung tanggal/selisih sendiri,
+// jadi semua perbandingan tanggal dan pengurangan dihitung di kode di sini, bukan
+// diserahkan ke AI - AI cuma perlu membacakan angka yang sudah pasti benar.
+const TODAY_MS = new Date(new Date().toDateString()).getTime();
+function daysFromToday(dateString: string | undefined | null) {
+  if (!dateString) return null;
+  const target = new Date(String(dateString).slice(0, 10));
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.round((target.getTime() - TODAY_MS) / 86400000);
 }
-function buildCfoReply(prompt: string) {
-  const text = prompt.toLowerCase();
-  const netCashPosition = totalKasBank + totalReceivable - totalPayable;
-  const risk =
-    overdueInvoices.length || unpaidTaxes.length || totalPayable > totalKasBank
-      ? "Perlu tindakan terarah minggu ini."
-      : "Masih terkendali, tetapi tetap perlu monitoring rutin.";
-  const baseSummary = [
-    "**Ringkasan CFO Copilot**",
-    `- Posisi kas: ${formatRupiah(totalKasBank)} dengan estimasi posisi setelah piutang dan utang ${formatRupiah(netCashPosition)}.`,
-    `- Margin laba berjalan: ${profitMargin.toLocaleString("id-ID", { maximumFractionDigits: 1 })}% dari pendapatan ${formatRupiah(totalRevenue)}.`,
-    `- Sinyal risiko: ${risk}`,
-  ];
-  if (/(pajak|ppn|pph|tax|setor|kepatuhan)/.test(text)) {
-    return [
-      "**Analisis pajak dan kepatuhan**",
-      `- Kewajiban belum setor: ${formatCount(unpaidTaxes.length, "item")} senilai ${formatRupiah(unpaidTaxes.reduce((sum: number, item: any) => sum + Number(item.nominal || 0), 0))}.`,
-      `- Pajak perlu dicek terhadap jurnal pendapatan dan beban terbaru: ${formatCount(transaksi.length, "transaksi")}.`,
-      "- Prioritas: validasi PPN keluaran dari invoice, cek PPh terkait payroll/vendor, lalu jadwalkan setoran sebelum jatuh tempo.",
-      "- Risiko: jika invoice sudah issued tetapi pajak belum disiapkan, kas bisa terlihat sehat namun kewajiban bulan berjalan tertahan.",
-    ].join("\n");
-  }
-  if (/(piutang|invoice|tagih|receivable|kas|cash|bank)/.test(text)) {
-    const largestInvoice = [...openInvoices].sort(
-      (a: any, b: any) =>
-        Number(b.outstandingAmount || b.nominal || 0) -
-        Number(a.outstandingAmount || a.nominal || 0),
-    )[0];
-    return [
-      "**Prioritas kas dan piutang**",
-      `- Kas tersedia: ${formatRupiah(totalKasBank)}.`,
-      `- Piutang terbuka: ${formatRupiah(totalReceivable)} dari ${formatCount(openInvoices.length, "invoice")}; overdue ${formatCount(overdueInvoices.length, "invoice")}.`,
-      largestInvoice
-        ? `- Invoice terbesar untuk follow-up: ${largestInvoice.klienNama || "-"} ${formatRupiah(largestInvoice.outstandingAmount || largestInvoice.nominal || 0)} (${largestInvoice.nomor || "-"}).`
-        : "- Tidak ada invoice terbuka yang perlu ditagih.",
-      "- Tindakan: urutkan follow-up dari nominal terbesar, kirim reminder H-7/H-3, dan cocokkan pembayaran dengan jurnal kas masuk.",
-    ].join("\n");
-  }
-  if (/(utang|vendor|bill|payable|bayar)/.test(text)) {
-    const largestBill = [...openBills].sort(
-      (a: any, b: any) =>
-        Number(b.outstandingAmount || b.nominal || 0) -
-        Number(a.outstandingAmount || a.nominal || 0),
-    )[0];
-    return [
-      "**Analisis utang vendor**",
-      `- Utang terbuka: ${formatRupiah(totalPayable)} dari ${formatCount(openBills.length, "tagihan")}.`,
-      largestBill
-        ? `- Tagihan paling besar: ${largestBill.vendor || "-"} ${formatRupiah(largestBill.outstandingAmount || largestBill.nominal || 0)} (${largestBill.nomorTagihan || "-"}).`
-        : "- Tidak ada tagihan terbuka yang terlihat.",
-      `- Rasio utang terhadap kas: ${totalKasBank > 0 ? `${((totalPayable / totalKasBank) * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%` : "kas belum tersedia"}.`,
-      "- Tindakan: pisahkan vendor kritikal dan non-kritikal, jadwalkan pembayaran berdasarkan jatuh tempo, lalu posting pembayaran agar buku besar tetap bersih.",
-    ].join("\n");
-  }
-  if (/(proyek|project|crm|klien|kontrak|invoice diterbitkan)/.test(text)) {
-    const activeProjectValue = proyek
-      .filter((project) => project.status === "Ongoing")
-      .reduce((sum, project) => sum + Number(project.nilaiKontrak || 0), 0);
-    return [
-      "**Alur proyek sampai invoice**",
-      `- Klien aktif: ${formatCount(klien.length, "klien")}; proyek ongoing: ${formatCount(ongoingProjectsCount, "proyek")}.`,
-      `- Nilai kontrak proyek ongoing: ${formatRupiah(activeProjectValue)}.`,
-      `- Invoice terbuka saat ini: ${formatCount(openInvoices.length, "invoice")} senilai ${formatRupiah(totalReceivable)}.`,
-      "- Tindakan: cek milestone proyek yang selesai, terbitkan invoice termin, lalu pastikan jurnal pendapatan dan piutang terbentuk.",
-    ].join("\n");
-  }
-  if (
-    /(langganan|burn|operasional|aset|depresiasi|asset|saas|software)/.test(
-      text,
-    )
-  ) {
-    return [
-      "**Operasional rutin, aset, dan burn rate**",
-      `- Langganan bulanan: ${formatRupiah(monthlySubscriptionBurn)} dari ${formatCount(langganan.length, "layanan")}.`,
-      `- Aset tercatat: ${formatCount((assets || []).length, "aset")} dengan nilai buku ${formatRupiah(totalAssetsBookValue)}.`,
-      `- Beban bulan berjalan: ${formatRupiah(Number(dashboardData.monthly_expense || 0))}.`,
-      "- Tindakan: matikan langganan tidak aktif, cocokkan biaya cloud/software ke proyek, dan cek depresiasi aset sebelum tutup buku.",
-    ].join("\n");
-  }
-  if (/(sdm|pegawai|payroll|gaji|bpjs|karyawan)/.test(text)) {
-    const reviewEmployees = (pegawai || []).filter(
-      (item: any) => item.compliance === "Tinjauan",
-    ).length;
-    return [
-      "**SDM dan payroll**",
-      `- Pegawai tercatat: ${formatCount((pegawai || []).length, "orang")}.`,
-      `- Estimasi payroll: ${formatRupiah(monthlyPayroll)}.`,
-      `- Status compliance tinjauan: ${formatCount(reviewEmployees, "pegawai")}.`,
-      "- Tindakan: validasi BPJS/PPh 21, posting jurnal payroll tepat waktu, dan cocokkan biaya tenaga kerja dengan proyek terkait.",
-    ].join("\n");
-  }
-  if (
-    /(laporan|proyeksi|forecast|target|neraca|laba rugi|arus kas)/.test(text)
-  ) {
-    return [
-      "**Laporan dan proyeksi**",
-      `- Pendapatan tercatat: ${formatRupiah(totalRevenue)}; laba bersih: ${formatRupiah(netProfit)}.`,
-      `- Target pendapatan proyeksi: ${formatRupiah(Number(projectionSummary.revenue_target || 0))}; realisasi: ${formatRupiah(Number(projectionSummary.revenue_actual || 0))}.`,
-      `- Data laporan tersedia: ${Object.keys(reportSummary).length ? "laba rugi, neraca, dan arus kas" : "menunggu ringkasan laporan dari backend"}.`,
-      "- Tindakan: bandingkan realisasi vs target, cek akun beban terbesar, dan pakai laporan arus kas untuk keputusan pembayaran vendor.",
-    ].join("\n");
-  }
-  return [
-    ...baseSummary,
-    "",
-    "**Konteks yang saya baca**",
-    ...buildCfoContextIntro(),
-    "",
-    "**Prioritas tindakan**",
-    "- Percepat penagihan invoice terbuka sebelum jadwal pembayaran vendor besar.",
-    "- Tutup gap pajak dari invoice, payroll, dan vendor sebelum akhir periode.",
-    "- Cocokkan proyek ongoing dengan milestone invoice agar pendapatan tidak tertunda.",
-    "- Review langganan, aset, dan payroll sebagai beban operasional rutin.",
-  ].join("\n");
-}
+const upcomingDeadlines: Array<{
+  jenis: string;
+  proyek: string;
+  klien: string;
+  keterangan: string;
+  tanggal: string;
+  hariLagi: number;
+}> = [];
+proyek
+  .filter((item) => !["Cancelled", "Completed"].includes(item.status))
+  .forEach((item) => {
+    const projectDays = daysFromToday(item.tanggalSelesai);
+    if (projectDays !== null && projectDays >= -3 && projectDays <= 14) {
+      upcomingDeadlines.push({
+        jenis: "Selesai proyek",
+        proyek: item.nama,
+        klien: resolveKlienName(item.klienId),
+        keterangan: "Tanggal target selesai proyek",
+        tanggal: item.tanggalSelesai,
+        hariLagi: projectDays,
+      });
+    }
+    (item.milestones || []).forEach((milestone) => {
+      const milestoneDays = daysFromToday(milestone.due_date);
+      if (
+        milestoneDays !== null &&
+        milestoneDays >= -3 &&
+        milestoneDays <= 14 &&
+        milestone.status !== "completed"
+      ) {
+        upcomingDeadlines.push({
+          jenis: "Milestone",
+          proyek: item.nama,
+          klien: resolveKlienName(item.klienId),
+          keterangan: milestone.title,
+          tanggal: milestone.due_date || "-",
+          hariLagi: milestoneDays,
+        });
+      }
+    });
+  });
+upcomingDeadlines.sort((a, b) => a.hariLagi - b.hariLagi);
+// Snapshot data FinStart yang dikirim ke backend sebagai konteks nyata untuk AI Copilot.
+// Backend menyuntikkan ini ke system prompt AI lokal (Ollama) agar jawaban dihitung dari
+// data asli, bukan template yang dicocokkan dari kata kunci.
+const aiContext = {
+  klien: {
+    totalKlienAktif: klien.filter((item) => (item.status || "active") === "active").length,
+    daftar: klien.slice(0, 40).map((item) => ({
+      nama: item.namaPerusahaan,
+      bidang: item.bidang,
+      lokasi: item.lokasi,
+      pic: item.pic,
+      status: item.status || "active",
+    })),
+  },
+  ringkasanKeuangan: {
+    kasBank: totalKasBank,
+    pendapatanTercatat: totalRevenue,
+    labaBersih: netProfit,
+    marginLabaPersen: Number(profitMargin.toFixed(1)),
+    piutangTerbuka: totalReceivable,
+    invoiceOverdueCount: overdueInvoices.length,
+    utangTerbuka: totalPayable,
+    nilaiBukuAset: totalAssetsBookValue,
+    payrollBulanan: monthlyPayroll,
+    langgananBulanan: monthlySubscriptionBurn,
+  },
+  proyeksiTarget: {
+    tahun: projectionData?.year || new Date().getFullYear(),
+    targetPendapatan: Number(projectionSummary.revenue_target || 0),
+    realisasiPendapatan: Number(projectionSummary.revenue_actual || 0),
+    selisihMenujuTargetPendapatan:
+      Number(projectionSummary.revenue_target || 0) -
+      Number(projectionSummary.revenue_actual || 0),
+    targetBeban: Number(projectionSummary.expense_target || 0),
+    realisasiBeban: Number(projectionSummary.expense_actual || 0),
+    targetLaba: Number(projectionSummary.profit_target || 0),
+    realisasiLaba: Number(projectionSummary.profit_actual || 0),
+    selisihMenujuTargetLaba:
+      Number(projectionSummary.profit_target || 0) -
+      Number(projectionSummary.profit_actual || 0),
+    statusPerencanaan: projectionSummary.planning_status?.label || "-",
+    saldoKas: Number(projectionSummary.cash_balance || 0),
+    burnRateBulanan: Number(projectionSummary.monthly_burn_rate || 0),
+    runwayBulan: projectionSummary.runway_months ?? null,
+  },
+  agendaJatuhTempoDekat: {
+    catatan:
+      "Daftar ini sudah diurutkan dari yang paling dekat waktunya. hariLagi negatif berarti sudah lewat jatuh tempo (terlambat), 0 berarti hari ini, positif berarti berapa hari lagi.",
+    daftar: upcomingDeadlines,
+  },
+  laporanKeuangan: {
+    tersedia: Object.keys(reportSummary).length > 0,
+    pendapatanLaporan: Number(reportSummary.income_statement?.total_revenue || 0),
+    bebanLaporan: Number(reportSummary.income_statement?.total_expense || 0),
+    labaBersihLaporan: Number(reportSummary.income_statement?.net_profit || 0),
+  },
+  proyek: proyek
+    .filter((item) => item.status !== "Cancelled")
+    .slice(0, 40)
+    .map((item) => ({
+      nama: item.nama,
+      klien: resolveKlienName(item.klienId),
+      status: item.status,
+      nilaiKontrak: item.nilaiKontrak,
+      tanggalMulai: item.tanggalMulai,
+      tanggalSelesai: item.tanggalSelesai,
+      picKontak: item.picKontak,
+      milestones: (item.milestones || []).map((milestone) => ({
+        judul: milestone.title,
+        jatuhTempo: milestone.due_date,
+        status: milestone.status,
+      })),
+    })),
+  invoiceTerbuka: openInvoices.slice(0, 30).map((item: any) => ({
+    klien: item.klienNama,
+    proyek: item.proyekNama,
+    nomor: item.nomor,
+    nominal: Number(item.outstandingAmount || item.nominal || 0),
+    jatuhTempo: item.jatuhTempo,
+    status: item.status,
+  })),
+  tagihanVendorTerbuka: openBills.slice(0, 30).map((item: any) => ({
+    vendor: item.vendor,
+    nomor: item.nomorTagihan,
+    nominal: Number(item.outstandingAmount || item.nominal || 0),
+    jatuhTempo: item.jatuhTempo,
+    status: item.status,
+  })),
+  pajakBelumSetor: unpaidTaxes.slice(0, 30).map((item: any) => ({
+    jenis: item.jenis,
+    masaPajak: item.masaPajak,
+    nominal: Number(item.nominal || 0),
+    jatuhTempo: item.jatuhTempo,
+  })),
+  sdm: {
+    totalPegawai: (pegawai || []).length,
+    payrollBulanan: monthlyPayroll,
+    pegawaiPerluTinjauan: (pegawai || [])
+      .filter((item: any) => item.compliance === "Tinjauan")
+      .map((item: any) => item.nama),
+  },
+  aset: {
+    totalAset: (assets || []).length,
+    nilaiBuku: totalAssetsBookValue,
+  },
+  langganan: {
+    totalLayanan: langganan.length,
+    biayaBulanan: monthlySubscriptionBurn,
+  },
+};
 const maxValue = Math.max(
   ...monthlyCashflow.flatMap((item: any) => [item.income, item.expense]),
   1,
