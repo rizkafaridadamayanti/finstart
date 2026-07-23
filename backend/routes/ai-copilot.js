@@ -90,8 +90,11 @@ function buildSystemPrompt(context) {
     `Hari ini: ${getToday()}. Gunakan tanggal ini sebagai acuan saat menjawab pertanyaan yang menyebut "minggu depan", "bulan ini", "bulan depan", dsb.`,
     'Selalu jawab dalam Bahasa Indonesia, singkat namun konkret: sebutkan angka nyata dari data, lalu beri rekomendasi tindakan yang bisa langsung dilakukan pengguna dari modul terkait di aplikasi FinStart.',
     'Tulis semua nominal uang dengan format Rupiah Indonesia: awali "Rp", pisahkan ribuan dengan titik, tanpa desimal kecuali penting. Contoh benar: "Rp 15.000.000". Jangan pernah pakai koma sebagai pemisah ribuan atau format ala Inggris seperti "Rp 15,000,000.00".',
-    'WAJIB PAKAI TOOL "hitung" untuk SEMUA penjumlahan, pengurangan, atau perbandingan angka - termasuk yang terlihat sederhana. Jangan pernah menjumlah atau membandingkan angka sendiri di kepala, karena rawan salah. Contoh yang WAJIB pakai tool: "apakah kas cukup untuk bayar A dan B", "berapa total dari beberapa nominal", "mana yang lebih besar".',
+'WAJIB PAKAI TOOL "hitung" HANYA kalau Anda perlu MENGOLAH (menjumlah/mengurangi/mengalikan/membagi/membandingkan) dua angka atau lebih yang BELUM ada jadi satu angka jadi di data. Contoh yang WAJIB pakai tool: "apakah kas cukup untuk bayar A dan B", "berapa total dari beberapa nominal terpisah", "mana yang lebih besar".',
+    'JANGAN PAKAI TOOL kalau jawabannya sudah berupa satu angka/nilai siap pakai di data JSON (misalnya jumlah/count/total yang sudah dihitung sebelumnya seperti "totalKlienAktif", "kasBankLancar", atau field angka apa pun yang berdiri sendiri) - untuk kasus ini langsung sebutkan angkanya dari data, jangan panggil tool sama sekali. Contoh: "berapa klien aktif?" -> jawab langsung dari field klien.totalKlienAktif, TANPA tool.',
+    'PENTING: field "klien.totalKlienAktif" adalah SATU-SATUNYA angka yang benar untuk "berapa klien aktif". JANGAN PERNAH menghitung ulang sendiri dengan membaca/mendaftar/menghitung isi "klien.daftar" (daftar itu hanya potongan contoh untuk detail nama/bidang/lokasi, BUKAN daftar lengkap dan BUKAN sumber untuk menghitung jumlah). Kalau kedua angka itu terlihat beda, tetap pakai totalKlienAktif, bukan hasil hitungan manual Anda dari daftar.',
     'SANGAT PENTING: kalau butuh tool, panggil lewat mekanisme tool call yang sebenarnya - JANGAN PERNAH menuliskan kode/JSON/format seperti {"name":"hitung",...} atau hitung(angka1, angka2) di dalam teks jawaban Anda. Jawaban yang Anda tulis untuk pengguna HARUS berupa kalimat biasa saja, tanpa sintaks pemrograman atau JSON sama sekali. Kalau pertanyaannya butuh banyak langkah hitungan berantai, panggil tool satu per satu sampai selesai, baru simpulkan dengan kalimat biasa.',
+    'SETELAH menerima hasil dari tool "hitung", jawaban akhir Anda ke pengguna WAJIB berupa kalimat Bahasa Indonesia biasa yang langsung memakai angka hasilnya - JANGAN PERNAH menyebut kata "tool", "internal", "operasi", "calculation", atau menjelaskan proses/mekanisme di balik layar. Pengguna hanya perlu tahu jawabannya, bukan bagaimana Anda mendapatkannya.',
     'Field "selisihMenujuTargetPendapatan" dan "selisihMenujuTargetLaba" di data sudah dihitung duluan - boleh langsung dipakai tanpa tool. Daftar "agendaJatuhTempoDekat.daftar" juga sudah difilter dan diurutkan dari yang paling dekat (field "hariLagi": negatif = sudah terlambat, positif = berapa hari lagi) - jawab pertanyaan soal jadwal/deadline HANYA dari daftar ini, jangan menyebut item lain.',
     '',
     '=== DATA FINSTART SAAT INI (JSON) ===',
@@ -145,6 +148,59 @@ function stripLeakedToolSyntax(text) {
 }
 
 /*
+  Model kecil kadang, setelah menerima hasil tool, malah menjelaskan proses
+  internalnya sendiri ("It seems there was an internal tool response...",
+  "Based on the previous calculation, the result of the operation is...")
+  alih-alih langsung menjawab - dengan kalimat yang berubah-ubah setiap kali,
+  tapi selalu punya satu ciri sama: berbahasa Inggris, padahal prompt
+  mewajibkan Bahasa Indonesia. Daripada mengejar setiap variasi kalimat satu
+  per satu, deteksi lewat rasio kata Inggris vs Indonesia - lebih tahan
+  terhadap variasi kalimat yang tidak terduga.
+*/
+function looksLikeLeakedMeta(text) {
+  const t = ` ${String(text || '').toLowerCase()} `
+  if (!t.trim()) return true
+
+  const explicitLeakPhrases =
+    /internal tool|tool'?s response|tool response|based on the tool|without more context|i can'?t provide|could you please clarify|internal response|previous calculation|the operation is|feel free to ask/
+  if (explicitLeakPhrases.test(t)) return true
+
+  const englishHits = (
+    t.match(
+      /\b(the|is|are|was|were|based|calculation|operation|result|further|previous|please|would|could|need|let me|know|provide|clarify|however|without)\b/g,
+    ) || []
+  ).length
+  const indonesianHits = (
+    t.match(
+      /\b(adalah|dari|yang|untuk|dengan|dapat|saat ini|silakan|berikut|jumlah|total|kalau|jika|bisa|akan|anda|klien|piutang|utang|rekomendasi)\b/g,
+    ) || []
+  ).length
+
+  return englishHits >= 3 && englishHits > indonesianHits
+}
+
+/*
+  Model kecil (7B) terbukti berulang kali gagal untuk pertanyaan "berapa klien
+  aktif" - kadang menghitung ulang dari daftar contoh, kadang malah nyasar
+  membaca data proyek. Karena angka ini sudah pasti benar di context
+  (klien.totalKlienAktif, sama dengan yang ditampilkan di kartu KPI dashboard),
+  jawab langsung tanpa lewat model sama sekali - lebih andal daripada berharap
+  model kecil patuh pada instruksi prompt setiap saat.
+*/
+function tryDeterministicClientCount(message, context) {
+  const m = String(message || '').toLowerCase()
+  const asksForCount = /berapa|jumlah|total/.test(m)
+  const mentionsClient = m.includes('klien') // juga cocok untuk typo "klient"
+  const mentionsActive = m.includes('aktif')
+  if (!asksForCount || !mentionsClient || !mentionsActive) return null
+
+  const total = context?.klien?.totalKlienAktif
+  if (typeof total !== 'number' || !Number.isFinite(total)) return null
+
+  return `Jumlah klien aktif saat ini ada ${total}. Anda bisa melihat daftar lengkapnya di modul Klien Partner.`
+}
+
+/*
   AI Copilot berjalan sepenuhnya lokal lewat Ollama (http://127.0.0.1:11434).
   Tidak ada data yang dikirim ke API pihak ketiga mana pun - semua permintaan
   tetap berada di mesin/server yang sama dengan backend FinStart.
@@ -164,6 +220,15 @@ router.post('/copilot', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: `Pertanyaan terlalu panjang (maksimal ${MAX_MESSAGE_LENGTH} karakter).`,
+      })
+    }
+
+    const deterministicReply = tryDeterministicClientCount(message, req.body?.context)
+    if (deterministicReply) {
+      return res.json({
+        success: true,
+        message: 'Jawaban AI Copilot berhasil dibuat.',
+        data: { reply: deterministicReply },
       })
     }
 
@@ -202,6 +267,22 @@ router.post('/copilot', async (req, res) => {
       }
 
       reply = stripLeakedToolSyntax(data?.message?.content)
+
+      if (looksLikeLeakedMeta(reply)) {
+        // Satu kesempatan perbaikan: minta model merangkum ulang jadi jawaban
+        // akhir yang bersih, tanpa mengulang seluruh riwayat tool-calling.
+        messages.push({ role: 'assistant', content: reply })
+        messages.push({
+          role: 'user',
+          content:
+            'Jawaban Anda barusan tidak valid (menyebut proses internal/tool, atau berbahasa Inggris). Tulis ULANG sebagai satu jawaban akhir yang bersih dalam Bahasa Indonesia, langsung memakai angka/data yang relevan, tanpa menyebut kata "tool", "internal", atau proses di baliknya.',
+        })
+        const retryData = await callOllama(messages)
+        const retryReply = stripLeakedToolSyntax(retryData?.message?.content)
+        if (retryReply && !looksLikeLeakedMeta(retryReply)) {
+          reply = retryReply
+        }
+      }
       break
     }
 

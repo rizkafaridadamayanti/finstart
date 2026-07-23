@@ -20,6 +20,15 @@ function normalizeCode(value, fallbackPrefix = 'POS') {
     .slice(0, 50)
 }
 
+/*
+  Kode jabatan tidak lagi diketik manual, dan tidak lagi diturunkan dari nama
+  (dua jabatan dengan nama mirip akan terlihat sama). Sekarang mengikuti pola
+  nomor urut seperti kode transaksi lain di aplikasi ini (mis. klien
+  "KLN-0001"): "JAB-0001", "JAB-0002", dst, berdasarkan id auto-increment
+  baris yang baru dibuat.
+*/
+const POSITION_CODE_PREFIX = 'JAB'
+
 function getStatus(value, fallback = 'active') {
   const status = String(value ?? fallback).trim().toLowerCase()
   return ALLOWED_STATUSES.has(status) ? status : null
@@ -125,6 +134,36 @@ router.get('/', async (req, res) => {
   }
 })
 
+/*
+  GET /api/positions/next-code
+  Mengambil preview kode jabatan yang akan otomatis dibuat untuk jabatan berikutnya.
+*/
+router.get('/next-code', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `
+        SELECT AUTO_INCREMENT AS nextId
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'positions'
+      `,
+    )
+
+    const nextId = Number(rows[0]?.nextId || 1)
+    const code = `${POSITION_CODE_PREFIX}-${String(nextId).padStart(4, '0')}`
+
+    res.json({
+      success: true,
+      message: 'Preview kode jabatan berikutnya berhasil diambil.',
+      data: { code },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil preview kode jabatan.',
+    })
+  }
+})
+
 router.get('/:id', async (req, res) => {
   try {
     const position = await getPositionById(req.params.id)
@@ -143,7 +182,6 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const name = cleanText(req.body?.name, 120)
-    const code = normalizeCode(req.body?.code)
     const description = cleanText(req.body?.description, 2000)
     const status = getStatus(req.body?.status)
     const divisionId = req.body?.division_id ? Number(req.body.division_id) : null
@@ -157,10 +195,16 @@ router.post('/', async (req, res) => {
       if (!division) return res.status(400).json({ success: false, message: 'Divisi jabatan tidak ditemukan.' })
     }
 
+    // `code` is NOT NULL + UNIQUE, so insert with a throwaway placeholder
+    // first, then stamp the real sequential code once the auto-increment id
+    // is known - same two-step approach clients.js uses for "KLN-0001".
+    const placeholder = `TMP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const [result] = await db.query(
       `INSERT INTO positions (division_id, code, name, description, status) VALUES (?, ?, ?, ?, ?)`,
-      [divisionId, code, name, description, status],
+      [divisionId, placeholder, name, description, status],
     )
+    const code = `${POSITION_CODE_PREFIX}-${String(result.insertId).padStart(4, '0')}`
+    await db.query('UPDATE positions SET code = ? WHERE id = ?', [code, result.insertId])
 
     res.status(201).json({
       success: true,
