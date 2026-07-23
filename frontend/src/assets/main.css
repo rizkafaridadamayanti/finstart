@@ -5,6 +5,23 @@
   color-scheme: light;
 }
 
+/*
+  Scrollbar bawaan Windows Chrome (abu-abu solid dengan tombol panah, ~15-17px)
+  selalu memotong warna penuh section gelap (landing page, modal) dan terlihat
+  seperti garis yang "bocor" di sisi kanan - warna ulang saja tidak cukup
+  karena tombol panahnya tetap abu-abu default. Scrollbar disembunyikan total
+  (scroll tetap berfungsi normal lewat wheel/trackpad) supaya tidak ada lagi
+  elemen non-biru yang memotong background di mana pun.
+*/
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 #app .fixed.inset-0 {
   z-index: var(--finstart-overlay-z) !important;
 }
@@ -326,6 +343,7 @@ body:has(.app-main .fixed.inset-0) .dashboard-topbar-enter {
   padding: 26px 28px 28px;
   overflow: hidden;
   border: 1px solid #d8e5f4;
+  border-radius: 20px;
   background: #ffffff;
   box-shadow: 0 18px 46px rgba(11, 31, 74, 0.09);
 }

@@ -825,11 +825,20 @@ const chatScrollRef = ref(null);
 const chatInputRef = ref(null);
 const pendingScrollMessageId = ref("");
 const chatDeleteConfirmId = ref("");
-const activeChat = computed(
-  () =>
+// A chat created via "Chat baru" lives here - NOT in chatSessions - until the
+// user actually sends a first message. That keeps unused new-chat clicks out
+// of the history list/count instead of cluttering it with empty "Chat baru"
+// entries the moment the button is pressed.
+const draftChat = ref<ChatSession | null>(null);
+const activeChat = computed(() => {
+  if (draftChat.value && draftChat.value.id === activeChatId.value) {
+    return draftChat.value;
+  }
+  return (
     chatSessions.value.find((session) => session.id === activeChatId.value) ||
-    chatSessions.value[0],
-);
+    chatSessions.value[0]
+  );
+});
 const chatDeleteTarget = computed(
   () =>
     chatSessions.value.find(
@@ -900,6 +909,9 @@ const keepFocusOnAiForm = async () => {
   input?.focus({ preventScroll: true });
 };
 const selectChatHistory = async (chatId: string) => {
+  // Switching to a saved chat abandons whatever draft was sitting unused -
+  // it was never persisted anywhere, so there's nothing to clean up.
+  draftChat.value = null;
   updateActiveChatId(chatId);
   closeChatHistory();
   await keepFocusOnAiForm();
@@ -917,7 +929,7 @@ const createNewChat = () => {
       },
     ],
   };
-  chatSessions.value = [newSession, ...chatSessions.value];
+  draftChat.value = newSession;
   updateActiveChatId(newSession.id);
   updateInputMessage("");
   closeChatHistory();
@@ -925,6 +937,12 @@ const createNewChat = () => {
 };
 const clearActiveChat = (archiveCleared = true) => {
   const current = activeChat.value;
+  // Clearing an unused draft is a no-op: it has no conversation to archive
+  // and it isn't in chatSessions yet, so there's nothing to reset there.
+  if (draftChat.value && current?.id === draftChat.value.id) {
+    updateInputMessage("");
+    return;
+  }
   const archive =
     archiveCleared && current ? createClearedChatArchive(current) : null;
   const clearedSession: ChatSession = {
@@ -1013,6 +1031,12 @@ const handleFastQuestion = async (prompt: string) => {
   const historyForRequest = (activeChat.value?.messages || []).map(
     (message) => ({ sender: message.sender, text: message.text }),
   );
+  // First real message in this chat - it's actually being used now, so move
+  // it out of the draft slot and into history for good.
+  if (draftChat.value && draftChat.value.id === targetChatId) {
+    chatSessions.value = [draftChat.value, ...chatSessions.value];
+    draftChat.value = null;
+  }
   appendMessageToChat(
     targetChatId,
     {
@@ -1068,7 +1092,12 @@ const ongoingProjectsCount = Number(
   dashboardData.active_projects ??
     proyek.filter((project) => project.status === "Ongoing").length,
 );
-const activeClientsCount = klien.length;
+// Sama seperti KPI "Klien Aktif" di kartu ringkasan - jangan hitung ulang
+// dengan cara berbeda di tempat lain (mis. AI context), supaya angkanya
+// selalu konsisten dengan yang ditampilkan di layar.
+const activeClientsCount = klien.filter(
+  (item) => (item.status || "active") === "active",
+).length;
 const monthlySubscriptionBurn = langganan.reduce(
   (total, item) => total + Number(item.biayaIDR || 0),
   0,
@@ -1229,7 +1258,7 @@ upcomingDeadlines.sort((a, b) => a.hariLagi - b.hariLagi);
 // data asli, bukan template yang dicocokkan dari kata kunci.
 const aiContext = {
   klien: {
-    totalKlienAktif: klien.filter((item) => (item.status || "active") === "active").length,
+    totalKlienAktif: activeClientsCount,
     daftar: klien.slice(0, 40).map((item) => ({
       nama: item.namaPerusahaan,
       bidang: item.bidang,

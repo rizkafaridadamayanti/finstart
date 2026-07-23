@@ -152,7 +152,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import {
   LayoutDashboard,
   Briefcase,
@@ -428,26 +428,20 @@ function parentIdForTab(tab) {
   return parent ? parent.id : null;
 }
 
-const manuallyExpanded = ref(
-  new Set([parentIdForTab(props.activeTab)].filter(Boolean)),
-);
+// Which group renders expanded is normally derived straight from activeTab
+// (pure, recomputed on every render — never stale). manualExpandOverride only
+// exists for the "browsing without navigating" case: the user clicked a
+// group's own header to open/close it while sitting on an unrelated tab (or
+// to force-close a group whose child page they're currently on). Any actual
+// navigation invalidates that override immediately, so the very next render
+// falls back to the tab-derived answer with no watcher-timing window where
+// the old group could still read as expanded.
+const manualExpandOverride = ref(null);
 
 watch(
   () => props.activeTab,
-  (tab) => {
-    const next = new Set(manuallyExpanded.value);
-    for (const item of itemsWithChildren) {
-      const childMatches = item.children.some((child) => child.id === tab);
-      if (childMatches) {
-        // Landed directly on a child (e.g. reload, deep link) -> reveal it.
-        next.add(item.id);
-      } else if (item.id !== tab) {
-        // Left this item's section entirely -> collapse it.
-        next.delete(item.id);
-      }
-      // else: tab is this item's own page -> leave expand state as the user left it.
-    }
-    manuallyExpanded.value = next;
+  () => {
+    manualExpandOverride.value = null;
   },
 );
 
@@ -477,11 +471,14 @@ function firstNavigableId(item) {
 }
 
 // Expanding a group inserts new rows above whatever comes after it, shifting
-// those items down. A click landing right after that shift can hit the wrong
-// item (whatever moved under the cursor) instead of the one the user aimed
-// for. Briefly ignore navigation to anything except the group's own new
-// children so a fast second click can't misfire onto a shifted sibling.
-let layoutShiftGuardUntil = 0;
+// those items down. A click landing right after that shift (within the same
+// render tick) can hit the wrong item (whatever moved under the cursor)
+// instead of the one the user aimed for. Briefly ignore navigation to
+// anything except the group's own new children so that misfire can't happen.
+// The guard is lifted as soon as the DOM reflects the shift (nextTick), so a
+// deliberate follow-up click on a different, unrelated menu item — which
+// always lands well after that tick — is never swallowed.
+let layoutShiftGuardActive = false;
 let layoutShiftGuardExceptIds = null;
 
 function handleItemClick(item) {
@@ -492,25 +489,31 @@ function handleItemClick(item) {
   const wasExpanded = isExpanded(item);
   toggleExpanded(item.id);
   if (!wasExpanded) {
-    layoutShiftGuardUntil = Date.now() + 250;
+    layoutShiftGuardActive = true;
     layoutShiftGuardExceptIds = new Set(item.children.map((child) => child.id));
+    nextTick(() => {
+      layoutShiftGuardActive = false;
+    });
   }
 }
 
 function isExpanded(item) {
-  return manuallyExpanded.value.has(item.id);
+  if (manualExpandOverride.value) {
+    // A manual override, once set, is authoritative for every group — not
+    // just the one it names — so opening group Y also visually closes
+    // whichever group X was expanded purely because activeTab lived inside
+    // it (only one sub-sidebar is ever shown at a time).
+    return (
+      manualExpandOverride.value.id === item.id &&
+      manualExpandOverride.value.expanded
+    );
+  }
+  return parentIdForTab(props.activeTab) === item.id;
 }
 
 function toggleExpanded(id) {
-  if (manuallyExpanded.value.has(id)) {
-    const next = new Set(manuallyExpanded.value);
-    next.delete(id);
-    manuallyExpanded.value = next;
-    return;
-  }
-  // Expanding a group closes whichever other group was open, so only one
-  // sub-sidebar is ever visible at a time.
-  manuallyExpanded.value = new Set([id]);
+  const currentlyExpanded = isExpanded({ id });
+  manualExpandOverride.value = { id, expanded: !currentlyExpanded };
 }
 
 const desktopSidebarStyle = computed(() => ({
@@ -529,9 +532,13 @@ const desktopSidebarClass = computed(() =>
 );
 
 function navigate(id) {
-  const withinGuard = Date.now() < layoutShiftGuardUntil;
   const isExempt = layoutShiftGuardExceptIds?.has(id);
-  if (withinGuard && !isExempt) return;
+  if (layoutShiftGuardActive && !isExempt) return;
+  // Clicking any actual page link always resolves whatever group is merely
+  // "peeked open" back to the tab-derived truth. This has to happen here
+  // (not just via the activeTab watcher) because clicking the page you're
+  // already on doesn't change activeTab, so no watcher would ever fire.
+  manualExpandOverride.value = null;
   emit("select-tab", id);
 }
 </script>
