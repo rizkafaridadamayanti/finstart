@@ -19,6 +19,15 @@ function normalizeCode(value, fallbackPrefix = 'AST') {
     .slice(0, 50)
 }
 
+/*
+  Kode kategori tidak lagi diketik manual oleh pengguna, dan tidak lagi
+  diturunkan dari nama (dua kategori dengan nama mirip akan terlihat sama).
+  Sekarang mengikuti pola nomor urut seperti kode transaksi lain di aplikasi
+  ini (mis. klien "KLN-0001"): "KAT-0001", "KAT-0002", dst, berdasarkan id
+  auto-increment baris yang baru dibuat.
+*/
+const CATEGORY_CODE_PREFIX = 'KAT'
+
 function duplicateMessage(error, fallback) {
   if (error?.code !== 'ER_DUP_ENTRY') return null
 
@@ -96,6 +105,36 @@ router.get('/', async (req, res) => {
   }
 })
 
+/*
+  GET /api/asset-categories/next-code
+  Mengambil preview kode kategori yang akan otomatis dibuat untuk kategori berikutnya.
+*/
+router.get('/next-code', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `
+        SELECT AUTO_INCREMENT AS nextId
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asset_categories'
+      `,
+    )
+
+    const nextId = Number(rows[0]?.nextId || 1)
+    const code = `${CATEGORY_CODE_PREFIX}-${String(nextId).padStart(4, '0')}`
+
+    res.json({
+      success: true,
+      message: 'Preview kode kategori berikutnya berhasil diambil.',
+      data: { code },
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil preview kode kategori.',
+    })
+  }
+})
+
 router.get('/:id', async (req, res) => {
   try {
     const category = await getCategoryById(req.params.id)
@@ -123,7 +162,6 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const name = cleanText(req.body?.name, 120)
-    const code = normalizeCode(req.body?.code)
     const description = cleanText(req.body?.description, 2000)
 
     if (!name) {
@@ -133,13 +171,19 @@ router.post('/', async (req, res) => {
       })
     }
 
+    // `code` is NOT NULL + UNIQUE, so insert with a throwaway placeholder
+    // first, then stamp the real sequential code once the auto-increment id
+    // is known - same two-step approach clients.js uses for "KLN-0001".
+    const placeholder = `TMP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const [result] = await db.query(
       `
         INSERT INTO asset_categories (code, name, description)
         VALUES (?, ?, ?)
       `,
-      [code, name, description],
+      [placeholder, name, description],
     )
+    const code = `${CATEGORY_CODE_PREFIX}-${String(result.insertId).padStart(4, '0')}`
+    await db.query('UPDATE asset_categories SET code = ? WHERE id = ?', [code, result.insertId])
 
     const category = await getCategoryById(result.insertId)
 
