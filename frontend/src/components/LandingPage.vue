@@ -27,48 +27,48 @@
     <!-- HERO SECTION - Matching clean alignment & exact visual hierarchy of reference image 2 -->
     <section
       id="beranda"
-      class="relative pt-32 pb-28 md:pt-36 md:pb-32 lg:pt-40 lg:pb-36 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center"
+      class="relative pt-24 pb-20 md:pt-28 md:pb-24 lg:pt-32 lg:pb-28 bg-gradient-to-b from-[#0B1F4A] via-[#0B255C] to-[#0A1B40] text-white px-6 md:px-12 overflow-hidden text-center"
     >
       <!-- Soft elegant blue radial grid and glow backdrops -->
       <div
         class="absolute top-0 inset-x-0 h-full bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.1),transparent_60%)] pointer-events-none"
       />
       <div
-        class="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"
+        class="hero-blob hero-blob--a absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"
       />
       <div
-        class="absolute top-1/2 -right-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"
+        class="hero-blob hero-blob--b absolute top-1/2 -right-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"
       />
       <div class="max-w-6xl mx-auto space-y-8 relative z-10">
         <!-- Centered headline -->
         <h1
-          class="mt-6 md:mt-8 text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] max-w-4xl mx-auto text-white"
+          class="hero-enter hero-enter-1 mt-6 md:mt-8 text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] max-w-4xl mx-auto text-white"
         >
           Satu Sistem untuk
           <span
-            class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-white font-extrabold"
+            class="hero-shimmer text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-white font-extrabold"
             >Operasional Finance Kedata</span
           >
         </h1>
         <!-- Centered description matching Gambar 2 layout -->
         <p
-          class="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto font-light"
+          class="hero-enter hero-enter-2 text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto font-light"
         >
           Finstart membantu tim mengelola dashboard CFO, proyek, buku besar,
           transaksi, invoice, vendor, pajak, payroll, aset, SaaS, dan laporan
           dalam satu workflow internal yang rapi.
         </p>
         <!-- Centered button pair matching exactly Gambar 2 buttons ("VIEW DEMO" style & "GET STARTED" style) -->
-        <div class="flex flex-wrap justify-center items-center gap-4 pt-4">
+        <div class="hero-enter hero-enter-3 flex flex-wrap justify-center items-center gap-4 pt-4">
           <button
             id="hero-btn-kenal"
-            class="hero-cta-bold bg-white/10 hover:bg-white/20 text-white font-black py-3.5 px-8 rounded-full transition-all duration-200 text-xs uppercase tracking-widest border border-white/20 hover:border-white/40 cursor-pointer shadow-lg"
+            class="hero-cta-bold hero-btn bg-white/10 hover:bg-white/20 text-white font-black py-3.5 px-8 rounded-full transition-all duration-200 text-xs uppercase tracking-widest border border-white/20 hover:border-white/40 cursor-pointer shadow-lg"
             @click="scrollToSection('tentang')"
           >
             Lihat Fitur</button
           ><button
             id="hero-btn-masuk-sistem"
-            class="hero-cta-bold bg-white hover:bg-blue-50 text-[#0B1F4A] hover:text-[#0B1F4A] font-black py-3.5 px-8 rounded-full shadow-xl transition-all duration-200 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
+            class="hero-cta-bold hero-btn bg-white hover:bg-blue-50 text-[#0B1F4A] hover:text-[#0B1F4A] font-black py-3.5 px-8 rounded-full shadow-xl transition-all duration-200 flex items-center gap-2 text-xs uppercase tracking-widest cursor-pointer"
             @click="openLogin"
           >
             Masuk ke Sistem
@@ -78,7 +78,7 @@
           </button>
         </div>
         <!-- FITUR UTAMA — carousel modern tanpa kartu saling menimpa -->
-        <div class="pt-16 max-w-6xl mx-auto relative">
+        <div class="hero-enter hero-enter-4 pt-16 max-w-6xl mx-auto relative">
           <div class="mb-8 flex flex-col items-center gap-3 px-4">
             <span
               class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-200"
@@ -112,7 +112,7 @@
                 v-for="offset in [-1, 0, 1]"
                 :key="`${carouselItemAt(offset).id}-${offset}`"
                 type="button"
-                :class="`landing-feature-card group ${offset === 0 ? 'landing-feature-card--active' : ''}`"
+                :class="`landing-feature-card landing-feature-card--pos-${offset} group ${offset === 0 ? 'landing-feature-card--active' : ''}`"
                 :aria-pressed="offset === 0"
                 @click="updateActiveClientIndex(
                       (activeClientIndex +
@@ -219,9 +219,9 @@
     <!-- SECTION FITUR SISTEM -->
     <section
       id="tentang"
-      class="py-24 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <!-- Kolom Kiri -->
           <div class="lg:col-span-7 space-y-6 text-left">
@@ -332,9 +332,9 @@
     <!-- SECTION VISI DAN MISI -->
     <section
       id="visi-misi"
-      class="py-24 bg-[#EEF4FB] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-[#EEF4FB] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -446,9 +446,9 @@
     <!-- SECTION KEUNGGULAN PENGGUNAAN -->
     <section
       id="nilai"
-      class="py-24 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -533,9 +533,9 @@
     <!-- SECTION SOLUSI KEDATA -->
     <section
       id="solusi"
-      class="py-24 bg-[#EEF4FB] border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-[#EEF4FB] border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -581,9 +581,9 @@
     <!-- SECTION PRODUK KEDATA -->
     <section
       id="produk"
-      class="py-24 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -819,9 +819,9 @@
     <!-- SECTION INDUSTRI YANG DILAYANI -->
     <section
       id="industri"
-      class="py-24 bg-[#EEF4FB] px-6 md:px-12 border-b border-[#D8E5F4] scroll-mt-10"
+      class="py-16 bg-[#EEF4FB] px-6 md:px-12 border-b border-[#D8E5F4] scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-12">
+      <div class="max-w-7xl mx-auto space-y-12" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -852,9 +852,9 @@
     <!-- SECTION MENGAPA MEMILIH KEDATA -->
     <section
       id="keunggulan"
-      class="py-24 bg-[#102A56] text-white px-6 md:px-12 scroll-mt-10 relative overflow-hidden"
+      class="py-16 bg-[#102A56] text-white px-6 md:px-12 scroll-mt-10 relative overflow-hidden"
     >
-      <div class="max-w-7xl mx-auto space-y-16 relative z-10">
+      <div class="max-w-7xl mx-auto space-y-10 relative z-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#D9AE27] block"
@@ -899,9 +899,9 @@
     <!-- SECTION PROYEK UNGGULAN -->
     <section
       id="proyek"
-      class="py-24 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
+      class="py-16 bg-white border-b border-[#D8E5F4] px-6 md:px-12 scroll-mt-10"
     >
-      <div class="max-w-7xl mx-auto space-y-16">
+      <div class="max-w-7xl mx-auto space-y-10" v-reveal>
         <div class="text-center max-w-3xl mx-auto space-y-3">
           <span
             class="text-xs font-bold uppercase tracking-wider text-[#1E5AA8] block"
@@ -970,7 +970,7 @@
       </div>
     </section>
     <!-- SECTION CTA FINSTART -->
-    <section id="finance-cta" class="py-24 bg-white px-6 md:px-12 scroll-mt-10">
+    <section id="finance-cta" class="py-16 bg-white px-6 md:px-12 scroll-mt-10">
       <div
         class="max-w-6xl mx-auto bg-[#102A56] border border-white/10 text-white rounded-2xl p-8 md:p-12 shadow-2xl relative overflow-hidden"
       >
@@ -1097,7 +1097,8 @@
       class="bg-[#0B1F42] text-white border-t border-[#D8E5F4]/10 py-16 px-6 md:px-12 relative overflow-hidden"
     >
       <div
-        class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10"
+        class="max-w-7xl mx-auto grid grid-cols-1 gap-12 relative z-10 lg:grid-cols-12"
+        v-reveal
       >
         <!-- Brand Info -->
         <div class="lg:col-span-4 space-y-4 text-left">
@@ -1119,15 +1120,6 @@
             bertransformasi, mengambil keputusan yang lebih baik, serta tumbuh
             melalui teknologi yang relevan dan terukur.
           </p>
-          <div class="flex items-center gap-3 pt-2">
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noreferrer"
-              class="p-2 bg-[#102A56] hover:bg-[#1E5AA8] text-slate-300 hover:text-white rounded-lg transition-colors border border-white/10 cursor-pointer"
-              ><Linkedin class="w-4 h-4"
-            /></a>
-          </div>
         </div>
         <!-- Contact Details -->
         <div class="lg:col-span-4 space-y-4 text-left">
@@ -1154,18 +1146,26 @@
             </div>
           </div>
         </div>
-        <!-- Address details -->
+        <!-- Office location -->
         <div class="lg:col-span-4 space-y-4 text-left">
           <h4 class="font-bold text-xs uppercase tracking-wider text-white">
-            Lokasi Kantor
+            Alamat Kantor
           </h4>
-          <div
-            class="text-sm text-slate-300 flex items-start gap-2.5 leading-relaxed font-normal"
-          >
-            <MapPin class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" /><span>
-              Pakuwon Mall Jogja, 3rd Floor, Kaliwaru, Condongcatur, Depok
-              District, Sleman Regency, Special Region of Yogyakarta
-            </span>
+          <p class="text-sm leading-relaxed text-slate-300">
+            Gg. Anggur No.16, Krodan, Maguwoharjo, Kecamatan Depok, Kabupaten
+            Sleman, Daerah Istimewa Yogyakarta 55281
+          </p>
+          <iframe
+            :src="officeMapEmbedUrl"
+            class="footer-map h-32 w-full rounded-xl border border-white/10"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            title="Lokasi Kantor PT Kedata Indonesia Digital"
+          />
+          <div class="flex items-center gap-2.5 text-sm text-slate-300">
+            <Clock class="w-4 h-4 text-blue-400 shrink-0" /><span
+              >Senin - Jum'at &middot; 09:00 - 17:00 WIB</span
+            >
           </div>
         </div>
       </div>
@@ -1181,86 +1181,65 @@
       class="fixed inset-0 bg-slate-950/40 flex items-center justify-center overflow-y-auto z-50 p-4 backdrop-blur-md"
     >
       <div
-        class="relative w-full max-w-5xl max-h-[calc(100vh-64px)] overflow-y-auto rounded-[32px] border border-slate-200 bg-white/95 shadow-[0_40px_120px_rgba(15,23,42,0.18)]"
+        class="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.2)]"
       >
-        <div
-          class="absolute -top-8 left-1/2 h-20 w-80 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400/30 via-cyan-300/20 to-indigo-500/20 blur-3xl"
-        />
         <div class="relative flex min-h-0 flex-col">
           <div
-            class="p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-[#0B1F4A] text-white lg:p-8"
+            class="flex items-start justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-[#0B1F4A] px-6 py-5 text-white"
           >
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <h3 class="font-extrabold text-2xl lg:text-3xl tracking-tight">
-                  {{ products[selectedProductIndex].name }}
-                </h3>
-                <p
-                  class="mt-2 text-sm lg:text-base text-slate-300 uppercase tracking-[0.28em] font-semibold"
-                >
-                  {{ products[selectedProductIndex].tagline }}
-                </p>
-              </div>
-              <button
-                class="rounded-2xl border border-white/20 bg-white/10 px-3.5 py-3 text-white transition hover:border-white/40 hover:bg-white/15"
-                aria-label="Tutup detail produk"
-                @click="updateSelectedProductIndex(null)"
+            <div>
+              <h3 class="text-lg font-extrabold tracking-tight">
+                {{ products[selectedProductIndex].name }}
+              </h3>
+              <p
+                class="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300"
               >
-                <X class="w-5 h-5" />
-              </button>
+                {{ products[selectedProductIndex].tagline }}
+              </p>
             </div>
+            <button
+              class="shrink-0 rounded-xl border border-white/20 bg-white/10 p-2 text-white transition hover:border-white/40 hover:bg-white/15"
+              aria-label="Tutup detail produk"
+              @click="updateSelectedProductIndex(null)"
+            >
+              <X class="h-4 w-4" />
+            </button>
           </div>
-          <div class="min-h-0">
-            <div class="p-6 lg:p-8">
-              <div
-                class="grid gap-8 text-slate-700"
+          <div class="min-h-0 space-y-5 px-6 py-5">
+            <div class="space-y-2">
+              <h4
+                class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500"
               >
-                <section class="space-y-6">
-                  <div class="space-y-4">
-                    <h4
-                      class="text-xs uppercase tracking-[0.28em] text-slate-500 font-semibold"
-                    >
-                      Deskripsi Produk
-                    </h4>
-                    <p class="text-sm lg:text-base leading-7 text-slate-600">
-                      {{ products[selectedProductIndex].desc }}
-                    </p>
-                  </div>
-                  <div class="space-y-4">
-                    <h4
-                      class="text-xs uppercase tracking-[0.28em] text-slate-500 font-semibold"
-                    >
-                      Fitur Utama
-                    </h4>
-                    <ul class="space-y-3 text-sm lg:text-base">
-                      <li
-                        v-for="(f, fIdx) in products[selectedProductIndex]
-                          .features"
-                        :key="fIdx"
-                        class="flex gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 leading-6 shadow-sm"
-                      >
-                        <span
-                          class="mt-1 h-2.5 w-2.5 rounded-full bg-blue-500"
-                        /><span class="text-slate-700">{{ f.title }}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </section>
-              </div>
+                Deskripsi Produk
+              </h4>
+              <p class="text-sm leading-6 text-slate-600">
+                {{ products[selectedProductIndex].desc }}
+              </p>
+            </div>
+            <div class="space-y-2">
+              <h4
+                class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500"
+              >
+                Fitur Utama
+              </h4>
+              <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <li
+                  v-for="(f, fIdx) in products[selectedProductIndex].features"
+                  :key="fIdx"
+                  class="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-700"
+                >
+                  <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                  <span>{{ f.title }}</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
         <div
-          class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 p-6 lg:flex-row lg:items-center lg:justify-between"
+          class="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4"
         >
-          <div>
-            <p class="text-sm text-slate-500">
-              Popup diperbesar untuk pengalaman yang lebih premium dengan tata
-              letak layar lebar dan aksen visual modern.
-            </p>
-          </div>
           <button
-            class="inline-flex items-center justify-center rounded-3xl bg-[#0B1F4A] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-[#122c5f]"
+            class="inline-flex items-center justify-center rounded-xl bg-[#0B1F4A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
             @click="updateSelectedProductIndex(null)"
           >
             Selesai
@@ -1271,73 +1250,78 @@
     <!-- ALL FEATURES FULLSCREEN MODAL -->
     <div
       v-if="isProjectModalOpen"
-      class="fixed inset-0 bg-slate-950/80 flex items-stretch justify-center z-50 overflow-y-auto"
+      class="fixed inset-0 bg-slate-950/80 flex items-stretch justify-center z-50"
     >
-      <div class="relative w-full h-full bg-white rounded-none overflow-hidden">
+      <div class="relative flex h-full w-full flex-col bg-white overflow-hidden">
         <div
-          class="p-6 md:p-8 bg-[#0B1F4A] text-white flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+          class="shrink-0 bg-[#0B1F4A] text-white flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:p-5"
         >
-          <div>
-            <h3 class="font-extrabold text-2xl md:text-3xl">
-              Semua Fitur Finstart
-            </h3>
-            <p class="mt-2 max-w-2xl text-sm text-slate-200">
-              Pilih modul untuk melihat fungsi utamanya dan detail fitur lengkap
-              yang tersedia di website.
-            </p>
+          <div class="flex items-center gap-3">
+            <div
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15"
+            >
+              <LayoutGrid class="h-5 w-5 text-sky-300" />
+            </div>
+            <div>
+              <h3 class="font-extrabold text-lg md:text-xl tracking-tight">
+                Semua Fitur <span class="text-sky-300">Finstart</span>
+              </h3>
+              <p class="mt-1 max-w-2xl text-xs text-slate-300">
+                Pilih modul untuk melihat fungsi utamanya dan detail fitur
+                lengkap yang tersedia di website.
+              </p>
+            </div>
           </div>
           <button
-            class="text-slate-300 hover:text-white p-3 bg-white/10 rounded-2xl transition hover:bg-white/15"
+            class="relative shrink-0 self-end text-slate-300 hover:text-white p-2 bg-white/10 rounded-lg transition hover:bg-white/15 md:self-center"
             aria-label="Tutup modal fitur"
             @click="updateIsProjectModalOpen(false)"
           >
-            <X class="w-5 h-5" />
+            <X class="w-4 h-4" />
           </button>
         </div>
         <div
-          class="px-6 pb-8 md:px-8 md:pb-10 overflow-y-auto h-[calc(100vh-112px)]"
+          class="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-6 md:py-8"
         >
-          <div class="grid gap-6 xl:grid-cols-3 lg:grid-cols-2">
+          <div class="feature-list mx-auto">
             <div
               v-for="(product, idx) in products"
               :key="idx"
-              class="rounded-[32px] border border-slate-200 bg-slate-50 p-6 shadow-sm transition hover:shadow-lg"
+              class="feature-list-row"
             >
-              <span
-                class="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-semibold"
-                >{{ product.name }}</span
-              >
-              <h4 class="mt-3 text-lg font-bold text-slate-900">
-                {{ product.tagline }}
-              </h4>
-              <p class="mt-3 text-sm leading-6 text-slate-600">
-                {{ product.desc }}
-              </p>
-              <div
-                class="mt-4 rounded-3xl border border-slate-200 bg-white p-4"
-              >
+              <div class="feature-list-info">
+                <span
+                  class="text-[9px] uppercase tracking-[0.16em] text-slate-500 font-semibold"
+                  >{{ product.name }}</span
+                >
+                <h4 class="mt-1.5 text-sm font-bold leading-tight text-slate-900">
+                  {{ product.tagline }}
+                </h4>
+                <p class="mt-1.5 text-xs leading-5 text-slate-600">
+                  {{ product.desc }}
+                </p>
+              </div>
+              <div class="feature-list-examples">
                 <p
-                  class="text-[10px] uppercase tracking-[0.24em] font-semibold text-slate-500"
+                  class="text-[9px] uppercase tracking-[0.16em] font-semibold text-slate-500"
                 >
                   Contoh fitur
                 </p>
-                <ul class="mt-3 space-y-2 text-sm text-slate-600">
+                <ul class="feature-list-examples-grid mt-2 text-xs text-slate-600">
                   <li
-                    v-for="(feature, fIdx) in product.features.slice(0, 3)"
+                    v-for="(feature, fIdx) in product.features.slice(0, 4)"
                     :key="fIdx"
-                    class="flex gap-3 items-start"
+                    class="flex gap-2 items-start"
                   >
                     <span
-                      class="mt-1 h-2.5 w-2.5 rounded-full bg-blue-500"
-                    /><span>{{ feature.title }}</span>
+                      class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                    /><span class="leading-4">{{ feature.title }}</span>
                   </li>
                 </ul>
               </div>
-              <div class="mt-6 flex items-center justify-between gap-3">
-                <span class="text-xs text-slate-500"
-                  >Lihat detail fitur lengkap</span
-                ><button
-                  class="inline-flex items-center justify-center rounded-3xl bg-[#0B1F4A] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
+              <div class="feature-list-action">
+                <button
+                  class="inline-flex items-center justify-center rounded-lg bg-[#0B1F4A] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
                   @click="updateSelectedFeatureDetailIndex(idx)"
                 >
                   Lihat Detail
@@ -1412,57 +1396,55 @@
       class="fixed inset-0 bg-slate-950/90 flex items-center justify-center overflow-y-auto z-60 p-4 backdrop-blur-sm"
     >
       <div
-        class="w-full max-w-3xl h-[calc(100vh-4rem)] overflow-hidden rounded-[32px] bg-white shadow-[0_40px_120px_rgba(15,23,42,0.25)]"
+        class="flex w-full max-w-2xl max-h-[80vh] flex-col rounded-2xl bg-white shadow-[0_30px_90px_rgba(15,23,42,0.25)] overflow-hidden"
       >
         <div
-          class="p-6 md:p-8 bg-gradient-to-r from-[#102A56] to-[#0B1F4A] text-white flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+          class="shrink-0 flex items-start justify-between gap-4 bg-gradient-to-r from-[#102A56] to-[#0B1F4A] px-5 py-4 text-white"
         >
           <div>
-            <h3 class="text-2xl font-extrabold">
+            <h3 class="text-base font-extrabold">
               {{ products[selectedFeatureDetailIndex].name }}
             </h3>
-            <p class="mt-2 text-sm text-slate-200 max-w-2xl">
+            <p class="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">
               {{ products[selectedFeatureDetailIndex].tagline }}
             </p>
           </div>
           <button
-            class="text-slate-300 hover:text-white p-3 bg-white/10 rounded-2xl transition hover:bg-white/15"
+            class="shrink-0 rounded-lg border border-white/20 bg-white/10 p-1.5 text-white transition hover:border-white/40 hover:bg-white/15"
             aria-label="Tutup detail fitur"
             @click="updateSelectedFeatureDetailIndex(null)"
           >
-            <X class="w-5 h-5" />
+            <X class="h-4 w-4" />
           </button>
         </div>
-        <div class="h-full overflow-y-auto p-6 md:p-8">
-          <div
-            class="rounded-[28px] border border-slate-200 bg-slate-50 p-6 shadow-sm"
-          >
-            <h4 class="text-lg font-semibold text-slate-900">
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <div class="space-y-1.5">
+            <h4 class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
               Tentang modul ini
             </h4>
-            <p class="mt-3 text-sm leading-6 text-slate-600">
+            <p class="text-xs leading-5 text-slate-600">
               {{ products[selectedFeatureDetailIndex].desc }}
             </p>
           </div>
-          <div class="mt-6 grid gap-4">
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div
               v-for="(feature, fIdx) in products[selectedFeatureDetailIndex]
                 .features"
               :key="fIdx"
-              class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+              class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"
             >
-              <p class="text-sm font-semibold text-slate-900">
+              <p class="text-xs font-semibold text-slate-900">
                 {{ feature.title }}
               </p>
-              <p class="mt-2 text-sm leading-6 text-slate-600">
+              <p class="mt-0.5 text-[11px] leading-4 text-slate-600">
                 {{ feature.detail }}
               </p>
             </div>
           </div>
         </div>
-        <div class="border-t border-slate-200 bg-white p-5 flex justify-end">
+        <div class="shrink-0 flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3">
           <button
-            class="inline-flex items-center justify-center rounded-3xl bg-[#0B1F4A] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-[#122c5f]"
+            class="inline-flex items-center justify-center rounded-lg bg-[#0B1F4A] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
             @click="updateSelectedFeatureDetailIndex(null)"
           >
             Tutup Detail
@@ -1477,6 +1459,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import {
   ArrowRight,
+  LayoutGrid,
   Cpu,
   Database,
   FileText,
@@ -1484,8 +1467,7 @@ import {
   ExternalLink,
   Mail,
   Phone,
-  MapPin,
-  Linkedin,
+  Clock,
   Award,
   Lock,
   Server,
@@ -1511,6 +1493,42 @@ import {
 } from "lucide-vue-next";
 import KedataLogo from "./KedataLogo.vue";
 const emit = defineEmits(["login"]);
+
+const officeMapEmbedUrl = `https://www.google.com/maps?q=${encodeURIComponent(
+  "Gg. Anggur No.16, Krodan, Maguwoharjo, Kecamatan Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281",
+)}&output=embed`;
+
+// Reveals each section as it scrolls into view instead of everything sitting
+// static on load — a plain opacity/translate fade handled with one shared
+// IntersectionObserver rather than per-element observers.
+const revealObserver =
+  typeof IntersectionObserver !== "undefined"
+    ? new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("reveal-visible");
+              revealObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { threshold: 0.14, rootMargin: "0px 0px -8% 0px" },
+      )
+    : null;
+
+const vReveal = {
+  mounted(el: HTMLElement) {
+    if (!revealObserver) {
+      el.classList.add("reveal-visible");
+      return;
+    }
+    el.classList.add("reveal-init");
+    revealObserver.observe(el);
+  },
+  unmounted(el: HTMLElement) {
+    revealObserver?.unobserve(el);
+  },
+};
 
 function openLogin() {
   emit("login");
@@ -2652,6 +2670,171 @@ const selectedProjects = [
 ];
 </script>
 <style scoped>
+.reveal-init {
+  opacity: 0;
+  transform: translateY(32px);
+}
+.reveal-visible {
+  animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.footer-map {
+  filter: grayscale(0.15) saturate(1.05);
+  transition: filter 0.3s ease;
+}
+.footer-map:hover {
+  filter: grayscale(0) saturate(1.15);
+}
+/* Hero: staggered on-load entrance (always above the fold, so this plays on
+   mount rather than waiting for scroll like the reveal-* sections below). */
+.hero-enter {
+  opacity: 0;
+  animation: heroEnter 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-enter-1 {
+  animation-delay: 0.05s;
+}
+.hero-enter-2 {
+  animation-delay: 0.18s;
+}
+.hero-enter-3 {
+  animation-delay: 0.3s;
+}
+.hero-enter-4 {
+  animation-delay: 0.42s;
+}
+@keyframes heroEnter {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.985);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.hero-btn {
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+.hero-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+}
+.hero-btn:active {
+  transform: translateY(-1px) scale(0.99);
+}
+/* Ambient floating glow blobs behind the hero copy — slow, continuous,
+   clearly-alive motion rather than a static flat backdrop. */
+.hero-blob {
+  animation: heroBlobFloat 9s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.hero-blob--b {
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+@keyframes heroBlobFloat {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.7;
+  }
+  33% {
+    transform: translate(70px, 50px) scale(1.35);
+    opacity: 1;
+  }
+  66% {
+    transform: translate(-50px, 34px) scale(0.85);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.7;
+  }
+}
+.hero-shimmer {
+  background-size: 220% auto;
+  animation: heroShimmer 3.6s linear infinite;
+}
+@keyframes heroShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -220% 50%;
+  }
+}
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+.feature-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    box-shadow 0.25s ease,
+    transform 0.25s ease,
+    border-color 0.25s ease;
+}
+.feature-list-row:hover {
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.09);
+  transform: translateY(-3px);
+  border-color: #cbd8ea;
+}
+.feature-list-info {
+  flex: 0 0 auto;
+}
+.feature-list-examples {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 12px 16px;
+}
+.feature-list-examples-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 6px;
+}
+.feature-list-action {
+  flex: 0 0 auto;
+}
+@media (min-width: 640px) {
+  .feature-list-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+  }
+  .feature-list-info {
+    width: 24rem;
+  }
+  .feature-list-examples-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
 .landing-carousel-shell {
   position: relative;
   isolation: isolate;
@@ -2661,6 +2844,7 @@ const selectedProjects = [
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   align-items: stretch;
+  perspective: 1400px;
 }
 .landing-feature-card {
   position: relative;
@@ -2677,14 +2861,25 @@ const selectedProjects = [
     rgba(6, 22, 53, 0.84)
   );
   box-shadow: 0 16px 38px rgba(1, 13, 38, 0.2);
+  transform-style: preserve-3d;
   transition:
     transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.42s ease,
     background 0.42s ease,
     box-shadow 0.42s ease;
-  animation: landingFeatureEnter 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.landing-feature-card--pos--1 {
+  animation:
+    cardSlideInLeft 0.62s cubic-bezier(0.16, 1, 0.3, 1) both,
+    cardIdleFloat 5s ease-in-out 0.62s infinite;
+}
+.landing-feature-card--pos-1 {
+  animation:
+    cardSlideInRight 0.62s cubic-bezier(0.16, 1, 0.3, 1) both,
+    cardIdleFloat 5s ease-in-out 1.4s infinite;
 }
 .landing-feature-card:hover {
+  animation-play-state: paused;
   transform: translateY(-7px) scale(1.015);
   border-color: rgba(125, 211, 252, 0.45);
 }
@@ -2705,14 +2900,14 @@ const selectedProjects = [
   color: #102a56;
   border-color: rgba(255, 255, 255, 0.88);
   background: linear-gradient(155deg, #fff 0%, #f6faff 100%);
-  box-shadow:
-    0 28px 62px rgba(0, 10, 36, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.4);
-  transform: translateY(-12px);
-  animation: landingCardPop 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation:
+    cardFlipIn 0.72s cubic-bezier(0.16, 1, 0.3, 1) both,
+    landingCardGlow 3.4s ease-in-out 0.72s infinite,
+    cardIdleFloat 5s ease-in-out 2.1s infinite;
 }
 .landing-feature-card--active:hover {
-  transform: translateY(-16px);
+  animation-play-state: paused, running, paused;
+  transform: translateY(-16px) scale(1.01);
 }
 .landing-carousel-nav {
   position: absolute;
@@ -2756,28 +2951,60 @@ const selectedProjects = [
   width: 28px;
   background: #7dd3fc;
 }
-@keyframes landingFeatureEnter {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes landingCardPop {
+@keyframes cardSlideInLeft {
   0% {
-    opacity: 0.72;
-    transform: translateY(4px) scale(0.96);
-  }
-  58% {
-    opacity: 1;
-    transform: translateY(-15px) scale(1.035);
+    opacity: 0;
+    transform: translateX(-60px) rotateY(24deg) scale(0.9);
   }
   100% {
     opacity: 1;
-    transform: translateY(-12px) scale(1);
+    transform: translateX(0) rotateY(0) scale(1);
+  }
+}
+@keyframes cardSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(60px) rotateY(-24deg) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) rotateY(0) scale(1);
+  }
+}
+@keyframes cardFlipIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) rotateX(-50deg) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-14px) rotateX(6deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0) scale(1);
+  }
+}
+@keyframes cardIdleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes landingCardGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 28px 62px rgba(0, 10, 36, 0.3),
+      0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 32px 74px rgba(37, 99, 235, 0.28),
+      0 0 0 1px rgba(191, 219, 254, 0.7);
   }
 }
 .hero-cta-bold {
@@ -2820,9 +3047,18 @@ const selectedProjects = [
 @media (prefers-reduced-motion: reduce) {
   .landing-feature-card,
   .landing-carousel-nav,
-  .landing-progress-dot {
+  .landing-progress-dot,
+  .reveal-init,
+  .reveal-visible,
+  .hero-enter,
+  .hero-btn,
+  .hero-blob,
+  .hero-shimmer {
     animation: none !important;
     transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
   }
 }
 </style>
