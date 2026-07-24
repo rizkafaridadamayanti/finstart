@@ -319,10 +319,10 @@
                   <p
                     class="cfo-eyebrow inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em]"
                   >
-                    <FileText class="h-3.5 w-3.5" /> AI CFO Copilot
+                    <FileText class="h-3.5 w-3.5" /> AI Finstart
                   </p>
                   <h2 class="mt-0.5 text-base font-semibold text-[#102A56]">
-                    Insight Keuangan CFO
+                    Asisten Keuangan Finstart
                   </h2>
                 </div>
               </div>
@@ -742,7 +742,7 @@ const CFO_CHAT_STORAGE_KEY = "finstart-cfo-copilot-sessions-v1";
 const defaultInsightMessage: InsightMessage = {
   id: "welcome",
   sender: "ai",
-  text: "Halo, saya Finstart CFO Copilot. Saya membaca alur operasional dan keuangan FinStart: CRM proyek, buku besar, jurnal, piutang, utang, pajak, SDM, aset, langganan, proyeksi, dan laporan.",
+  text: "Halo, saya Asisten Keuangan Finstart. Saya membaca alur operasional dan keuangan FinStart: CRM proyek, buku besar, jurnal, piutang, utang, pajak, SDM, aset, langganan, proyeksi, dan laporan.",
 };
 const initialChatSessions: ChatSession[] = [
   {
@@ -1056,7 +1056,7 @@ const handleFastQuestion = async (prompt: string) => {
       sender: "ai",
       text: getApiErrorMessage(
         error,
-        "Gagal menghubungi AI Copilot. Coba lagi sebentar lagi.",
+        "Gagal menghubungi AI Finstart. Coba lagi sebentar lagi.",
       ),
     });
   } finally {
