@@ -453,6 +453,17 @@ function isItemActive(item) {
   if (hasChildren(item)) {
     if (props.activeTab === item.id) return true;
     if (isExpanded(item)) return true;
+    // Falling back to "the active tab lives in this section" must not fire
+    // while a DIFFERENT group is manually peeked open - otherwise both rows
+    // read as active at once (e.g. peeking "Piutang" while still parked on
+    // a "Utang" page left Utang's row navy too).
+    if (
+      itemsWithChildren.some(
+        (group) => group.id !== item.id && isExpanded(group),
+      )
+    ) {
+      return false;
+    }
     return item.children.some((child) => child.id === props.activeTab);
   }
   // Leaf item: only show active if it's the current page, and no unrelated

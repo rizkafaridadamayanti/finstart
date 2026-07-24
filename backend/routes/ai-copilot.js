@@ -51,6 +51,18 @@ const TOOLS = [
   },
 ]
 
+/*
+  Model kecil terbukti empiris: walau tool "hitung" mengembalikan angka yang
+  BENAR (mis. -1320965), model kadang salah tulis ulang angkanya sendiri saat
+  menyusun kalimat jawaban (mis. jadi "13.209.650" - nambah nol). Daripada
+  berharap model menyalin digit dengan benar, backend yang sudah memformat
+  ke Rupiah - model tinggal SALIN field "hasil_rupiah" apa adanya.
+*/
+function formatRupiahForTool(value) {
+  const num = Math.round(Number(value) || 0)
+  return `${num < 0 ? '-' : ''}Rp ${Math.abs(num).toLocaleString('id-ID')}`
+}
+
 function executeTool(name, args) {
   if (name !== 'hitung') {
     return { error: `Tool "${name}" tidak dikenal.` }
@@ -63,39 +75,57 @@ function executeTool(name, args) {
     return { error: 'Minimal 2 angka valid dibutuhkan.' }
   }
 
-  if (operasi === 'tambah') return { hasil: angka.reduce((a, b) => a + b, 0) }
-  if (operasi === 'kurang') return { hasil: angka.reduce((a, b) => a - b) }
-  if (operasi === 'kali') return { hasil: angka.reduce((a, b) => a * b, 1) }
-  if (operasi === 'bagi') return { hasil: angka.reduce((a, b) => a / b) }
+  if (operasi === 'tambah') {
+    const hasil = angka.reduce((a, b) => a + b, 0)
+    return { hasil, hasil_rupiah: formatRupiahForTool(hasil) }
+  }
+  if (operasi === 'kurang') {
+    const hasil = angka.reduce((a, b) => a - b)
+    return { hasil, hasil_rupiah: formatRupiahForTool(hasil) }
+  }
+  if (operasi === 'kali') {
+    const hasil = angka.reduce((a, b) => a * b, 1)
+    return { hasil, hasil_rupiah: formatRupiahForTool(hasil) }
+  }
+  if (operasi === 'bagi') {
+    const hasil = angka.reduce((a, b) => a / b)
+    return { hasil, hasil_rupiah: formatRupiahForTool(hasil) }
+  }
   if (operasi === 'bandingkan') {
     const [a, b] = angka
+    const selisih = Math.abs(a - b)
     return {
       hasil:
         a > b
-          ? `angka pertama (${a}) LEBIH BESAR dari angka kedua (${b}); selisih ${a - b}`
+          ? `angka pertama LEBIH BESAR dari angka kedua`
           : a < b
-            ? `angka pertama (${a}) LEBIH KECIL dari angka kedua (${b}); selisih ${b - a}`
-            : `kedua angka sama besar (${a})`,
+            ? `angka pertama LEBIH KECIL dari angka kedua`
+            : `kedua angka sama besar`,
+      selisih,
+      selisih_rupiah: formatRupiahForTool(selisih),
     }
   }
 
   return { error: `Operasi "${operasi}" tidak dikenal.` }
 }
 
+/*
+  Model kecil (7B) terbukti empiris: prompt yang terlalu panjang/bertumpuk
+  (banyak aturan "PENTING"/"WAJIB" satu per satu) justru membuatnya LUPA
+  memanggil tool "hitung" untuk perbandingan angka - diverifikasi langsung:
+  prompt panjang -> tool tidak terpanggil -> jawaban ngarang; prompt yang
+  dipadatkan seperti di bawah -> tool terpanggil dengan benar. Jadi kalau mau
+  menambah aturan baru di sini, PADATKAN kalimat yang sudah ada, jangan
+  sekadar menambah baris baru - daftar aturan yang makin panjang justru
+  membuat model ini kurang patuh, bukan lebih patuh.
+*/
 function buildSystemPrompt(context) {
   return [
-    'Anda adalah FinStart CFO Copilot, asisten analisis operasional dan keuangan internal untuk PT Kedata Indonesia Digital.',
-    'Jawab HANYA berdasarkan data konteks JSON yang diberikan di bawah ini - jangan mengarang angka, proyek, atau kejadian yang tidak ada di data tersebut.',
-    'Jika data yang dibutuhkan untuk menjawab tidak tersedia di konteks, katakan dengan jujur bahwa datanya belum tersedia, jangan menebak.',
-    `Hari ini: ${getToday()}. Gunakan tanggal ini sebagai acuan saat menjawab pertanyaan yang menyebut "minggu depan", "bulan ini", "bulan depan", dsb.`,
-    'Selalu jawab dalam Bahasa Indonesia, singkat namun konkret: sebutkan angka nyata dari data, lalu beri rekomendasi tindakan yang bisa langsung dilakukan pengguna dari modul terkait di aplikasi FinStart.',
-    'Tulis semua nominal uang dengan format Rupiah Indonesia: awali "Rp", pisahkan ribuan dengan titik, tanpa desimal kecuali penting. Contoh benar: "Rp 15.000.000". Jangan pernah pakai koma sebagai pemisah ribuan atau format ala Inggris seperti "Rp 15,000,000.00".',
-'WAJIB PAKAI TOOL "hitung" HANYA kalau Anda perlu MENGOLAH (menjumlah/mengurangi/mengalikan/membagi/membandingkan) dua angka atau lebih yang BELUM ada jadi satu angka jadi di data. Contoh yang WAJIB pakai tool: "apakah kas cukup untuk bayar A dan B", "berapa total dari beberapa nominal terpisah", "mana yang lebih besar".',
-    'JANGAN PAKAI TOOL kalau jawabannya sudah berupa satu angka/nilai siap pakai di data JSON (misalnya jumlah/count/total yang sudah dihitung sebelumnya seperti "totalKlienAktif", "kasBankLancar", atau field angka apa pun yang berdiri sendiri) - untuk kasus ini langsung sebutkan angkanya dari data, jangan panggil tool sama sekali. Contoh: "berapa klien aktif?" -> jawab langsung dari field klien.totalKlienAktif, TANPA tool.',
-    'PENTING: field "klien.totalKlienAktif" adalah SATU-SATUNYA angka yang benar untuk "berapa klien aktif". JANGAN PERNAH menghitung ulang sendiri dengan membaca/mendaftar/menghitung isi "klien.daftar" (daftar itu hanya potongan contoh untuk detail nama/bidang/lokasi, BUKAN daftar lengkap dan BUKAN sumber untuk menghitung jumlah). Kalau kedua angka itu terlihat beda, tetap pakai totalKlienAktif, bukan hasil hitungan manual Anda dari daftar.',
-    'SANGAT PENTING: kalau butuh tool, panggil lewat mekanisme tool call yang sebenarnya - JANGAN PERNAH menuliskan kode/JSON/format seperti {"name":"hitung",...} atau hitung(angka1, angka2) di dalam teks jawaban Anda. Jawaban yang Anda tulis untuk pengguna HARUS berupa kalimat biasa saja, tanpa sintaks pemrograman atau JSON sama sekali. Kalau pertanyaannya butuh banyak langkah hitungan berantai, panggil tool satu per satu sampai selesai, baru simpulkan dengan kalimat biasa.',
-    'SETELAH menerima hasil dari tool "hitung", jawaban akhir Anda ke pengguna WAJIB berupa kalimat Bahasa Indonesia biasa yang langsung memakai angka hasilnya - JANGAN PERNAH menyebut kata "tool", "internal", "operasi", "calculation", atau menjelaskan proses/mekanisme di balik layar. Pengguna hanya perlu tahu jawabannya, bukan bagaimana Anda mendapatkannya.',
-    'Field "selisihMenujuTargetPendapatan" dan "selisihMenujuTargetLaba" di data sudah dihitung duluan - boleh langsung dipakai tanpa tool. Daftar "agendaJatuhTempoDekat.daftar" juga sudah difilter dan diurutkan dari yang paling dekat (field "hariLagi": negatif = sudah terlambat, positif = berapa hari lagi) - jawab pertanyaan soal jadwal/deadline HANYA dari daftar ini, jangan menyebut item lain.',
+    'Anda adalah FinStart CFO Copilot untuk PT Kedata Indonesia Digital. Jawab HANYA dari data JSON di bawah - jangan mengarang angka/nama/tanggal yang tidak ada di sana, dan kalau data yang dibutuhkan tidak ada, katakan belum tersedia (jangan menebak).',
+    'Jawab HANYA apa yang ditanyakan, singkat 1-3 kalimat (daftar panjang hanya kalau diminta eksplisit) - jangan menambahkan data lain yang tidak diminta walau kebetulan ada di JSON. Bahasa Indonesia selalu, kecuali sapaan/basa-basi cukup dibalas singkat wajar.',
+    `Hari ini ${getToday()} (acuan untuk "minggu depan"/"bulan ini" dsb). Format uang: "Rp 15.000.000" (titik pemisah ribuan, tanpa koma/desimal).`,
+    'WAJIB panggil tool "hitung" (lewat mekanisme tool call asli, bukan ditulis sebagai teks/JSON) untuk SETIAP tambah/kurang/kali/bagi/bandingkan angka - termasuk angka yang disebut langsung di pertanyaan pengguna, bukan cuma yang ada di data JSON. KECUALI kalau jawabannya sudah satu angka jadi di JSON (mis. "totalKlienAktif") - langsung sebutkan, jangan hitung ulang dari daftar/rincian mentah. Hasil tool selalu punya field "hasil_rupiah"/"selisih_rupiah" yang SUDAH diformat benar - SALIN PERSIS teks field itu ke jawaban Anda, JANGAN menulis ulang angkanya sendiri dari field "hasil" mentah (rawan salah tulis/nambah angka nol). Simpulkan dengan kalimat biasa tanpa menyebut kata "tool"/"internal"/proses di baliknya.',
+    'Field "selisihMenujuTargetPendapatan"/"selisihMenujuTargetLaba" sudah final, boleh dipakai langsung. "agendaJatuhTempoDekat.daftar" sudah difilter+diurutkan (hariLagi negatif = terlambat) - jawab jadwal HANYA dari daftar ini.',
     '',
     '=== DATA FINSTART SAAT INI (JSON) ===',
     JSON.stringify(context || {}, null, 2),
@@ -111,6 +141,10 @@ async function callOllama(messages) {
       stream: false,
       tools: TOOLS,
       messages,
+      // Suhu rendah = jawaban lebih konsisten & berpegang pada data, bukan
+      // "kreatif" menebak-nebak - penting untuk asisten finance yang harus
+      // selalu akurat, bukan bervariasi/random tiap kali ditanya hal sama.
+      options: { temperature: 0.15 },
     }),
   })
 
@@ -201,6 +235,36 @@ function tryDeterministicClientCount(message, context) {
 }
 
 /*
+  "Apakah kas cukup buat bayar pajak" terbukti berulang kali gagal juga -
+  bukan cuma salah hitung, tapi model sampai membuang seluruh konteks JSON
+  (proyek, vendor, pegawai, aset, dst) ke jawaban karena "pajakBelumSetor"
+  aslinya cuma daftar per item tanpa total siap pakai, jadi model kebingungan
+  mencari angkanya sendiri. Sekarang ada field total siap pakai
+  (pajakBelumSetor.total) - jawab langsung dari situ, tanpa lewat model sama
+  sekali, PERSIS seperti kasus klien aktif di atas.
+*/
+function tryDeterministicCashVsTax(message, context) {
+  const m = String(message || '').toLowerCase()
+  const mentionsCash = m.includes('kas')
+  const mentionsTax = m.includes('pajak')
+  const asksIfEnough = /cukup|mencukupi/.test(m)
+  if (!mentionsCash || !mentionsTax || !asksIfEnough) return null
+
+  const kas = context?.ringkasanKeuangan?.kasBank
+  const totalPajak = context?.pajakBelumSetor?.total
+  if (typeof kas !== 'number' || typeof totalPajak !== 'number') return null
+  if (!Number.isFinite(kas) || !Number.isFinite(totalPajak)) return null
+
+  const selisih = kas - totalPajak
+  const kasFmt = formatRupiahForTool(kas)
+  const pajakFmt = formatRupiahForTool(totalPajak)
+  if (selisih >= 0) {
+    return `Ya, kas cukup untuk membayar seluruh pajak yang belum disetor. Kas saat ini ${kasFmt}, total pajak belum setor ${pajakFmt}, sisa ${formatRupiahForTool(selisih)}.`
+  }
+  return `Tidak, kas belum cukup untuk membayar seluruh pajak yang belum disetor. Kas saat ini ${kasFmt}, total pajak belum setor ${pajakFmt}, kurang ${formatRupiahForTool(Math.abs(selisih))}.`
+}
+
+/*
   AI Copilot berjalan sepenuhnya lokal lewat Ollama (http://127.0.0.1:11434).
   Tidak ada data yang dikirim ke API pihak ketiga mana pun - semua permintaan
   tetap berada di mesin/server yang sama dengan backend FinStart.
@@ -223,7 +287,9 @@ router.post('/copilot', async (req, res) => {
       })
     }
 
-    const deterministicReply = tryDeterministicClientCount(message, req.body?.context)
+    const deterministicReply =
+      tryDeterministicClientCount(message, req.body?.context) ||
+      tryDeterministicCashVsTax(message, req.body?.context)
     if (deterministicReply) {
       return res.json({
         success: true,

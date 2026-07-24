@@ -375,14 +375,6 @@
                       terhubung
                     </p>
                   </div>
-                  <button
-                    id="btn-clear-chat"
-                    type="button"
-                    class="cfo-clear-button shrink-0 text-[11px] font-semibold transition"
-                    @click="() => clearActiveChat()"
-                  >
-                    Bersihkan
-                  </button>
                 </div>
                 <div
                   ref="chatScrollRef"
@@ -1341,12 +1333,20 @@ const aiContext = {
     jatuhTempo: item.jatuhTempo,
     status: item.status,
   })),
-  pajakBelumSetor: unpaidTaxes.slice(0, 30).map((item: any) => ({
-    jenis: item.jenis,
-    masaPajak: item.masaPajak,
-    nominal: Number(item.nominal || 0),
-    jatuhTempo: item.jatuhTempo,
-  })),
+  pajakBelumSetor: {
+    catatan:
+      "Field total sudah dijumlahkan duluan dari seluruh pajak yang belum disetor - pakai ini langsung untuk pertanyaan total, jangan jumlahkan ulang dari daftar.",
+    total: unpaidTaxes.reduce(
+      (sum: number, item: any) => sum + Number(item.nominal || 0),
+      0,
+    ),
+    daftar: unpaidTaxes.slice(0, 30).map((item: any) => ({
+      jenis: item.jenis,
+      masaPajak: item.masaPajak,
+      nominal: Number(item.nominal || 0),
+      jatuhTempo: item.jatuhTempo,
+    })),
+  },
   sdm: {
     totalPegawai: (pegawai || []).length,
     payrollBulanan: monthlyPayroll,
@@ -1568,14 +1568,8 @@ function confirmDeleteChat() {
   padding: 16px 20px;
 }
 
-.cfo-chat-top p,
-.cfo-clear-button {
+.cfo-chat-top p {
   color: var(--cfo-navy) !important;
-}
-
-.cfo-clear-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .cfo-focus-card {
