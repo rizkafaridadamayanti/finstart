@@ -409,25 +409,20 @@
                 class="master-editor-form min-h-0 flex-1 space-y-4 overflow-y-auto p-6"
                 @submit="saveMasterData"
               >
+                <p v-if="masterSaveWarning" class="form-field-warning">
+                  {{ masterSaveWarning }}
+                </p>
                 <div class="master-editor-field">
                   <label class="master-editor-label" for="master-data-code"
                     >Kode</label
                   ><input
                     id="master-data-code"
-                    :value="masterDataForm.code"
-                    :placeholder="
-                      masterDataForm.type === 'division'
-                        ? 'Contoh: FIN'
-                        : 'Contoh: FIN-MGR'
-                    "
-                    class="master-editor-control"
-                    @input="masterDataForm = {
-                          ...masterDataForm,
-                          code: eventValue($event),
-                        }; masterSaveWarning = ''" />
-                  <p class="master-editor-help">Gunakan kode pendek yang mudah dikenali.</p>
-                  <p v-if="masterSaveWarning" class="form-field-warning">
-                    {{ masterSaveWarning }}
+                    :value="masterDataCodePreview"
+                    readonly
+                    class="master-editor-control cursor-not-allowed bg-[#F4F7FB] text-[#7A8CA8]"
+                  />
+                  <p class="master-editor-help">
+                    Kode dibuat otomatis dari nama {{ masterLabel(masterDataForm.type).toLowerCase() }}.
                   </p>
                 </div>
                 <div class="master-editor-field">
@@ -952,7 +947,8 @@
                 class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"
               >
                 <tr>
-                  <th class="px-5 py-3 text-left">Kode / Nama</th>
+                  <th class="px-5 py-3 text-left">Kode</th>
+                  <th class="px-5 py-3 text-left">Nama</th>
                   <th
                     v-if="masterDataTab === 'position'"
                     class="px-5 py-3 text-center"
@@ -976,16 +972,15 @@
                     :key="`${masterDataTab}-${item.id}`"
                     class="hover:bg-[#FAFCFF]"
                   >
+                    <td class="px-4 py-3 font-mono text-[10px] text-[#7A8CA8]">
+                      {{ item.code || "-" }}
+                    </td>
                     <td class="px-4 py-3">
                       <p class="font-extrabold text-[#102A56]">
                         {{ item.name }}
                       </p>
-                      <p class="mt-1 text-[10px] text-[#7A8CA8]">
-                        {{ item.code || "Kode otomatis"
-                        }}<template v-if="item.description">{{
-                          ` · ${item.description}`
-                        }}</template
-                        ><template v-else></template>
+                      <p v-if="item.description" class="mt-1 text-[10px] text-[#7A8CA8]">
+                        {{ item.description }}
                       </p>
                     </td>
                     <td
@@ -1057,7 +1052,7 @@
                 ></template>
                 <tr v-else>
                   <td
-                    :colspan="masterDataTab === 'position' ? 5 : 3"
+                    :colspan="masterDataTab === 'position' ? 6 : 4"
                     class="px-4 py-12 text-center text-xs text-[#8190A5]"
                   >
                     Belum ada data {{ masterLabel().toLowerCase() }} yang
@@ -4852,30 +4847,27 @@ function masterLabel(type = masterDataTab.value) {
   return type === "division" ? "Divisi" : "Jabatan";
 }
 
-function normalizeMasterCode(code: string, fallbackPrefix = "") {
-  const text = String(code || "").trim();
-  if (!text) return "";
-
-  return text
-    .toUpperCase()
-    .replace(/[^A-Z0-9/-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50) || fallbackPrefix;
+// Kode tidak diketik manual (dan tidak lagi diturunkan dari nama - lihat
+// divisions.js / positions.js) - untuk data baru, kode sebenarnya diambil
+// dari backend (endpoint /next-code) supaya yang ditampilkan bukan
+// placeholder, tapi kode yang benar-benar akan tersimpan; untuk data yang
+// sudah ada, tampilkan kode aslinya (read-only).
+const masterDataNextCodePreview = ref("");
+const masterDataCodePreview = computed(() => {
+  if (masterDataForm.value.id) {
+    return masterDataForm.value.code || "-";
+  }
+  return masterDataNextCodePreview.value || "...";
+});
+async function loadMasterDataNextCode(type: "division" | "position") {
+  try {
+    const response = await financeApi.get(`${masterEndpoint(type)}/next-code`);
+    masterDataNextCodePreview.value = response?.code || "";
+  } catch {
+    masterDataNextCodePreview.value = "";
+  }
 }
 
-function masterCodeExists(type: "division" | "position", code: string, currentId = "") {
-  const normalizedCode = normalizeMasterCode(code);
-  if (!normalizedCode) return false;
-
-  const source = type === "division" ? divisions.value : positions.value;
-  return source.some((item: any) => {
-    const itemId = String(item?.id || "");
-    return (
-      normalizeMasterCode(item?.code || "") === normalizedCode &&
-      (!currentId || itemId !== String(currentId))
-    );
-  });
-}
 
 function resetMasterDataForm(
   type: "division" | "position" = masterDataTab.value,
@@ -4892,6 +4884,8 @@ function resetMasterDataForm(
     status: "active",
     divisionId: "",
   };
+  masterDataNextCodePreview.value = "";
+  loadMasterDataNextCode(type);
   isMasterEditorOpen.value = openEditor;
 }
 
@@ -4954,27 +4948,7 @@ function masterUsageCount(item: any) {
     : positionCount + employeeCount;
 }
 
-function editMasterData(
-  item: any,
-  type: "division" | "position" = masterDataTab.value,
-) {
-  editingMasterData.value = item;
-  masterSaveWarning.value = "";
-  masterDataForm.value = {
-    id: String(item.id || ""),
-    type,
-    code: String(item.code || ""),
-    name: String(item.name || ""),
-    description: String(item.description || ""),
-    status:
-      String(item.status || "active").toLowerCase() === "inactive"
-        ? "inactive"
-        : "active",
-    divisionId: type === "position" ? String(item.division_id || "") : "",
-  };
-  isMasterEditorOpen.value = true;
-}
-
+ 
 async function saveMasterData(event: Event) {
   event.preventDefault();
   if (masterBusy.value) return;
@@ -4985,19 +4959,9 @@ async function saveMasterData(event: Event) {
     notify(`Nama ${masterLabel(form.type).toLowerCase()} wajib diisi.`);
     return;
   }
-  const normalizedCode = normalizeMasterCode(form.code);
-  if (masterCodeExists(form.type, normalizedCode, form.id)) {
-    masterSaveWarning.value = "Kode sudah digunakan.";
-    notify("Kode sudah digunakan.");
-    requestAnimationFrame(() => {
-      document.getElementById("master-data-code")?.focus();
-    });
-    return;
-  }
   masterBusy.value = true;
   try {
     const payload: any = {
-      code: normalizedCode || undefined,
       name,
       description: String(form.description || "").trim(),
       status: form.status,

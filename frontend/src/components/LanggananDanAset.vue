@@ -778,7 +778,8 @@
                 class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#28518A]"
               >
                 <tr>
-                  <th class="px-5 py-3 text-left">Kode / Nama</th>
+                  <th class="px-5 py-3 text-left">Kode</th>
+                  <th class="px-5 py-3 text-left">Nama</th>
                   <th class="px-5 py-3 text-center">Dipakai</th>
                   <th class="px-5 py-3 text-center">Aksi</th>
                 </tr>
@@ -790,16 +791,15 @@
                     :key="item.id"
                     class="hover:bg-[#FAFCFF]"
                   >
+                    <td class="px-4 py-3 font-mono text-[10px] text-[#7A8CA8]">
+                      {{ item.code || "-" }}
+                    </td>
                     <td class="px-4 py-3">
                       <p class="font-extrabold text-[#102A56]">
                         {{ item.name }}
                       </p>
-                      <p class="mt-1 text-[10px] text-[#7A8CA8]">
-                        {{ item.code || "Kode otomatis"
-                        }}<template v-if="item.description">{{
-                          ` · ${item.description}`
-                        }}</template
-                        ><template v-else></template>
+                      <p v-if="item.description" class="mt-1 text-[10px] text-[#7A8CA8]">
+                        {{ item.description }}
                       </p>
                     </td>
                     <td
@@ -831,7 +831,7 @@
                 ></template>
                 <tr v-else>
                   <td
-                    colspan="3"
+                    colspan="4"
                     class="px-4 py-12 text-center text-xs text-[#8190A5]"
                   >
                     Belum ada kategori aset yang sesuai.
@@ -888,6 +888,9 @@
             class="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-xs"
             @submit="saveAssetCategory"
           >
+            <p v-if="assetCategorySaveWarning" class="form-field-warning">
+              {{ assetCategorySaveWarning }}
+            </p>
             <div class="space-y-2">
               <label
                 class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
@@ -896,22 +899,12 @@
               >
               <input
                 id="asset-category-code"
-                :value="assetCategoryForm.code"
-                placeholder="Contoh: ELEKTRONIK-IT"
-                :class="assetInputClass"
-                @input="
-                  assetCategoryForm = {
-                    ...assetCategoryForm,
-                    code: eventValue($event),
-                  };
-                  assetCategorySaveWarning = '';
-                "
+                :value="assetCategoryCodePreview"
+                readonly
+                :class="`${assetInputClass} cursor-not-allowed bg-[#F4F7FB] text-[#7A8CA8]`"
               />
               <p class="text-[10px] text-[#8A98AB]">
-                Gunakan kode pendek yang mudah dikenali (opsional).
-              </p>
-              <p v-if="assetCategorySaveWarning" class="form-field-warning">
-                {{ assetCategorySaveWarning }}
+                Kode dibuat otomatis dari nama kategori.
               </p>
             </div>
             <div class="space-y-2">
@@ -1378,54 +1371,54 @@
         class="fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
       >
         <div
-          class="bg-white border border-slate-100 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl"
+          class="bg-white border border-slate-100 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
         >
-          <div class="flex items-start justify-between gap-4 px-6 py-5 border-b border-slate-100">
+          <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100">
             <div>
               <p class="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">Detail Langganan</p>
-              <h3 class="mt-2 text-xl font-extrabold text-[#102A56] tracking-tight">{{ viewingSub.nama }}</h3>
-              <p class="mt-1 text-xs text-slate-500">{{ viewingSub.id }} &middot; {{ viewingSub.provider }}</p>
+              <h3 class="mt-1 text-lg font-extrabold text-[#102A56] tracking-tight">{{ viewingSub.nama }}</h3>
+              <p class="mt-0.5 text-xs text-slate-500">{{ viewingSub.id }} &middot; {{ viewingSub.provider }}</p>
             </div>
             <button
-              class="w-11 h-11 flex shrink-0 items-center justify-center rounded-2xl border border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+              class="w-9 h-9 flex shrink-0 items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
               @click="closeSubDetail"
             >
-              <X class="w-5 h-5" />
+              <X class="w-4 h-4" />
             </button>
           </div>
-          <div class="p-6 space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="p-5 space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Kategori</p>
-                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.kategori }}</p>
+                <p class="mt-1 text-[13px] font-semibold text-slate-800">{{ viewingSub.kategori }}</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Siklus</p>
-                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.siklus }}</p>
+                <p class="mt-1 text-[13px] font-semibold text-slate-800">{{ viewingSub.siklus }}</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Mata Uang</p>
-                <p class="mt-2 text-[13px] font-semibold text-slate-800">{{ viewingSub.mataUang }}</p>
+                <p class="mt-1 text-[13px] font-semibold text-slate-800">{{ viewingSub.mataUang }}</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Biaya</p>
-                <p class="mt-2 text-[13px] font-bold text-[#0B1F4A]">{{ formatRupiah(viewingSub.biayaIDR || viewingSub.biaya) }}</p>
+                <p class="mt-1 text-[13px] font-bold text-[#0B1F4A]">{{ formatRupiah(viewingSub.biayaIDR || viewingSub.biaya) }}</p>
               </div>
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Tagihan Berikutnya</p>
-                <p class="mt-2 text-[13px] font-semibold text-slate-800 font-mono">{{ viewingSub.tanggalTagihan }}</p>
+                <p class="mt-1 text-[13px] font-semibold text-slate-800 font-mono">{{ viewingSub.tanggalTagihan }}</p>
               </div>
             </div>
-            <div v-if="viewingSub.mataUang !== 'IDR'" class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+            <div v-if="viewingSub.mataUang !== 'IDR'" class="rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2.5">
               <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Kurs & Konversi</p>
-              <p class="mt-2 text-[13px] text-slate-700">Nominal asli: {{ viewingSub.mataUang }} {{ viewingSub.biaya }}</p>
-              <p class="mt-1 text-[13px] font-semibold text-[#0B1F4A]">Estimasi IDR: {{ formatRupiah(viewingSub.biayaIDR) }}</p>
+              <p class="mt-1 text-[13px] text-slate-700">Nominal asli: {{ viewingSub.mataUang }} {{ viewingSub.biaya }}</p>
+              <p class="mt-0.5 text-[13px] font-semibold text-[#0B1F4A]">Estimasi IDR: {{ formatRupiah(viewingSub.biayaIDR) }}</p>
             </div>
           </div>
-          <div class="flex justify-end px-6 py-4 border-t border-slate-100">
+          <div class="flex justify-end px-5 py-3 border-t border-slate-100">
             <button
               type="button"
-              class="rounded-xl border border-[#DCE7F4] bg-white px-5 py-2.5 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
+              class="rounded-xl border border-[#DCE7F4] bg-white px-4 py-2 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
               @click="closeSubDetail"
             >Tutup</button>
           </div>
@@ -2490,6 +2483,27 @@ const assetCategoryForm = ref({
 });
 const assetCategoryFormErrors = ref({ name: "" });
 
+// Kode tidak diketik manual (dan tidak lagi diturunkan dari nama - lihat
+// asset-categories.js) - untuk kategori baru, kode sebenarnya diambil dari
+// backend (endpoint /next-code) supaya yang ditampilkan bukan placeholder,
+// tapi kode yang benar-benar akan tersimpan; untuk data yang sudah ada,
+// tampilkan kode aslinya (read-only).
+const assetCategoryNextCodePreview = ref("");
+const assetCategoryCodePreview = computed(() => {
+  if (assetCategoryForm.value.id) {
+    return assetCategoryForm.value.code || "-";
+  }
+  return assetCategoryNextCodePreview.value || "...";
+});
+async function loadAssetCategoryNextCode() {
+  try {
+    const response = await financeApi.get("/asset-categories/next-code");
+    assetCategoryNextCodePreview.value = response?.code || "";
+  } catch {
+    assetCategoryNextCodePreview.value = "";
+  }
+}
+
 const assetCategoryOptions = computed(() =>
   assetCategories.value.map((item: any) => item.name).filter(Boolean),
 );
@@ -2535,6 +2549,10 @@ function openAssetCategoryForm(item: any = null) {
     name: item ? String(item.name || "") : "",
     description: item ? String(item.description || "") : "",
   };
+  if (!item) {
+    assetCategoryNextCodePreview.value = "";
+    loadAssetCategoryNextCode();
+  }
   isAssetCategoryEditorOpen.value = true;
 }
 
@@ -2554,7 +2572,6 @@ async function saveAssetCategory(event?: Event) {
   assetCategoryBusy.value = true;
   try {
     const payload = {
-      code: assetCategoryForm.value.code,
       name,
       description: assetCategoryForm.value.description,
     };

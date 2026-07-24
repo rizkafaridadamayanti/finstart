@@ -302,13 +302,18 @@ export function useFinStartApp() {
 
   const notifications = ref<any[]>([]);
 
-  const toast = ref({ message: "", visible: false });
+  const toast = ref({ message: "", visible: false, tone: "success" });
+  let toastTimer: ReturnType<typeof window.setTimeout> | undefined;
   const hideToast = () => {
-    toast.value = { message: "", visible: false };
+    toast.value = { message: "", visible: false, tone: "success" };
   };
+  const NEGATIVE_TOAST_PATTERN =
+    /^gagal|tidak (bisa|dapat|ditemukan)|belum (bisa|dapat)|wajib (diisi|dipilih)|harus (diisi|dipilih|lebih)|lengkapi|terlebih dahulu|tidak valid|akses ditolak|sesi server berakhir/i;
   const showToast = (message: string) => {
-    toast.value = { message, visible: true };
-    window.setTimeout(hideToast, 4000);
+    const tone = NEGATIVE_TOAST_PATTERN.test(message) ? "warning" : "success";
+    toast.value = { message, visible: true, tone };
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(hideToast, 4000);
   };
 
   function replaceList(target: any, values: any[]) {
