@@ -5,8 +5,9 @@ const router = express.Router()
 const MAX_MESSAGE_LENGTH = 4000
 const MAX_HISTORY_MESSAGES = 20
 const MAX_TOOL_ROUNDS = 4
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434'
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b'
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest'
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 function getToday() {
   return new Date().toLocaleDateString('id-ID', {
@@ -18,36 +19,37 @@ function getToday() {
 }
 
 /*
-  Model AI lokal (kecil) terbukti sering salah kalau disuruh menjumlah/mengurangi/
+  Model AI kecil/gratis terbukti sering salah kalau disuruh menjumlah/mengurangi/
   membandingkan angka sendiri di kepalanya. Daripada percaya hasil hitungannya,
   dia WAJIB memanggil tool ini - hitungannya selalu dikerjakan JavaScript biasa
   di bawah (dijamin benar), bukan ditebak oleh model.
 */
-const TOOLS = [
+const GEMINI_TOOLS = [
   {
-    type: 'function',
-    function: {
-      name: 'hitung',
-      description:
-        'Melakukan operasi matematika yang pasti benar pada beberapa angka. WAJIB dipanggil setiap kali perlu menjumlah, mengurangi, mengalikan, membagi, atau membandingkan dua angka atau lebih (misal cek apakah kas cukup untuk menutup beberapa kewajiban sekaligus). Jangan pernah menghitung sendiri di kepala.',
-      parameters: {
-        type: 'object',
-        properties: {
-          operasi: {
-            type: 'string',
-            enum: ['tambah', 'kurang', 'kali', 'bagi', 'bandingkan'],
-            description:
-              'tambah/kali menjumlah semua angka; kurang/bagi memproses angka pertama dikurangi/dibagi angka berikutnya berurutan; bandingkan menilai angka pertama vs angka kedua.',
+    functionDeclarations: [
+      {
+        name: 'hitung',
+        description:
+          'Melakukan operasi matematika yang pasti benar pada beberapa angka. WAJIB dipanggil setiap kali perlu menjumlah, mengurangi, mengalikan, membagi, atau membandingkan dua angka atau lebih (misal cek apakah kas cukup untuk menutup beberapa kewajiban sekaligus). Jangan pernah menghitung sendiri di kepala.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            operasi: {
+              type: 'STRING',
+              enum: ['tambah', 'kurang', 'kali', 'bagi', 'bandingkan'],
+              description:
+                'tambah/kali menjumlah semua angka; kurang/bagi memproses angka pertama dikurangi/dibagi angka berikutnya berurutan; bandingkan menilai angka pertama vs angka kedua.',
+            },
+            angka: {
+              type: 'ARRAY',
+              items: { type: 'NUMBER' },
+              description: 'Daftar angka yang dioperasikan, berurutan.',
+            },
           },
-          angka: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Daftar angka yang dioperasikan, berurutan.',
-          },
+          required: ['operasi', 'angka'],
         },
-        required: ['operasi', 'angka'],
       },
-    },
+    ],
   },
 ]
 
@@ -121,7 +123,7 @@ function executeTool(name, args) {
 */
 function buildSystemPrompt(context) {
   return [
-    'Anda adalah FinStart CFO Copilot untuk PT Kedata Indonesia Digital. Jawab HANYA dari data JSON di bawah - jangan mengarang angka/nama/tanggal yang tidak ada di sana, dan kalau data yang dibutuhkan tidak ada, katakan belum tersedia (jangan menebak).',
+    'Anda adalah Asisten Keuangan Finstart untuk PT Kedata Indonesia Digital. Jawab HANYA dari data JSON di bawah - jangan mengarang angka/nama/tanggal yang tidak ada di sana, dan kalau data yang dibutuhkan tidak ada, katakan belum tersedia (jangan menebak).',
     'Jawab HANYA apa yang ditanyakan, singkat 1-3 kalimat (daftar panjang hanya kalau diminta eksplisit) - jangan menambahkan data lain yang tidak diminta walau kebetulan ada di JSON. Bahasa Indonesia selalu, kecuali sapaan/basa-basi cukup dibalas singkat wajar.',
     `Hari ini ${getToday()} (acuan untuk "minggu depan"/"bulan ini" dsb). Format uang: "Rp 15.000.000" (titik pemisah ribuan, tanpa koma/desimal).`,
     'WAJIB panggil tool "hitung" (lewat mekanisme tool call asli, bukan ditulis sebagai teks/JSON) untuk SETIAP tambah/kurang/kali/bagi/bandingkan angka - termasuk angka yang disebut langsung di pertanyaan pengguna, bukan cuma yang ada di data JSON. KECUALI kalau jawabannya sudah satu angka jadi di JSON (mis. "totalKlienAktif") - langsung sebutkan, jangan hitung ulang dari daftar/rincian mentah. Hasil tool selalu punya field "hasil_rupiah"/"selisih_rupiah" yang SUDAH diformat benar - SALIN PERSIS teks field itu ke jawaban Anda, JANGAN menulis ulang angkanya sendiri dari field "hasil" mentah (rawan salah tulis/nambah angka nol). Simpulkan dengan kalimat biasa tanpa menyebut kata "tool"/"internal"/proses di baliknya.',
@@ -132,25 +134,25 @@ function buildSystemPrompt(context) {
   ].join('\n')
 }
 
-async function callOllama(messages) {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+async function callGemini(systemPrompt, contents) {
+  const url = `${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
-      tools: TOOLS,
-      messages,
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      tools: GEMINI_TOOLS,
       // Suhu rendah = jawaban lebih konsisten & berpegang pada data, bukan
       // "kreatif" menebak-nebak - penting untuk asisten finance yang harus
       // selalu akurat, bukan bervariasi/random tiap kali ditanya hal sama.
-      options: { temperature: 0.15 },
+      generationConfig: { temperature: 0.15 },
     }),
   })
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '')
-    const error = new Error(`Ollama merespons status ${response.status}: ${errorBody}`)
+    const error = new Error(`Gemini merespons status ${response.status}: ${errorBody}`)
     error.status = response.status
     throw error
   }
@@ -264,13 +266,35 @@ function tryDeterministicCashVsTax(message, context) {
   return `Tidak, kas belum cukup untuk membayar seluruh pajak yang belum disetor. Kas saat ini ${kasFmt}, total pajak belum setor ${pajakFmt}, kurang ${formatRupiahForTool(Math.abs(selisih))}.`
 }
 
+function extractReplyText(data) {
+  const parts = data?.candidates?.[0]?.content?.parts || []
+  return parts.map((part) => part.text || '').join('')
+}
+
+function extractFunctionCalls(data) {
+  const parts = data?.candidates?.[0]?.content?.parts || []
+  return parts.filter((part) => part.functionCall)
+}
+
 /*
-  AI Copilot berjalan sepenuhnya lokal lewat Ollama (http://127.0.0.1:11434).
-  Tidak ada data yang dikirim ke API pihak ketiga mana pun - semua permintaan
-  tetap berada di mesin/server yang sama dengan backend FinStart.
+  AI Copilot dipindah dari Ollama lokal ke Google Gemini API (tingkat gratis)
+  atas persetujuan eksplisit user - konsekuensinya, pertanyaan & ringkasan data
+  finance akan diproses di server Google, bukan lagi 100% lokal. Dipilih Gemini
+  spesifik karena free tier-nya cukup untuk pemakaian internal seperti ini,
+  dan supaya fitur ini tetap bisa jalan di versi yang di-hosting (Railway),
+  bukan cuma waktu development lokal (lihat riwayat: sebelumnya sempat coba
+  Claude API lalu ditolak, lalu coba Ollama lokal yang ternyata tidak bisa
+  dijangkau dari server hosting).
 */
 router.post('/copilot', async (req, res) => {
   try {
+    if (!GEMINI_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: 'AI Finstart belum dikonfigurasi. Set GEMINI_API_KEY di file .env backend.',
+      })
+    }
+
     const message = String(req.body?.message || '').trim()
 
     if (!message) {
@@ -293,7 +317,7 @@ router.post('/copilot', async (req, res) => {
     if (deterministicReply) {
       return res.json({
         success: true,
-        message: 'Jawaban AI Copilot berhasil dibuat.',
+        message: 'Jawaban AI Finstart berhasil dibuat.',
         data: { reply: deterministicReply },
       })
     }
@@ -303,48 +327,45 @@ router.post('/copilot', async (req, res) => {
         .slice(-MAX_HISTORY_MESSAGES)
         .filter((item) => item && typeof item.text === 'string' && item.text.trim())
         .map((item) => ({
-          role: item.sender === 'user' ? 'user' : 'assistant',
-          content: String(item.text).slice(0, MAX_MESSAGE_LENGTH),
+          role: item.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: String(item.text).slice(0, MAX_MESSAGE_LENGTH) }],
         }))
       : []
 
-    const messages = [
-      { role: 'system', content: buildSystemPrompt(req.body?.context) },
-      ...history,
-      { role: 'user', content: message },
-    ]
+    const systemPrompt = buildSystemPrompt(req.body?.context)
+    const contents = [...history, { role: 'user', parts: [{ text: message }] }]
 
     let reply = ''
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-      const data = await callOllama(messages)
-      const toolCalls = data?.message?.tool_calls
+      const data = await callGemini(systemPrompt, contents)
+      const functionCalls = extractFunctionCalls(data)
 
-      if (Array.isArray(toolCalls) && toolCalls.length) {
-        messages.push(data.message)
-        for (const call of toolCalls) {
-          const args =
-            typeof call.function?.arguments === 'string'
-              ? JSON.parse(call.function.arguments)
-              : call.function?.arguments
-          const result = executeTool(call.function?.name, args)
-          messages.push({ role: 'tool', content: JSON.stringify(result) })
-        }
+      if (functionCalls.length) {
+        contents.push(data.candidates[0].content)
+        const responseParts = functionCalls.map((part) => ({
+          functionResponse: {
+            name: part.functionCall.name,
+            response: executeTool(part.functionCall.name, part.functionCall.args),
+          },
+        }))
+        contents.push({ role: 'user', parts: responseParts })
         continue
       }
 
-      reply = stripLeakedToolSyntax(data?.message?.content)
+      reply = stripLeakedToolSyntax(extractReplyText(data))
 
       if (looksLikeLeakedMeta(reply)) {
         // Satu kesempatan perbaikan: minta model merangkum ulang jadi jawaban
         // akhir yang bersih, tanpa mengulang seluruh riwayat tool-calling.
-        messages.push({ role: 'assistant', content: reply })
-        messages.push({
+        contents.push({ role: 'model', parts: [{ text: reply }] })
+        contents.push({
           role: 'user',
-          content:
-            'Jawaban Anda barusan tidak valid (menyebut proses internal/tool, atau berbahasa Inggris). Tulis ULANG sebagai satu jawaban akhir yang bersih dalam Bahasa Indonesia, langsung memakai angka/data yang relevan, tanpa menyebut kata "tool", "internal", atau proses di baliknya.',
+          parts: [{
+            text: 'Jawaban Anda barusan tidak valid (menyebut proses internal/tool, atau berbahasa Inggris). Tulis ULANG sebagai satu jawaban akhir yang bersih dalam Bahasa Indonesia, langsung memakai angka/data yang relevan, tanpa menyebut kata "tool", "internal", atau proses di baliknya.',
+          }],
         })
-        const retryData = await callOllama(messages)
-        const retryReply = stripLeakedToolSyntax(retryData?.message?.content)
+        const retryData = await callGemini(systemPrompt, contents)
+        const retryReply = stripLeakedToolSyntax(extractReplyText(retryData))
         if (retryReply && !looksLikeLeakedMeta(retryReply)) {
           reply = retryReply
         }
@@ -358,20 +379,19 @@ router.post('/copilot', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Jawaban AI Copilot berhasil dibuat.',
+      message: 'Jawaban AI Finstart berhasil dibuat.',
       data: { reply },
     })
   } catch (error) {
     console.error('[ai-copilot] Gagal memproses pertanyaan:', error)
 
-    const isConnectionError = /ECONNREFUSED|fetch failed/i.test(String(error?.message || error?.cause?.message || ''))
-    const isModelMissing = error?.status === 404
-
-    const message = isConnectionError
-      ? `AI Copilot lokal belum aktif. Pastikan aplikasi Ollama sedang berjalan di komputer ini (${OLLAMA_BASE_URL}).`
-      : isModelMissing
-        ? `Model "${OLLAMA_MODEL}" belum tersedia di Ollama. Jalankan "ollama pull ${OLLAMA_MODEL}" terlebih dahulu.`
-        : 'Gagal menghubungi AI Copilot lokal. Periksa apakah Ollama sedang berjalan di komputer ini.'
+    const status = error?.status
+    const message =
+      status === 400 || status === 403
+        ? 'API key Gemini tidak valid atau bermasalah. Periksa GEMINI_API_KEY di .env.'
+        : status === 429
+          ? 'Kuota gratis Gemini API sedang penuh untuk saat ini. Coba lagi sebentar lagi.'
+          : 'Gagal menghubungi AI Finstart. Coba lagi dalam beberapa saat.'
 
     res.status(503).json({
       success: false,
