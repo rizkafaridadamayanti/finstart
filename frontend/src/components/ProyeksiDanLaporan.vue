@@ -2510,14 +2510,81 @@ const downloadTextFile = (
 };
 const escapeSpreadsheetHtml = (value: any) =>
   escapeHtml(typeof value === "number" ? value : spreadsheetSafeText(value));
+// Kolom berisi nominal (mis. "Rp 15.000.000", "(Rp 5.000.000)", atau angka
+// polos) dirata-kanankan supaya enak dibaca di Excel - dicek per sel, bukan
+// per kolom, karena beberapa laporan (mis. Trial Balance) punya lebih dari
+// satu kolom angka.
+const looksLikeSpreadsheetNumber = (value: any) =>
+  /^\(?-?Rp\s?[\d.,]+\)?$/.test(String(value ?? "").trim()) ||
+  /^-?\d[\d.,]*$/.test(String(value ?? "").trim());
 const exportCurrentReportExcel = () => {
   const report = currentReport.value;
-  const tableRows = [
-    report.columns,
-    ...report.rows,
-    ...report.totals.map((total: any) => [total[0], "", total[1] || ""]),
-  ];
-  const worksheet = `<!doctype html><html><head><meta charset="utf-8"></head><body><table><tr><th colspan="3">PT Kedata Indonesia Digital</th></tr><tr><th colspan="3">${escapeSpreadsheetHtml(report.title)}</th></tr><tr><td colspan="3">${escapeSpreadsheetHtml(report.subtitle)}</td></tr><tr><td colspan="3"></td></tr>${tableRows.map((row: any, index: number) => `<tr>${row.map((cell: any) => (index === 0 ? `<th>${escapeSpreadsheetHtml(cell)}</th>` : `<td>${escapeSpreadsheetHtml(cell)}</td>`)).join("")}</tr>`).join("")}</table></body></html>`;
+  const colCount = report.columns.length;
+  const colWidths = [280, ...Array(Math.max(colCount - 1, 0)).fill(150)];
+
+  const headerCells = report.columns
+    .map(
+      (cell: any) =>
+        `<th class="fs-head">${escapeSpreadsheetHtml(cell)}</th>`,
+    )
+    .join("");
+
+  const dataRowsHtml = report.rows
+    .map((row: any[], rowIndex: number) => {
+      const cells = row
+        .map((cell: any) => {
+          const numeric = looksLikeSpreadsheetNumber(cell);
+          return `<td class="${numeric ? "fs-num" : "fs-text"}${rowIndex % 2 ? " fs-alt" : ""}">${escapeSpreadsheetHtml(cell)}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  const totalsHtml = report.totals
+    .map((total: any) => {
+      const padded =
+        total.length >= colCount
+          ? total
+          : [total[0], ...Array(colCount - 2).fill(""), total[1] || ""];
+      const cells = padded
+        .map(
+          (cell: any, index: number) =>
+            `<td class="fs-total${index === padded.length - 1 ? " fs-num" : ""}">${escapeSpreadsheetHtml(cell)}</td>`,
+        )
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  const spacerRow = `<tr><td colspan="${colCount}" class="fs-spacer"></td></tr>`;
+
+  const worksheet = `<!doctype html><html><head><meta charset="utf-8">
+<style>
+  table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; }
+  th, td { border: 1px solid #D8E5F4; padding: 6px 12px; font-size: 12px; color: #243650; }
+  .fs-brand { font-size: 15px; font-weight: 700; color: #0B1F4A; background: #EAF1FB; border: none; padding: 8px 12px; }
+  .fs-title { font-size: 13px; font-weight: 700; color: #0B1F4A; background: #EAF1FB; border: none; padding: 4px 12px 8px; }
+  .fs-subtitle { font-size: 11px; color: #5E6F8A; background: #FFFFFF; border: none; padding: 0 12px 10px; }
+  .fs-spacer { border: none; padding: 4px; }
+  .fs-head { background: #0B1F4A; color: #FFFFFF; font-weight: 700; text-align: left; }
+  .fs-text { text-align: left; }
+  .fs-num { text-align: right; }
+  .fs-alt { background: #F5F9FD; }
+  .fs-total { font-weight: 700; color: #0B1F4A; background: #EAF1FB; border-top: 2px solid #0B1F4A; }
+</style>
+</head><body><table>
+${colWidths.map((width) => `<col style="width:${width}px">`).join("")}
+<tr><th colspan="${colCount}" class="fs-brand">PT Kedata Indonesia Digital</th></tr>
+<tr><th colspan="${colCount}" class="fs-title">${escapeSpreadsheetHtml(report.title)}</th></tr>
+<tr><td colspan="${colCount}" class="fs-subtitle">${escapeSpreadsheetHtml(report.subtitle)}</td></tr>
+${spacerRow}
+<tr>${headerCells}</tr>
+${dataRowsHtml}
+${spacerRow}
+${totalsHtml}
+</table></body></html>`;
+
   downloadTextFile(
     `finstart-${activeReportType.value}-${todayIso()}.xls`,
     `\ufeff${worksheet}`,
