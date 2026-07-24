@@ -183,7 +183,7 @@
               </p>
             </div>
             <span
-              class="inline-flex rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-bold text-[#0B1F4A]"
+              class="inline-flex shrink-0 whitespace-nowrap rounded-full border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-1 text-[10px] font-bold text-[#0B1F4A]"
               >1 akses</span
             >
           </div>
@@ -208,7 +208,7 @@
                   </div>
                 </div>
                 <span
-                  class="w-fit rounded-full border border-[#D8E5F4] bg-white px-3 py-1 text-[10px] font-medium text-[#53658A]"
+                  class="w-fit shrink-0 whitespace-nowrap rounded-full border border-[#D8E5F4] bg-white px-3 py-1 text-[10px] font-medium text-[#53658A]"
                   >{{
                     Number(internalFinanceRole().user_count || users.length || 0)
                   }}
@@ -237,7 +237,7 @@
                   <div
                     v-for="user in users"
                     :key="user.id || user.email"
-                    class="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_auto_auto] md:items-center"
+                    class="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_auto_auto_auto] md:items-center"
                   >
                     <div class="flex min-w-0 items-center gap-3">
                       <span
@@ -275,6 +275,15 @@
                         {{ formatTime(user.last_login_at) }}
                       </span>
                     </p>
+                    <button
+                      v-if="!isCurrentUser(user)"
+                      type="button"
+                      title="Hapus pengguna"
+                      class="inline-flex h-8 w-8 shrink-0 items-center justify-center justify-self-end rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                      @click="requestDeleteUser(user)"
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
 
@@ -450,6 +459,16 @@
       </div>
     </div>
   </div>
+  <ConfirmDialog
+    :open="!!deleteUserConfirm"
+    eyebrow="Konfirmasi Hapus"
+    title="Hapus pengguna ini?"
+    :message="`Akun '${deleteUserConfirm?.email || deleteUserConfirm?.name}' tidak akan bisa lagi login ke workspace ini. Tindakan ini tidak bisa dibatalkan.`"
+    confirm-label="Hapus Pengguna"
+    variant="danger"
+    @cancel="closeDeleteUserConfirm"
+    @confirm="confirmDeleteUser"
+  />
 </template>
 
 <script setup lang="ts">
@@ -464,14 +483,17 @@ import {
   Save,
   Shield,
   Smartphone,
+  Trash2,
   Users,
 } from "lucide-vue-next";
 import SettingsToggle from "./settings/SettingsToggle.vue";
+import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 import {
   clearAuthSession,
   financeApi,
   getApiErrorMessage,
+  getStoredAuthUser,
 } from "../services/financeApi.js";
 
 interface PengaturanViewProps {
@@ -578,6 +600,36 @@ async function loadSecurityData() {
   users.value = Array.isArray(value(3, [])) ? value(3, []) : [];
   activity.value = Array.isArray(value(4, [])) ? value(4, []) : [];
 }
+
+const currentUserId = () => getStoredAuthUser()?.id;
+const isCurrentUser = (user: any) =>
+  String(user?.id ?? "") === String(currentUserId() ?? "");
+
+const deleteUserConfirm = ref<any>(null);
+const isDeletingUser = ref(false);
+const requestDeleteUser = (user: any) => {
+  deleteUserConfirm.value = user;
+};
+const closeDeleteUserConfirm = () => {
+  deleteUserConfirm.value = null;
+};
+const confirmDeleteUser = async () => {
+  const target = deleteUserConfirm.value;
+  if (!target || isDeletingUser.value) return;
+  isDeletingUser.value = true;
+  try {
+    await financeApi.delete(`/users/${target.id}`);
+    users.value = users.value.filter(
+      (user: any) => String(user.id) !== String(target.id),
+    );
+    notify(`Pengguna ${target.email || target.name} berhasil dihapus.`);
+    deleteUserConfirm.value = null;
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal menghapus pengguna."));
+  } finally {
+    isDeletingUser.value = false;
+  }
+};
 
 async function handleSaveProfile(event: Event) {
   event.preventDefault();
