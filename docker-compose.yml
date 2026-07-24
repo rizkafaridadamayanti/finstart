@@ -1,46 +1,73 @@
 services:
-  # Tidak ada service "db" tersendiri di sini - backend Docker sengaja
-  # disambungkan ke MySQL yang sama dengan yang dipakai backend Laragon
-  # (host.docker.internal menunjuk ke MySQL di mesin host), supaya cuma ada
-  # SATU sumber data dan tidak ada lagi seed data ganda yang beda dari data asli.
+  db:
+    image: mysql:8.0
+    container_name: finstart-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-finstart_db}
+      MYSQL_USER: ${DB_USER:-finstart}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-finstart}
+    volumes:
+      - finstart-db-data:/var/lib/mysql
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   backend:
     build:
-      context: .
-      dockerfile: backend.Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: finstart-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 4000
-      DB_HOST: host.docker.internal
+      DB_HOST: db
       DB_PORT: 3306
-      DB_NAME: finstart_db
-      DB_USER: root
-      DB_PASSWORD: ""
-      DB_POOL_SIZE: 10
-      CORS_ORIGIN: http://localhost:8080
-      AUTH_SESSION_HOURS: 8
-      AUTH_LOGIN_MAX_ATTEMPTS: 5
-      AUTH_LOGIN_LOCK_MINUTES: 1
-      DEMO_USER_EMAIL: 
-      DEMO_USER_NAME: "Finance Manager"
-      DEMO_USER_PASSWORD: "12345678"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      DB_NAME: ${DB_NAME:-finstart_db}
+      DB_USER: ${DB_USER:-finstart}
+      DB_PASSWORD: ${DB_PASSWORD:-finstart}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-8}
+      AUTH_LOGIN_MAX_ATTEMPTS: ${AUTH_LOGIN_MAX_ATTEMPTS:-5}
+      AUTH_LOGIN_LOCK_MINUTES: ${AUTH_LOGIN_LOCK_MINUTES:-1}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-finance@kedata.id}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-Finance Manager}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-12345678}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
+    # Volume upload backend: saat ini belum ada fitur upload file di
+    # backend (tidak ditemukan multer/folder uploads), jadi belum
+    # ditambahkan di sini. Kalau nanti ada fitur upload, tambahkan:
+    #   volumes:
+    #     - finstart-backend-uploads:/app/uploads
+    # dan daftarkan "finstart-backend-uploads:" di bagian volumes di bawah.
     ports:
-      - "4000:4000"
+      - "${BACKEND_PORT:-4000}:4000"
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend.Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://localhost:4000/api
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000/api}
     container_name: finstart-frontend
     restart: unless-stopped
     depends_on:
       - backend
     environment:
-      PORT: 8080
+      PORT: 80
     ports:
-      - "8080:8080"
+      - "80:80"
+
+volumes:
+  finstart-db-data:
