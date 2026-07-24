@@ -234,31 +234,26 @@
       </div>
     </Transition>
 
-    <Transition name="toast">
-      <div
-        v-if="toast.visible"
-        id="global-toast-alert"
-        class="fixed left-1/2 top-6 z-[10050] w-[min(92vw,440px)] -translate-x-1/2 bg-[#0F172A] border border-blue-900/60 shadow-2xl px-5 py-3.5 rounded-2xl flex items-center gap-3 text-white text-xs"
-      >
-        <div
-          class="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shrink-0"
-        >
-          <CheckCircle class="w-3.5 h-3.5 text-white" />
-        </div>
-        <div class="flex-1">
-          <p class="font-bold text-cyan-300">Sistem Notifikasi</p>
-          <p class="text-slate-200 mt-0.5 leading-relaxed font-light">
-            {{ toast.message }}
+    <Transition name="toast-overlay">
+      <div v-if="toast.visible" class="toast-backdrop">
+        <div id="global-toast-alert" class="toast-card" :class="toast.tone">
+          <div class="toast-icon" :class="toast.tone">
+            <AlertTriangle v-if="toast.tone === 'warning'" :size="28" />
+            <CheckCircle v-else :size="28" />
+          </div>
+          <p class="toast-title" :class="toast.tone">
+            {{ toast.tone === "warning" ? "Perhatian" : "Berhasil" }}
           </p>
+          <p class="toast-message">{{ toast.message }}</p>
+          <button
+            id="btn-close-toast"
+            type="button"
+            class="toast-close"
+            @click="hideToast"
+          >
+            Tutup
+          </button>
         </div>
-        <button
-          id="btn-close-toast"
-          type="button"
-          class="text-slate-400 hover:text-white ml-2 focus:outline-none shrink-0"
-          @click="hideToast"
-        >
-          <X class="w-4 h-4" />
-        </button>
       </div>
     </Transition>
   </div>
@@ -270,7 +265,12 @@ import {
   defineAsyncComponent,
   type CSSProperties,
 } from "vue";
-import { CheckCircle, ChevronLeft, ChevronRight, X } from "lucide-vue-next";
+import {
+  AlertTriangle,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-vue-next";
 
 import SplashScreen from "./components/SplashScreen.vue";
 import LandingPage from "./components/LandingPage.vue";
@@ -426,3 +426,101 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   transition: "left 240ms ease, background 180ms ease, color 180ms ease",
 }));
 </script>
+
+<style scoped>
+.toast-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.toast-card {
+  pointer-events: auto;
+  width: min(90vw, 400px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  border-radius: 24px;
+  border: 1px solid #dce7f4;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+  padding: 32px 28px;
+}
+
+.toast-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.toast-icon.success {
+  background: #e6f9f1;
+  color: #059669;
+}
+
+.toast-icon.warning {
+  background: #fff7e8;
+  color: #b86a00;
+}
+
+.toast-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.toast-title.success {
+  color: #059669;
+}
+
+.toast-title.warning {
+  color: #b86a00;
+}
+
+.toast-message {
+  margin: 0;
+  color: #53658a;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.toast-close {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  transition: color 0.18s ease;
+}
+
+.toast-close:hover {
+  color: #102a56;
+}
+
+.toast-overlay-enter-active {
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+.toast-overlay-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+.toast-overlay-enter-from,
+.toast-overlay-leave-to {
+  opacity: 0;
+  transform: scale(0.92) translateY(6px);
+}
+</style>
