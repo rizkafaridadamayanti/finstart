@@ -1,40 +1,22 @@
 services:
-  db:
-    image: mysql:8.0
-    container_name: finstart_db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${DB_NAME:-finstart_db}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-      MYSQL_USER: ${DB_USER:-finstart}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-finstart}
-    ports:
-      - "3307:3306"
-    volumes:
-      - finstart_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
+  # Tidak ada service "db" tersendiri - backend Docker sengaja disambungkan
+  # ke MySQL yang sama dengan yang dipakai backend Laragon (host.docker.internal
+  # menunjuk ke MySQL di mesin host), supaya cuma ada SATU sumber data dan
+  # tidak ada lagi data ganda/dummy yang beda dari data asli.
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: finstart_backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 4000
-      DB_HOST: db
-      DB_PORT: 3306
+      DB_HOST: host.docker.internal
+      DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-finstart_db}
-      DB_USER: ${DB_USER:-finstart}
-      DB_PASSWORD: ${DB_PASSWORD:-finstart}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-8}
@@ -43,10 +25,16 @@ services:
       DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
       DEMO_USER_NAME: ${DEMO_USER_NAME:-}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-latest}
+      # AI Finstart lewat Ollama yang jalan di komputer/server host (di luar
+      # Docker) - "host.docker.internal" adalah alamat khusus supaya container
+      # ini bisa menjangkau Ollama di host. Ganti OLLAMA_BASE_URL kalau Ollama
+      # dijalankan di tempat lain (server terpisah, dsb).
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "4001:4000"
+      - "${BACKEND_PORT:-4001}:4000"
 
   frontend:
     build:
@@ -62,6 +50,3 @@ services:
       PORT: 80
     ports:
       - "80:80"
-
-volumes:
-  finstart_db_data:

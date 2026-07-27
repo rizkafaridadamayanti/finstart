@@ -90,7 +90,7 @@ async function seedEmployees(db) {
   console.log(`${rows.length} pegawai berhasil disiapkan.`)
 }
 
-async function seedClients(db) {
+async function seedClients(db, pool) {
   const rows = [
     {
       companyName: 'PT Maju Jaya Teknologi', picName: 'Hendra Wijaya',
@@ -117,7 +117,7 @@ async function seedClients(db) {
   // NULL sebelum baris ini ditambahkan) - jadi cek manual by companyName dulu
   // supaya script ini aman dijalankan berkali-kali tanpa membuat duplikat.
   for (const row of rows) {
-    const [existingRows] = await db.execute(
+    const [existingRows] = await pool.execute(
       'SELECT id, code FROM clients WHERE company_name = ? LIMIT 1',
       [row.companyName],
     )
@@ -126,7 +126,7 @@ async function seedClients(db) {
     if (existing) {
       if (!existing.code) {
         const code = `KLN-${String(existing.id).padStart(4, '0')}`
-        await db.execute('UPDATE clients SET code = ? WHERE id = ?', [code, existing.id])
+        await pool.execute('UPDATE clients SET code = ? WHERE id = ?', [code, existing.id])
       }
       continue
     }
@@ -134,14 +134,14 @@ async function seedClients(db) {
     const [result] = await db.insert(schema.clients).values({ ...row, status: 'active' })
     const insertId = result.insertId
     const code = `KLN-${String(insertId).padStart(4, '0')}`
-    await db.execute('UPDATE clients SET code = ? WHERE id = ?', [code, insertId])
+    await pool.execute('UPDATE clients SET code = ? WHERE id = ?', [code, insertId])
   }
   console.log(`${rows.length} klien berhasil disiapkan.`)
 }
 
-async function seedProjects(db) {
-  const [clientRows] = await db.query.clients.findMany ? [[]] : await db.execute('SELECT id, company_name FROM clients ORDER BY id LIMIT 3')
-  const clientIds = (clientRows[0] || clientRows).map(c => c.id || c)
+async function seedProjects(db, pool) {
+  const [clientRows] = await pool.execute('SELECT id, company_name FROM clients ORDER BY id LIMIT 3')
+  const clientIds = clientRows.map((c) => c.id)
 
   const rows = [
     {
@@ -173,8 +173,8 @@ async function seedProjects(db) {
   console.log(`${rows.length} proyek berhasil disiapkan.`)
 }
 
-async function seedJournalEntries(db) {
-  const [accounts] = await db.execute('SELECT id, code FROM accounts ORDER BY id')
+async function seedJournalEntries(db, pool) {
+  const [accounts] = await pool.execute('SELECT id, code FROM accounts ORDER BY id')
   const accountMap = {}
   for (const a of accounts) accountMap[a.code] = a.id
 
@@ -207,20 +207,22 @@ async function seedJournalEntries(db) {
 
   for (const entry of entries) {
     try {
-      const [existing] = await db.execute(`SELECT id FROM journal_entries WHERE voucher_number = '${entry.voucher}'`)
+      const [existing] = await pool.execute('SELECT id FROM journal_entries WHERE voucher_number = ?', [entry.voucher])
       const existingRows = existing || []
       if (existingRows.length > 0) continue
 
       const totalDebit = entry.lines.reduce((sum, l) => sum + Number(l.debit), 0)
-      const [result] = await db.execute(
+      const [result] = await pool.execute(
         `INSERT INTO journal_entries (voucher_number, transaction_date, description, status, source_type, created_by)
-         VALUES ('${entry.voucher}', '${entry.date}', '${entry.description}', '${entry.status}', 'manual', 1)`
+         VALUES (?, ?, ?, ?, 'manual', 1)`,
+        [entry.voucher, entry.date, entry.description, entry.status],
       )
       const journalId = result.insertId
       for (const line of entry.lines) {
-        await db.execute(
+        await pool.execute(
           `INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit)
-           VALUES (${journalId}, ${line.accountId}, '${line.debit}', '${line.credit}')`
+           VALUES (?, ?, ?, ?)`,
+          [journalId, line.accountId, line.debit, line.credit],
         )
       }
     } catch (err) {
@@ -230,10 +232,10 @@ async function seedJournalEntries(db) {
   console.log(`${entries.length} jurnal transaksi berhasil disiapkan.`)
 }
 
-async function seedInvoices(db) {
-  const [clients] = await db.execute('SELECT id FROM clients ORDER BY id LIMIT 3')
+async function seedInvoices(db, pool) {
+  const [clients] = await pool.execute('SELECT id FROM clients ORDER BY id LIMIT 3')
   const clientRows = clients || []
-  const [projects] = await db.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
+  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
   const projectRows = projects || []
 
   const rows = [
@@ -257,8 +259,8 @@ async function seedInvoices(db) {
   console.log(`${rows.length} invoice berhasil disiapkan.`)
 }
 
-async function seedBills(db) {
-  const [projects] = await db.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
+async function seedBills(db, pool) {
+  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
   const projectRows = projects || []
 
   const rows = [
@@ -376,11 +378,11 @@ async function seedDummyData() {
     const divisions = await seedDivisions(db)
     await seedPositions(db, divisions)
     await seedEmployees(db)
-    await seedClients(db)
-    await seedProjects(db)
-    await seedJournalEntries(db)
-    await seedInvoices(db)
-    await seedBills(db)
+    await seedClients(db, pool)
+    await seedProjects(db, pool)
+    await seedJournalEntries(db, pool)
+    await seedInvoices(db, pool)
+    await seedBills(db, pool)
     await seedSubscriptions(db)
     await seedAssets(db)
     await seedTaxes(db)
