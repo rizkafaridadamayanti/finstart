@@ -427,7 +427,14 @@ function tryDeterministicProjectsNeeded(message, context) {
   AI Finstart berjalan lewat Ollama - default-nya lokal (http://127.0.0.1:11434,
   cocok kalau backend dijalankan langsung di komputer yang sama dengan Ollama),
   tapi untuk Docker Compose OLLAMA_BASE_URL di-override ke alamat Ollama di host
-  (lihat docker-compose.yml). Tidak ada data yang dikirim ke API pihak ketiga.
+  (lihat docker-compose.yml). Tidak ada data yang dikirim ke API pihak ketiga
+  mana pun. PENTING kalau backend ini nanti di-deploy ke hosting (mis. Railway):
+  fitur ini HANYA jalan kalau OLLAMA_BASE_URL mengarah ke instance Ollama yang
+  bisa dijangkau dari server hosting tsb - Ollama yang jalan di laptop/PC lokal
+  tidak reachable dari internet. Riwayat sebelumnya sempat pindah ke Gemini API
+  justru karena alasan ini; sekarang sengaja dikembalikan ke Ollama penuh atas
+  keputusan eksplisit, jadi kalau di-deploy ke hosting, siapkan Ollama yang
+  reachable dari sana (server terpisah/VPS dengan Ollama, dsb).
 */
 router.post('/copilot', async (req, res) => {
   try {

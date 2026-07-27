@@ -308,12 +308,12 @@ export function useFinStartApp() {
     toast.value = { message: "", visible: false, tone: "success" };
   };
   const NEGATIVE_TOAST_PATTERN =
-    /^gagal|tidak (bisa|dapat|ditemukan)|belum (bisa|dapat)|wajib (diisi|dipilih)|harus (diisi|dipilih|lebih)|lengkapi|terlebih dahulu|tidak valid|akses ditolak|sesi server berakhir/i;
+    /^gagal|^harap|tidak (bisa|dapat|ditemukan|boleh)|belum (bisa|dapat)|wajib (diisi|dipilih)|harus (diisi|dipilih|lebih)|lengkapi|terlebih dahulu|tidak valid|akses ditolak|sesi server berakhir/i;
   const showToast = (message: string) => {
     const tone = NEGATIVE_TOAST_PATTERN.test(message) ? "warning" : "success";
     toast.value = { message, visible: true, tone };
     if (toastTimer) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(hideToast, 4000);
+    toastTimer = window.setTimeout(hideToast, 1000);
   };
 
   function replaceList(target: any, values: any[]) {

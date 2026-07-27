@@ -16,7 +16,7 @@
       <div class="flex items-center gap-3">
         <button
           id="btn-open-modal-primary"
-          class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0"
+          class="bg-[#0B3A78] hover:bg-[#082C5A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow shadow-blue-900 transition-all shrink-0"
           @click="activeTab === 'ledger'
                 ? openAccountForm()
                 : openJournalModal()"
@@ -59,7 +59,7 @@
                 v-for="type in LEDGER_TYPE_FILTERS"
                 :id="`ledger-type-filter-${type}`"
                 :key="type"
-                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${ledgerTypeFilter === type ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${ledgerTypeFilter === type ? 'bg-[#0B3A78] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
                 @click="setLedgerTypeFilter(type)"
               >
                 {{ type }}
@@ -81,7 +81,7 @@
               <col style="width: 16%" />
             </colgroup>
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="p-4">Kode Akun</th>
@@ -92,7 +92,7 @@
                 <th class="p-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr
                 v-for="item in pagedLedgers"
                 :key="item.id"
@@ -199,7 +199,7 @@
               v-for="statusOption in JOURNAL_STATUS_FILTERS"
               :id="`journal-status-filter-${statusOption}`"
               :key="statusOption"
-              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${journalStatusFilter === statusOption ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+              :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${journalStatusFilter === statusOption ? 'bg-[#0B3A78] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
               @click="setJournalStatusFilter(statusOption)"
             >
               {{ statusOption }}
@@ -228,7 +228,7 @@
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-500">
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="p-4">Tanggal</th>
@@ -240,7 +240,7 @@
                 <th class="p-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr v-if="filteredJournals.length === 0">
                 <td
                   :colspan="7"
@@ -516,7 +516,7 @@
             id="btn-account-submit"
             type="submit"
             :disabled="isAccountSaving"
-            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
+            class="w-full bg-[#0B3A78] hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
           >
             <FileCheck class="w-4 h-4 text-[#38BDF8]" />
             {{ isAccountSaving ? "Menyimpan..." : "Simpan Akun Buku Besar" }}
@@ -871,7 +871,7 @@
             id="btn-journal-submit"
             type="button"
             :disabled="isJournalSaving"
-            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B1F4A] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60"
+            class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B3A78] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60"
             @click="handleSaveJournal"
           >
             {{ isJournalSaving ? "Menyimpan..." : "Simpan Draft Jurnal" }}
@@ -971,7 +971,7 @@
                       <th class="px-3 py-2.5 text-right">Nominal</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-[#E8EEF7] bg-white">
+                  <tbody class="divide-y divide-[#C7D7EC] bg-white">
                     <tr v-if="!selectedAccountFundingRows().length">
                       <td colspan="4" class="px-3 py-6 text-center font-semibold text-[#64748B]">
                         Belum ada transaksi yang menambah saldo akun ini.

@@ -237,22 +237,23 @@
     <Transition name="toast-overlay">
       <div v-if="toast.visible" class="toast-backdrop">
         <div id="global-toast-alert" class="toast-card" :class="toast.tone">
+          <button
+            id="btn-close-toast"
+            type="button"
+            class="toast-close"
+            aria-label="Tutup notifikasi"
+            @click="hideToast"
+          >
+            <X :size="18" />
+          </button>
           <div class="toast-icon" :class="toast.tone">
-            <AlertTriangle v-if="toast.tone === 'warning'" :size="28" />
-            <CheckCircle v-else :size="28" />
+            <AlertTriangle v-if="toast.tone === 'warning'" :size="34" />
+            <CheckCircle v-else :size="34" />
           </div>
           <p class="toast-title" :class="toast.tone">
             {{ toast.tone === "warning" ? "Perhatian" : "Berhasil" }}
           </p>
           <p class="toast-message">{{ toast.message }}</p>
-          <button
-            id="btn-close-toast"
-            type="button"
-            class="toast-close"
-            @click="hideToast"
-          >
-            Tutup
-          </button>
         </div>
       </div>
     </Transition>
@@ -270,6 +271,7 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-vue-next";
 
 import SplashScreen from "./components/SplashScreen.vue";
@@ -442,70 +444,80 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
 }
 
 .toast-card {
+  position: relative;
   pointer-events: auto;
-  width: min(90vw, 400px);
+  width: min(92vw, 460px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   text-align: center;
-  border-radius: 24px;
+  border-radius: 26px;
   border: 1px solid #dce7f4;
   background: #ffffff;
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
-  padding: 32px 28px;
+  padding: 38px 34px;
 }
 
 .toast-icon {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 66px;
+  height: 66px;
   border-radius: 999px;
   flex-shrink: 0;
 }
 
 .toast-icon.success {
-  background: #e6f9f1;
-  color: #059669;
+  background: #d3f5e3;
+  color: #0e9f5f;
 }
 
 .toast-icon.warning {
-  background: #fff7e8;
-  color: #b86a00;
+  background: #fdecc8;
+  color: #d97706;
 }
 
 .toast-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 900;
 }
 
 .toast-title.success {
-  color: #059669;
+  color: #0e9f5f;
 }
 
 .toast-title.warning {
-  color: #b86a00;
+  color: #d97706;
 }
 
 .toast-message {
   margin: 0;
   color: #53658a;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   line-height: 1.6;
 }
 
 .toast-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
   color: #94a3b8;
-  font-size: 12px;
-  font-weight: 700;
-  transition: color 0.18s ease;
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease;
 }
 
 .toast-close:hover {
   color: #102a56;
+  background-color: #eef3fa;
 }
 
 .toast-overlay-enter-active {
