@@ -28,7 +28,7 @@
       <div v-if="!isRiwayatView" class="flex items-center gap-3">
         <button
           id="btn-tambah-crm"
-          class="bg-[#0B1F4A] hover:bg-[#1E3A8A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all"
+          class="bg-[#0B3A78] hover:bg-[#082C5A] text-white text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md transition-all"
           @click="openCreateModal"
         >
           <Plus class="w-4 h-4" /><template v-if="!isClientMasterView && activeSubTab === 'proyek'"
@@ -64,7 +64,7 @@
             v-for="status in ['All', 'Planning', 'Ongoing', 'Completed']"
             :id="`status-filter-${status}`"
             :key="status"
-            :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${statusFilter === status ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+            :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${statusFilter === status ? 'bg-[#0B3A78] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
             @click="setStatusFilter(status)"
           >
             {{ status }}
@@ -74,7 +74,7 @@
       <div class="overflow-x-auto">
         <table class="crm-client-table w-full text-left text-xs text-slate-500">
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="p-4">Info Proyek</th>
@@ -84,7 +84,7 @@
               <th class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr v-if="renderContext.filteredProjects.length === 0">
               <td
                 :colspan="5"
@@ -209,7 +209,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-slate-500">
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="p-4">Kode</th>
@@ -220,7 +220,7 @@
               <th class="p-4 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr v-if="renderContext.filteredClients.length === 0">
               <td
                 :colspan="6"
@@ -1165,20 +1165,30 @@
               <div
                 class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_170px]"
               >
-                <input
-                  id="proj-milestone-title"
-                  type="text"
-                  v-model.trim="milestoneTitle"
-                  placeholder="Contoh: UAT dan serah terima"
-                  class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                /><input
-                  id="proj-milestone-date"
-                  type="date"
-                  v-model="milestoneDate"
-                  class="h-11 min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                /><button
+                <div>
+                  <input
+                    id="proj-milestone-title"
+                    type="text"
+                    v-model.trim="milestoneTitle"
+                    placeholder="Contoh: UAT dan serah terima"
+                    :aria-invalid="Boolean(projectStepErrors.milestoneTitle)"
+                    class="h-11 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                  <p v-if="projectStepErrors.milestoneTitle" class="form-field-warning">{{ projectStepErrors.milestoneTitle }}</p>
+                </div>
+                <div>
+                  <input
+                    id="proj-milestone-date"
+                    type="date"
+                    v-model="milestoneDate"
+                    :aria-invalid="Boolean(projectStepErrors.milestoneDate)"
+                    class="h-11 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#152238] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                  />
+                  <p v-if="projectStepErrors.milestoneDate" class="form-field-warning">{{ projectStepErrors.milestoneDate }}</p>
+                </div>
+                <button
                   type="button"
-                  class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#102A56] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0B1F42] md:col-span-2"
+                  class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#082C5A] md:col-span-2"
                   @click="handleAddMilestone"
                 >
                   <Plus class="h-4 w-4" /> Simpan Milestone
@@ -1433,7 +1443,7 @@
             ><button
               v-if="projectFormStep < projectFormSteps.length"
               type="button"
-              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] sm:w-auto"
+              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#082C5A] sm:w-auto"
               @click="goToNextProjectStep"
             >LANJUTKAN <ChevronRight class="h-4 w-4" /></button
             ><button
@@ -1441,7 +1451,7 @@
               id="btn-project-save"
               type="submit"
               :disabled="isProjectSaving"
-              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#102A56] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#0B1F42] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
             >
               <CheckCircle2 class="w-4 h-4" />
               {{ isProjectSaving ? "MENYIMPAN..." : "SELESAIKAN INISIASI PROJEK" }}
@@ -1625,7 +1635,7 @@
                 id="btn-client-submit"
                 type="submit"
                 :disabled="isClientSaving"
-                class="w-full bg-[#102A56] hover:bg-[#0B1F42] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+                class="w-full bg-[#0B3A78] hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold py-4 rounded-2xl shadow-lg mt-2 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
               >
                 <CheckCircle2 class="w-4 h-4" /><template v-if="isClientSaving"
                   >Menyimpan...</template
@@ -2323,17 +2333,19 @@ function handleAddManualStaff() {
 }
 function handleAddMilestone() {
   const title = milestoneTitle.value.trim();
-  if (!title) {
-    notify("Harap isi nama milestone.");
-    return;
-  }
+  projectStepErrors.value = {
+    ...projectStepErrors.value,
+    milestoneTitle: title ? "" : "Nama milestone wajib diisi.",
+    milestoneDate: milestoneDate.value ? "" : "Tanggal milestone wajib dipilih.",
+  };
+  if (!title || !milestoneDate.value) return;
   newProj.value = {
     ...newProj.value,
     milestones: [
       ...(newProj.value.milestones || []),
       {
         title,
-        due_date: milestoneDate.value || null,
+        due_date: milestoneDate.value,
         status: milestoneStatus.value || "planned",
       },
     ],

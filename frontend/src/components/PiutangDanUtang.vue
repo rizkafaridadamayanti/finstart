@@ -18,7 +18,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <button
             id="btn-subledger-create"
-            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#102A56] px-4 text-[13px] font-medium text-white shadow-[0_8px_18px_rgba(16,42,86,0.16)] transition hover:bg-[#0B1F42]"
+            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-[13px] font-medium text-white shadow-[0_8px_18px_rgba(16,42,86,0.16)] transition hover:bg-[#082C5A]"
             @click="activeTab === 'receivables' ? openInvoiceForm() : openBillForm()"
           >
             <Plus class="h-4 w-4" /><template v-if="activeTab === 'receivables'"
@@ -77,7 +77,7 @@
       <div
         class="bg-white border border-slate-200/80 overflow-hidden shadow-sm"
       >
-        <div class="p-4 bg-slate-50 border-b border-slate-150">
+        <div class="p-4 bg-slate-50 border-b border-slate-300">
           <div
             class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
@@ -115,7 +115,7 @@
         <div class="overflow-x-auto">
         <table class="w-full min-w-[1120px] text-left text-xs text-slate-500">
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="p-4">Nomor Invoice</th>
@@ -127,7 +127,7 @@
                 <th class="p-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr
                 v-for="inv in pagedInvoices"
                 :key="inv.id"
@@ -253,7 +253,7 @@
       <div
         class="bg-white border border-slate-200/80 overflow-hidden shadow-sm"
       >
-        <div class="p-4 bg-slate-50 border-b border-slate-150">
+        <div class="p-4 bg-slate-50 border-b border-slate-300">
           <div
             class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
@@ -301,7 +301,7 @@
               <col style="width: 8%" />
             </colgroup>
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="p-4">ID Tagihan</th>
@@ -314,7 +314,7 @@
                 <th class="p-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr
                 v-for="bill in pagedBills"
                 :key="bill.id"
@@ -561,7 +561,7 @@
             id="btn-inv-submit"
             type="submit"
             :disabled="isSavingInvoice"
-            class="w-full bg-[#0B1F4A] hover:bg-[#1E3A8A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
+            class="w-full bg-[#0B3A78] hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl shadow mt-2 transition-all flex items-center justify-center gap-2"
           >
             <FilePlus class="w-4 h-4 text-[#38BDF8]" />
             {{ isSavingInvoice ? "Menyimpan..." : "Posting Invoice Piutang" }}
@@ -879,7 +879,7 @@
     <!-- 6. CATAT PEMBAYARAN VENDOR (Full Page) -->
     <div
       v-if="isSettlementView && activeSection === 'utang'"
-      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+      class="mx-auto max-w-[860px] overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
     >
       <div class="border-b border-[#E8EEF7] px-8 py-6">
         <div class="flex items-center gap-3">
@@ -900,7 +900,7 @@
         </div>
       </div>
       <form
-        class="mx-auto max-w-[760px] space-y-7 px-8 py-10 text-sm"
+        class="space-y-7 px-8 py-10 text-sm"
         @submit.prevent="handlePayBill"
       >
         <div v-if="paymentErrorCount > 0" class="form-validation-summary">
@@ -1285,19 +1285,10 @@ const setInvoiceField = (key: keyof typeof newInvoice.value, value: any) => {
 };
 const selectedInvoiceId = ref(""),
   updateSelectedInvoiceId = (next) => (selectedInvoiceId.value = next);
-const receiptDropdownOpen = ref(false);
 const isSavingInvoice = ref(false);
 const isSavingBill = ref(false);
 const isRecordingReceipt = ref(false);
 const isPayingBill = ref(false);
-const selectedReceiptInvoiceLabel = computed(() => {
-  const invoice = invoices.value.find(
-    (item) => String(item.id) === String(selectedInvoiceId.value),
-  );
-  return invoice
-    ? `${invoice.nomor} — ${invoice.klienNama || invoice.proyekNama} (${formatRupiah(getInvoiceOutstanding(invoice))})`
-    : "Pilih invoice outstanding";
-});
 const receiptAccount = ref("1001");
 const receiptAmount = ref(0),
   updateReceiptAmount = (next) => (receiptAmount.value = next); // New Vendor Bill form input
@@ -1562,7 +1553,6 @@ const closeInvoiceModal = () => {
 
 const closeReceiptModal = () => {
   resetReceiptErrors();
-  receiptDropdownOpen.value = false;
 };
 
 const closeBillModal = () => {
@@ -1717,11 +1707,6 @@ const selectInvoiceForReceipt = (invoiceId: string) => {
   clearReceiptError("invoice", "amount");
 };
 
-const selectReceiptInvoiceOption = (invoiceId: string | number) => {
-  selectInvoiceForReceipt(String(invoiceId));
-  receiptDropdownOpen.value = false;
-};
-
 const selectBillForPayment = (billId: string) => {
   const bill = bills.value.find((item) => String(item.id) === String(billId));
   updateSelectedBillId(bill?.id || "");
@@ -1848,7 +1833,9 @@ const handlePayBill = async () => {
         paymentForm.value.catatan || `Pelunasan ${targetBill.nomorTagihan || "tagihan"}`,
     });
     if (!result?.bill) return;
-    replacePaymentResult(bills, targetBill.id, mapBill(result.bill));
+    // Reset form dulu sebelum langkah lain yang berpotensi gagal (mis.
+    // replacePaymentResult/mapBill) - supaya form tetap kembali kosong walau
+    // ada masalah di langkah sesudahnya.
     updateSelectedBillId("");
     updatePaymentForm({
       vendor: "",
@@ -1858,6 +1845,7 @@ const handlePayBill = async () => {
       catatan: "",
     });
     closePayBillModal();
+    replacePaymentResult(bills, targetBill.id, mapBill(result.bill));
     notify(`Pembayaran vendor ${formatRupiah(amountPaid)} berhasil dicatat.`);
   } finally {
     isPayingBill.value = false;

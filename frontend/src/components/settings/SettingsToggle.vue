@@ -8,7 +8,7 @@
     class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border p-0.5 transition disabled:cursor-not-allowed disabled:opacity-55"
     :class="
       checked
-        ? 'border-[#0B1F4A] bg-[#0B1F4A]'
+        ? 'border-[#0B3A78] bg-[#0B3A78]'
         : 'border-[#C9D8E8] bg-[#EEF4FB]'
     "
     @click="emit('update:checked', !checked)"
