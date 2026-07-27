@@ -6,7 +6,7 @@ import { pickAccount, toNumber, withApiFeedback } from "./financeActionUtils";
 interface ReceivableActionOptions {
   projects: Ref<any[]>;
   accounts: Ref<any[]>;
-  refreshData: () => Promise<void> | void;
+  refreshData: (options?: { bumpVersion?: boolean }) => Promise<void> | void;
   notify: (message: string) => void;
 }
 
@@ -130,7 +130,11 @@ export function useReceivableActions({
           notes: payment.notes || "",
           cash_account_id: Number(cash.id),
         });
-        await refreshData();
+        // bumpVersion: false - form pelunasan di halaman ini di-reset manual
+        // sesudah pemanggilan ini (lihat handleRecordReceipt). Bump versi data
+        // akan mem-remount seluruh halaman (key-nya terikat dataVersion) di
+        // tengah proses reset, sehingga reset manual itu tidak pernah terlihat.
+        await refreshData({ bumpVersion: false });
         notify(`Pelunasan invoice ${invoice.nomor} berhasil dibukukan.`);
         return result;
       },
@@ -254,7 +258,11 @@ export function useReceivableActions({
           notes: payment.notes || "",
           cash_account_id: Number(cash.id),
         });
-        await refreshData();
+        // bumpVersion: false - lihat catatan yang sama di recordInvoicePayment
+        // di atas: form pembayaran vendor di-reset manual sesudah ini
+        // (handlePayBill), jadi remount halaman lewat bump versi data justru
+        // membatalkan reset itu di tengah jalan.
+        await refreshData({ bumpVersion: false });
         notify(`Pembayaran tagihan ${bill.vendor} berhasil dibukukan.`);
         return result;
       },

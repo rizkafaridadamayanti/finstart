@@ -647,7 +647,7 @@
                 class="pt-6 border-t border-[#D8E5F4] flex flex-wrap gap-4 items-center justify-between"
               >
                 <button
-                  class="inline-flex items-center justify-center bg-[#102A56] hover:bg-[#1E5AA8] text-white font-semibold text-xs py-2.5 px-6 rounded-xl transition-all cursor-pointer shadow-sm"
+                  class="inline-flex items-center justify-center bg-[#0B3A78] hover:bg-[#082C5A] text-white font-semibold text-xs py-2.5 px-6 rounded-xl transition-all cursor-pointer shadow-sm"
                   @click="updateSelectedProductIndex(0)"
                 >
                   Lihat Produk</button
@@ -961,7 +961,7 @@
         <div class="text-center pt-4">
           <button
             id="btn-lihat-semua-proyek"
-            class="inline-flex bg-[#102A56] hover:bg-[#1E5AA8] text-white font-bold py-3.5 px-8 rounded-xl transition-all duration-200 text-xs tracking-wider items-center gap-2 cursor-pointer shadow-md"
+            class="inline-flex bg-[#0B3A78] hover:bg-[#082C5A] text-white font-bold py-3.5 px-8 rounded-xl transition-all duration-200 text-xs tracking-wider items-center gap-2 cursor-pointer shadow-md"
             @click="updateIsProjectModalOpen(true)"
           >
             Lihat Semua Fitur <ExternalLink class="w-4 h-4 text-[#D9AE27]" />
@@ -1239,7 +1239,7 @@
           class="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4"
         >
           <button
-            class="inline-flex items-center justify-center rounded-xl bg-[#0B1F4A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
+            class="inline-flex items-center justify-center rounded-xl bg-[#0B3A78] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#082C5A]"
             @click="updateSelectedProductIndex(null)"
           >
             Selesai
@@ -1321,7 +1321,7 @@
               </div>
               <div class="feature-list-action">
                 <button
-                  class="inline-flex items-center justify-center rounded-lg bg-[#0B1F4A] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
+                  class="inline-flex items-center justify-center rounded-lg bg-[#0B3A78] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#082C5A]"
                   @click="updateSelectedFeatureDetailIndex(idx)"
                 >
                   Lihat Detail
@@ -1383,7 +1383,7 @@
         </div>
         <div class="border-t border-slate-200 bg-white p-5 flex justify-end">
           <button
-            class="inline-flex items-center justify-center rounded-3xl bg-[#0B1F4A] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-[#122c5f]"
+            class="inline-flex items-center justify-center rounded-3xl bg-[#0B3A78] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-[#082C5A]"
             @click="updateSelectedProjectDetailIndex(null)"
           >
             Tutup Detail
@@ -1444,7 +1444,7 @@
         </div>
         <div class="shrink-0 flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-3">
           <button
-            class="inline-flex items-center justify-center rounded-lg bg-[#0B1F4A] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#122c5f]"
+            class="inline-flex items-center justify-center rounded-lg bg-[#0B3A78] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#082C5A]"
             @click="updateSelectedFeatureDetailIndex(null)"
           >
             Tutup Detail
