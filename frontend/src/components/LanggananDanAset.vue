@@ -42,7 +42,7 @@
       >
         <button
           id="btn-add-subs-asset"
-          class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow transition-all hover:bg-[#1E3A8A] whitespace-nowrap"
+          class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white shadow transition-all hover:bg-[#082C5A] whitespace-nowrap"
           :style="{ minWidth: activeTab === 'subs' ? '178px' : '160px' }"
           @click="activeTab === 'subs'
                 ? updateIsSubModalOpen(true)
@@ -128,7 +128,7 @@
                 :id="`sub-cat-filter-${cat}`"
                 :key="cat"
                 type="button"
-                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${subCategoryFilter === cat ? 'bg-[#0B1F4A] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
+                :class="`h-9 rounded-lg px-3 text-[11px] font-medium transition ${subCategoryFilter === cat ? 'bg-[#0B3A78] text-white' : 'border border-[#DCE7F4] bg-white text-[#64748B] hover:bg-[#F8FBFE]'}`"
                 @click="updateSubCategoryFilter(cat)"
               >
                 {{ cat }}</button
@@ -139,7 +139,7 @@
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-500">
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="p-5">Nama Layanan</th>
@@ -150,7 +150,7 @@
                 <th class="p-5 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr
                 v-for="item in pagedSubs"
                 :key="item.id"
@@ -229,7 +229,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-slate-500">
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="p-5">Layanan</th>
@@ -239,7 +239,7 @@
               <th class="p-5 text-center">Status Terakhir</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr
               v-for="item in pagedSubHistory"
               :key="`sub-history-${item.id}`"
@@ -296,7 +296,7 @@
           class="w-full text-left text-xs text-slate-500"
         >
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="p-5">Layanan</th>
@@ -307,7 +307,7 @@
               <th class="p-5 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr
               v-for="item in pagedDueSubs"
               :key="`due-${item.id}`"
@@ -380,7 +380,7 @@
           class="w-full text-left text-xs text-slate-500"
         >
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="p-5">Layanan</th>
@@ -390,7 +390,7 @@
               <th class="p-5 text-center">Status</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr
               v-for="item in pagedExpiredSubs"
               :key="`expired-${item.id}`"
@@ -446,7 +446,7 @@
         <div
           class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4 shadow-sm"
         >
-          <div class="p-3 bg-[#0B1F4A] text-white rounded-xl">
+          <div class="p-3 bg-[#0B3A78] text-white rounded-xl">
             <Cpu class="w-5 h-5" />
           </div>
           <div>
@@ -510,7 +510,7 @@
                 id="btn-process-depreciation"
                 type="button"
                 :disabled="isDepreciationProcessing"
-                class="asset-toolbar-button h-10 min-w-[146px] rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white whitespace-nowrap shadow-sm shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
+                class="asset-toolbar-button h-10 min-w-[146px] rounded-xl bg-[#0B3A78] px-4 text-xs font-extrabold text-white whitespace-nowrap shadow-sm shadow-[#0B3A78]/15 transition hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60"
                 @click="openDepreciationModal"
               >
                 <template v-if="isDepreciationProcessing"
@@ -533,7 +533,7 @@
               <col style="width: 8%" />
             </colgroup>
             <thead
-              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+              class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
             >
               <tr>
                 <th class="px-3 py-4 text-center">Aset Hardware &amp; Cloud</th>
@@ -546,7 +546,7 @@
                 <th class="px-3 py-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-150">
+            <tbody class="divide-y divide-slate-300">
               <tr
                 v-for="asset in pagedAssets"
                 :key="asset.id"
@@ -655,7 +655,7 @@
             <col style="width: 9%" />
           </colgroup>
           <thead
-            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b border-slate-200"
+            class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
           >
             <tr>
               <th class="px-3 py-4 text-center">Aset Hardware &amp; Cloud</th>
@@ -667,7 +667,7 @@
               <th class="px-3 py-4 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-150">
+          <tbody class="divide-y divide-slate-300">
             <tr
               v-for="asset in pagedArchivedAssets"
               :key="asset.id"
@@ -753,7 +753,7 @@
           <button
             id="btn-add-asset-category"
             type="button"
-            class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B1F4A] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56]"
+            class="inline-flex h-9 w-fit items-center gap-2 rounded-xl bg-[#0B3A78] px-3.5 text-[12px] font-semibold text-white shadow-md shadow-[#0B3A78]/15 transition hover:bg-[#082C5A]"
             @click="openAssetCategoryForm()"
           >
             <Plus class="h-3.5 w-3.5" /> Tambah Kategori
@@ -784,7 +784,7 @@
                   <th class="px-5 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-[#EDF2F7] bg-white">
+              <tbody class="divide-y divide-[#C7D7EC] bg-white">
                 <template v-if="filteredAssetCategories.length"
                   ><tr
                     v-for="item in pagedAssetCategories"
@@ -966,7 +966,7 @@
                 id="btn-save-asset-category"
                 type="submit"
                 :disabled="assetCategoryBusy"
-                class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-bold text-white shadow-md shadow-[#0B1F4A]/15 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
+                class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-bold text-white shadow-md shadow-[#0B3A78]/15 transition hover:bg-[#082C5A] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save class="h-4 w-4" />
                 <template v-if="assetCategoryBusy">Menyimpan...</template>
@@ -1096,7 +1096,7 @@
                     <th class="px-4 py-3 text-right">Estimasi Penyusutan</th>
                   </tr>
                 </thead>
-                <tbody class="depreciation-table-scroll divide-y divide-[#EDF2F7]">
+                <tbody class="depreciation-table-scroll divide-y divide-[#C7D7EC]">
                   <tr
                     v-for="row in depreciationPreviewRows"
                     :key="`depreciation-preview-${row.id}`"
@@ -1150,7 +1150,7 @@
                     <th class="px-4 py-3 text-right">Periode Terakhir</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-[#EDF2F7] bg-white">
+                <tbody class="divide-y divide-[#C7D7EC] bg-white">
                   <tr
                     v-for="row in depreciationAlreadyPostedRows"
                     :key="`depreciation-posted-${row.id}`"
@@ -1206,7 +1206,7 @@
               v-if="!depreciationResult"
               type="button"
               :disabled="isDepreciationProcessing || !depreciationPreviewRows.length"
-              class="h-10 min-w-[268px] rounded-xl bg-[#0B1F4A] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B1F4A]/20 transition hover:bg-[#102A56] disabled:cursor-not-allowed disabled:opacity-60"
+              class="h-10 min-w-[268px] rounded-xl bg-[#0B3A78] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B3A78]/20 transition hover:bg-[#082C5A] disabled:cursor-not-allowed disabled:opacity-60"
               @click="processMonthlyDepreciation"
             >
               <template v-if="isDepreciationProcessing">Memposting...</template>
@@ -1255,7 +1255,7 @@
                 :class="[
                   'h-8 rounded-lg px-3 text-xs font-bold transition',
                   assetHistoryViewMode === 'monthly'
-                    ? 'bg-[#0B1F4A] text-white shadow-sm'
+                    ? 'bg-[#0B3A78] text-white shadow-sm'
                     : 'text-[#53658A] hover:bg-white',
                 ]"
                 @click="setAssetHistoryViewMode('monthly')"
@@ -1267,7 +1267,7 @@
                 :class="[
                   'h-8 rounded-lg px-3 text-xs font-bold transition',
                   assetHistoryViewMode === 'yearly'
-                    ? 'bg-[#0B1F4A] text-white shadow-sm'
+                    ? 'bg-[#0B3A78] text-white shadow-sm'
                     : 'text-[#53658A] hover:bg-white',
                 ]"
                 @click="setAssetHistoryViewMode('yearly')"
@@ -1289,7 +1289,7 @@
               <col class="w-[24%]" />
               <col class="w-[26%]" />
             </colgroup>
-            <thead class="border-b border-[#E8EEF7] text-[#70819B]">
+            <thead class="border-b-2 border-[#C7D7EC] text-[#70819B]">
               <tr>
                 <th class="px-3 pb-3">
                   {{ assetHistoryViewMode === "monthly" ? "Bulan" : "Tahun" }}
@@ -1299,7 +1299,7 @@
                 <th class="px-3 pb-3">Voucher</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr v-for="item in pagedAssetHistoryRows" :key="item.id">
                 <td class="px-3 py-3">{{ item.periodLabel }}</td>
                 <td class="px-3 py-3">
@@ -1355,7 +1355,7 @@
           </button>
           <button
             type="button"
-            class="h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white"
+            class="h-10 rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white"
             @click="assetHistory = null"
           >
             Tutup
@@ -1457,7 +1457,7 @@
         >
           <div class="flex items-center gap-3">
             <div
-              class="w-9 h-9 rounded-xl bg-[#0B1F4A] text-white flex items-center justify-center shadow-lg shadow-[#0B1F4A]/25"
+              class="w-9 h-9 rounded-xl bg-[#0B3A78] text-white flex items-center justify-center shadow-lg shadow-[#0B3A78]/25"
             >
               <Plus class="w-5 h-5" />
             </div>
@@ -1639,7 +1639,7 @@
                   </div>
                   <button
                     type="button"
-                    class="subscription-rate-ok h-10 rounded-xl bg-[#0B1F4A] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#071735]"
+                    class="subscription-rate-ok h-10 rounded-xl bg-[#0B3A78] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#082C5A]"
                     @click="confirmSubscriptionRate"
                   >
                     OK
@@ -1740,7 +1740,7 @@
               id="btn-sub-submit"
               type="submit"
               :disabled="isSubscriptionSaving"
-              class="h-[52px] bg-[#0B1F4A] hover:bg-[#071735] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2"
+              class="h-[52px] bg-[#0B3A78] hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-2xl shadow-lg shadow-[#0B3A78]/20 transition-all flex items-center justify-center gap-2"
             >
               <Save class="w-4 h-4" />
               {{ isSubscriptionSaving ? "Menyimpan..." : "Simpan Layanan" }}
@@ -2147,7 +2147,7 @@
               id="btn-asset-submit"
               type="submit"
               :disabled="isAssetSaving"
-              class="bg-[#0B1F4A] hover:bg-[#071735] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-xl shadow-lg shadow-[#0B1F4A]/20 transition-all flex items-center justify-center gap-2 text-sm"
+              class="bg-[#0B3A78] hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60 text-white font-extrabold rounded-xl shadow-lg shadow-[#0B3A78]/20 transition-all flex items-center justify-center gap-2 text-sm"
             >
               <Save class="w-4 h-4" /><template v-if="isAssetSaving"
                 >Menyimpan...</template

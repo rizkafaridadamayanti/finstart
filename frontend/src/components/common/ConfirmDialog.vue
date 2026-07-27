@@ -346,7 +346,7 @@ function confirmDialog() {
 }
 
 .confirm-button.primary.warning {
-  background: #0b1f4a;
+  background: #0b3a78;
   color: #ffffff;
 }
 

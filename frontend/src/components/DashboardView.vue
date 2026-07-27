@@ -620,7 +620,7 @@
           Buka Transaksi <ArrowUpRight class="h-3.5 w-3.5" />
         </button>
       </div>
-      <div class="mt-2 divide-y divide-[#EDF2F8]">
+      <div class="mt-2 divide-y divide-[#C7D7EC]">
         <template v-if="latestTransactions.length"
           ><div
             v-for="transaction in latestTransactions"
@@ -822,6 +822,10 @@ const keepFocusOnAiForm = async () => {
   card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   input?.focus({ preventScroll: true });
 };
+// Wrapper tipis di atas composable: state chat sendiri (termasuk request AI
+// yang sedang berjalan) sudah aman di useAiCopilotChat, di sini cuma efek
+// UI yang memang terikat ke DOM/refs komponen ini (fokus ke input, scroll)
+// - makanya tidak ikut dipindah ke composable.
 const selectChatHistory = async (chatId: string) => {
   selectChatHistoryShared(chatId);
   await keepFocusOnAiForm();
@@ -1164,21 +1168,10 @@ const expensePath = createCurvePath(expensePoints);
   box-shadow: 0 24px 64px rgba(11, 31, 74, 0.22);
   color: var(--cfo-navy);
   isolation: isolate;
-}
-
-@media (min-width: 1280px) {
-  .cfo-column {
-    position: relative;
-    height: 100%;
-  }
-
-  #ai-cfo-card {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    max-height: none;
-  }
+  /* Tinggi mandiri (bukan h-full ke parent yang auto-height) supaya area
+     chat scroll di dalam kotaknya sendiri, tanpa perlu position:absolute
+     yang dulu bikin kartu ini lepas dari tempatnya dan menimpa konten lain. */
+  max-height: min(720px, calc(100vh - 240px));
 }
 
 .cfo-bg-gradient {
