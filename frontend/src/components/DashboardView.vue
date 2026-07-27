@@ -319,10 +319,10 @@
                   <p
                     class="cfo-eyebrow inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em]"
                   >
-                    <FileText class="h-3.5 w-3.5" /> AI CFO Copilot
+                    <FileText class="h-3.5 w-3.5" /> AI Finstart
                   </p>
                   <h2 class="mt-0.5 text-base font-semibold text-[#102A56]">
-                    Insight Keuangan CFO
+                    Asisten Keuangan Finstart
                   </h2>
                 </div>
               </div>
@@ -375,14 +375,6 @@
                       terhubung
                     </p>
                   </div>
-                  <button
-                    id="btn-clear-chat"
-                    type="button"
-                    class="cfo-clear-button shrink-0 text-[11px] font-semibold transition"
-                    @click="() => clearActiveChat()"
-                  >
-                    Bersihkan
-                  </button>
                 </div>
                 <div
                   ref="chatScrollRef"
@@ -750,7 +742,7 @@ const CFO_CHAT_STORAGE_KEY = "finstart-cfo-copilot-sessions-v1";
 const defaultInsightMessage: InsightMessage = {
   id: "welcome",
   sender: "ai",
-  text: "Halo, saya Finstart CFO Copilot. Saya membaca alur operasional dan keuangan FinStart: CRM proyek, buku besar, jurnal, piutang, utang, pajak, SDM, aset, langganan, proyeksi, dan laporan.",
+  text: "Halo, saya Asisten Keuangan Finstart. Saya membaca alur operasional dan keuangan FinStart: CRM proyek, buku besar, jurnal, piutang, utang, pajak, SDM, aset, langganan, proyeksi, dan laporan.",
 };
 const initialChatSessions: ChatSession[] = [
   {
@@ -825,11 +817,20 @@ const chatScrollRef = ref(null);
 const chatInputRef = ref(null);
 const pendingScrollMessageId = ref("");
 const chatDeleteConfirmId = ref("");
-const activeChat = computed(
-  () =>
+// A chat created via "Chat baru" lives here - NOT in chatSessions - until the
+// user actually sends a first message. That keeps unused new-chat clicks out
+// of the history list/count instead of cluttering it with empty "Chat baru"
+// entries the moment the button is pressed.
+const draftChat = ref<ChatSession | null>(null);
+const activeChat = computed(() => {
+  if (draftChat.value && draftChat.value.id === activeChatId.value) {
+    return draftChat.value;
+  }
+  return (
     chatSessions.value.find((session) => session.id === activeChatId.value) ||
-    chatSessions.value[0],
-);
+    chatSessions.value[0]
+  );
+});
 const chatDeleteTarget = computed(
   () =>
     chatSessions.value.find(
@@ -900,6 +901,9 @@ const keepFocusOnAiForm = async () => {
   input?.focus({ preventScroll: true });
 };
 const selectChatHistory = async (chatId: string) => {
+  // Switching to a saved chat abandons whatever draft was sitting unused -
+  // it was never persisted anywhere, so there's nothing to clean up.
+  draftChat.value = null;
   updateActiveChatId(chatId);
   closeChatHistory();
   await keepFocusOnAiForm();
@@ -917,7 +921,7 @@ const createNewChat = () => {
       },
     ],
   };
-  chatSessions.value = [newSession, ...chatSessions.value];
+  draftChat.value = newSession;
   updateActiveChatId(newSession.id);
   updateInputMessage("");
   closeChatHistory();
@@ -925,6 +929,12 @@ const createNewChat = () => {
 };
 const clearActiveChat = (archiveCleared = true) => {
   const current = activeChat.value;
+  // Clearing an unused draft is a no-op: it has no conversation to archive
+  // and it isn't in chatSessions yet, so there's nothing to reset there.
+  if (draftChat.value && current?.id === draftChat.value.id) {
+    updateInputMessage("");
+    return;
+  }
   const archive =
     archiveCleared && current ? createClearedChatArchive(current) : null;
   const clearedSession: ChatSession = {
@@ -1013,6 +1023,12 @@ const handleFastQuestion = async (prompt: string) => {
   const historyForRequest = (activeChat.value?.messages || []).map(
     (message) => ({ sender: message.sender, text: message.text }),
   );
+  // First real message in this chat - it's actually being used now, so move
+  // it out of the draft slot and into history for good.
+  if (draftChat.value && draftChat.value.id === targetChatId) {
+    chatSessions.value = [draftChat.value, ...chatSessions.value];
+    draftChat.value = null;
+  }
   appendMessageToChat(
     targetChatId,
     {
@@ -1040,7 +1056,7 @@ const handleFastQuestion = async (prompt: string) => {
       sender: "ai",
       text: getApiErrorMessage(
         error,
-        "Gagal menghubungi AI Copilot. Coba lagi sebentar lagi.",
+        "Gagal menghubungi AI Finstart. Coba lagi sebentar lagi.",
       ),
     });
   } finally {
@@ -1068,7 +1084,12 @@ const ongoingProjectsCount = Number(
   dashboardData.active_projects ??
     proyek.filter((project) => project.status === "Ongoing").length,
 );
-const activeClientsCount = klien.length;
+// Sama seperti KPI "Klien Aktif" di kartu ringkasan - jangan hitung ulang
+// dengan cara berbeda di tempat lain (mis. AI context), supaya angkanya
+// selalu konsisten dengan yang ditampilkan di layar.
+const activeClientsCount = klien.filter(
+  (item) => (item.status || "active") === "active",
+).length;
 const monthlySubscriptionBurn = langganan.reduce(
   (total, item) => total + Number(item.biayaIDR || 0),
   0,
@@ -1229,7 +1250,7 @@ upcomingDeadlines.sort((a, b) => a.hariLagi - b.hariLagi);
 // data asli, bukan template yang dicocokkan dari kata kunci.
 const aiContext = {
   klien: {
-    totalKlienAktif: klien.filter((item) => (item.status || "active") === "active").length,
+    totalKlienAktif: activeClientsCount,
     daftar: klien.slice(0, 40).map((item) => ({
       nama: item.namaPerusahaan,
       bidang: item.bidang,
@@ -1312,12 +1333,20 @@ const aiContext = {
     jatuhTempo: item.jatuhTempo,
     status: item.status,
   })),
-  pajakBelumSetor: unpaidTaxes.slice(0, 30).map((item: any) => ({
-    jenis: item.jenis,
-    masaPajak: item.masaPajak,
-    nominal: Number(item.nominal || 0),
-    jatuhTempo: item.jatuhTempo,
-  })),
+  pajakBelumSetor: {
+    catatan:
+      "Field total sudah dijumlahkan duluan dari seluruh pajak yang belum disetor - pakai ini langsung untuk pertanyaan total, jangan jumlahkan ulang dari daftar.",
+    total: unpaidTaxes.reduce(
+      (sum: number, item: any) => sum + Number(item.nominal || 0),
+      0,
+    ),
+    daftar: unpaidTaxes.slice(0, 30).map((item: any) => ({
+      jenis: item.jenis,
+      masaPajak: item.masaPajak,
+      nominal: Number(item.nominal || 0),
+      jatuhTempo: item.jatuhTempo,
+    })),
+  },
   sdm: {
     totalPegawai: (pegawai || []).length,
     payrollBulanan: monthlyPayroll,
@@ -1539,14 +1568,8 @@ function confirmDeleteChat() {
   padding: 16px 20px;
 }
 
-.cfo-chat-top p,
-.cfo-clear-button {
+.cfo-chat-top p {
   color: var(--cfo-navy) !important;
-}
-
-.cfo-clear-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .cfo-focus-card {
