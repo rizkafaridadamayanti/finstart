@@ -4,15 +4,17 @@ FinStart adalah aplikasi internal keuangan berbasis **Vue 3 native**, Express, M
 
 Pada revisi ini, seluruh 24 Single File Component telah diaudit sebagai Vue native. Semua inline arrow function di template telah dihapus, event memakai pemanggilan method atau ekspresi Vue, form memakai binding Vue, dan overlay menggunakan event modifier ketika diperlukan. Tidak ada React, JSX, atau TSX. CSS, kelas tampilan, warna, aset, dan susunan visual tidak diganti.
 
-## Menjalankan paling mudah di Windows/Laragon
+## Menjalankan paling mudah (Docker)
 
-1. Ekstrak ZIP ke `C:\laragon\www\` sehingga menjadi `C:\laragon\www\finstart`.
-2. Nyalakan MySQL pada Laragon.
-3. Klik dua kali `SETUP_DAN_JALANKAN.bat`.
-4. Isi konfigurasi database saat diminta.
-5. Setelah setup pertama selesai, berikutnya cukup klik `JALANKAN_FINSTART.bat`.
+1. Salin `.env.example` menjadi `.env` di folder utama, sesuaikan nilainya (lihat komentar di dalam file).
+2. Pastikan port 80 di komputer/server kosong (matikan Apache/Nginx/Laragon dulu kalau ada yang memakainya).
+3. Jalankan:
+   ```
+   docker compose up -d --build
+   ```
+4. Buka `http://localhost` di browser.
 
-Tidak perlu menjalankan `npm install` secara manual. Script setup menjalankan `npm ci`, pemeriksaan backend, ESLint, `vue-tsc`, build frontend, migration sesuai pilihan, dan seeder user demo.
+Migration database, seed chart-of-accounts, dan seed user login demo berjalan otomatis setiap container backend start - tidak perlu langkah manual tambahan.
 
 ## Database pengujian
 
@@ -55,4 +57,4 @@ npm run db:generate
 
 File `.env`, password, token, `node_modules`, dan hasil build tidak disertakan dalam ZIP. Password demo hanya ditulis pada `backend/.env` lokal, kemudian di-hash oleh seeder sebelum disimpan ke database.
 
-Setelah source dipindahkan ke repository asli, jalankan `CEK_KEAMANAN_GIT.bat` untuk memastikan `.env` tidak sedang dilacak Git.
+Setelah source dipindahkan ke repository asli, jalankan `git status` dan pastikan tidak ada file `.env` yang ikut dilacak Git (harus sudah tercakup `.gitignore`).

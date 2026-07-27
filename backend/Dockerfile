@@ -15,4 +15,8 @@ COPY . .
 ENV NODE_ENV=production
 EXPOSE 4000
 
-CMD ["node", "index.js"]
+# migrate: jalankan migration Drizzle (aman diulang, skip yang sudah tercatat)
+# seed-demo-user: jaring pengaman supaya demo user selalu ada; tidak menimpa
+# password/akun yang sudah ada, dan tidak menghentikan start jika gagal
+# (mis. DEMO_USER_PASSWORD belum diisi tapi user demo sudah ada dari dump).
+CMD ["sh", "-c", "node scripts/migrate.js && (node scripts/seed-demo-user.js || echo 'Seed demo user dilewati') && node index.js"]

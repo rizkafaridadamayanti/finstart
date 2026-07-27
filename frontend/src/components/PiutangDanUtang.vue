@@ -454,11 +454,29 @@
             >
               <option value="">Pilih proyek aktif</option>
               <option v-for="p in proyek" :key="p.id" :value="p.id">
-                {{ p.nama }} ({{ formatRupiah(p.nilaiKontrak) }})
+                {{ p.nama }} - Sisa
+                {{ formatRupiah(getProjectRemaining(p, editingInvoice?.id)) }}
+                dari {{ formatRupiah(p.nilaiKontrak) }}
               </option>
             </select>
             <p v-if="invoiceFormErrors.proyekId" class="form-field-warning">
               {{ invoiceFormErrors.proyekId }}
+            </p>
+            <p
+              v-if="newInvoice.proyekId"
+              class="text-[11px] font-semibold text-[#5E6F8A]"
+            >
+              Sisa kontrak yang belum ditagih:
+              {{
+                formatRupiah(
+                  getProjectRemaining(
+                    proyek.find(
+                      (p) => String(p.id) === String(newInvoice.proyekId),
+                    ),
+                    editingInvoice?.id,
+                  ),
+                )
+              }}
             </p>
           </div>
           <div class="space-y-1.5">
@@ -1082,6 +1100,21 @@
       @cancel="closeCancelConfirm"
       @confirm="confirmCancelDocument"
     />
+    <ConfirmDialog
+      :open="!!invoiceOverLimitConfirm"
+      eyebrow="Konfirmasi Nominal"
+      title="Nominal melebihi sisa kontrak proyek"
+      :message="`Nominal invoice ini lebih besar dari sisa kontrak proyek '${invoiceOverLimitConfirm?.projectName}' yang belum ditagih. Tetap simpan invoice ini?`"
+      :details="[
+        { label: 'Sisa Kontrak Belum Ditagih', value: formatRupiah(invoiceOverLimitConfirm?.remaining || 0) },
+        { label: 'Nominal Invoice Ini', value: formatRupiah(invoiceOverLimitConfirm?.nominal || 0) },
+      ]"
+      confirm-label="Tetap Simpan"
+      cancel-label="Periksa Lagi"
+      variant="warning"
+      @cancel="closeInvoiceOverLimitConfirm"
+      @confirm="confirmInvoiceOverLimit"
+    />
   </div>
 </template>
 
@@ -1567,6 +1600,25 @@ const openInvoiceForm = (invoice: any = null) => {
   }
   updateIsInvoiceModalOpen(true);
 };
+const invoiceOverLimitConfirm = ref<{
+  projectName: string;
+  remaining: number;
+  nominal: number;
+} | null>(null);
+
+const saveInvoiceNow = async () => {
+  isSavingInvoice.value = true;
+  try {
+    if (editingInvoice.value)
+      await updateInvoice(editingInvoice.value, { ...newInvoice.value });
+    else await createInvoice({ ...newInvoice.value });
+    editingInvoice.value = null;
+    closeInvoiceModal();
+  } finally {
+    isSavingInvoice.value = false;
+  }
+};
+
 const handleSaveInvoice = async (e: Event) => {
   e.preventDefault();
   if (isSavingInvoice.value) return;
@@ -1581,17 +1633,49 @@ const handleSaveInvoice = async (e: Event) => {
     notify("Harap pilih proyek terlebih dahulu.");
     return;
   }
-  isSavingInvoice.value = true;
-  try {
-    if (editingInvoice.value)
-      await updateInvoice(editingInvoice.value, { ...newInvoice.value });
-    else await createInvoice({ ...newInvoice.value });
-    editingInvoice.value = null;
-    closeInvoiceModal();
-  } finally {
-    isSavingInvoice.value = false;
+
+  const remaining = getProjectRemaining(projObj, editingInvoice.value?.id);
+  const nominal = Number(newInvoice.value.nominal || 0);
+  if (nominal > remaining) {
+    invoiceOverLimitConfirm.value = {
+      projectName: projObj.nama,
+      remaining,
+      nominal,
+    };
+    return;
   }
+
+  await saveInvoiceNow();
 };
+
+const closeInvoiceOverLimitConfirm = () => {
+  invoiceOverLimitConfirm.value = null;
+};
+const confirmInvoiceOverLimit = async () => {
+  invoiceOverLimitConfirm.value = null;
+  await saveInvoiceNow();
+};
+
+// Satu proyek boleh ditagih lewat beberapa invoice/termin (bukan cuma satu).
+// "Sisa kontrak" = nilai kontrak dikurangi jumlah semua invoice yang sudah
+// diterbitkan untuk proyek itu (di luar yang dibatalkan) - dipakai supaya
+// pengguna tidak salah kira nominal proyek penuh masih bisa ditagih lagi
+// begitu sebagian sudah pernah di-invoice.
+const getProjectBilledTotal = (projectId: any, excludeInvoiceId: any = null) =>
+  invoices.value
+    .filter(
+      (inv: any) =>
+        String(inv?._raw?.project_id ?? "") === String(projectId ?? "") &&
+        inv.status !== "Cancelled" &&
+        (!excludeInvoiceId || String(inv.id) !== String(excludeInvoiceId)),
+    )
+    .reduce((sum: number, inv: any) => sum + Number(inv.nominal || 0), 0);
+const getProjectRemaining = (project: any, excludeInvoiceId: any = null) =>
+  Math.max(
+    Number(project?.nilaiKontrak || 0) -
+      getProjectBilledTotal(project?.id, excludeInvoiceId),
+    0,
+  );
 
 const getInvoiceOutstanding = (invoice: any) =>
   Number(invoice?.outstandingAmount ?? invoice?.nominal ?? 0);
@@ -1674,9 +1758,10 @@ const handleRecordReceipt = async () => {
   }
   isRecordingReceipt.value = true;
   try {
+    const amountPaid = receiptAmount.value || getInvoiceOutstanding(targetInv);
     const result = await recordInvoicePayment(targetInv, {
       accountCode: receiptAccount.value,
-      amount: receiptAmount.value || getInvoiceOutstanding(targetInv),
+      amount: amountPaid,
       paymentDate: new Date().toISOString().split("T")[0],
       referenceNumber: `AR/${targetInv.nomor || targetInv.id}`,
       notes: `Pelunasan ${targetInv.nomor || "invoice"}`,
@@ -1686,6 +1771,7 @@ const handleRecordReceipt = async () => {
     updateSelectedInvoiceId("");
     updateReceiptAmount(0);
     closeReceiptModal();
+    notify(`Pelunasan piutang ${formatRupiah(amountPaid)} berhasil dicatat.`);
   } finally {
     isRecordingReceipt.value = false;
   }
@@ -1751,9 +1837,10 @@ const handlePayBill = async () => {
   }
   isPayingBill.value = true;
   try {
+    const amountPaid = paymentForm.value.jumlah || getBillOutstanding(targetBill);
     const result = await payBill(targetBill, {
       accountCode: paymentAccount.value,
-      amount: paymentForm.value.jumlah || getBillOutstanding(targetBill),
+      amount: amountPaid,
       paymentDate: paymentForm.value.tanggalBayar,
       referenceNumber:
         paymentForm.value.buktiBayar || `AP/${targetBill.nomorTagihan || targetBill.id}`,
@@ -1771,6 +1858,7 @@ const handlePayBill = async () => {
       catatan: "",
     });
     closePayBillModal();
+    notify(`Pembayaran vendor ${formatRupiah(amountPaid)} berhasil dicatat.`);
   } finally {
     isPayingBill.value = false;
   }
@@ -1886,12 +1974,25 @@ function closeCancelConfirm() {
 
 .receivable-receipt-modal-card > div:first-child > div > div,
 .payable-bill-modal-card > div:first-child > div > div,
-.payable-payment-modal-card > div:first-child > div > div,
+.payable-payment-modal-card > div:first-child > div > div {
+  background: var(--form-navy) !important;
+  color: var(--form-white) !important;
+  box-shadow: none !important;
+}
+
+/*
+  #btn-receipt-submit dan #btn-pay-submit tidak berada di dalam elemen
+  ber-class ".receivable-receipt-modal-card"/".payable-payment-modal-card"
+  (class itu cuma dipakai di CSS, tidak pernah dipasang di template) - jadi
+  var(--form-navy) di atas tidak pernah ter-inherit ke tombol ini, dan
+  tombolnya jatuh transparan. Warnanya di-hardcode di sini supaya tidak
+  bergantung pada custom property yang scope-nya salah.
+*/
 #btn-receipt-submit,
 #btn-bill-submit,
 #btn-pay-submit {
-  background: var(--form-navy) !important;
-  color: var(--form-white) !important;
+  background: #0b1f4a !important;
+  color: #ffffff !important;
   box-shadow: none !important;
 }
 
@@ -1938,11 +2039,14 @@ function closeCancelConfirm() {
 
 .receivable-receipt-modal-card > div:first-child > div > div svg,
 .payable-bill-modal-card > div:first-child > div > div svg,
-.payable-payment-modal-card > div:first-child > div > div svg,
+.payable-payment-modal-card > div:first-child > div > div svg {
+  color: var(--form-white) !important;
+}
+
 #btn-receipt-submit svg,
 #btn-bill-submit svg,
 #btn-pay-submit svg {
-  color: var(--form-white) !important;
+  color: #ffffff !important;
 }
 
 .receivable-receipt-modal-card .form-validation-summary,
