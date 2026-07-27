@@ -54,7 +54,7 @@
         <button
           v-if="isForecast && forecastView === 'target'"
           id="btn-open-target-modal"
-          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56]"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#082C5A]"
           @click="openTargetModal()"
         >
           <Plus class="h-4 w-4" /> Tambah Target</button
@@ -66,7 +66,7 @@
             <FileSpreadsheet class="h-4 w-4" /> Unduh Excel</button
           ><button
             id="btn-print-reports"
-            class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56]"
+            class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#082C5A]"
             @click="updateIsPrintModalOpen(true)"
           >
             <Printer class="h-4 w-4" /> Cetak / Simpan PDF
@@ -188,7 +188,7 @@
               ><button
                 type="button"
                 :disabled="isScenarioSaving"
-                class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
+                class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60"
                 @click="saveScenario"
               >
                 {{ isScenarioSaving ? "Menyimpan..." : "Simpan Parameter" }}
@@ -288,7 +288,7 @@
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] text-left text-sm">
             <thead
-              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
                 <th class="px-6 py-4">Target Bisnis</th>
@@ -298,7 +298,7 @@
                 <th class="px-6 py-4 text-center">Status</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr v-if="orderedTargets.length === 0">
                 <td
                   colspan="5"
@@ -396,7 +396,7 @@
           </div>
           <table class="w-full min-w-[860px] text-left text-sm">
             <thead
-              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
                 <th class="px-6 py-4">Bulan Target</th>
@@ -407,7 +407,7 @@
                 <th class="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr v-if="savedProjectionTargets.length === 0">
                 <td
                   colspan="6"
@@ -690,7 +690,7 @@
                 Ringkasan target roadmap
               </p>
             </div>
-            <div class="divide-y divide-[#E8EEF7]">
+            <div class="divide-y divide-[#C7D7EC]">
               <div
                 v-for="item in roadmapMilestones"
                 :key="item.label"
@@ -767,7 +767,7 @@
           <button
             id="btn-open-budget-modal"
             type="button"
-            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#102A56] lg:w-auto"
+            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#082C5A] lg:w-auto"
             @click="openBudgetModal()"
           >
             <Plus class="h-4 w-4" /> Tambah Budget
@@ -921,7 +921,7 @@
             <button
               type="submit"
               :disabled="isBudgetSaving"
-              class="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0B1F4A] px-3 text-sm font-semibold text-white hover:bg-[#102A56] disabled:cursor-wait disabled:opacity-60"
+              class="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#0B3A78] px-3 text-sm font-semibold text-white hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60"
             >
               <template v-if="isBudgetSaving">Menyimpan...</template
               ><template v-else-if="budgetForm.id">Perbarui</template
@@ -941,7 +941,7 @@
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] text-left text-sm">
             <thead
-              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
                 <th class="px-5 py-3">Akun / Divisi</th>
@@ -953,7 +953,7 @@
                 <th class="px-5 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr v-if="orderedBudgetAllocations.length === 0">
                 <td
                   :colspan="7"
@@ -1059,7 +1059,7 @@
           </div>
           <table class="w-full min-w-[980px] text-left text-sm">
             <thead
-              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
                 <th class="px-6 py-4">Bulan</th>
@@ -1072,7 +1072,7 @@
                 <th class="px-6 py-4 text-center">Aksi</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr v-if="pagedProjectionMonths.length === 0">
                 <td
                   colspan="8"
@@ -1160,7 +1160,7 @@
         <div class="overflow-x-auto">
           <table class="w-full min-w-[720px] text-left text-sm">
             <thead
-              class="border-b border-[#E8EEF7] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
+              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
             >
               <tr>
                 <th
@@ -1172,7 +1172,7 @@
                 </th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#EDF2F7]">
+            <tbody class="divide-y divide-[#C7D7EC]">
               <tr
                 v-if="!reportError &amp;&amp; currentReport.rows.length === 0"
               >
@@ -1249,7 +1249,7 @@
         >
           <div class="flex items-start gap-3">
             <span
-              class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0B1F4A] text-white shadow-[0_10px_22px_rgba(11,31,74,0.18)]"
+              class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0B3A78] text-white shadow-[0_10px_22px_rgba(11,31,74,0.18)]"
               ><Target class="h-5 w-5"
             /></span>
             <div>
@@ -1391,7 +1391,7 @@
             <button
               type="submit"
               :disabled="isTargetSaving"
-              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] disabled:cursor-wait disabled:opacity-60"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] disabled:cursor-wait disabled:opacity-60"
             >
               <CheckCircle2 class="h-4 w-4" /><template v-if="isTargetSaving"
                 >Menyimpan...</template
@@ -1446,7 +1446,7 @@
           >
             Tutup</button
           ><button
-            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B1F4A] px-4 text-sm font-semibold text-white"
+            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B3A78] px-4 text-sm font-semibold text-white"
             @click="printCurrentReport"
           >
             <Printer class="h-4 w-4" /> Simpan PDF

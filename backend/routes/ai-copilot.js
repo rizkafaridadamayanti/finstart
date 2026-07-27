@@ -5,7 +5,7 @@ const router = express.Router()
 const MAX_MESSAGE_LENGTH = 4000
 const MAX_HISTORY_MESSAGES = 20
 const MAX_TOOL_ROUNDS = 4
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b'
 
 function getToday() {
@@ -18,12 +18,12 @@ function getToday() {
 }
 
 /*
-  Model AI kecil/gratis terbukti sering salah kalau disuruh menjumlah/mengurangi/
+  Model AI lokal (kecil) terbukti sering salah kalau disuruh menjumlah/mengurangi/
   membandingkan angka sendiri di kepalanya. Daripada percaya hasil hitungannya,
   dia WAJIB memanggil tool ini - hitungannya selalu dikerjakan JavaScript biasa
   di bawah (dijamin benar), bukan ditebak oleh model.
 */
-const OLLAMA_TOOLS = [
+const TOOLS = [
   {
     type: 'function',
     function: {
@@ -147,14 +147,13 @@ function parseToolArgs(raw) {
 }
 
 async function callOllama(messages) {
-  const url = `${OLLAMA_BASE_URL}/api/chat`
-  const response = await fetch(url, {
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       messages,
-      tools: OLLAMA_TOOLS,
+      tools: TOOLS,
       stream: false,
       // Suhu rendah = jawaban lebih konsisten & berpegang pada data, bukan
       // "kreatif" menebak-nebak - penting untuk asisten finance yang harus
@@ -279,18 +278,18 @@ function tryDeterministicCashVsTax(message, context) {
   return `Tidak, kas belum cukup untuk membayar seluruh pajak yang belum disetor. Kas saat ini ${kasFmt}, total pajak belum setor ${pajakFmt}, kurang ${formatRupiahForTool(Math.abs(selisih))}.`
 }
 
-function extractReplyText(data) {
-  return data?.message?.content || ''
-}
-
-function extractToolCalls(data) {
-  return Array.isArray(data?.message?.tool_calls) ? data.message.tool_calls : []
-}
-
 /*
-  AI Copilot pakai Ollama lokal (self-hosted, jalan sebagai service "ollama"
-  di docker-compose) - dikonfigurasi lewat OLLAMA_BASE_URL dan OLLAMA_MODEL
-  supaya bisa diarahkan ke instance lain (mis. server terpisah) tanpa ubah kode.
+  AI Finstart berjalan sepenuhnya lewat Ollama - lokal (127.0.0.1:11434) saat
+  dev langsung di Windows, atau lewat service "ollama" di docker-compose saat
+  dijalankan via Docker (lihat OLLAMA_BASE_URL di environment masing-masing).
+  Tidak ada data yang dikirim ke API pihak ketiga mana pun.
+  PENTING kalau backend ini nanti di-deploy ke hosting (mis. Railway): fitur
+  ini HANYA jalan kalau OLLAMA_BASE_URL mengarah ke instance Ollama yang bisa
+  dijangkau dari server hosting tsb - Ollama yang jalan di laptop/PC lokal
+  tidak reachable dari internet. Riwayat sebelumnya sempat pindah ke Gemini
+  API justru karena alasan ini; sekarang sengaja dikembalikan ke Ollama penuh
+  atas keputusan eksplisit, jadi kalau di-deploy ke hosting, siapkan Ollama
+  yang reachable dari sana (server terpisah/VPS dengan Ollama, dsb).
 */
 router.post('/copilot', async (req, res) => {
   try {
@@ -331,9 +330,8 @@ router.post('/copilot', async (req, res) => {
         }))
       : []
 
-    const systemPrompt = buildSystemPrompt(req.body?.context)
     const messages = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: buildSystemPrompt(req.body?.context) },
       ...history,
       { role: 'user', content: message },
     ]
@@ -341,20 +339,18 @@ router.post('/copilot', async (req, res) => {
     let reply = ''
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
       const data = await callOllama(messages)
-      const toolCalls = extractToolCalls(data)
+      const toolCalls = data?.message?.tool_calls
 
-      if (toolCalls.length) {
+      if (Array.isArray(toolCalls) && toolCalls.length) {
         messages.push(data.message)
         for (const call of toolCalls) {
-          messages.push({
-            role: 'tool',
-            content: JSON.stringify(executeTool(call.function?.name, parseToolArgs(call.function?.arguments))),
-          })
+          const result = executeTool(call.function?.name, parseToolArgs(call.function?.arguments))
+          messages.push({ role: 'tool', content: JSON.stringify(result) })
         }
         continue
       }
 
-      reply = stripLeakedToolSyntax(extractReplyText(data))
+      reply = stripLeakedToolSyntax(data?.message?.content)
 
       if (looksLikeLeakedMeta(reply)) {
         // Satu kesempatan perbaikan: minta model merangkum ulang jadi jawaban
@@ -366,7 +362,7 @@ router.post('/copilot', async (req, res) => {
             'Jawaban Anda barusan tidak valid (menyebut proses internal/tool, atau berbahasa Inggris). Tulis ULANG sebagai satu jawaban akhir yang bersih dalam Bahasa Indonesia, langsung memakai angka/data yang relevan, tanpa menyebut kata "tool", "internal", atau proses di baliknya.',
         })
         const retryData = await callOllama(messages)
-        const retryReply = stripLeakedToolSyntax(extractReplyText(retryData))
+        const retryReply = stripLeakedToolSyntax(retryData?.message?.content)
         if (retryReply && !looksLikeLeakedMeta(retryReply)) {
           reply = retryReply
         }
@@ -386,10 +382,14 @@ router.post('/copilot', async (req, res) => {
   } catch (error) {
     console.error('[ai-copilot] Gagal memproses pertanyaan:', error)
 
-    const message =
-      error?.code === 'ECONNREFUSED' || /fetch failed/i.test(error?.message || '')
-        ? 'Tidak bisa terhubung ke Ollama. Pastikan service Ollama sudah jalan dan OLLAMA_BASE_URL sudah benar.'
-        : 'Gagal menghubungi AI Finstart. Coba lagi dalam beberapa saat.'
+    const isConnectionError = /ECONNREFUSED|fetch failed/i.test(String(error?.message || error?.cause?.message || ''))
+    const isModelMissing = error?.status === 404
+
+    const message = isConnectionError
+      ? `AI Finstart belum aktif. Pastikan Ollama sedang berjalan dan bisa dijangkau di ${OLLAMA_BASE_URL}.`
+      : isModelMissing
+        ? `Model "${OLLAMA_MODEL}" belum tersedia di Ollama. Jalankan "ollama pull ${OLLAMA_MODEL}" terlebih dahulu.`
+        : 'Gagal menghubungi AI Finstart. Pastikan Ollama sedang berjalan dan modelnya sudah ter-pull.'
 
     res.status(503).json({
       success: false,
