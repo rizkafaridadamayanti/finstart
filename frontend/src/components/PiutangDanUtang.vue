@@ -574,7 +574,7 @@
     <!-- 4. CATAT PELUNASAN PIUTANG (Full Page) -->
     <div
       v-if="isSettlementView && activeSection === 'piutang'"
-      class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
+      class="mx-auto max-w-[860px] overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-sm"
     >
       <div class="border-b border-[#E8EEF7] px-8 py-6">
         <div class="flex items-center gap-3">
@@ -595,7 +595,7 @@
         </div>
       </div>
       <form
-        class="mx-auto max-w-[630px] space-y-9 px-8 py-10 text-sm"
+        class="space-y-7 px-8 py-10 text-sm"
         @submit.prevent="handleRecordReceipt"
       >
         <div v-if="receiptErrorCount > 0" class="form-validation-summary">
