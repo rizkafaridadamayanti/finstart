@@ -100,7 +100,7 @@
         <button
           type="submit"
           :disabled="isSavingProfile"
-          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B1F4A] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(11,31,74,0.14)] transition hover:bg-[#082C5A] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save class="h-4 w-4" /><template v-if="isSavingProfile"
             >Menyimpan...</template
@@ -218,7 +218,7 @@
 
               <div class="rounded-2xl border border-[#DCE7F4] bg-white">
                 <div
-                  class="flex flex-col gap-1 border-b border-[#EDF2F7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  class="flex flex-col gap-1 border-b border-[#C7D7EC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <p class="text-sm font-semibold text-[#0B1F4A]">
@@ -233,7 +233,7 @@
                   </span>
                 </div>
 
-                <div v-if="users.length" class="divide-y divide-[#EDF2F7]">
+                <div v-if="users.length" class="divide-y divide-[#C7D7EC]">
                   <div
                     v-for="user in users"
                     :key="user.id || user.email"
@@ -305,7 +305,7 @@
               Pengaturan yang tersedia benar-benar disimpan di server.
             </p>
           </div>
-          <div class="divide-y divide-[#EDF2F7] px-6">
+          <div class="divide-y divide-[#C7D7EC] px-6">
             <div class="flex items-center justify-between gap-4 py-5">
               <div class="flex gap-3">
                 <span
@@ -370,7 +370,7 @@
               kelola.
             </p>
           </div>
-          <div class="divide-y divide-[#EDF2F7] px-6">
+          <div class="divide-y divide-[#C7D7EC] px-6">
             <template v-if="sessions.length"
               ><div
                 v-for="session in sessions"
@@ -427,7 +427,7 @@
               Jejak aktivitas dari tabel activity_logs.
             </p>
           </div>
-          <div class="divide-y divide-[#EDF2F7] px-6">
+          <div class="divide-y divide-[#C7D7EC] px-6">
             <template v-if="activity.length"
               ><div
                 v-for="item in activity.slice(0, 10)"

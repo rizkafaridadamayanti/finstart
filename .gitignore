@@ -142,6 +142,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-
-# Database init data (berisi data asli, jangan di-push)
+# Dump database lokal (berisi data asli: NIK, NPWP, rekening, password hash)
+# Jangan pernah commit - hanya dipakai lokal untuk seed docker-compose.
 db-init/
