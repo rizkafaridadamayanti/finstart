@@ -44,12 +44,14 @@ const assets = mysqlTable("assets", {
   usefulLifeMonths: int("useful_life_months", { unsigned: true }),
   residualValue: decimal("residual_value", { precision: 15, scale: 2 }).notNull().default("0.00"),
   accumulatedDepreciation: decimal("accumulated_depreciation", { precision: 15, scale: 2 }).notNull().default("0.00"),
+  assetAccountId: bigint("asset_account_id", { mode: "number", unsigned: true }),
   status: mysqlEnum("status", ["active", "disposed", "inactive"]).notNull().default("active"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 }, (table) => [
   index("idx_assets_status").on(table.status),
+  index("idx_assets_account").on(table.assetAccountId),
 ]);
 
 const assetCategories = mysqlTable("asset_categories", {

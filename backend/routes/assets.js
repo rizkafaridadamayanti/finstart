@@ -81,6 +81,19 @@ async function getAccountByCode(connection, code) {
   return account
 }
 
+async function getActiveAccountById(connection, accountId) {
+  const [rows] = await connection.query(
+    `
+      SELECT id, code, name, type, normal_balance, status
+      FROM accounts
+      WHERE id = ? AND status = 'active'
+      LIMIT 1
+    `,
+    [accountId],
+  )
+  return rows[0] || null
+}
+
 async function getPaymentAccount(connection, accountId) {
   const [rows] = await connection.query(
     `
@@ -433,6 +446,7 @@ router.post('/', async (req, res) => {
   const acquisitionCost = money(req.body.acquisition_cost)
   const usefulLifeMonths = Number(req.body.useful_life_months || 0)
   const residualValue = money(req.body.residual_value)
+  const assetAccountId = Number(req.body.asset_account_id)
   const paymentAccountId = Number(req.body.payment_account_id)
   const notes = String(req.body.notes || '').trim() || null
   let assetCode = String(req.body.asset_code || '').trim().toUpperCase()
@@ -442,15 +456,19 @@ router.post('/', async (req, res) => {
   if (acquisitionCost <= 0) return res.status(400).json({ success: false, message: 'Harga perolehan aset harus lebih dari 0.' })
   if (!Number.isInteger(usefulLifeMonths) || usefulLifeMonths <= 0) return res.status(400).json({ success: false, message: 'Masa manfaat aset harus lebih dari 0 bulan.' })
   if (residualValue < 0 || residualValue >= acquisitionCost) return res.status(400).json({ success: false, message: 'Nilai residu harus minimal 0 dan lebih kecil dari harga perolehan.' })
-  if (!Number.isInteger(paymentAccountId) || paymentAccountId <= 0) return res.status(400).json({ success: false, message: 'Sumber pembayaran aset wajib dipilih.' })
+  if (!Number.isInteger(assetAccountId) || assetAccountId <= 0) return res.status(400).json({ success: false, message: 'Akun debit aset wajib dipilih.' })
+  if (!Number.isInteger(paymentAccountId) || paymentAccountId <= 0) return res.status(400).json({ success: false, message: 'Akun kredit / sumber dana wajib dipilih.' })
+  if (assetAccountId === paymentAccountId) return res.status(400).json({ success: false, message: 'Akun debit dan akun kredit tidak boleh sama.' })
 
   let connection
   try {
     connection = await db.getConnection()
     await connection.beginTransaction()
 
-    const assetAccount = await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
-    const paymentAccount = await getPaymentAccount(connection, paymentAccountId)
+    const assetAccount = await getActiveAccountById(connection, assetAccountId)
+    if (!assetAccount) throw new Error('Akun debit tidak ditemukan atau tidak aktif.')
+    const paymentAccount = await getActiveAccountById(connection, paymentAccountId)
+    if (!paymentAccount) throw new Error('Akun kredit tidak ditemukan atau tidak aktif.')
     if (!assetCode) assetCode = await generateAssetCode(connection, acquisitionDate)
 
     const [assetResult] = await connection.query(
@@ -458,10 +476,10 @@ router.post('/', async (req, res) => {
         INSERT INTO assets (
           asset_code, asset_name, category, acquisition_date,
           acquisition_cost, useful_life_months, residual_value,
-          accumulated_depreciation, status, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active', ?)
+          accumulated_depreciation, status, notes, asset_account_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'active', ?, ?)
       `,
-      [assetCode, assetName, category, acquisitionDate, acquisitionCost, usefulLifeMonths, residualValue, notes],
+      [assetCode, assetName, category, acquisitionDate, acquisitionCost, usefulLifeMonths, residualValue, notes, assetAccount.id],
     )
 
     const assetId = assetResult.insertId
@@ -485,10 +503,10 @@ router.post('/', async (req, res) => {
     })
   } catch (error) {
     if (connection) await connection.rollback()
-    res.status(error?.code === 'ER_DUP_ENTRY' ? 409 : 500).json({
-      success: false,
-      message: error?.code === 'ER_DUP_ENTRY' ? 'Kode aset sudah digunakan.' : 'Gagal menyimpan aset.',
-    })
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Kode aset sudah digunakan.' })
+    }
+    res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal menyimpan aset.') })
   } finally {
     if (connection) connection.release()
   }
@@ -542,7 +560,10 @@ router.post('/:id/dispose', async (req, res) => {
     const cost = money(asset.acquisition_cost)
     const accumulated = money(asset.accumulated_depreciation)
     const bookValue = money(Math.max(cost - accumulated, Number(asset.residual_value || 0)))
-    const assetAccount = await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
+    const assetAccount = asset.asset_account_id
+      ? await getActiveAccountById(connection, asset.asset_account_id)
+      : await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
+    if (!assetAccount) throw new Error('Akun aset terkait tidak ditemukan atau tidak aktif.')
     const accumulatedAccount = await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
     const lossAccount = await ensureDisposalLossAccount(connection)
     const lines = []

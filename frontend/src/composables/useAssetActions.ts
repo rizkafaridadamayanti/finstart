@@ -152,10 +152,11 @@ export function useAssetActions({
   const addAsset = async (item: any) =>
     withApiFeedback(
       async () => {
-        const cash = CASH_BANK_CODES.map((code) =>
-          accounts.value.find((account) => String(account.kode) === code && account.status === "active"),
-        ).find(Boolean);
-        if (!cash) throw new Error("Akun kas/bank belum tersedia. Silakan buat akun kas (1001) atau bank (1110/1120) di Buku Besar terlebih dahulu.");
+        const debitAccount = pickAccount(accounts, item.akunDebit);
+        const creditAccount = pickAccount(accounts, item.akunKredit);
+        if (!debitAccount || !creditAccount) {
+          throw new Error("Akun debit atau akun kredit belum dipilih/tersedia di Buku Besar.");
+        }
         await financeApi.post("/assets", {
           asset_name: item.nama,
           category: item.kategori,
@@ -163,7 +164,8 @@ export function useAssetActions({
           acquisition_cost: toNumber(item.hargaBeli),
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
-          payment_account_id: Number(cash.id),
+          asset_account_id: Number(debitAccount.id),
+          payment_account_id: Number(creditAccount.id),
           notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : "",
         });
         await refreshData();
