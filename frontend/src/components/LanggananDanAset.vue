@@ -3077,7 +3077,7 @@ const requestDisposeAsset = (asset: any) => {
     eyebrow: "Konfirmasi Pelepasan Aset",
     title: "Lepaskan aset ini?",
     message:
-      "Sistem akan membuat jurnal penghapusan berdasarkan nilai buku aset saat ini.",
+      "Aset akan ditandai dilepas dan tidak lagi muncul di daftar aset aktif.",
     details: [
       { label: "Aset", value: asset.nama },
       { label: "Kategori", value: asset.kategori || "-" },
@@ -3085,7 +3085,7 @@ const requestDisposeAsset = (asset: any) => {
     ],
     impactItems: [
       "Status aset akan berubah menjadi dilepas.",
-      "Jurnal pelepasan aset akan dibuat otomatis.",
+      "Tidak ada jurnal otomatis yang dibuat untuk pelepasan ini.",
     ],
     confirmLabel: "Lepaskan Aset",
     requireReason: true,

@@ -5,7 +5,6 @@ const { isValidDate, isValidPeriod, todayInJakarta } = require('../utils/date-va
 
 const router = express.Router()
 
-const ASSET_ACCOUNT_CODE = '1210'
 const ACCUMULATED_DEPRECIATION_ACCOUNT_CODE = '1220'
 const DEPRECIATION_EXPENSE_ACCOUNT_CODE = '5250'
 const PAYMENT_ACCOUNT_CODES = ['1001', '1110', '1120', '2100']
@@ -539,10 +538,6 @@ router.put('/:id', async (req, res) => {
   }
 })
 
-async function ensureDisposalLossAccount(connection) {
-  return ensureAccountByCode(connection, '5295', 'Rugi Pelepasan Aset', 'expense', 'debit', '5000')
-}
-
 router.post('/:id/dispose', async (req, res) => {
   const assetId = Number(req.params.id)
   const disposalDate = String(req.body?.disposal_date || '').trim()
@@ -560,30 +555,12 @@ router.post('/:id/dispose', async (req, res) => {
     const cost = money(asset.acquisition_cost)
     const accumulated = money(asset.accumulated_depreciation)
     const bookValue = money(Math.max(cost - accumulated, Number(asset.residual_value || 0)))
-    const assetAccount = asset.asset_account_id
-      ? await getActiveAccountById(connection, asset.asset_account_id)
-      : await ensureAccountByCode(connection, ASSET_ACCOUNT_CODE, 'Peralatan / Aset Teknologi', 'asset', 'debit', '1200')
-    if (!assetAccount) throw new Error('Akun aset terkait tidak ditemukan atau tidak aktif.')
-    const accumulatedAccount = await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
-    const lossAccount = await ensureDisposalLossAccount(connection)
-    const lines = []
-    if (accumulated > 0) lines.push({ account_id: accumulatedAccount.id, description: `Akumulasi penyusutan ${asset.asset_name}`, debit: accumulated, credit: 0 })
-    if (bookValue > 0) lines.push({ account_id: lossAccount.id, description: `Rugi pelepasan ${asset.asset_name}`, debit: bookValue, credit: 0 })
-    lines.push({ account_id: assetAccount.id, description: `Penghapusan aset ${asset.asset_name}`, debit: 0, credit: cost })
-    const journal = await postAutomaticJournal(connection, {
-      voucher_number: `DISP-${asset.id}-${disposalDate.replaceAll('-', '')}`,
-      transaction_date: disposalDate,
-      description: `Pelepasan/penghapusan aset ${asset.asset_name}${reason ? `: ${reason}` : ''}`,
-      source_type: 'asset_disposal',
-      source_id: asset.id,
-      lines,
-    })
     await connection.query(
       "UPDATE assets SET status = 'disposed', notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?",
       [`\n[Dilepas ${disposalDate}] ${reason || '-'}`, asset.id],
     )
     await connection.commit()
-    res.json({ success: true, message: 'Aset berhasil dilepas dan jurnal pelepasan diposting.', data: { asset_id: asset.id, journal_voucher_number: journal.voucher_number, book_value: bookValue } })
+    res.json({ success: true, message: 'Aset berhasil dilepas dari daftar aset.', data: { asset_id: asset.id, book_value: bookValue } })
   } catch (error) {
     if (connection) await connection.rollback()
     res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal melepas aset.') })
