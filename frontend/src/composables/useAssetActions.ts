@@ -186,9 +186,10 @@ export function useAssetActions({
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
           notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : raw.notes || "",
+          acquisition_date: item.tanggalBeli || raw.acquisition_date,
         });
         await refreshData();
-        notify("Data aset berhasil diperbarui. Harga perolehan tidak diubah agar jurnal akuisisi tetap konsisten.");
+        notify("Data aset berhasil diperbarui.");
         return true;
       },
       "Gagal memperbarui aset.",

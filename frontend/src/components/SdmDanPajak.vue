@@ -2455,6 +2455,42 @@
                   :class="inputClass"
                   @input="setEmployeeField('npwp', digitsOnly(eventValue($event)))"
               /></SdmField>
+              <section class="md:col-span-2 rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] p-5">
+                <h3 class="text-sm font-extrabold text-[#020B2D]">Dokumen Pendukung (Opsional)</h3>
+                <p class="mt-1 text-xs leading-relaxed text-[#53658A]">
+                  Unggah CV, KTP, NPWP, atau Sertifikat pegawai (PDF/JPG/PNG, maksimal 5MB). Klik pratinjau untuk membuka file. Kolom ini opsional, bukan wajib diisi.
+                </p>
+                <div class="mt-4 space-y-3">
+                  <div v-for="document in defaultEmployeeDocuments" :key="document.key" class="rounded-xl border border-[#D8E5F4] bg-white p-3">
+                    <p class="text-[11px] font-extrabold uppercase tracking-wide text-[#0B1F4A]">{{ document.label }} (Opsional)</p>
+                    <div class="mt-2 flex items-center gap-3">
+                      <a v-if="document.entry" :href="document.entry.url" target="_blank" rel="noopener" class="min-w-0 flex-1 truncate text-xs font-bold text-[#0B3A78] underline underline-offset-2" :title="`File: ${document.entry.file.name}. Buka pratinjau.`">
+                        {{ document.label }}
+                      </a>
+                      <span v-else class="min-w-0 flex-1 truncate text-xs font-bold text-[#7A8CA8]">{{ document.hint }}</span>
+                      <label :for="`employee-doc-${document.key}`" class="cursor-pointer rounded-lg border border-[#0B3A78] bg-white px-4 py-2 text-[10px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]">
+                        {{ document.entry ? 'GANTI' : 'PILIH FILE' }}
+                      </label>
+                      <input :id="`employee-doc-${document.key}`" type="file" accept=".pdf,.jpg,.jpeg,.png" class="sr-only" @change="setDefaultEmployeeDocument(document.key, eventFileList($event))" />
+                    </div>
+                  </div>
+                  <div v-for="document in customEmployeeDocuments" :key="document.id" class="rounded-xl border border-[#D8E5F4] bg-white p-3">
+                    <input :id="`employee-custom-document-name-${document.id}`" :value="document.name" type="text" placeholder="Ketik nama dokumen" class="w-full rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-2 text-xs font-bold text-[#0B1F4A] placeholder:font-medium placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20" @input="updateCustomEmployeeDocumentName(document.id, eventValue($event))" />
+                    <div class="mt-2 flex items-center gap-3">
+                      <span v-if="document.entry" class="min-w-0 flex-1 truncate text-xs font-bold text-[#0B1F4A]">{{ document.entry.file.name }}</span>
+                      <span v-else class="min-w-0 flex-1 truncate text-xs font-bold text-[#7A8CA8]">Belum ada file dipilih</span>
+                      <a v-if="document.entry" :href="document.entry.url" target="_blank" rel="noopener" class="shrink-0 rounded-lg border border-[#D8E5F4] bg-white px-3 py-2 text-[10px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]" title="Buka pratinjau file">PRATINJAU</a>
+                      <label :for="`employee-doc-custom-${document.id}`" class="cursor-pointer rounded-lg border border-[#0B3A78] bg-white px-4 py-2 text-[10px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]">{{ document.entry ? 'GANTI' : 'PILIH FILE' }}</label>
+                      <input :id="`employee-doc-custom-${document.id}`" type="file" accept=".pdf,.jpg,.jpeg,.png" class="sr-only" @change="setCustomEmployeeDocument(document.id, eventFileList($event))" />
+                      <button type="button" class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50" title="Hapus dokumen" :aria-label="`Hapus ${document.name || 'dokumen tambahan'}`" @click="removeCustomEmployeeDocument(document.id)"><Trash2 class="h-4 w-4" /></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 flex justify-center">
+                  <button type="button" class="inline-flex h-12 w-full items-center justify-center rounded-xl border border-[#0B3A78] bg-white px-4 text-[11px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]" @click="addCustomEmployeeDocument">+ Tambah Dokumen Lain</button>
+                </div>
+              </section>
+  
             </div>
           </details>
           <p
@@ -2490,6 +2526,7 @@
       </div>
     </div>
     </Teleport>
+    
     <!-- 6. PROSES PAYROLL full-page view -->
     <div
       v-if="isProsesPayrollView"
@@ -3665,6 +3702,8 @@ function digitsOnly(value: string) {
   return String(value ?? "").replace(/\D/g, "");
 }
 
+
+
 const INDONESIAN_BANKS = [
   "Bank Central Asia (BCA)",
   "Bank Rakyat Indonesia (BRI)",
@@ -3867,13 +3906,271 @@ const isAnySdmModalOpen = computed(
     Boolean(payslipPreview.value),
 );
 
-watch(
-  isAnySdmModalOpen,
-  (isOpen) => {
-    document.documentElement.classList.toggle("sdm-modal-open", isOpen);
+interface EmployeeFileEntry {
+  file: File;
+  url: string;
+}
+
+interface CustomEmployeeDocument {
+  id: number;
+  name: string;
+  entry: EmployeeFileEntry | null;
+}
+
+interface DefaultEmployeeDocument {
+  key: "cv" | "ktp" | "npwpFile" | "certificate";
+  label: string;
+  hint: string;
+  entry: EmployeeFileEntry | null;
+}
+
+const employeeFiles = ref<{
+  cv: EmployeeFileEntry | null;
+  ktp: EmployeeFileEntry | null;
+  npwpFile: EmployeeFileEntry | null;
+  certificates: EmployeeFileEntry[];
+  documents: EmployeeFileEntry[];
+}>({
+  cv: null,
+  ktp: null,
+  npwpFile: null,
+  certificates: [],
+  documents: [],
+});
+const customEmployeeDocuments = ref<CustomEmployeeDocument[]>([]);
+const employeeDocumentUploadError = ref("");
+const defaultEmployeeDocuments = computed<DefaultEmployeeDocument[]>(() => [
+  { key: "cv", label: "CV", hint: "Masukkan CV", entry: employeeFiles.value.cv },
+  { key: "ktp", label: "KTP", hint: "Masukkan KTP", entry: employeeFiles.value.ktp },
+  { key: "npwpFile", label: "NPWP", hint: "Masukkan dokumen NPWP", entry: employeeFiles.value.npwpFile },
+  {
+    key: "certificate",
+    label: "SERTIFIKAT",
+    hint: "Masukkan Sertifikat",
+    entry: employeeFiles.value.certificates[0] || null,
   },
-  { flush: "sync" },
-);
+]);
+const MAX_EMPLOYEE_DOCUMENT_SIZE = 5 * 1024 * 1024;
+
+
+// ===============================
+// FILE HELPER
+// ===============================
+
+function toFileEntry(file: File): EmployeeFileEntry {
+  return {
+    file,
+    url: URL.createObjectURL(file),
+  };
+}
+
+function revokeFileEntry(
+  entry: EmployeeFileEntry | null | undefined
+) {
+  if (entry?.url) {
+    URL.revokeObjectURL(entry.url);
+  }
+}
+
+
+// ===============================
+// CV / KTP / NPWP
+// ===============================
+
+function setEmployeeFile(
+  key: "cv" | "ktp" | "npwpFile",
+  fileList: FileList | null,
+) {
+  const file = fileList?.[0] || null;
+
+  // Hapus URL file lama
+  revokeFileEntry(employeeFiles.value[key]);
+
+  employeeFiles.value = {
+    ...employeeFiles.value,
+    [key]: file ? toFileEntry(file) : null,
+  };
+}
+
+function validEmployeeDocument(file: File | null) {
+  if (!file) return false;
+  if (file.size > MAX_EMPLOYEE_DOCUMENT_SIZE) {
+    employeeDocumentUploadError.value =
+      "Upload tidak berhasil. Ukuran dokumen maksimal 5MB.";
+    notify(employeeDocumentUploadError.value);
+    return false;
+  }
+  return true;
+}
+
+function eventFileList(event: Event) {
+  return (event.target as HTMLInputElement | null)?.files || null;
+}
+
+function setDefaultEmployeeDocument(
+  key: "cv" | "ktp" | "npwpFile" | "certificate",
+  fileList: FileList | null,
+) {
+  const file = fileList?.[0] || null;
+  if (!file || !validEmployeeDocument(file)) return;
+  employeeDocumentUploadError.value = "";
+
+  if (key === "certificate") {
+    employeeFiles.value.certificates.forEach(revokeFileEntry);
+    employeeFiles.value = {
+      ...employeeFiles.value,
+      certificates: [toFileEntry(file)],
+    };
+    return;
+  }
+
+  setEmployeeFile(key, fileList);
+}
+
+function addCustomEmployeeDocument() {
+  customEmployeeDocuments.value = [
+    ...customEmployeeDocuments.value,
+    {
+      id: Date.now(),
+      name: "",
+      entry: null,
+    },
+  ];
+}
+
+function updateCustomEmployeeDocumentName(id: number, name: string) {
+  customEmployeeDocuments.value = customEmployeeDocuments.value.map((document) =>
+    document.id === id ? { ...document, name } : document,
+  );
+}
+
+function setCustomEmployeeDocument(id: number, fileList: FileList | null) {
+  const file = fileList?.[0] || null;
+  if (!file || !validEmployeeDocument(file)) return;
+  employeeDocumentUploadError.value = "";
+  customEmployeeDocuments.value = customEmployeeDocuments.value.map((document) => {
+    if (document.id !== id) return document;
+    revokeFileEntry(document.entry);
+    return {
+      ...document,
+      entry: toFileEntry(file),
+    };
+  });
+}
+
+function removeCustomEmployeeDocument(id: number) {
+  const document = customEmployeeDocuments.value.find(
+    (item) => item.id === id,
+  );
+  revokeFileEntry(document?.entry);
+  customEmployeeDocuments.value = customEmployeeDocuments.value.filter(
+    (item) => item.id !== id,
+  );
+}
+
+
+// ===============================
+// SERTIFIKAT & DOKUMEN LAIN
+// ===============================
+
+function setEmployeeFileList(
+  key: "certificates" | "documents",
+  fileList: FileList | null,
+) {
+  const files = fileList ? Array.from(fileList) : [];
+
+  if (!files.length) {
+    return;
+  }
+
+  // File baru ditambahkan ke file yang sudah ada
+  const newEntries = files.map(toFileEntry);
+
+  employeeFiles.value = {
+    ...employeeFiles.value,
+
+    [key]: [
+      ...employeeFiles.value[key],
+      ...newEntries,
+    ],
+  };
+}
+
+
+// ===============================
+// HAPUS FILE
+// ===============================
+
+function removeEmployeeFile(
+  key: "certificates" | "documents",
+  index: number,
+) {
+  const entry = employeeFiles.value[key][index];
+
+  // Hapus URL sementara
+  revokeFileEntry(entry);
+
+  // Hapus file dari array
+  employeeFiles.value = {
+    ...employeeFiles.value,
+
+    [key]: employeeFiles.value[key].filter(
+      (_, i) => i !== index
+    ),
+  };
+}
+
+
+// ===============================
+// RESET SEMUA FILE
+// ===============================
+
+function resetEmployeeFiles() {
+  // CV
+  revokeFileEntry(employeeFiles.value.cv);
+
+  // KTP
+  revokeFileEntry(employeeFiles.value.ktp);
+
+  // NPWP
+  revokeFileEntry(employeeFiles.value.npwpFile);
+
+  // Sertifikat
+  employeeFiles.value.certificates.forEach(
+    revokeFileEntry
+  );
+
+  // Dokumen lain
+  employeeFiles.value.documents.forEach(
+    revokeFileEntry
+  );
+
+  customEmployeeDocuments.value.forEach((document) =>
+    revokeFileEntry(document.entry),
+  );
+  customEmployeeDocuments.value = [];
+  employeeDocumentUploadError.value = "";
+
+  // Kosongkan semuanya
+  employeeFiles.value = {
+    cv: null,
+    ktp: null,
+    npwpFile: null,
+    certificates: [],
+    documents: [],
+  };
+}
+
+
+function isImageFile(file: File) {
+  return Boolean(
+    file.type?.startsWith("image/")
+  );
+}
+
+function isPdfFile(file: File) {
+  return file.type === "application/pdf";
+}
 
 onUnmounted(() => {
   document.documentElement.classList.remove("sdm-modal-open");
@@ -5372,6 +5669,7 @@ function resetEmployeeForm() {
   editingEmployee.value = null;
   resetEmployeeFormErrors();
   employeeBankOtherSelected.value = false;
+  resetEmployeeFiles();
   updateEmployeeForm({
     nama: "",
     nip: "",
@@ -5447,6 +5745,12 @@ async function openEmployeeForm(employee: any = null) {
 async function handleCreateEmployee() {
   if (isEmployeeSaving.value) return;
   employeeSaveError.value = "";
+
+  if (employeeDocumentUploadError.value) {
+    employeeSaveError.value = employeeDocumentUploadError.value;
+    notify(employeeSaveError.value);
+    return;
+  }
 
   if (!validateEmployeeForm()) {
     employeeSaveError.value = "Lengkapi kolom wajib yang masih ditandai.";

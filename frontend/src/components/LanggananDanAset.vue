@@ -2005,16 +2005,13 @@
                     id="asset-form-date"
                     type="date"
                     required
-                    :disabled="!!editingAsset"
+                    :disabled="isAssetDepreciated"
                     :value="newAsset.tanggalBeli"
                     :class="[
-                      assetInputClass,
-                      'pr-4',
-                      {
-                        'form-control-invalid':
-                          assetFormErrors.tanggalBeli,
-                      },
-                    ]"
+                        assetInputClass,
+                        { 'opacity-60 bg-slate-100 cursor-not-allowed text-slate-500': isAssetDepreciated },
+                        { 'form-control-invalid': assetFormErrors.tanggalBeli }
+                      ]"
                     @input="setAssetField('tanggalBeli', eventValue($event))"
                   />
                 </div>
@@ -2488,6 +2485,29 @@ const subscriptionBillingSummary = (item: any) => {
   return parts.join(" | ");
 };
 const editingAsset = ref<any>(null);
+const isAssetDepreciated = computed(() => {
+  if (!editingAsset.value) return false;
+
+  const asset = editingAsset.value;
+  const raw = asset._raw || asset;
+  const accumulatedDepreciation = Number(
+    raw.accumulated_depreciation ??
+      asset.accumulatedDepreciation ??
+      asset.totalPenyusutan ??
+      0,
+  );
+  const depreciationHistory =
+    raw.depreciation_history ?? asset.depreciationHistory ?? asset.depreciations;
+  const depreciationCount = Array.isArray(depreciationHistory)
+    ? depreciationHistory.length
+    : Number(raw.depreciation_count ?? asset.depreciationCount ?? 0);
+
+  return (
+    accumulatedDepreciation > 0 ||
+    depreciationCount > 0 ||
+    Boolean(raw.last_depreciation_period ?? asset.lastDepreciationPeriod)
+  );
+});
 const confirmDialog = ref<any>(null);
 // Daftar aset berasal langsung dari props API backend.
 const newSub = ref({
