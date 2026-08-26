@@ -2121,6 +2121,77 @@
               </div>
             </div>
           </section>
+          <section v-if="!editingAsset" class="space-y-3">
+            <div class="flex items-center gap-2 text-[#0B1F4A]">
+              <CreditCard class="w-3.5 h-3.5" />
+              <h4 class="text-[10px] font-extrabold uppercase tracking-widest">
+                Akun Jurnal
+              </h4>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <label
+                  class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
+                  >Akun Debit</label
+                >
+                <div class="relative">
+                  <select
+                    id="asset-form-debit-account"
+                    required
+                    :value="newAsset.akunDebit"
+                    :class="[
+                      assetInputClass,
+                      'pr-10 appearance-none font-semibold',
+                      { 'form-control-invalid': assetFormErrors.akunDebit },
+                    ]"
+                    @change="setAssetField('akunDebit', eventValue($event))"
+                  >
+                    <option value="">Pilih akun debit...</option>
+                    <option v-for="a in assetAccountOptions" :key="a.id" :value="a.kode">
+                      {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
+                    </option></select
+                  ><ChevronDown
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
+                  />
+                </div>
+                <p v-if="assetFormErrors.akunDebit" class="form-field-warning">
+                  {{ assetFormErrors.akunDebit }}
+                </p>
+              </div>
+              <div class="space-y-2">
+                <label
+                  class="text-[9px] font-extrabold text-[#94A3B8] uppercase"
+                  >Akun Kredit</label
+                >
+                <div class="relative">
+                  <select
+                    id="asset-form-credit-account"
+                    required
+                    :value="newAsset.akunKredit"
+                    :class="[
+                      assetInputClass,
+                      'pr-10 appearance-none font-semibold',
+                      { 'form-control-invalid': assetFormErrors.akunKredit },
+                    ]"
+                    @change="setAssetField('akunKredit', eventValue($event))"
+                  >
+                    <option value="">Pilih akun kredit...</option>
+                    <option v-for="a in assetAccountOptions" :key="a.id" :value="a.kode">
+                      {{ a.kode }} - {{ a.nama }} ({{ a.tipe }})
+                    </option></select
+                  ><ChevronDown
+                    class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#111827]"
+                  />
+                </div>
+                <p
+                  v-if="assetFormErrors.akunKredit"
+                  class="form-field-warning"
+                >
+                  {{ assetFormErrors.akunKredit }}
+                </p>
+              </div>
+            </div>
+          </section>
           <div
             class="rounded-xl bg-blue-50 border border-blue-100 px-4 py-4 flex items-start gap-3 text-[#0B1F4A]"
           >
@@ -2213,6 +2284,7 @@ interface LanggananDanAsetProps {
     | "langganan-riwayat-kadaluarsa";
   langganan: Langganan[];
   assets: AsetTeknologi[];
+  akun: any[];
 }
 
 const props = defineProps<LanggananDanAsetProps>();
@@ -2629,6 +2701,28 @@ async function deleteAssetCategory(item: any) {
 const formatAssetCurrencyInput = (amount: number) =>
   formatRupiahInput(amount, false, false);
 
+const DEFAULT_ASSET_DEBIT_CODE = "1210";
+const DEFAULT_ASSET_CREDIT_CODES = ["1001", "1110", "1120", "1130"];
+
+const assetAccountOptions = computed(() => props.akun || []);
+
+function defaultAssetDebitCode() {
+  const match = (props.akun || []).find(
+    (a: any) => String(a.kode) === DEFAULT_ASSET_DEBIT_CODE,
+  );
+  return match ? String(match.kode) : "";
+}
+
+function defaultAssetCreditCode() {
+  for (const code of DEFAULT_ASSET_CREDIT_CODES) {
+    const match = (props.akun || []).find(
+      (a: any) => String(a.kode) === code && a.status === "active",
+    );
+    if (match) return String(match.kode);
+  }
+  return "";
+}
+
 const newAsset = ref({
     nama: "",
     kategori: "Elektronik / IT",
@@ -2637,6 +2731,8 @@ const newAsset = ref({
     masaManfaat: 4,
     nilaiSisa: 0,
     penanggungJawab: "",
+    akunDebit: "",
+    akunKredit: "",
   }),
   updateNewAsset = (next) => (newAsset.value = next); // Submit new subscription
 const assetCostInputValue = computed(() =>
@@ -2656,7 +2752,9 @@ type AssetFormFieldKey =
   | "tanggalBeli"
   | "hargaBeli"
   | "masaManfaat"
-  | "nilaiSisa";
+  | "nilaiSisa"
+  | "akunDebit"
+  | "akunKredit";
 
 const emptyAssetFormErrors = (): Record<AssetFormFieldKey, string> => ({
   nama: "",
@@ -2666,19 +2764,21 @@ const emptyAssetFormErrors = (): Record<AssetFormFieldKey, string> => ({
   hargaBeli: "",
   masaManfaat: "",
   nilaiSisa: "",
+  akunDebit: "",
+  akunKredit: "",
 });
 
 const assetFormErrors = ref<Record<AssetFormFieldKey, string>>(
   emptyAssetFormErrors(),
 );
 
-const assetRequiredFields: Array<{
+const assetRequiredFields = computed<Array<{
   key: AssetFormFieldKey;
   id: string;
   label: string;
   type?: "number";
   allowZero?: boolean;
-}> = [
+}>>(() => [
   { key: "nama", id: "asset-form-name", label: "Nama barang / aset" },
   { key: "kategori", id: "asset-form-category", label: "Kategori" },
   {
@@ -2710,7 +2810,21 @@ const assetRequiredFields: Array<{
     type: "number",
     allowZero: true,
   },
-];
+  ...(editingAsset.value
+    ? []
+    : [
+        {
+          key: "akunDebit" as AssetFormFieldKey,
+          id: "asset-form-debit-account",
+          label: "Akun debit",
+        },
+        {
+          key: "akunKredit" as AssetFormFieldKey,
+          id: "asset-form-credit-account",
+          label: "Akun kredit",
+        },
+      ]),
+]);
 
 const assetFormErrorMessages = computed(() =>
   Object.values(assetFormErrors.value).filter(Boolean),
@@ -2749,7 +2863,7 @@ function assetRawInputValue(id: string) {
 function validateAssetForm() {
   const nextErrors = emptyAssetFormErrors();
 
-  for (const field of assetRequiredFields) {
+  for (const field of assetRequiredFields.value) {
     const rawValue = assetRawInputValue(field.id);
     const value = newAsset.value[field.key];
 
@@ -2781,8 +2895,19 @@ function validateAssetForm() {
       "Nilai sisa harus lebih kecil dari harga perolehan.";
   }
 
+  if (
+    !editingAsset.value &&
+    !nextErrors.akunDebit &&
+    !nextErrors.akunKredit &&
+    newAsset.value.akunDebit &&
+    newAsset.value.akunKredit &&
+    newAsset.value.akunDebit === newAsset.value.akunKredit
+  ) {
+    nextErrors.akunKredit = "Akun kredit tidak boleh sama dengan akun debit.";
+  }
+
   assetFormErrors.value = nextErrors;
-  const firstInvalidField = assetRequiredFields.find(
+  const firstInvalidField = assetRequiredFields.value.find(
     (field) => nextErrors[field.key],
   );
 
@@ -2862,6 +2987,8 @@ const resetAssetForm = () => {
     masaManfaat: 4,
     nilaiSisa: 0,
     penanggungJawab: "",
+    akunDebit: defaultAssetDebitCode(),
+    akunKredit: defaultAssetCreditCode(),
   });
 };
 
@@ -2883,6 +3010,8 @@ const openAssetForm = (asset: any = null) => {
         : Math.max(1, Number(asset.masaManfaat || 4)),
       nilaiSisa: Number(asset.nilaiSisa ?? raw.residual_value ?? 0),
       penanggungJawab: asset.penanggungJawab || raw.responsible_person || "",
+      akunDebit: "",
+      akunKredit: "",
     });
   } else {
     resetAssetForm();

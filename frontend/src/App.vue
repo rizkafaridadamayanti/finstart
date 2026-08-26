@@ -182,6 +182,7 @@
                   :active-section="activeTab"
                   :langganan="langganan"
                   :assets="assets"
+                  :akun="akun"
                 />
 
                 <SdmDanPajak
