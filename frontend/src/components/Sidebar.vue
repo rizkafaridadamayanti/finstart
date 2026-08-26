@@ -270,8 +270,8 @@ const menuGroups = [
         icon: Box,
         groupOnly: true,
         children: [
-          { id: "aset", label: "Kelola Aset", icon: ClipboardList },
           { id: "aset-kategori", label: "Kategori Aset", icon: Tags },
+          { id: "aset", label: "Kelola Aset", icon: ClipboardList },
           { id: "aset-riwayat", label: "Riwayat Aset", icon: History },
         ],
       },
