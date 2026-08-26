@@ -203,7 +203,7 @@ export function useAssetActions({
           reason,
         });
         await refreshData();
-        notify(`Aset ${asset.nama} telah dilepas dan jurnal pelepasan dibuat.`);
+        notify(`Aset ${asset.nama} telah dilepas dari daftar aset.`);
         return true;
       },
       "Gagal melepas aset.",
