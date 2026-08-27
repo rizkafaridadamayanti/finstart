@@ -2456,6 +2456,185 @@
                   @input="setEmployeeField('npwp', digitsOnly(eventValue($event)))"
               /></SdmField>
             </div>
+            <div class="mt-4 border-t border-[#D8E5F4] pt-4">
+              <p class="font-extrabold text-[#0B1F4A]">
+                Dokumen Pendukung (Opsional)
+              </p>
+              <p class="mt-1 text-[11px] leading-5 text-[#6B7A90]">
+                Unggah CV, KTP, NPWP, atau Sertifikat pegawai (PDF/JPG/PNG,
+                maksimal 5MB). Klik pratinjau untuk membuka file. Kolom ini
+                opsional, bukan wajib diisi.
+              </p>
+              <div class="mt-3 space-y-2">
+                <div
+                  v-for="docKey in EMPLOYEE_DOCUMENT_KEYS"
+                  :key="docKey"
+                  class="flex items-center gap-3 rounded-xl border border-[#E4ECF7] px-3 py-2.5"
+                >
+                  <button
+                    type="button"
+                    :disabled="!employeeDocumentFiles[docKey] && !employeeExistingDocuments[docKey]"
+                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
+                    :aria-label="`Buka ${EMPLOYEE_DOCUMENT_LABELS[docKey]}`"
+                    @click="openEmployeeDocumentFile(docKey)"
+                  >
+                    <img
+                      v-if="employeeFileIsImage(employeeDocumentFiles[docKey])"
+                      :src="employeeFileObjectUrl(employeeDocumentFiles[docKey])"
+                      class="h-full w-full object-cover"
+                    /><div
+                      v-else-if="employeeFileIsPdf(employeeDocumentFiles[docKey])"
+                      class="flex h-full w-full items-center justify-center rounded-md bg-rose-50"
+                    >
+                      <span class="text-[9px] font-black tracking-wide text-rose-600"
+                        >PDF</span
+                      ></div
+                    ><FileText v-else class="h-5 w-5" />
+                  </button>
+                  <div class="min-w-0 flex-1">
+                    <p
+                      class="text-[11px] font-extrabold uppercase tracking-wide text-[#0B1F4A]"
+                    >
+                      {{ EMPLOYEE_DOCUMENT_LABELS[docKey] }}
+                      <span class="font-semibold normal-case text-[#8A98AB]"
+                        >(Opsional)</span
+                      >
+                    </p>
+                    <p class="mt-0.5 truncate text-[11px] text-[#64748B]">
+                      {{ employeeDocumentStatusText(docKey) }}
+                    </p>
+                  </div>
+                  <label
+                    :for="`employee-doc-${docKey}`"
+                    class="shrink-0 cursor-pointer rounded-lg border border-[#D8E5F4] px-3 py-1.5 text-[11px] font-bold text-[#0B3A78] hover:bg-[#F8FBFE]"
+                    >{{
+                      employeeDocumentFiles[docKey] || employeeExistingDocuments[docKey]
+                        ? "Ganti"
+                        : "Pilih File"
+                    }}</label
+                  ><input
+                    :id="`employee-doc-${docKey}`"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                    class="hidden"
+                    @change="setEmployeeDocumentFile(docKey, $event)"
+                  />
+                </div>
+                <div
+                  v-for="doc in employeeExtraDocumentsExisting"
+                  :key="`extra-existing-${doc.id}`"
+                  class="flex items-center gap-3 rounded-xl border border-[#E4ECF7] px-3 py-2.5"
+                >
+                  <button
+                    type="button"
+                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB]"
+                    :aria-label="`Buka ${doc.label}`"
+                    @click="openExistingEmployeeExtraDocument(doc)"
+                  >
+                    <FileText class="h-5 w-5" />
+                  </button>
+                  <div class="min-w-0 flex-1">
+                    <p
+                      class="truncate text-[11px] font-extrabold uppercase tracking-wide text-[#0B1F4A]"
+                    >
+                      {{ doc.label }}
+                    </p>
+                    <p class="mt-0.5 text-[11px] text-[#64748B]">
+                      Sudah diunggah sebelumnya
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-2 text-rose-600 hover:bg-rose-100"
+                    :aria-label="`Hapus ${doc.label}`"
+                    @click="removeExistingEmployeeExtraDocument(doc)"
+                  >
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div
+                  v-for="item in employeeExtraDocumentsPending"
+                  :key="item.key"
+                  class="flex items-center gap-3 rounded-xl border border-dashed border-[#B9CBE4] px-3 py-2.5"
+                >
+                  <button
+                    type="button"
+                    :disabled="!item.file"
+                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
+                    aria-label="Buka dokumen tambahan"
+                    @click="openEmployeeExtraPendingFile(item)"
+                  >
+                    <img
+                      v-if="employeeFileIsImage(item.file)"
+                      :src="employeeFileObjectUrl(item.file)"
+                      class="h-full w-full object-cover"
+                    /><div
+                      v-else-if="employeeFileIsPdf(item.file)"
+                      class="flex h-full w-full items-center justify-center rounded-md bg-rose-50"
+                    >
+                      <span class="text-[9px] font-black tracking-wide text-rose-600"
+                        >PDF</span
+                      ></div
+                    ><FileText v-else class="h-5 w-5" />
+                  </button>
+                  <div v-if="!item.labelConfirmed" class="min-w-0 flex-1 space-y-1">
+                    <input
+                      type="text"
+                      placeholder="Nama dokumen (contoh: Ijazah), lalu tekan Enter"
+                      :value="item.label"
+                      class="w-full rounded-lg border border-[#D8E5F4] px-2.5 py-1 text-[11px] font-semibold text-[#0B1F4A] outline-none"
+                      @input="setEmployeeExtraDocumentLabel(item.key, eventValue($event))"
+                      @keydown.enter.prevent="confirmEmployeeExtraDocumentLabel(item.key)"
+                    />
+                    <p class="truncate text-[11px] text-[#64748B]">
+                      Ketik nama dokumen lalu tekan Enter untuk lanjut unggah file
+                    </p>
+                  </div>
+                  <div
+                    v-else
+                    class="min-w-0 flex-1 cursor-pointer"
+                    @click="editEmployeeExtraDocumentLabel(item.key)"
+                  >
+                    <p
+                      class="truncate text-[11px] font-extrabold uppercase tracking-wide text-[#0B1F4A]"
+                    >
+                      {{ item.label }}
+                    </p>
+                    <p class="mt-0.5 truncate text-[11px] text-[#64748B]">
+                      {{ item.file ? item.file.name : "Belum ada file dipilih" }}
+                    </p>
+                  </div>
+                  <template v-if="item.labelConfirmed">
+                    <label
+                      :for="`employee-extra-doc-${item.key}`"
+                      class="shrink-0 cursor-pointer rounded-lg border border-[#D8E5F4] px-3 py-1.5 text-[11px] font-bold text-[#0B3A78] hover:bg-[#F8FBFE]"
+                      >{{ item.file ? "Ganti" : "Pilih File" }}</label
+                    ><input
+                      :id="`employee-extra-doc-${item.key}`"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                      class="hidden"
+                      @change="setEmployeeExtraDocumentFile(item.key, $event)"
+                    />
+                  </template>
+                  <button
+                    type="button"
+                    class="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-2 text-rose-600 hover:bg-rose-100"
+                    aria-label="Batalkan dokumen tambahan ini"
+                    @click="removeEmployeeExtraDocumentSlot(item.key)"
+                  >
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#B9CBE4] py-2.5 text-[11px] font-bold text-[#0B3A78] hover:bg-[#F8FBFE]"
+                  @click="addEmployeeExtraDocumentSlot"
+                >
+                  <Plus class="h-3.5 w-3.5" /> Tambah Dokumen Lain
+                </button>
+              </div>
+            </div>
           </details>
           <p
             v-if="employeeSaveError"
@@ -4365,6 +4544,206 @@ const employeeForm = ref({
 const employeeBaseSalaryInputValue = computed(() =>
   formatRupiahInput(employeeForm.value.gajiPokok, false, false),
 );
+
+type EmployeeDocumentKey = "cv" | "ktp" | "npwp" | "sertifikat";
+const EMPLOYEE_DOCUMENT_KEYS: EmployeeDocumentKey[] = [
+  "cv",
+  "ktp",
+  "npwp",
+  "sertifikat",
+];
+const EMPLOYEE_DOCUMENT_LABELS: Record<EmployeeDocumentKey, string> = {
+  cv: "CV",
+  ktp: "KTP",
+  npwp: "NPWP",
+  sertifikat: "Sertifikat",
+};
+const EMPLOYEE_DOCUMENT_RAW_KEYS: Record<EmployeeDocumentKey, string> = {
+  cv: "cv_path",
+  ktp: "ktp_path",
+  npwp: "npwp_document_path",
+  sertifikat: "certificate_path",
+};
+interface EmployeeExtraDocumentExisting {
+  id: number;
+  label: string;
+  filename: string;
+}
+interface EmployeeExtraDocumentPending {
+  key: string;
+  label: string;
+  file: File | null;
+  labelConfirmed: boolean;
+}
+const employeeDocumentFiles = ref<Record<EmployeeDocumentKey, File | null>>({
+  cv: null,
+  ktp: null,
+  npwp: null,
+  sertifikat: null,
+});
+const employeeExistingDocuments = ref<Record<EmployeeDocumentKey, boolean>>({
+  cv: false,
+  ktp: false,
+  npwp: false,
+  sertifikat: false,
+});
+const employeeExtraDocumentsExisting = ref<EmployeeExtraDocumentExisting[]>([]);
+const employeeExtraDocumentsPending = ref<EmployeeExtraDocumentPending[]>([]);
+
+// File object dipakai sebagai key WeakMap agar pratinjau (blob URL) dibuat
+// sekali saja per file yang sama dan otomatis lepas begitu file-nya tidak
+// direferensikan lagi di state manapun - tanpa perlu revoke manual.
+const employeeFileObjectUrls = new WeakMap<File, string>();
+function employeeFileObjectUrl(file: File | null) {
+  if (!file) return "";
+  if (!employeeFileObjectUrls.has(file)) {
+    employeeFileObjectUrls.set(file, URL.createObjectURL(file));
+  }
+  return employeeFileObjectUrls.get(file) as string;
+}
+function employeeFileIsImage(file: File | null) {
+  return Boolean(file && file.type.startsWith("image/"));
+}
+function employeeFileIsPdf(file: File | null) {
+  return Boolean(file && file.type === "application/pdf");
+}
+
+function setEmployeeDocumentFile(key: EmployeeDocumentKey, event: Event) {
+  const input = event.target as HTMLInputElement;
+  employeeDocumentFiles.value = {
+    ...employeeDocumentFiles.value,
+    [key]: input.files?.[0] || null,
+  };
+}
+
+function employeeDocumentStatusText(key: EmployeeDocumentKey) {
+  if (employeeDocumentFiles.value[key]) return employeeDocumentFiles.value[key]?.name;
+  if (employeeExistingDocuments.value[key]) return "Sudah diunggah sebelumnya";
+  return "Belum ada file dipilih";
+}
+
+function openEmployeeDocumentFile(key: EmployeeDocumentKey) {
+  const file = employeeDocumentFiles.value[key];
+  if (file) {
+    window.open(employeeFileObjectUrl(file), "_blank");
+    return;
+  }
+  if (employeeExistingDocuments.value[key]) {
+    void openExistingEmployeeDocument(key);
+  }
+}
+
+async function openExistingEmployeeDocument(key: EmployeeDocumentKey) {
+  const employeeId = employeeDatabaseId(editingEmployee.value);
+  if (!employeeId) return;
+  try {
+    const blob = await financeApi.getBlob(`/employees/${employeeId}/documents/${key}`);
+    window.open(URL.createObjectURL(blob as Blob), "_blank");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal membuka dokumen."));
+  }
+}
+
+function addEmployeeExtraDocumentSlot() {
+  employeeExtraDocumentsPending.value = [
+    ...employeeExtraDocumentsPending.value,
+    {
+      key: `extra-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      label: "",
+      file: null,
+      labelConfirmed: false,
+    },
+  ];
+}
+
+function removeEmployeeExtraDocumentSlot(key: string) {
+  employeeExtraDocumentsPending.value = employeeExtraDocumentsPending.value.filter(
+    (item) => item.key !== key,
+  );
+}
+
+function setEmployeeExtraDocumentLabel(key: string, value: string) {
+  employeeExtraDocumentsPending.value = employeeExtraDocumentsPending.value.map(
+    (item) => (item.key === key ? { ...item, label: value } : item),
+  );
+}
+
+function confirmEmployeeExtraDocumentLabel(key: string) {
+  employeeExtraDocumentsPending.value = employeeExtraDocumentsPending.value.map(
+    (item) => {
+      if (item.key !== key) return item;
+      const trimmed = item.label.trim();
+      if (!trimmed) return item;
+      return { ...item, label: trimmed, labelConfirmed: true };
+    },
+  );
+}
+
+function editEmployeeExtraDocumentLabel(key: string) {
+  employeeExtraDocumentsPending.value = employeeExtraDocumentsPending.value.map(
+    (item) => (item.key === key ? { ...item, labelConfirmed: false } : item),
+  );
+}
+
+function setEmployeeExtraDocumentFile(key: string, event: Event) {
+  const input = event.target as HTMLInputElement;
+  employeeExtraDocumentsPending.value = employeeExtraDocumentsPending.value.map(
+    (item) => (item.key === key ? { ...item, file: input.files?.[0] || null } : item),
+  );
+}
+
+function openEmployeeExtraPendingFile(item: EmployeeExtraDocumentPending) {
+  if (item.file) window.open(employeeFileObjectUrl(item.file), "_blank");
+}
+
+async function openExistingEmployeeExtraDocument(doc: EmployeeExtraDocumentExisting) {
+  const employeeId = employeeDatabaseId(editingEmployee.value);
+  if (!employeeId) return;
+  try {
+    const blob = await financeApi.getBlob(
+      `/employees/${employeeId}/documents/extra/${doc.id}/file`,
+    );
+    window.open(URL.createObjectURL(blob as Blob), "_blank");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal membuka dokumen."));
+  }
+}
+
+async function removeExistingEmployeeExtraDocument(doc: EmployeeExtraDocumentExisting) {
+  const employeeId = employeeDatabaseId(editingEmployee.value);
+  if (!employeeId) return;
+  if (!window.confirm(`Hapus dokumen "${doc.label}"?`)) return;
+  try {
+    await financeApi.delete(`/employees/${employeeId}/documents/extra/${doc.id}`);
+    employeeExtraDocumentsExisting.value = employeeExtraDocumentsExisting.value.filter(
+      (item) => item.id !== doc.id,
+    );
+    notify("Dokumen tambahan berhasil dihapus.");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal menghapus dokumen tambahan."));
+  }
+}
+
+async function loadEmployeeExtraDocuments(employeeId: number) {
+  try {
+    const result = await financeApi.get(`/employees/${employeeId}/documents/extra`);
+    employeeExtraDocumentsExisting.value = Array.isArray(result) ? result : [];
+  } catch {
+    employeeExtraDocumentsExisting.value = [];
+  }
+}
+
+function resetEmployeeDocuments() {
+  employeeDocumentFiles.value = { cv: null, ktp: null, npwp: null, sertifikat: null };
+  employeeExistingDocuments.value = {
+    cv: false,
+    ktp: false,
+    npwp: false,
+    sertifikat: false,
+  };
+  employeeExtraDocumentsExisting.value = [];
+  employeeExtraDocumentsPending.value = [];
+}
 // Ditandai eksplisit lewat flag ini (bukan cuma diturunkan dari bankNama)
 // supaya begitu user pilih "Lainnya", input manual langsung muncul walau
 // nilainya masih kosong - kalau cuma mengandalkan bankNama, isinya balik
@@ -5371,6 +5750,7 @@ function employeeDatabaseId(employee: any) {
 function resetEmployeeForm() {
   editingEmployee.value = null;
   resetEmployeeFormErrors();
+  resetEmployeeDocuments();
   employeeBankOtherSelected.value = false;
   updateEmployeeForm({
     nama: "",
@@ -5441,6 +5821,16 @@ async function openEmployeeForm(employee: any = null) {
     bankNama: raw.bank_name || "",
     noRekening: raw.bank_account_number || "",
   });
+  employeeDocumentFiles.value = { cv: null, ktp: null, npwp: null, sertifikat: null };
+  employeeExistingDocuments.value = {
+    cv: Boolean(raw[EMPLOYEE_DOCUMENT_RAW_KEYS.cv]),
+    ktp: Boolean(raw[EMPLOYEE_DOCUMENT_RAW_KEYS.ktp]),
+    npwp: Boolean(raw[EMPLOYEE_DOCUMENT_RAW_KEYS.npwp]),
+    sertifikat: Boolean(raw[EMPLOYEE_DOCUMENT_RAW_KEYS.sertifikat]),
+  };
+  employeeExtraDocumentsPending.value = [];
+  const editingEmployeeId = employeeDatabaseId(employee);
+  if (editingEmployeeId) void loadEmployeeExtraDocuments(editingEmployeeId);
   updateIsEmployeeModalOpen(true);
 }
 
@@ -5491,14 +5881,59 @@ async function handleCreateEmployee() {
       base_salary: asNumber(employeeForm.value.gajiPokok),
     };
     const isEditing = Boolean(editingEmployee.value);
-    const employeeId = employeeDatabaseId(editingEmployee.value);
+    let employeeId = employeeDatabaseId(editingEmployee.value);
     if (isEditing && !employeeId) {
       throw new Error(
         "ID pegawai tidak valid. Muat ulang halaman lalu coba lagi.",
       );
     }
-    if (isEditing) await financeApi.put(`/employees/${employeeId}`, payload);
-    else await financeApi.post("/employees", payload);
+    if (isEditing) {
+      await financeApi.put(`/employees/${employeeId}`, payload);
+    } else {
+      const created = await financeApi.post("/employees", payload);
+      employeeId = Number(created?.id) || employeeId;
+    }
+
+    const selectedDocuments = Object.entries(employeeDocumentFiles.value).filter(
+      ([, file]) => file,
+    ) as [EmployeeDocumentKey, File][];
+    if (employeeId && selectedDocuments.length) {
+      try {
+        const formData = new FormData();
+        for (const [key, file] of selectedDocuments) {
+          formData.append(key, file);
+        }
+        await financeApi.post(`/employees/${employeeId}/documents`, formData);
+      } catch (uploadError) {
+        notify(
+          getApiErrorMessage(
+            uploadError,
+            "Data pegawai tersimpan, tetapi dokumen gagal diunggah. Coba unggah ulang lewat form ubah pegawai.",
+          ),
+        );
+      }
+    }
+
+    const pendingExtraDocuments = employeeExtraDocumentsPending.value.filter(
+      (item) => item.file,
+    );
+    if (employeeId && pendingExtraDocuments.length) {
+      for (const item of pendingExtraDocuments) {
+        try {
+          const formData = new FormData();
+          formData.append("label", item.label || "Dokumen Tambahan");
+          formData.append("file", item.file as File);
+          await financeApi.post(`/employees/${employeeId}/documents/extra`, formData);
+        } catch (uploadError) {
+          notify(
+            getApiErrorMessage(
+              uploadError,
+              `Gagal mengunggah dokumen "${item.label || "Dokumen Tambahan"}".`,
+            ),
+          );
+        }
+      }
+    }
 
     resetEmployeeForm();
     updateIsEmployeeModalOpen(false);

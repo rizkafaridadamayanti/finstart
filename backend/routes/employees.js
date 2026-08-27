@@ -1,9 +1,88 @@
 const express = require('express')
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
 const db = require('../config/db')
 const { safePublicMessage } = require('../utils/api-errors')
 const { currentPeriodInJakarta, isValidDate } = require('../utils/date-validation')
 
 const router = express.Router()
+
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'employees')
+fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+
+const DOCUMENT_FIELDS = {
+  cv: { column: 'cv_path', label: 'CV' },
+  ktp: { column: 'ktp_path', label: 'KTP' },
+  npwp: { column: 'npwp_document_path', label: 'NPWP' },
+  sertifikat: { column: 'certificate_path', label: 'Sertifikat' },
+}
+
+const ALLOWED_DOCUMENT_MIME_TYPES = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+}
+
+const documentsUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 4 },
+  fileFilter: (req, file, cb) => {
+    if (!DOCUMENT_FIELDS[file.fieldname]) {
+      cb(new Error('Field dokumen tidak dikenal.'))
+      return
+    }
+    if (!ALLOWED_DOCUMENT_MIME_TYPES[file.mimetype]) {
+      cb(new Error('Format file harus PDF, JPG, atau PNG.'))
+      return
+    }
+    cb(null, true)
+  },
+}).fields([
+  { name: 'cv', maxCount: 1 },
+  { name: 'ktp', maxCount: 1 },
+  { name: 'npwp', maxCount: 1 },
+  { name: 'sertifikat', maxCount: 1 },
+])
+
+function runDocumentsUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    documentsUpload(req, res, (error) => {
+      if (error) reject(error)
+      else resolve()
+    })
+  })
+}
+
+const extraDocumentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_DOCUMENT_MIME_TYPES[file.mimetype]) {
+      cb(new Error('Format file harus PDF, JPG, atau PNG.'))
+      return
+    }
+    cb(null, true)
+  },
+}).single('file')
+
+function runExtraDocumentUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    extraDocumentUpload(req, res, (error) => {
+      if (error) reject(error)
+      else resolve()
+    })
+  })
+}
+
+function multerErrorMessage(error) {
+  if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+    return 'Ukuran file maksimal 5MB.'
+  }
+  return error instanceof multer.MulterError
+    ? error.message
+    : safePublicMessage(error, 'Gagal mengunggah dokumen.')
+}
 
 const EMPLOYMENT_TYPES = new Set([
   'permanent',
@@ -647,6 +726,342 @@ router.put('/:id', async (req, res) => {
   }
 })
 
+/*
+  POST /api/employees/:id/documents
+  Unggah dokumen pegawai (CV, KTP, NPWP, Sertifikat). Semua field bersifat
+  opsional - kirim hanya field yang ingin diunggah/diganti.
+*/
+router.post('/:id/documents', async (req, res) => {
+  const employeeId = Number(req.params.id)
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  try {
+    await runDocumentsUpload(req, res)
+
+    const existing = await getEmployeeById(employeeId)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pegawai tidak ditemukan.',
+      })
+    }
+
+    const updates = []
+    const params = []
+
+    for (const [fieldName, config] of Object.entries(DOCUMENT_FIELDS)) {
+      const file = req.files?.[fieldName]?.[0]
+      if (!file) continue
+
+      const extension = ALLOWED_DOCUMENT_MIME_TYPES[file.mimetype]
+      const filename = `emp${employeeId}-${fieldName}-${Date.now()}.${extension}`
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer)
+
+      const previousFilename = existing[config.column]
+      if (previousFilename) {
+        fs.unlink(path.join(UPLOAD_DIR, path.basename(previousFilename)), () => {})
+      }
+
+      updates.push(`${config.column} = ?`)
+      params.push(filename)
+    }
+
+    if (!updates.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tidak ada file yang diunggah.',
+      })
+    }
+
+    params.push(employeeId)
+    await db.query(
+      `UPDATE employees SET ${updates.join(', ')} WHERE id = ?`,
+      params,
+    )
+
+    res.json({
+      success: true,
+      message: 'Dokumen pegawai berhasil diunggah.',
+      data: await getEmployeeById(employeeId),
+    })
+  } catch (error) {
+    const message = multerErrorMessage(error)
+
+    res.status(400).json({
+      success: false,
+      message,
+    })
+  }
+})
+
+/*
+  Route "extra" (dokumen berlabel bebas) didaftarkan SEBELUM
+  GET /:id/documents/:type di bawah - Express mencocokkan route
+  berdasarkan urutan pendaftaran, dan ":type" adalah wildcard yang juga
+  akan menangkap literal "extra" kalau didaftarkan lebih dulu.
+*/
+
+/*
+  GET /api/employees/:id/documents/extra
+  Daftar dokumen tambahan (label bebas) milik seorang pegawai.
+*/
+router.get('/:id/documents/extra', async (req, res) => {
+  const employeeId = Number(req.params.id)
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  try {
+    const [rows] = await db.query(
+      `
+        SELECT id, employee_id, label, filename, created_at
+        FROM employee_documents
+        WHERE employee_id = ?
+        ORDER BY id ASC
+      `,
+      [employeeId],
+    )
+
+    res.json({
+      success: true,
+      message: 'Dokumen tambahan berhasil diambil.',
+      data: rows,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil dokumen tambahan.',
+    })
+  }
+})
+
+/*
+  POST /api/employees/:id/documents/extra
+  Unggah satu dokumen tambahan dengan label bebas (mis. "Ijazah").
+*/
+router.post('/:id/documents/extra', async (req, res) => {
+  const employeeId = Number(req.params.id)
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  try {
+    await runExtraDocumentUpload(req, res)
+
+    const existing = await getEmployeeById(employeeId)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pegawai tidak ditemukan.',
+      })
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'File wajib dipilih.',
+      })
+    }
+
+    const label = cleanText(req.body?.label, 100) || 'Dokumen Tambahan'
+    const extension = ALLOWED_DOCUMENT_MIME_TYPES[req.file.mimetype]
+    const filename = `emp${employeeId}-extra-${Date.now()}.${extension}`
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), req.file.buffer)
+
+    const [result] = await db.query(
+      'INSERT INTO employee_documents (employee_id, label, filename) VALUES (?, ?, ?)',
+      [employeeId, label, filename],
+    )
+
+    res.status(201).json({
+      success: true,
+      message: 'Dokumen tambahan berhasil diunggah.',
+      data: {
+        id: result.insertId,
+        employee_id: employeeId,
+        label,
+        filename,
+      },
+    })
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: multerErrorMessage(error),
+    })
+  }
+})
+
+/*
+  GET /api/employees/:id/documents/extra/:docId/file
+  Unduh/lihat isi satu dokumen tambahan.
+*/
+router.get('/:id/documents/extra/:docId/file', async (req, res) => {
+  const employeeId = Number(req.params.id)
+  const docId = Number(req.params.docId)
+
+  if (
+    !Number.isInteger(employeeId) || employeeId <= 0 ||
+    !Number.isInteger(docId) || docId <= 0
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID tidak valid.',
+    })
+  }
+
+  try {
+    const [rows] = await db.query(
+      'SELECT filename FROM employee_documents WHERE id = ? AND employee_id = ? LIMIT 1',
+      [docId, employeeId],
+    )
+    const document = rows[0]
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: 'Dokumen tidak ditemukan.',
+      })
+    }
+
+    const filePath = path.join(UPLOAD_DIR, path.basename(document.filename))
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File dokumen tidak ditemukan di server.',
+      })
+    }
+
+    res.sendFile(filePath)
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil dokumen tambahan.',
+    })
+  }
+})
+
+/*
+  DELETE /api/employees/:id/documents/extra/:docId
+*/
+router.delete('/:id/documents/extra/:docId', async (req, res) => {
+  const employeeId = Number(req.params.id)
+  const docId = Number(req.params.docId)
+
+  if (
+    !Number.isInteger(employeeId) || employeeId <= 0 ||
+    !Number.isInteger(docId) || docId <= 0
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID tidak valid.',
+    })
+  }
+
+  try {
+    const [rows] = await db.query(
+      'SELECT filename FROM employee_documents WHERE id = ? AND employee_id = ? LIMIT 1',
+      [docId, employeeId],
+    )
+    const document = rows[0]
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: 'Dokumen tidak ditemukan.',
+      })
+    }
+
+    await db.query('DELETE FROM employee_documents WHERE id = ?', [docId])
+    fs.unlink(path.join(UPLOAD_DIR, path.basename(document.filename)), () => {})
+
+    res.json({
+      success: true,
+      message: 'Dokumen tambahan berhasil dihapus.',
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menghapus dokumen tambahan.',
+    })
+  }
+})
+
+/*
+  GET /api/employees/:id/documents/:type
+  Unduh/lihat dokumen pegawai yang sudah diunggah. type: cv | ktp | npwp | sertifikat
+*/
+router.get('/:id/documents/:type', async (req, res) => {
+  const employeeId = Number(req.params.id)
+  const config = DOCUMENT_FIELDS[String(req.params.type || '')]
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'ID pegawai tidak valid.',
+    })
+  }
+
+  if (!config) {
+    return res.status(400).json({
+      success: false,
+      message: 'Jenis dokumen tidak dikenal.',
+    })
+  }
+
+  try {
+    const existing = await getEmployeeById(employeeId)
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pegawai tidak ditemukan.',
+      })
+    }
+
+    const filename = existing[config.column]
+
+    if (!filename) {
+      return res.status(404).json({
+        success: false,
+        message: `Dokumen ${config.label} belum diunggah.`,
+      })
+    }
+
+    const filePath = path.join(UPLOAD_DIR, path.basename(filename))
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File dokumen tidak ditemukan di server.',
+      })
+    }
+
+    res.sendFile(filePath)
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil dokumen pegawai.',
+    })
+  }
+})
+
 router.patch('/:id/status', async (req, res) => {
   try {
     const status = normalizeEnum(
@@ -760,7 +1175,21 @@ router.delete('/:id', async (req, res) => {
       })
     }
 
+    const [extraDocuments] = await connection.query(
+      'SELECT filename FROM employee_documents WHERE employee_id = ?',
+      [employeeId],
+    )
+
+    await connection.query('DELETE FROM employee_documents WHERE employee_id = ?', [employeeId])
     await connection.query('DELETE FROM employees WHERE id = ?', [employeeId])
+
+    for (const config of Object.values(DOCUMENT_FIELDS)) {
+      const filename = existing[config.column]
+      if (filename) fs.unlink(path.join(UPLOAD_DIR, path.basename(filename)), () => {})
+    }
+    for (const document of extraDocuments) {
+      fs.unlink(path.join(UPLOAD_DIR, path.basename(document.filename)), () => {})
+    }
     await connection.commit()
 
     res.json({
