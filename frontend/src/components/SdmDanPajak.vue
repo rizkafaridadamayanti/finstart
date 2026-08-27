@@ -782,6 +782,64 @@
                 <p class="text-sm font-semibold text-[#102A56]">
                   {{ employeeDetailSource().address || "Belum diisi" }}
                 </p>
+                <a
+                  v-if="employeeDetailMapEmbedUrl"
+                  :href="employeeDetailMapLinkUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="block overflow-hidden rounded-xl border border-[#D8E5F4] transition hover:opacity-90"
+                  title="Buka lokasi ini di Google Maps"
+                >
+                  <iframe
+                    :src="employeeDetailMapEmbedUrl"
+                    class="h-40 w-full"
+                    style="border: 0; pointer-events: none"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    title="Peta lokasi alamat pegawai"
+                  ></iframe>
+                </a>
+              </div>
+            </div>
+            <div class="space-y-2 px-6 pb-6">
+              <p class="text-[10px] uppercase tracking-[0.2em] text-[#94A3B8]">
+                Dokumen Pendukung
+              </p>
+              <div class="grid gap-2 sm:grid-cols-2">
+                <template v-for="key in EMPLOYEE_DOCUMENT_KEYS" :key="key">
+                  <button
+                    v-if="employeeDetailSource()[EMPLOYEE_DOCUMENT_RAW_KEYS[key]]"
+                    type="button"
+                    class="flex items-center gap-2.5 rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 py-2 text-left transition hover:bg-[#EEF5FC]"
+                    @click="openEmployeeDetailDocument(key)"
+                  >
+                    <FileText class="h-4 w-4 shrink-0 text-[#1E5AA8]" />
+                    <span class="text-xs font-bold text-[#102A56]">{{
+                      EMPLOYEE_DOCUMENT_LABELS[key]
+                    }}</span>
+                  </button>
+                  <div
+                    v-else
+                    class="flex items-center gap-2.5 rounded-lg border border-[#E8EEF7] bg-[#F8FAFC] px-3 py-2"
+                  >
+                    <FileText class="h-4 w-4 shrink-0 text-[#B7C2D0]" />
+                    <span class="text-xs font-bold text-[#94A3B8]"
+                      >{{ EMPLOYEE_DOCUMENT_LABELS[key] }} - </span
+                    >
+                  </div>
+                </template>
+                <button
+                  v-for="doc in employeeExtraDocumentsExisting"
+                  :key="`detail-extra-${doc.id}`"
+                  type="button"
+                  class="flex items-center gap-2.5 rounded-lg border border-[#DCE7F4] bg-[#F8FBFE] px-3 py-2 text-left transition hover:bg-[#EEF5FC]"
+                  @click="openEmployeeDetailExtraDocument(doc)"
+                >
+                  <FileText class="h-4 w-4 shrink-0 text-[#1E5AA8]" />
+                  <span class="truncate text-xs font-bold text-[#102A56]">{{
+                    doc.label
+                  }}</span>
+                </button>
               </div>
             </div>
             <div class="flex justify-end border-t border-slate-100 px-6 py-4">
@@ -2195,14 +2253,22 @@
                 ><select
                   id="employee-position"
                   required
+                  :disabled="!employeeForm.divisionId"
                   :value="employeeForm.positionId"
                   :class="[
                     inputClass,
+                    'disabled:cursor-not-allowed disabled:bg-[#F1F5F9] disabled:text-[#94A3B8]',
                     { 'form-control-invalid': employeeFormErrors.positionId },
                   ]"
                   @change="setEmployeeField('positionId', eventValue($event))"
                 >
-                  <option value="">Pilih jabatan</option>
+                  <option value="">
+                    {{
+                      employeeForm.divisionId
+                        ? "Pilih jabatan"
+                        : "Pilih divisi terlebih dahulu"
+                    }}
+                  </option>
                   <option
                     v-for="position in filteredPositions()"
                     :key="position.id"
@@ -2456,6 +2522,34 @@
                   @input="setEmployeeField('npwp', digitsOnly(eventValue($event)))"
               /></SdmField>
             </div>
+            <div class="mt-4 border-t border-[#D8E5F4] pt-4 space-y-2">
+              <label
+                for="employee-address"
+                class="block font-extrabold text-[#0B1F4A]"
+                >Alamat</label
+              >
+              <textarea
+                id="employee-address"
+                rows="2"
+                :value="employeeForm.alamat"
+                placeholder="Tulis alamat lengkap pegawai"
+                class="w-full resize-none rounded-2xl border border-[#D8E5F4] bg-[#F8FAFC] px-5 py-3 text-xs font-bold text-[#111827] transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                @input="setEmployeeField('alamat', eventValue($event))"
+              ></textarea>
+              <div
+                v-if="employeeFormMapEmbedUrl"
+                class="overflow-hidden rounded-xl border border-[#D8E5F4]"
+              >
+                <iframe
+                  :src="employeeFormMapEmbedUrl"
+                  class="h-40 w-full"
+                  style="border: 0"
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  title="Pratinjau lokasi alamat"
+                ></iframe>
+              </div>
+            </div>
             <div class="mt-4 border-t border-[#D8E5F4] pt-4">
               <p class="font-extrabold text-[#0B1F4A]">
                 Dokumen Pendukung (Opsional)
@@ -2469,12 +2563,12 @@
                 <div
                   v-for="docKey in EMPLOYEE_DOCUMENT_KEYS"
                   :key="docKey"
-                  class="flex items-center gap-3 rounded-xl border border-[#E4ECF7] px-3 py-2.5"
+                  class="flex items-center gap-2.5 rounded-lg border border-[#E4ECF7] px-2.5 py-2"
                 >
                   <button
                     type="button"
                     :disabled="!employeeDocumentFiles[docKey] && !employeeExistingDocuments[docKey]"
-                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
                     :aria-label="`Buka ${EMPLOYEE_DOCUMENT_LABELS[docKey]}`"
                     @click="openEmployeeDocumentFile(docKey)"
                   >
@@ -2486,10 +2580,10 @@
                       v-else-if="employeeFileIsPdf(employeeDocumentFiles[docKey])"
                       class="flex h-full w-full items-center justify-center rounded-md bg-rose-50"
                     >
-                      <span class="text-[9px] font-black tracking-wide text-rose-600"
+                      <span class="text-[8px] font-black tracking-wide text-rose-600"
                         >PDF</span
                       ></div
-                    ><FileText v-else class="h-5 w-5" />
+                    ><FileText v-else class="h-4 w-4" />
                   </button>
                   <div class="min-w-0 flex-1">
                     <p
@@ -2506,7 +2600,7 @@
                   </div>
                   <label
                     :for="`employee-doc-${docKey}`"
-                    class="shrink-0 cursor-pointer rounded-lg border border-[#D8E5F4] px-3 py-1.5 text-[11px] font-bold text-[#0B3A78] hover:bg-[#F8FBFE]"
+                    class="shrink-0 cursor-pointer rounded-lg border-2 border-[#0B3A78] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#0B3A78]"
                     >{{
                       employeeDocumentFiles[docKey] || employeeExistingDocuments[docKey]
                         ? "Ganti"
@@ -2523,15 +2617,15 @@
                 <div
                   v-for="doc in employeeExtraDocumentsExisting"
                   :key="`extra-existing-${doc.id}`"
-                  class="flex items-center gap-3 rounded-xl border border-[#E4ECF7] px-3 py-2.5"
+                  class="flex items-center gap-2.5 rounded-lg border border-[#E4ECF7] px-2.5 py-2"
                 >
                   <button
                     type="button"
-                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB]"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB]"
                     :aria-label="`Buka ${doc.label}`"
                     @click="openExistingEmployeeExtraDocument(doc)"
                   >
-                    <FileText class="h-5 w-5" />
+                    <FileText class="h-4 w-4" />
                   </button>
                   <div class="min-w-0 flex-1">
                     <p
@@ -2555,12 +2649,12 @@
                 <div
                   v-for="item in employeeExtraDocumentsPending"
                   :key="item.key"
-                  class="flex items-center gap-3 rounded-xl border border-dashed border-[#B9CBE4] px-3 py-2.5"
+                  class="flex items-center gap-2.5 rounded-lg border border-dashed border-[#B9CBE4] px-2.5 py-2"
                 >
                   <button
                     type="button"
                     :disabled="!item.file"
-                    class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] text-[#8A98AB] disabled:cursor-default"
                     aria-label="Buka dokumen tambahan"
                     @click="openEmployeeExtraPendingFile(item)"
                   >
@@ -2572,10 +2666,10 @@
                       v-else-if="employeeFileIsPdf(item.file)"
                       class="flex h-full w-full items-center justify-center rounded-md bg-rose-50"
                     >
-                      <span class="text-[9px] font-black tracking-wide text-rose-600"
+                      <span class="text-[8px] font-black tracking-wide text-rose-600"
                         >PDF</span
                       ></div
-                    ><FileText v-else class="h-5 w-5" />
+                    ><FileText v-else class="h-4 w-4" />
                   </button>
                   <div v-if="!item.labelConfirmed" class="min-w-0 flex-1 space-y-1">
                     <input
@@ -2587,7 +2681,7 @@
                       @keydown.enter.prevent="confirmEmployeeExtraDocumentLabel(item.key)"
                     />
                     <p class="truncate text-[11px] text-[#64748B]">
-                      Ketik nama dokumen lalu tekan Enter untuk lanjut unggah file
+                      {{ item.file ? item.file.name : "Belum ada file dipilih" }}
                     </p>
                   </div>
                   <div
@@ -2604,19 +2698,17 @@
                       {{ item.file ? item.file.name : "Belum ada file dipilih" }}
                     </p>
                   </div>
-                  <template v-if="item.labelConfirmed">
-                    <label
-                      :for="`employee-extra-doc-${item.key}`"
-                      class="shrink-0 cursor-pointer rounded-lg border border-[#D8E5F4] px-3 py-1.5 text-[11px] font-bold text-[#0B3A78] hover:bg-[#F8FBFE]"
-                      >{{ item.file ? "Ganti" : "Pilih File" }}</label
-                    ><input
-                      :id="`employee-extra-doc-${item.key}`"
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
-                      class="hidden"
-                      @change="setEmployeeExtraDocumentFile(item.key, $event)"
-                    />
-                  </template>
+                  <label
+                    :for="`employee-extra-doc-${item.key}`"
+                    class="shrink-0 cursor-pointer rounded-lg border-2 border-[#0B3A78] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#0B3A78]"
+                    >{{ item.file ? "Ganti" : "Pilih File" }}</label
+                  ><input
+                    :id="`employee-extra-doc-${item.key}`"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                    class="hidden"
+                    @change="setEmployeeExtraDocumentFile(item.key, $event)"
+                  />
                   <button
                     type="button"
                     class="shrink-0 rounded-lg border border-rose-200 bg-rose-50 p-2 text-rose-600 hover:bg-rose-100"
@@ -4060,6 +4152,33 @@ onUnmounted(() => {
 function openEmployeeDetail(employee: any) {
   selectedEmployeeDetail.value = employee;
   updateIsEmployeeDetailOpen(true);
+  const employeeId = employeeDatabaseId(employee);
+  if (employeeId) void loadEmployeeExtraDocuments(employeeId);
+  else employeeExtraDocumentsExisting.value = [];
+}
+
+async function openEmployeeDetailDocument(key: EmployeeDocumentKey) {
+  const employeeId = employeeDatabaseId(selectedEmployeeDetail.value);
+  if (!employeeId) return;
+  try {
+    const blob = await financeApi.getBlob(`/employees/${employeeId}/documents/${key}`);
+    window.open(URL.createObjectURL(blob as Blob), "_blank");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal membuka dokumen."));
+  }
+}
+
+async function openEmployeeDetailExtraDocument(doc: EmployeeExtraDocumentExisting) {
+  const employeeId = employeeDatabaseId(selectedEmployeeDetail.value);
+  if (!employeeId) return;
+  try {
+    const blob = await financeApi.getBlob(
+      `/employees/${employeeId}/documents/extra/${doc.id}/file`,
+    );
+    window.open(URL.createObjectURL(blob as Blob), "_blank");
+  } catch (error) {
+    notify(getApiErrorMessage(error, "Gagal membuka dokumen."));
+  }
 }
 
 function closeEmployeeDetail() {
@@ -4539,10 +4658,44 @@ const employeeForm = ref({
     gajiPokok: 0,
     bankNama: "",
     noRekening: "",
+    alamat: "",
   }),
   updateEmployeeForm = (next) => (employeeForm.value = next);
 const employeeBaseSalaryInputValue = computed(() =>
   formatRupiahInput(employeeForm.value.gajiPokok, false, false),
+);
+
+// Peta di-debounce (bukan langsung tiap ketikan) supaya iframe tidak
+// reload berkali-kali selagi alamat masih diketik.
+const employeeAddressMapQuery = ref("");
+let employeeAddressMapTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  () => employeeForm.value.alamat,
+  (value) => {
+    if (employeeAddressMapTimer) clearTimeout(employeeAddressMapTimer);
+    employeeAddressMapTimer = setTimeout(() => {
+      employeeAddressMapQuery.value = String(value || "").trim();
+    }, 600);
+  },
+);
+function mapEmbedUrl(address: string) {
+  return address
+    ? `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`
+    : "";
+}
+function mapLinkUrl(address: string) {
+  return address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : "";
+}
+const employeeFormMapEmbedUrl = computed(() =>
+  mapEmbedUrl(employeeAddressMapQuery.value),
+);
+const employeeDetailMapEmbedUrl = computed(() =>
+  mapEmbedUrl(String(employeeDetailSource().address || "").trim()),
+);
+const employeeDetailMapLinkUrl = computed(() =>
+  mapLinkUrl(String(employeeDetailSource().address || "").trim()),
 );
 
 type EmployeeDocumentKey = "cv" | "ktp" | "npwp" | "sertifikat";
@@ -4673,7 +4826,7 @@ function confirmEmployeeExtraDocumentLabel(key: string) {
     (item) => {
       if (item.key !== key) return item;
       const trimmed = item.label.trim();
-      if (!trimmed) return item;
+      if (!trimmed || !item.file) return item;
       return { ...item, label: trimmed, labelConfirmed: true };
     },
   );
@@ -5774,6 +5927,7 @@ function resetEmployeeForm() {
     gajiPokok: 0,
     bankNama: "",
     noRekening: "",
+    alamat: "",
   });
 }
 
@@ -5820,6 +5974,7 @@ async function openEmployeeForm(employee: any = null) {
     gajiPokok: asNumber(raw.base_salary ?? employee.gajiBersih),
     bankNama: raw.bank_name || "",
     noRekening: raw.bank_account_number || "",
+    alamat: raw.address || "",
   });
   employeeDocumentFiles.value = { cv: null, ktp: null, npwp: null, sertifikat: null };
   employeeExistingDocuments.value = {
@@ -5879,6 +6034,7 @@ async function handleCreateEmployee() {
       bank_account_number: employeeForm.value.noRekening || "",
       bank_account_holder: employeeForm.value.nama || "",
       base_salary: asNumber(employeeForm.value.gajiPokok),
+      address: employeeForm.value.alamat || "",
     };
     const isEditing = Boolean(editingEmployee.value);
     let employeeId = employeeDatabaseId(editingEmployee.value);
