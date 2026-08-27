@@ -2005,7 +2005,7 @@
                     id="asset-form-date"
                     type="date"
                     required
-                    :disabled="!!editingAsset"
+                    :disabled="isEditingDepreciatedAsset"
                     :value="newAsset.tanggalBeli"
                     :class="[
                       assetInputClass,
@@ -2018,6 +2018,18 @@
                     @input="setAssetField('tanggalBeli', eventValue($event))"
                   />
                 </div>
+                <p
+                  v-if="editingAsset && !isEditingDepreciatedAsset"
+                  class="text-[10px] leading-relaxed text-amber-700"
+                >
+                  Tanggal pembelian masih dapat diubah karena penyusutan belum pernah diposting.
+                </p>
+                <p
+                  v-else-if="isEditingDepreciatedAsset"
+                  class="text-[10px] leading-relaxed text-slate-500"
+                >
+                  Tanggal pembelian tidak dapat diubah karena penyusutan aset sudah diposting.
+                </p>
                 <p
                   v-if="assetFormErrors.tanggalBeli"
                   class="form-field-warning"
@@ -2644,6 +2656,16 @@ const assetCostInputValue = computed(() =>
 );
 const assetSalvageInputValue = computed(() =>
   formatAssetCurrencyInput(newAsset.value.nilaiSisa),
+);
+const isEditingDepreciatedAsset = computed(() =>
+  Boolean(
+    editingAsset.value &&
+      Number(
+        editingAsset.value.depreciationCount ??
+          editingAsset.value._raw?.depreciation_count ??
+          0,
+      ) > 0,
+  ),
 );
 
 const assetInputClass =

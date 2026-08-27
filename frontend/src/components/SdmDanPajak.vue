@@ -2456,6 +2456,64 @@
                   @input="setEmployeeField('npwp', digitsOnly(eventValue($event)))"
               /></SdmField>
             </div>
+          <section class="space-y-4 rounded-2xl border border-[#D8E5F4] bg-[#F8FBFE] px-5 py-4">
+            <div class="flex items-start gap-3">
+              <FileText class="mt-0.5 h-4 w-4 shrink-0 text-[#1E5AA8]" />
+              <div>
+                <h4 class="font-extrabold uppercase tracking-wider text-[#1F2A44]">Dokumen Pendukung (Opsional)</h4>
+                <p class="mt-1 text-[11px] leading-5 text-[#6B7A90]">Unggah CV, KTP, NPWP, atau Sertifikat pegawai (PDF/JPG/PNG, maksimal 5MB). Kolom ini opsional, bukan wajib diisi.</p>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <div v-for="document in employeeDocuments" :key="document.key" class="flex flex-col gap-3 rounded-xl border border-[#D8E5F4] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <p class="text-xs font-extrabold text-[#1F2A44]">{{ document.label }} <span class="font-normal text-[#7A8CA8]">(Opsional)</span></p>
+                  <span v-if="document.file" class="block min-w-0 truncate text-xs font-bold text-[#1E5AA8]" :title="document.file.name">{{ document.file.name }}</span>
+                  <span v-else class="block min-w-0 truncate text-xs font-bold text-[#7A8CA8]">Belum ada file dipilih</span>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <input :id="`employee-doc-${document.key}`" type="file" accept=".pdf,.jpg,.jpeg,.png" class="sr-only" @change="setEmployeeDocument(document.key, eventFileList($event))" />
+                  <button
+                    v-if="document.file"
+                    type="button"
+                    class="inline-flex h-10 items-center gap-1 rounded-lg border border-[#D8E5F4] bg-white px-4 text-[10px] font-extrabold text-[#0B1F4A] transition hover:bg-[#EEF5FC]"
+                    @click="previewEmployeeDocument(document.file)"
+                  ><Eye class="h-3.5 w-3.5" /> PREVIEW</button>
+                  <label :for="`employee-doc-${document.key}`" class="inline-flex cursor-pointer rounded-lg border border-[#0B3A78] bg-white px-4 py-2 text-[10px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]">{{ document.file ? "GANTI" : "PILIH FILE" }}</label>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3 rounded-xl border border-dashed border-[#9DB7D8] bg-white p-3">
+              <div v-for="document in customEmployeeDocuments" :key="document.id" class="flex flex-col gap-3 rounded-xl border border-[#D8E5F4] bg-[#F8FBFE] p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <input
+                    :id="`employee-custom-document-name-${document.id}`"
+                    :value="document.name"
+                    type="text"
+                    placeholder="Ketik nama dokumen"
+                    class="w-full rounded-lg border border-[#D8E5F4] bg-[#F8FBFE] px-3 py-2 text-xs font-bold text-[#0B1F4A] placeholder:font-medium placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#0B1F4A]/20"
+                    @input="updateCustomEmployeeDocumentName(document.id, eventValue($event))"
+                  />
+                  <span v-if="document.file" class="block min-w-0 truncate text-xs font-bold text-[#1E5AA8]" :title="document.file.name">{{ document.file.name }}</span>
+                  <span v-else class="block min-w-0 truncate text-xs font-bold text-[#7A8CA8]">Belum ada file dipilih</span>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <input :id="`employee-doc-custom-${document.id}`" type="file" accept=".pdf,.jpg,.jpeg,.png" class="sr-only" @change="setCustomEmployeeDocument(document.id, eventFileList($event))" />
+                  <button
+                    v-if="document.file"
+                    type="button"
+                    class="inline-flex h-10 items-center gap-1 rounded-lg border border-[#D8E5F4] bg-white px-4 text-[10px] font-extrabold text-[#0B1F4A] transition hover:bg-[#EEF5FC]"
+                    @click="previewEmployeeDocument(document.file)"
+                  ><Eye class="h-3.5 w-3.5" /> PREVIEW</button>
+                  <label :for="`employee-doc-custom-${document.id}`" class="inline-flex cursor-pointer rounded-lg border border-[#0B3A78] bg-white px-4 py-2 text-[10px] font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]">{{ document.file ? "GANTI" : "PILIH FILE" }}</label>
+                  <button type="button" class="inline-flex rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-extrabold text-rose-700 transition hover:bg-rose-100" @click="removeCustomEmployeeDocument(document.id)">HAPUS</button>
+                </div>
+              </div>
+              <div class="mt-4 flex justify-center">
+                <button type="button" class="inline-flex h-12 w-full items-center justify-center rounded-xl border border-[#0B3A78] bg-white px-4 text-xs font-extrabold text-[#0B3A78] transition hover:bg-[#EEF5FC]" @click="addCustomEmployeeDocument">+ Tambah Dokumen Lain</button>
+              </div>
+            </div>
+          </section>
           </details>
           <p
             v-if="employeeSaveError"
@@ -4362,6 +4420,70 @@ const employeeForm = ref({
     noRekening: "",
   }),
   updateEmployeeForm = (next) => (employeeForm.value = next);
+type EmployeeDocument = {
+  key: "cv" | "ktp" | "npwp" | "sertifikat";
+  label: string;
+  file: File | null;
+};
+type CustomEmployeeDocument = { id: number; name: string; file: File | null };
+const employeeDocuments = ref<EmployeeDocument[]>([
+  { key: "cv", label: "CV", file: null },
+  { key: "ktp", label: "KTP", file: null },
+  { key: "npwp", label: "NPWP", file: null },
+  { key: "sertifikat", label: "SERTIFIKAT", file: null },
+]);
+const customEmployeeDocuments = ref<CustomEmployeeDocument[]>([]);
+function eventFileList(event: Event) {
+  return (event.target as HTMLInputElement | null)?.files || null;
+}
+function validEmployeeDocument(file: File) {
+  const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+  if (!allowedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
+    notify("File harus PDF/JPG/PNG dan maksimal 5MB.");
+    return false;
+  }
+  return true;
+}
+function previewEmployeeDocument(file: File | null) {
+  if (!file) return;
+  const previewUrl = URL.createObjectURL(file);
+  const previewWindow = window.open(previewUrl, "_blank", "noopener,noreferrer");
+  if (!previewWindow) notify("Preview gagal dibuka. Izinkan pop-up browser terlebih dahulu.");
+}
+function setEmployeeDocument(key: EmployeeDocument["key"], files: FileList | null) {
+  const file = files?.[0];
+  if (!file || !validEmployeeDocument(file)) return;
+  employeeDocuments.value = employeeDocuments.value.map((document) =>
+    document.key === key ? { ...document, file } : document,
+  );
+}
+function addCustomEmployeeDocument() {
+  customEmployeeDocuments.value = [
+    ...customEmployeeDocuments.value,
+    { id: Date.now(), name: "", file: null },
+  ];
+}
+function updateCustomEmployeeDocumentName(id: number, name: string) {
+  customEmployeeDocuments.value = customEmployeeDocuments.value.map((document) =>
+    document.id === id ? { ...document, name } : document,
+  );
+}
+function setCustomEmployeeDocument(id: number, files: FileList | null) {
+  const file = files?.[0];
+  if (!file || !validEmployeeDocument(file)) return;
+  customEmployeeDocuments.value = customEmployeeDocuments.value.map((document) =>
+    document.id === id ? { ...document, file } : document,
+  );
+}
+function removeCustomEmployeeDocument(id: number) {
+  customEmployeeDocuments.value = customEmployeeDocuments.value.filter(
+    (document) => document.id !== id,
+  );
+}
+function resetEmployeeDocuments() {
+  employeeDocuments.value = employeeDocuments.value.map((document) => ({ ...document, file: null }));
+  customEmployeeDocuments.value = [];
+}
 const employeeBaseSalaryInputValue = computed(() =>
   formatRupiahInput(employeeForm.value.gajiPokok, false, false),
 );
@@ -5371,6 +5493,7 @@ function employeeDatabaseId(employee: any) {
 function resetEmployeeForm() {
   editingEmployee.value = null;
   resetEmployeeFormErrors();
+  resetEmployeeDocuments();
   employeeBankOtherSelected.value = false;
   updateEmployeeForm({
     nama: "",
