@@ -8,6 +8,7 @@ const accounts = mysqlTable("accounts", {
   code: varchar("code", { length: 30 }).unique().notNull(),
   name: varchar("name", { length: 150 }).notNull(),
   type: mysqlEnum("type", ["asset", "liability", "equity", "revenue", "expense"]).notNull(),
+  subType: varchar("sub_type", { length: 60 }),
   normalBalance: mysqlEnum("normal_balance", ["debit", "credit"]).notNull(),
   openingBalance: decimal("opening_balance", { precision: 15, scale: 2 }).notNull().default("0.00"),
   currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).notNull().default("0.00"),

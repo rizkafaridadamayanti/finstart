@@ -948,10 +948,25 @@
             </button>
           </div>
           <!-- Form body -->
-          <form class="flex min-h-0 flex-1 flex-col" @submit="handleSaveProject">
+          <form
+            novalidate
+            data-manual-validation="true"
+            class="flex min-h-0 flex-1 flex-col"
+            @submit="handleSaveProject"
+          >
             <nav class="crm-project-steps shrink-0 border-b border-[#E8EEF7]" aria-label="Tahapan inisiasi proyek">
-              <ol class="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                <li v-for="(label, index) in projectFormSteps" :key="label" :class="['crm-project-step', { active: projectFormStep === index + 1, complete: projectFormStep > index + 1 }]">
+              <ol class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <li
+                  v-for="(label, index) in projectFormSteps"
+                  :key="label"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Ke langkah ${index + 1}: ${label}`"
+                  :class="['crm-project-step', { active: projectFormStep === index + 1, complete: projectFormStep > index + 1 }]"
+                  @click="goToProjectStep(index + 1)"
+                  @keydown.enter="goToProjectStep(index + 1)"
+                  @keydown.space.prevent="goToProjectStep(index + 1)"
+                >
                   <span>{{ index + 1 }}</span><strong>{{ label }}</strong>
                 </li>
               </ol>
@@ -963,6 +978,13 @@
               <CircleAlert class="h-4 w-4 shrink-0" />
               <span>{{ projectStepWarning }}</span>
             </div>
+            <p
+              v-if="projectFormStep === 1"
+              class="mb-1 text-[11px] font-medium text-slate-400"
+            >
+              Nama Projek dan Klien wajib diisi. Kolom lainnya boleh
+              dilengkapi belakangan.
+            </p>
             <!-- SECTION 1: DETAIL IDENTITAS PROJEK -->
             <div
               v-show="projectFormStep === 1"
@@ -1010,7 +1032,6 @@
                     ><input
                       id="proj-form-val"
                       type="number"
-                      required
                       min="1"
                       placeholder="0"
                       :value="newProj.nilaiKontrak || ''"
@@ -1035,7 +1056,6 @@
                   ><input
                     id="proj-form-budget"
                     type="number"
-                    required
                     min="0"
                     placeholder="0"
                     :value="newProj.anggaran || ''"
@@ -1114,7 +1134,6 @@
                   ><input
                     id="proj-form-start"
                     type="date"
-                    required
                     v-model="newProj.tanggalMulai"
                     :aria-invalid="Boolean(projectStepErrors.tanggalMulai)"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-3 text-[12px] font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
@@ -1128,7 +1147,6 @@
                   ><input
                     id="proj-form-end"
                     type="date"
-                    required
                     :min="newProj.tanggalMulai || undefined"
                     v-model="newProj.tanggalSelesai"
                     :aria-invalid="Boolean(projectStepErrors.tanggalSelesai)"
@@ -1360,7 +1378,7 @@
             </div>
             <!-- SECTION 2: INFORMASI KLIEN PARTNER -->
             <div
-              v-show="projectFormStep === 4"
+              v-show="projectFormStep === 1"
               class="min-w-0 space-y-6 rounded-[22px] border border-[#D8E5F4] bg-[#FBFDFF] p-5 shadow-sm sm:p-6 lg:col-span-2 2xl:col-span-1"
             >
               <!-- Section header inside the box -->
@@ -1411,7 +1429,7 @@
                 </div>
               </div>
             </div>
-            <section v-show="projectFormStep === 5" class="rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm sm:p-7">
+            <section v-show="projectFormStep === 4" class="rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm sm:p-7">
               <div class="border-b border-[#D8E5F4] pb-4">
                 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1E5AA8]">Konfirmasi data</p>
                 <h4 class="mt-1 text-lg font-extrabold text-[#102A56]">Periksa sebelum proyek disimpan</h4>
@@ -1460,6 +1478,18 @@
           </form>
         </div>
       </div>
+      <ConfirmDialog
+        :open="isProjectGapConfirmOpen"
+        eyebrow="Konfirmasi Data Belum Lengkap"
+        title="Masih ada bagian yang kosong"
+        message="Proyek tetap bisa disimpan, tapi beberapa bagian berikut belum diisi. Yakin ingin mengirim form ini?"
+        :impact-items="projectFormGapSummary"
+        confirm-label="Ya, Tetap Simpan"
+        cancel-label="Lengkapi Dulu"
+        variant="warning"
+        @cancel="isProjectGapConfirmOpen = false"
+        @confirm="confirmSaveProjectWithGaps"
+      />
       <!-- 4. REGISTRASI KLIEN BARU STANDALONE MODAL -->
       <Teleport to="body">
         <div
@@ -1882,6 +1912,7 @@ import { formatRupiah } from "../data.ts";
 import { Proyek, Klien, Pegawai, AnggotaTim } from "../types.ts";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
+import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { useFinStartContext } from "../composables/useFinStartContext";
 import { financeApi } from "../services/financeApi.js";
 import { mapClient, mapProject } from "../services/financeMappers.js";
@@ -2183,10 +2214,57 @@ const projectTeamError = ref("");
 const projectFormStep = ref(1);
 const projectStepWarning = ref("");
 const projectStepErrors = ref<Record<string, string>>({});
-const projectFormSteps = ["Detail", "Milestone", "Tim", "Klien", "Konfirmasi"];
+const projectFormSteps = ["Detail Projek & Klien", "Milestone", "Tim", "Konfirmasi"];
 const selectedProjectFormClient = computed(() =>
   klien.find((client) => client.id === newProj.value.klienId),
 );
+
+interface ProjectFieldGap {
+  section: string;
+  label: string;
+}
+const isProjectGapConfirmOpen = ref(false);
+const projectFormGaps = ref<ProjectFieldGap[]>([]);
+const projectFormGapSummary = computed(() => {
+  const gaps = projectFormGaps.value;
+  if (gaps.length <= 4) {
+    return gaps.map((gap) => `${gap.section}: ${gap.label}`);
+  }
+  const sections = [...new Set(gaps.map((gap) => gap.section))];
+  return sections.map((section) => {
+    const count = gaps.filter((gap) => gap.section === section).length;
+    return `${section}: ${count} bagian belum diisi`;
+  });
+});
+function computeProjectFormGaps(): ProjectFieldGap[] {
+  const gaps: ProjectFieldGap[] = [];
+  if (Number(newProj.value.nilaiKontrak) <= 0) {
+    gaps.push({ section: "Detail Projek", label: "Nilai kontrak belum diisi" });
+  }
+  if (Number(newProj.value.anggaran) <= 0) {
+    gaps.push({ section: "Detail Projek", label: "Anggaran biaya proyek belum diisi" });
+  }
+  if (!newProj.value.tanggalMulai) {
+    gaps.push({ section: "Detail Projek", label: "Tanggal mulai belum dipilih" });
+  }
+  if (!newProj.value.tanggalSelesai) {
+    gaps.push({ section: "Detail Projek", label: "Estimasi selesai belum dipilih" });
+  }
+  if ((newProj.value.milestones || []).length === 0) {
+    gaps.push({ section: "Milestone", label: "Belum ada milestone ditambahkan" });
+  }
+  if (newProj.value.tim.length === 0) {
+    gaps.push({ section: "Tim", label: "Belum ada anggota tim dialokasikan" });
+  }
+  return gaps;
+}
+
+function goToProjectStep(step: number) {
+  if (step === projectFormStep.value) return;
+  projectStepWarning.value = "";
+  projectStepErrors.value = {};
+  projectFormStep.value = Math.min(Math.max(step, 1), projectFormSteps.length);
+}
 
 function goToPreviousProjectStep() {
   projectStepWarning.value = "";
@@ -2199,58 +2277,26 @@ function goToPreviousProjectStep() {
 }
 
 function goToNextProjectStep() {
+  // Kolom di halaman Detail Projek boleh dilewati tanpa diisi penuh - validasi
+  // kelengkapan data cuma dilakukan sekali di langkah terakhir (Konfirmasi)
+  // lewat dialog "masih ada bagian kosong" di handleSaveProject, bukan di sini.
   projectStepWarning.value = "";
   projectStepErrors.value = {};
-  if (projectFormStep.value === 1) {
-    const errors: Record<string, string> = {};
-    if (!newProj.value.nama) errors.nama = "Nama proyek wajib diisi.";
-    if (Number(newProj.value.nilaiKontrak) <= 0) {
-      errors.nilaiKontrak = "Nilai kontrak harus lebih dari Rp 0.";
-    }
-    if (!newProj.value.tanggalMulai) {
-      errors.tanggalMulai = "Tanggal mulai wajib dipilih.";
-    }
-    if (!newProj.value.tanggalSelesai) {
-      errors.tanggalSelesai = "Estimasi selesai wajib dipilih.";
-    }
-    if (Number(newProj.value.anggaran) <= 0) {
-      errors.anggaran = "Anggaran biaya proyek harus lebih dari Rp 0.";
-    }
-    if (Object.keys(errors).length) {
-      projectStepErrors.value = errors;
-      projectStepWarning.value =
-        "Periksa kembali field yang ditandai sebelum melanjutkan.";
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
-      );
-      return;
-    }
-    if (newProj.value.tanggalSelesai < newProj.value.tanggalMulai) {
-      projectStepErrors.value = {
-        tanggalSelesai: "Tanggal selesai tidak boleh sebelum tanggal mulai.",
-      };
-      projectStepWarning.value = "Periode proyek belum valid.";
-      return;
-    }
-  }
-  if (projectFormStep.value === 3 && newProj.value.tim.length === 0) {
-    projectTeamError.value =
-      "Tambahkan minimal satu anggota tim beserta posisi atau perannya.";
-    projectStepWarning.value = "Alokasi tim SDM wajib diisi sebelum melanjutkan.";
-    return;
-  }
-  if (projectFormStep.value === 4 && !newProj.value.klienId) {
+  if (
+    newProj.value.tanggalMulai &&
+    newProj.value.tanggalSelesai &&
+    newProj.value.tanggalSelesai < newProj.value.tanggalMulai
+  ) {
     projectStepErrors.value = {
-      klienId: "Perusahaan klien wajib dipilih.",
+      tanggalSelesai: "Tanggal selesai tidak boleh sebelum tanggal mulai.",
     };
-    projectStepWarning.value = "Pilih perusahaan klien sebelum melanjutkan.";
+    projectStepWarning.value = "Periode proyek belum valid.";
     return;
   }
   projectFormStep.value = Math.min(
     projectFormStep.value + 1,
     projectFormSteps.length,
   );
-  projectStepWarning.value = "";
 }
 
 function setActiveSubTab(next: CrmSubTab) {
@@ -2273,6 +2319,8 @@ function resetProjectForm() {
   projectStepWarning.value = "";
   projectStepErrors.value = {};
   projectFormStep.value = 1;
+  isProjectGapConfirmOpen.value = false;
+  projectFormGaps.value = [];
 }
 
 function resetClientForm() {
@@ -2363,34 +2411,74 @@ function handleRemoveMilestone(index: number) {
   };
 }
 
-// Submit complete single-page project form
+// Submit complete single-page project form. Nama proyek dan klien tetap
+// wajib (backend menolak project tanpa keduanya) - field lain (kontrak,
+// anggaran, tanggal, milestone, tim) boleh kosong asal user mengonfirmasi
+// lewat dialog "masih ada bagian kosong" di bawah.
 async function handleSaveProject(event?: Event) {
   event?.preventDefault();
   if (isProjectSaving.value) return;
-  if (
-    !newProj.value.nama ||
-    !newProj.value.tanggalMulai ||
-    !newProj.value.tanggalSelesai
-  ) {
-    notify("Harap lengkapi nama proyek dan tanggal pelaksanaan.");
-    return;
-  }
-  if (!newProj.value.klienId) {
-    notify("Harap pilih perusahaan klien dari database Klien Partner.");
-    return;
-  }
-  if (newProj.value.tim.length === 0) {
-    projectTeamError.value =
-      "Tambahkan minimal satu anggota tim beserta posisi atau perannya.";
-    notify("Alokasi tim SDM wajib diisi sebelum proyek disimpan.");
+
+  if (!newProj.value.nama) {
+    projectStepErrors.value = {
+      ...projectStepErrors.value,
+      nama: "Nama proyek wajib diisi.",
+    };
+    projectFormStep.value = 1;
+    notify("Nama proyek wajib diisi sebelum disimpan.");
     requestAnimationFrame(() => {
       document
-        .getElementById("proj-team-name")
+        .getElementById("proj-form-name")
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      document.getElementById("proj-team-name")?.focus();
+      document.getElementById("proj-form-name")?.focus();
     });
     return;
   }
+  if (!newProj.value.klienId) {
+    projectStepErrors.value = {
+      ...projectStepErrors.value,
+      klienId: "Perusahaan klien wajib dipilih.",
+    };
+    projectFormStep.value = 1;
+    notify("Perusahaan klien wajib dipilih sebelum disimpan.");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("proj-form-klien")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("proj-form-klien")?.focus();
+    });
+    return;
+  }
+  if (
+    newProj.value.tanggalMulai &&
+    newProj.value.tanggalSelesai &&
+    newProj.value.tanggalSelesai < newProj.value.tanggalMulai
+  ) {
+    projectStepErrors.value = {
+      ...projectStepErrors.value,
+      tanggalSelesai: "Tanggal selesai tidak boleh sebelum tanggal mulai.",
+    };
+    projectFormStep.value = 1;
+    notify("Periode proyek belum valid.");
+    return;
+  }
+
+  const gaps = computeProjectFormGaps();
+  if (gaps.length) {
+    projectFormGaps.value = gaps;
+    isProjectGapConfirmOpen.value = true;
+    return;
+  }
+
+  await performProjectSave();
+}
+
+async function confirmSaveProjectWithGaps() {
+  isProjectGapConfirmOpen.value = false;
+  await performProjectSave();
+}
+
+async function performProjectSave() {
   const selectedClient = klien.find((k) => k.id === newProj.value.klienId);
   const finalKlienId = newProj.value.klienId;
   const finalPicKontak = selectedClient ? selectedClient.pic : "";
@@ -3452,6 +3540,18 @@ const selectedClientProjects = computed(() => {
   align-items: center;
   gap: 8px;
   color: #8192aa;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease;
+}
+
+.crm-project-step:hover {
+  color: #1e5aa8;
+}
+
+.crm-project-step:focus-visible {
+  outline: 2px solid #1e5aa8;
+  outline-offset: 2px;
 }
 
 .crm-project-steps {
@@ -3472,7 +3572,7 @@ const selectedClientProjects = computed(() => {
   display: grid !important;
   width: 100%;
   min-width: 560px;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   align-items: center;
   gap: 10px;
   margin: 0;

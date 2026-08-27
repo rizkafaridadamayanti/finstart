@@ -81,6 +81,25 @@ async function getAccountByCode(connection, code) {
   return account
 }
 
+async function getAccountById(connection, id) {
+  const [rows] = await connection.query(
+    `
+      SELECT id, code, name, type, normal_balance, status
+      FROM accounts
+      WHERE id = ? AND status = 'active'
+      LIMIT 1
+    `,
+    [id],
+  )
+  if (!rows[0]) throw new Error('Akun jurnal yang dipilih tidak ditemukan atau tidak aktif.')
+  return rows[0]
+}
+
+function parsePositiveId(value) {
+  const id = Number(value)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
 async function getPaymentAccount(connection, accountId) {
   const [rows] = await connection.query(
     `
@@ -227,7 +246,7 @@ function makeDepreciationPlan(asset, period) {
   return { amount, accumulatedAfter, bookValueAfter }
 }
 
-async function postDepreciation(connection, asset, period, notes = null) {
+async function postDepreciation(connection, asset, period, notes = null, options = {}) {
   const [existingRows] = await connection.query(
     `
       SELECT id
@@ -244,8 +263,16 @@ async function postDepreciation(connection, asset, period, notes = null) {
   }
 
   const plan = makeDepreciationPlan(asset, period)
-  const expenseAccount = await ensureAccountByCode(connection, DEPRECIATION_EXPENSE_ACCOUNT_CODE, 'Beban Penyusutan Aset', 'expense', 'debit', '5000')
-  const accumulatedAccount = await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
+  const expenseAccount = options.expenseAccountId
+    ? await getAccountById(connection, options.expenseAccountId)
+    : await ensureAccountByCode(connection, DEPRECIATION_EXPENSE_ACCOUNT_CODE, 'Beban Penyusutan Aset', 'expense', 'debit', '5000')
+  const accumulatedAccount = options.accumulatedAccountId
+    ? await getAccountById(connection, options.accumulatedAccountId)
+    : await ensureAccountByCode(connection, ACCUMULATED_DEPRECIATION_ACCOUNT_CODE, 'Akumulasi Penyusutan Aset', 'asset', 'credit', '1200')
+
+  if (expenseAccount.id === accumulatedAccount.id) {
+    throw new Error('Akun debit dan akun kredit penyusutan tidak boleh sama.')
+  }
 
   const [depreciationResult] = await connection.query(
     `
@@ -572,6 +599,8 @@ router.post('/:id/dispose', async (req, res) => {
 router.post('/depreciate-batch', async (req, res) => {
   const period = String(req.body.depreciation_period || '').trim()
   const notes = String(req.body.notes || '').trim() || null
+  const expenseAccountId = parsePositiveId(req.body.expense_account_id)
+  const accumulatedAccountId = parsePositiveId(req.body.accumulated_account_id)
   const requestedAssetIds = Array.isArray(req.body.asset_ids)
     ? req.body.asset_ids
       .map((id) => Number(id))
@@ -596,7 +625,7 @@ router.post('/depreciate-batch', async (req, res) => {
     const skipped = []
     for (const asset of assetRows) {
       try {
-        processed.push(await postDepreciation(connection, asset, period, notes))
+        processed.push(await postDepreciation(connection, asset, period, notes, { expenseAccountId, accumulatedAccountId }))
       } catch (error) {
         skipped.push({ asset_id: asset.id, asset_name: asset.asset_name, reason: safePublicMessage(error, 'Tidak dapat diproses.') })
       }
@@ -622,6 +651,8 @@ router.post('/:id/depreciate', async (req, res) => {
   const assetId = Number(req.params.id)
   const period = String(req.body.depreciation_period || '').trim()
   const notes = String(req.body.notes || '').trim() || null
+  const expenseAccountId = parsePositiveId(req.body.expense_account_id)
+  const accumulatedAccountId = parsePositiveId(req.body.accumulated_account_id)
 
   if (!Number.isInteger(assetId) || assetId <= 0) return res.status(400).json({ success: false, message: 'ID aset tidak valid.' })
   if (!isValidPeriod(period)) return res.status(400).json({ success: false, message: 'Periode penyusutan harus menggunakan format YYYY-MM.' })
@@ -633,7 +664,7 @@ router.post('/:id/depreciate', async (req, res) => {
     const [assetRows] = await connection.query("SELECT * FROM assets WHERE id = ? AND status = 'active' LIMIT 1 FOR UPDATE", [assetId])
     if (!assetRows[0]) throw new Error('Aset aktif tidak ditemukan.')
 
-    const depreciation = await postDepreciation(connection, assetRows[0], period, notes)
+    const depreciation = await postDepreciation(connection, assetRows[0], period, notes, { expenseAccountId, accumulatedAccountId })
     await connection.commit()
     res.status(201).json({ success: true, message: 'Penyusutan aset dan jurnal beban berhasil diposting.', data: depreciation })
   } catch (error) {

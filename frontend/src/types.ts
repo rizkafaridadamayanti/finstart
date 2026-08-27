@@ -1,9 +1,26 @@
 export type TipeAkun = "Aset" | "Kewajiban" | "Modal" | "Pendapatan" | "Beban";
+export const SUB_INDUK_AKUN_OPTIONS: Record<TipeAkun, string[]> = {
+  Aset: [
+    "Kas",
+    "Bank",
+    "Piutang",
+    "Biaya Dibayar Dimuka",
+    "Pajak Dibayar Dimuka",
+    "Cadangan Kerugian Piutang",
+    "Aset Tetap",
+    "Akumulasi Penyusutan Aset Tetap",
+  ],
+  Kewajiban: ["Utang Lancar", "Utang Biaya", "Utang Pajak", "Utang Jangka Panjang"],
+  Modal: ["Modal", "Laba Rugi Ditahan"],
+  Pendapatan: ["Penjualan", "Pendapatan Lainnya", "Retur Penjualan", "Diskon Penjualan"],
+  Beban: ["Biaya Operasional", "Biaya Pokok Penjualan", "Biaya Lainnya"],
+};
 export interface AkunBukuBesar {
   id: string;
   kode: string;
   nama: string;
   tipe: TipeAkun;
+  subInduk?: string;
   saldo: number;
   status?: string;
 }
