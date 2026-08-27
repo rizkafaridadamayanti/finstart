@@ -82,6 +82,22 @@ async function seedEmployees(db) {
       ptkpStatus: 'TK/1', nik: '3201234567890005', npwp: '1234567890123458',
       bankName: 'Bank BCA', bankAccountNumber: '6789012345', bankAccountHolder: 'Rizki Ramadhan',
     },
+    {
+      employeeCode: 'EMP-006', fullName: 'Budi Santoso', name: 'Budi Santoso',
+      email: 'budi.santoso@kedata.id', phone: '081234500001', position: 'Finance Analyst',
+      salary: '8000000.00', baseSalary: '8000000.00', employmentStatus: 'active',
+      employmentType: 'permanent', joinDate: '2025-01-01', bpjsStatus: 'active',
+      ptkpStatus: 'K/1', nik: '3501019920846362',
+      bankName: 'BCA', bankAccountNumber: '1234567890', bankAccountHolder: 'Budi Santoso',
+    },
+    {
+      employeeCode: 'EMP-007', fullName: 'Dewi Anggraini', name: 'Dewi Anggraini',
+      email: 'dewi.anggraini@kedata.id', phone: '081234500002', position: 'Junior Engineer',
+      salary: '6500000.00', baseSalary: '6500000.00', employmentStatus: 'active',
+      employmentType: 'contract', joinDate: '2025-01-01', bpjsStatus: 'active',
+      ptkpStatus: 'TK/0', nik: '3501029920846362',
+      bankName: 'Mandiri', bankAccountNumber: '0987654321', bankAccountHolder: 'Dewi Anggraini',
+    },
   ]
   for (const row of rows) {
     await db.insert(schema.employees).values(row)
@@ -109,6 +125,18 @@ async function seedClients(db, pool) {
       email: 'arif@digitalnusantara.co.id', phone: '021-5559012',
       industry: 'E-Commerce', category: 'Retail Online',
       location: 'Jakarta Pusat', address: 'Jl. MH Thamrin No. 20, Jakarta Pusat',
+    },
+    {
+      companyName: 'PT Sumber Makmur Sejahtera', picName: 'Andi Wijaya',
+      email: 'andi@sumbermakmur.co.id', phone: '081234567891',
+      industry: 'Manufaktur', category: 'Swasta',
+      location: 'Surabaya, Jawa Timur', address: 'Jl. Rungkut Industri No. 12, Surabaya',
+    },
+    {
+      companyName: 'CV Berkah Digital Nusantara', picName: 'Sari Handayani',
+      email: 'sari@berkahdigital.id', phone: '081298765432',
+      industry: 'Teknologi', category: 'UMKM',
+      location: 'Yogyakarta', address: 'Jl. Kaliurang KM 8, Yogyakarta',
     },
   ]
 
@@ -140,7 +168,7 @@ async function seedClients(db, pool) {
 }
 
 async function seedProjects(db, pool) {
-  const [clientRows] = await pool.execute('SELECT id, company_name FROM clients ORDER BY id LIMIT 3')
+  const [clientRows] = await pool.execute('SELECT id, company_name FROM clients ORDER BY id LIMIT 5')
   const clientIds = clientRows.map((c) => c.id)
 
   const rows = [
@@ -164,6 +192,20 @@ async function seedProjects(db, pool) {
       status: 'completed', startDate: `${CURRENT_YEAR - 1}-03-01`, endDate: `${CURRENT_YEAR - 1}-12-31`,
       description: 'Pengembangan mobile app untuk PT Digital Nusantara',
       budgetAmount: '280000000.00',
+    },
+    {
+      clientId: clientIds[3] || 1, projectName: 'Implementasi Sistem ERP Keuangan',
+      projectCode: 'PRJ-2025-004', contractValue: '250000000.00',
+      status: 'ongoing', startDate: `${CURRENT_YEAR}-08-27`, endDate: `${CURRENT_YEAR}-11-25`,
+      description: 'Implementasi modul keuangan dan akuntansi terintegrasi.',
+      budgetAmount: '200000000.00',
+    },
+    {
+      clientId: clientIds[4] || 2, projectName: 'Pengembangan Aplikasi Mobile Banking',
+      projectCode: 'PRJ-2025-005', contractValue: '180000000.00',
+      status: 'planning', startDate: `${CURRENT_YEAR}-09-03`, endDate: `${CURRENT_YEAR}-12-25`,
+      description: 'Pengembangan aplikasi mobile banking untuk nasabah ritel.',
+      budgetAmount: '150000000.00',
     },
   ]
   for (const row of rows) {
@@ -233,9 +275,9 @@ async function seedJournalEntries(db, pool) {
 }
 
 async function seedInvoices(db, pool) {
-  const [clients] = await pool.execute('SELECT id FROM clients ORDER BY id LIMIT 3')
+  const [clients] = await pool.execute('SELECT id FROM clients ORDER BY id LIMIT 5')
   const clientRows = clients || []
-  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
+  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 5')
   const projectRows = projects || []
 
   const rows = [
@@ -251,6 +293,18 @@ async function seedInvoices(db, pool) {
       dueDate: `${CURRENT_YEAR}-06-01`, totalAmount: '75000000.00', paidAmount: '0.00',
       status: 'unpaid', notes: 'Invoice konsultasi dashboard analytics',
     },
+    {
+      clientId: clientRows[3]?.id || 1, projectId: projectRows[3]?.id || null,
+      invoiceNumber: `INV-${CURRENT_YEAR}-003`, issueDate: `${CURRENT_YEAR}-08-27`,
+      dueDate: `${CURRENT_YEAR}-09-26`, totalAmount: '100000000.00', paidAmount: '0.00',
+      status: 'unpaid', notes: 'Termin 1 - Implementasi Sistem ERP Keuangan',
+    },
+    {
+      clientId: clientRows[4]?.id || 2, projectId: projectRows[4]?.id || null,
+      invoiceNumber: `INV-${CURRENT_YEAR}-004`, issueDate: `${CURRENT_YEAR}-08-27`,
+      dueDate: `${CURRENT_YEAR}-09-26`, totalAmount: '54000000.00', paidAmount: '0.00',
+      status: 'unpaid', notes: 'DP 30% - Pengembangan Aplikasi Mobile Banking',
+    },
   ]
   for (const row of rows) {
     await db.insert(schema.invoices).values(row)
@@ -260,7 +314,7 @@ async function seedInvoices(db, pool) {
 }
 
 async function seedBills(db, pool) {
-  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 3')
+  const [projects] = await pool.execute('SELECT id FROM projects ORDER BY id LIMIT 5')
   const projectRows = projects || []
 
   const rows = [
@@ -275,6 +329,18 @@ async function seedBills(db, pool) {
       billNumber: `BILL-${CURRENT_YEAR}-002`, billDate: `${CURRENT_YEAR}-06-01`,
       dueDate: `${CURRENT_YEAR}-07-01`, totalAmount: '45000000.00', paidAmount: '0.00',
       status: 'unpaid', notes: 'Tagihan sewa kantor Q3',
+    },
+    {
+      vendorName: 'PT Distribusi Elektronik Nusantara', projectId: null,
+      billNumber: `BILL-${CURRENT_YEAR}-003`, billDate: `${CURRENT_YEAR}-08-27`,
+      dueDate: `${CURRENT_YEAR}-09-26`, totalAmount: '30000000.00', paidAmount: '0.00',
+      status: 'unpaid', notes: 'Pembelian perangkat laptop kantor',
+    },
+    {
+      vendorName: 'CV Jasa Kebersihan Prima', projectId: null,
+      billNumber: `BILL-${CURRENT_YEAR}-004`, billDate: `${CURRENT_YEAR}-08-27`,
+      dueDate: `${CURRENT_YEAR}-09-10`, totalAmount: '3500000.00', paidAmount: '0.00',
+      status: 'unpaid', notes: 'Jasa kebersihan kantor bulan Agustus',
     },
   ]
   for (const row of rows) {
@@ -297,6 +363,18 @@ async function seedSubscriptions(db) {
       category: 'cloud', amount: '15000000.00', billingCycle: 'monthly',
       startDate: `${CURRENT_YEAR}-01-01`, renewalDate: `${CURRENT_YEAR}-${CURRENT_MONTH}-01`,
       status: 'active', notes: 'Layanan cloud AWS untuk infrastruktur production',
+    },
+    {
+      subscriptionName: 'Adobe Creative Cloud', providerName: 'Adobe Inc.',
+      category: 'software', amount: '850000.00', billingCycle: 'monthly',
+      startDate: `${CURRENT_YEAR}-08-27`, renewalDate: `${CURRENT_YEAR}-09-26`,
+      status: 'active', notes: 'Lisensi desain untuk tim kreatif',
+    },
+    {
+      subscriptionName: 'AWS Cloud Hosting', providerName: 'Amazon Web Services',
+      category: 'cloud', amount: '3200000.00', billingCycle: 'monthly',
+      startDate: `${CURRENT_YEAR}-08-27`, renewalDate: `${CURRENT_YEAR}-09-26`,
+      status: 'active', notes: 'Hosting cloud tambahan',
     },
   ]
   for (const row of rows) {
@@ -321,6 +399,20 @@ async function seedAssets(db) {
       acquisitionCost: '85000000.00', usefulLifeMonths: 60,
       residualValue: '10000000.00', status: 'active',
       notes: 'Server utama untuk hosting aplikasi',
+    },
+    {
+      assetCode: 'AST-003', assetName: 'Laptop Dell Latitude 5440',
+      category: 'Elektronik / IT', acquisitionDate: `${CURRENT_YEAR}-08-27`,
+      acquisitionCost: '15000000.00', usefulLifeMonths: 48,
+      residualValue: '1500000.00', status: 'active',
+      notes: 'Penanggung jawab: Tim IT',
+    },
+    {
+      assetCode: 'AST-004', assetName: 'AC Split Daikin 1PK',
+      category: 'Elektronik / IT', acquisitionDate: `${CURRENT_YEAR}-08-27`,
+      acquisitionCost: '5000000.00', usefulLifeMonths: 60,
+      residualValue: '500000.00', status: 'active',
+      notes: 'Penanggung jawab: General Affair',
     },
   ]
   for (const row of rows) {
