@@ -523,14 +523,14 @@
         <div class="asset-table-scroll overflow-x-auto">
           <table class="w-full min-w-[980px] table-fixed text-center text-xs text-slate-500">
             <colgroup>
+              <col style="width: 14%" />
+              <col style="width: 11%" />
+              <col style="width: 11%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
+              <col style="width: 12%" />
               <col style="width: 16%" />
-              <col style="width: 12%" />
-              <col style="width: 12%" />
-              <col style="width: 13%" />
-              <col style="width: 13%" />
-              <col style="width: 13%" />
-              <col style="width: 13%" />
-              <col style="width: 8%" />
             </colgroup>
             <thead
               class="bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-wider border-b-2 border-slate-300"
@@ -1012,7 +1012,7 @@
           </div>
 
           <div
-            class="depreciation-modal-body min-h-0 flex-1 overflow-hidden px-6 py-4"
+            class="depreciation-modal-body min-h-0 flex-1 overflow-y-auto px-6 py-4"
           >
             <div
               v-if="depreciationResult"
@@ -1044,20 +1044,20 @@
                 <p
                   class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
                 >
-                  Siap Diproses
+                  Dipilih / Siap Diproses
                 </p>
                 <p class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
-                  {{ depreciationPreviewRows.length }}
+                  {{ selectedDepreciationRows.length }} / {{ depreciationPreviewRows.length }}
                 </p>
               </div>
               <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
                 <p
                   class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
                 >
-                  Estimasi Beban
+                  Estimasi Beban Dipilih
                 </p>
                 <p class="mt-1 text-lg font-extrabold text-[#0B1F4A]">
-                  {{ formatRupiah(depreciationPreviewTotal) }}
+                  {{ formatRupiah(selectedDepreciationTotal) }}
                 </p>
               </div>
               <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
@@ -1083,13 +1083,24 @@
             </div>
 
             <div
-              class="depreciation-table-panel mt-4 min-h-0 flex-1 overflow-x-auto rounded-xl border border-[#DCE7F4]"
+              class="depreciation-table-panel mt-4 shrink-0 overflow-x-auto rounded-xl border border-[#DCE7F4]"
             >
               <table class="depreciation-preview-table w-full text-left text-xs">
                 <thead
                   class="bg-[#EEF5FC] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0B3A78]"
                 >
                   <tr>
+                    <th class="px-4 py-3">
+                      <input
+                        id="depreciation-select-all"
+                        type="checkbox"
+                        :checked="isAllDepreciationRowsSelected"
+                        :disabled="!depreciationPreviewRows.length"
+                        aria-label="Pilih semua aset"
+                        class="h-4 w-4 rounded border-[#B9CBE4] text-[#0B3A78] focus:outline-none"
+                        @change="toggleSelectAllDepreciationRows"
+                      />
+                    </th>
                     <th class="px-4 py-3">Aset</th>
                     <th class="px-4 py-3">Kategori</th>
                     <th class="px-4 py-3 text-right">Nilai Buku</th>
@@ -1100,7 +1111,18 @@
                   <tr
                     v-for="row in depreciationPreviewRows"
                     :key="`depreciation-preview-${row.id}`"
+                    :class="isDepreciationAssetSelected(row.id) ? 'bg-[#F0F6FF]' : ''"
                   >
+                    <td class="px-4 py-3">
+                      <input
+                        :id="`depreciation-select-${row.id}`"
+                        type="checkbox"
+                        :checked="isDepreciationAssetSelected(row.id)"
+                        :aria-label="`Pilih aset ${row.nama}`"
+                        class="h-4 w-4 rounded border-[#B9CBE4] text-[#0B3A78] focus:outline-none"
+                        @change="toggleDepreciationAssetSelection(row.id)"
+                      />
+                    </td>
                     <td class="px-4 py-3 font-bold text-[#0B1F4A]">
                       {{ row.nama }}
                     </td>
@@ -1119,7 +1141,7 @@
                     </td>
                   </tr>
                   <tr v-if="!depreciationPreviewRows.length">
-                    <td colspan="4" class="px-4 py-8 text-center text-[#8A98AB]">
+                    <td colspan="5" class="px-4 py-8 text-center text-[#8A98AB]">
                       Tidak ada aset yang perlu diproses untuk periode ini.
                     </td>
                   </tr>
@@ -1129,7 +1151,7 @@
 
             <div
               v-if="depreciationAlreadyPostedRows.length"
-              class="mt-4 overflow-hidden rounded-xl border border-[#DCE7F4]"
+              class="mt-4 shrink-0 overflow-hidden rounded-xl border border-[#DCE7F4]"
             >
               <div class="border-b border-[#E8EEF7] bg-[#F8FBFE] px-4 py-2.5">
                 <p class="text-xs font-extrabold text-[#0B1F4A]">
@@ -1205,12 +1227,16 @@
             <button
               v-if="!depreciationResult"
               type="button"
-              :disabled="isDepreciationProcessing || !depreciationPreviewRows.length"
+              :disabled="isDepreciationProcessing || !selectedDepreciationRows.length"
               class="h-10 min-w-[268px] rounded-xl bg-[#0B3A78] px-5 text-sm font-bold text-white shadow-lg shadow-[#0B3A78]/20 transition hover:bg-[#082C5A] disabled:cursor-not-allowed disabled:opacity-60"
               @click="processMonthlyDepreciation"
             >
               <template v-if="isDepreciationProcessing">Memposting...</template>
-              <template v-else>Posting Penyusutan ke Buku Besar</template>
+              <template v-else-if="selectedDepreciationRows.length"
+                >Posting {{ selectedDepreciationRows.length }} Aset ke Buku
+                Besar</template
+              >
+              <template v-else>Pilih Aset untuk Diposting</template>
             </button>
           </div>
         </div>
@@ -2350,6 +2376,7 @@ const isSubscriptionSaving = ref(false);
 const isAssetSaving = ref(false);
 const isDepreciationProcessing = ref(false);
 const depreciationResult = ref<any>(null);
+const selectedDepreciationAssetIds = ref<string[]>([]);
 type CurrencyCode = "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
 const currencyOptions: { value: CurrencyCode; label: string }[] = [
   { value: "IDR", label: "IDR - Rupiah" },
@@ -3123,6 +3150,7 @@ function openDepreciationModal() {
     return;
   }
   depreciationResult.value = null;
+  selectedDepreciationAssetIds.value = [];
   isDepreciationModalOpen.value = true;
 }
 
@@ -3138,12 +3166,16 @@ async function processMonthlyDepreciation() {
     notify("Pilih periode penyusutan terlebih dahulu.");
     return;
   }
+  if (!selectedDepreciationRows.value.length) {
+    notify("Pilih minimal satu aset yang ingin diposting.");
+    return;
+  }
 
   isDepreciationProcessing.value = true;
   try {
     const result = await financeApi.post("/assets/depreciate-batch", {
       depreciation_period: depreciationPeriod.value,
-      asset_ids: depreciationPreviewRows.value
+      asset_ids: selectedDepreciationRows.value
         .map((row: any) => Number(row.id))
         .filter((id: number) => Number.isInteger(id) && id > 0),
       notes: "Penyusutan bulanan diproses dari workspace FinStart.",
@@ -3161,6 +3193,7 @@ async function processMonthlyDepreciation() {
       skippedCount,
       skippedReasons: skipped,
     };
+    selectedDepreciationAssetIds.value = [];
     notify(
       processedCount > 0
         ? `Penyusutan ${processedCount} aset berhasil diposting.`
@@ -3418,8 +3451,34 @@ const depreciationAlreadyPostedRows = computed(() =>
     .filter(isAssetDepreciatedInActivePeriod)
     .map(buildDepreciationPreviewRow),
 );
-const depreciationPreviewTotal = computed(() =>
-  depreciationPreviewRows.value.reduce(
+function isDepreciationAssetSelected(id: any) {
+  return selectedDepreciationAssetIds.value.includes(String(id));
+}
+function toggleDepreciationAssetSelection(id: any) {
+  const key = String(id);
+  selectedDepreciationAssetIds.value = isDepreciationAssetSelected(key)
+    ? selectedDepreciationAssetIds.value.filter((item) => item !== key)
+    : [...selectedDepreciationAssetIds.value, key];
+}
+const isAllDepreciationRowsSelected = computed(
+  () =>
+    depreciationPreviewRows.value.length > 0 &&
+    depreciationPreviewRows.value.every((row: any) =>
+      isDepreciationAssetSelected(row.id),
+    ),
+);
+function toggleSelectAllDepreciationRows() {
+  selectedDepreciationAssetIds.value = isAllDepreciationRowsSelected.value
+    ? []
+    : depreciationPreviewRows.value.map((row: any) => String(row.id));
+}
+const selectedDepreciationRows = computed(() =>
+  depreciationPreviewRows.value.filter((row: any) =>
+    isDepreciationAssetSelected(row.id),
+  ),
+);
+const selectedDepreciationTotal = computed(() =>
+  selectedDepreciationRows.value.reduce(
     (total: number, row: any) => total + Number(row.nominal || 0),
     0,
   ),

@@ -237,7 +237,22 @@
 
     <Transition name="toast-overlay">
       <div v-if="toast.visible" class="toast-backdrop">
-        <div id="global-toast-alert" class="toast-card" :class="toast.tone">
+        <div
+          id="global-toast-alert"
+          class="toast-card"
+          :class="toast.tone"
+          role="alert"
+        >
+          <div class="toast-icon" :class="toast.tone">
+            <AlertTriangle v-if="toast.tone === 'warning'" :size="20" />
+            <CheckCircle v-else :size="20" />
+          </div>
+          <div class="toast-body">
+            <p class="toast-title" :class="toast.tone">
+              {{ toast.tone === "warning" ? "Perhatian" : "Berhasil" }}
+            </p>
+            <p class="toast-message">{{ toast.message }}</p>
+          </div>
           <button
             id="btn-close-toast"
             type="button"
@@ -245,16 +260,8 @@
             aria-label="Tutup notifikasi"
             @click="hideToast"
           >
-            <X :size="18" />
+            <X :size="16" />
           </button>
-          <div class="toast-icon" :class="toast.tone">
-            <AlertTriangle v-if="toast.tone === 'warning'" :size="34" />
-            <CheckCircle v-else :size="34" />
-          </div>
-          <p class="toast-title" :class="toast.tone">
-            {{ toast.tone === "warning" ? "Perhatian" : "Berhasil" }}
-          </p>
-          <p class="toast-message">{{ toast.message }}</p>
         </div>
       </div>
     </Transition>
@@ -438,7 +445,7 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(17, 24, 39, 0.45);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   pointer-events: none;
@@ -447,25 +454,24 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
 .toast-card {
   position: relative;
   pointer-events: auto;
-  width: min(92vw, 460px);
+  width: min(92vw, 420px);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  text-align: center;
-  border-radius: 26px;
+  align-items: flex-start;
+  gap: 14px;
+  text-align: left;
+  border-radius: 20px;
   border: 1px solid #dce7f4;
   background: #ffffff;
-  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
-  padding: 38px 34px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+  padding: 20px 44px 20px 20px;
 }
 
 .toast-icon {
   display: grid;
   place-items: center;
-  width: 66px;
-  height: 66px;
-  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
   flex-shrink: 0;
 }
 
@@ -479,10 +485,16 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   color: #d97706;
 }
 
+.toast-body {
+  min-width: 0;
+}
+
 .toast-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 900;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .toast-title.success {
@@ -495,10 +507,11 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
 
 .toast-message {
   margin: 0;
-  color: #53658a;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.6;
+  overflow-wrap: anywhere;
+  color: #182338;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.55;
 }
 
 .toast-close {
@@ -507,10 +520,11 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   right: 14px;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
   color: #94a3b8;
+  flex-shrink: 0;
   transition:
     color 0.18s ease,
     background-color 0.18s ease;

@@ -7,6 +7,11 @@ const MAX_HISTORY_MESSAGES = 20
 const MAX_TOOL_ROUNDS = 4
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b'
+// Tanpa batas waktu, model kecil kadang benar-benar macet (bukan cuma lambat)
+// pada pertanyaan tertentu - pernah tercatat lebih dari 3 menit tanpa respons
+// sama sekali. Lebih baik gagal dengan pesan jelas daripada request menggantung
+// selamanya dan membuat pengguna kira aplikasinya rusak.
+const OLLAMA_TIMEOUT_MS = 90_000
 
 function getToday() {
   return new Date().toLocaleDateString('id-ID', {
@@ -122,7 +127,7 @@ function executeTool(name, args) {
 function buildSystemPrompt(context) {
   return [
     'Anda adalah Asisten Keuangan Finstart untuk PT Kedata Indonesia Digital. Jawab HANYA dari data JSON di bawah - jangan mengarang angka/nama/tanggal yang tidak ada di sana, dan kalau data yang dibutuhkan tidak ada, katakan belum tersedia (jangan menebak).',
-    'Jawab HANYA apa yang ditanyakan, singkat 1-3 kalimat (daftar panjang hanya kalau diminta eksplisit) - jangan menambahkan data lain yang tidak diminta walau kebetulan ada di JSON. Bahasa Indonesia selalu, kecuali sapaan/basa-basi cukup dibalas singkat wajar.',
+    'Jawab HANYA apa yang ditanyakan, singkat 1-3 kalimat (daftar panjang hanya kalau diminta eksplisit) - jangan menambahkan data lain yang tidak diminta walau kebetulan ada di JSON. Kalau pertanyaannya butuh perkiraan/penalaran yang tidak bisa dihitung pasti dari data yang ada, berikan estimasi kasar dengan asumsi yang disebutkan singkat - JANGAN membalas dengan menampilkan ulang seluruh data JSON mentah sebagai jawaban. Bahasa Indonesia selalu, kecuali sapaan/basa-basi cukup dibalas singkat wajar.',
     `Hari ini ${getToday()} (acuan untuk "minggu depan"/"bulan ini" dsb). Format uang: "Rp 15.000.000" (titik pemisah ribuan, tanpa koma/desimal).`,
     'WAJIB panggil tool "hitung" (lewat mekanisme tool call asli, bukan ditulis sebagai teks/JSON) untuk SETIAP tambah/kurang/kali/bagi/bandingkan angka - termasuk angka yang disebut langsung di pertanyaan pengguna, bukan cuma yang ada di data JSON. KECUALI kalau jawabannya sudah satu angka jadi di JSON (mis. "totalKlienAktif") - langsung sebutkan, jangan hitung ulang dari daftar/rincian mentah. Hasil tool selalu punya field "hasil_rupiah"/"selisih_rupiah" yang SUDAH diformat benar - SALIN PERSIS teks field itu ke jawaban Anda, JANGAN menulis ulang angkanya sendiri dari field "hasil" mentah (rawan salah tulis/nambah angka nol). Simpulkan dengan kalimat biasa tanpa menyebut kata "tool"/"internal"/proses di baliknya.',
     'Field "selisihMenujuTargetPendapatan"/"selisihMenujuTargetLaba" sudah final, boleh dipakai langsung. "agendaJatuhTempoDekat.daftar" sudah difilter+diurutkan (hariLagi negatif = terlambat) - jawab jadwal HANYA dari daftar ini.',
@@ -147,29 +152,46 @@ function parseToolArgs(raw) {
 }
 
 async function callOllama(messages) {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      messages,
-      tools: TOOLS,
-      stream: false,
-      // Suhu rendah = jawaban lebih konsisten & berpegang pada data, bukan
-      // "kreatif" menebak-nebak - penting untuk asisten finance yang harus
-      // selalu akurat, bukan bervariasi/random tiap kali ditanya hal sama.
-      options: { temperature: 0.15 },
-    }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
 
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '')
-    const error = new Error(`Ollama merespons status ${response.status}: ${errorBody}`)
-    error.status = response.status
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        stream: false,
+        tools: TOOLS,
+        messages,
+        // Suhu rendah = jawaban lebih konsisten & berpegang pada data, bukan
+        // "kreatif" menebak-nebak - penting untuk asisten finance yang harus
+        // selalu akurat, bukan bervariasi/random tiap kali ditanya hal sama.
+        options: { temperature: 0.15 },
+      }),
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '')
+      const error = new Error(`Ollama merespons status ${response.status}: ${errorBody}`)
+      error.status = response.status
+      throw error
+    }
+
+    return await response.json()
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error(
+        `Ollama tidak merespons dalam ${OLLAMA_TIMEOUT_MS / 1000} detik (kemungkinan macet pada pertanyaan ini).`,
+      )
+      timeoutError.status = 504
+      throw timeoutError
+    }
     throw error
+  } finally {
+    clearTimeout(timeout)
   }
-
-  return response.json()
 }
 
 /*
@@ -188,8 +210,12 @@ function stripLeakedToolSyntax(text) {
     .replace(/\{\s*"name"\s*:\s*"hitung"[\s\S]*?\}\s*\}/gi, '')
     // notasi semu ala pemrograman: hitung(a, b, "operasi") atau hitung(a, b) = hasil
     .replace(/\bhitung\([^)]*\)(\s*=\s*[\d.,\s]+)?/gi, '')
+    // prefiks bocor di awal jawaban ala "Hitung hasil_rupiah:" / "Hitung:" sebelum kalimat asli
+    .replace(/^hitung[\s\w_]*:\s*/gi, '')
     // sisa baris "= 0.8026" dkk yang tercecer sendirian setelah blok kode dibuang
     .replace(/^[ \t]*=[ \t]*[\d.,]+[ \t]*$/gm, '')
+    // baris rumus mentah di awal jawaban, mis. "(80000000 / 200000000) * 100 = 40%"
+    .replace(/^[ \t]*\(?[\d.,]+\)?[ \t]*[+\-*/][ \t]*[\d.,()*/+\- \t]*=[ \t]*[\d.,]+%?[ \t]*$/gm, '')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
@@ -279,17 +305,150 @@ function tryDeterministicCashVsTax(message, context) {
 }
 
 /*
-  AI Finstart berjalan sepenuhnya lewat Ollama - lokal (127.0.0.1:11434) saat
-  dev langsung di Windows, atau lewat service "ollama" di docker-compose saat
-  dijalankan via Docker (lihat OLLAMA_BASE_URL di environment masing-masing).
-  Tidak ada data yang dikirim ke API pihak ketiga mana pun.
-  PENTING kalau backend ini nanti di-deploy ke hosting (mis. Railway): fitur
-  ini HANYA jalan kalau OLLAMA_BASE_URL mengarah ke instance Ollama yang bisa
-  dijangkau dari server hosting tsb - Ollama yang jalan di laptop/PC lokal
-  tidak reachable dari internet. Riwayat sebelumnya sempat pindah ke Gemini
-  API justru karena alasan ini; sekarang sengaja dikembalikan ke Ollama penuh
-  atas keputusan eksplisit, jadi kalau di-deploy ke hosting, siapkan Ollama
-  yang reachable dari sana (server terpisah/VPS dengan Ollama, dsb).
+  Kata "utang" adalah substring dari "piutang" (p-i-UTANG) - m.includes('utang')
+  akan SELALU true untuk kalimat apapun yang menyebut "piutang", walau kata
+  "utang" sendiri tidak pernah muncul terpisah. Untuk deteksi "menyebut utang"
+  yang benar, buang dulu semua kemunculan "piutang" sebelum mencari "utang".
+*/
+function mentionsPayableWord(m) {
+  return m.replace(/piutang/g, '').includes('utang')
+}
+
+/*
+  "Apakah piutang lebih besar dari utang" (atau sebaliknya) tercatat pernah
+  membuat model macet total (>3 menit tanpa respons) - perbandingan dua
+  angka sederhana ini sudah tersedia langsung di ringkasanKeuangan
+  (piutangTerbuka, utangTerbuka), jadi tidak perlu lewat AI sama sekali.
+*/
+function tryDeterministicReceivableVsPayable(message, context) {
+  const m = String(message || '').toLowerCase()
+  const mentionsReceivable = m.includes('piutang')
+  const mentionsPayable = mentionsPayableWord(m)
+  const asksCompare = /lebih besar|lebih kecil|lebih banyak|dibanding|bandingkan/.test(m)
+  if (!mentionsReceivable || !mentionsPayable || !asksCompare) return null
+
+  const piutang = context?.ringkasanKeuangan?.piutangTerbuka
+  const utang = context?.ringkasanKeuangan?.utangTerbuka
+  if (typeof piutang !== 'number' || typeof utang !== 'number') return null
+  if (!Number.isFinite(piutang) || !Number.isFinite(utang)) return null
+
+  const piutangFmt = formatRupiahForTool(piutang)
+  const utangFmt = formatRupiahForTool(utang)
+  const selisihFmt = formatRupiahForTool(Math.abs(piutang - utang))
+  if (piutang === utang) {
+    return `Piutang dan utang saat ini sama besar, masing-masing ${piutangFmt}.`
+  }
+  const lebihBesar = piutang > utang ? 'piutang' : 'utang';
+  return `Ya, ${lebihBesar} lebih besar. Piutang terbuka saat ini ${piutangFmt}, utang terbuka ${utangFmt}, selisih ${selisihFmt}.`
+}
+
+/*
+  "Berapa piutang yang harus dibayar" (atau "berapa utang saya") - pertanyaan
+  nilai TUNGGAL tanpa kata pembanding - ternyata juga bisa membuat model macet
+  sama seperti kasus perbandingan di atas, padahal ini cuma butuh satu angka
+  dari ringkasanKeuangan. Kalau pesan menyebut piutang ATAU utang saja (bukan
+  dua-duanya, itu urusan tryDeterministicReceivableVsPayable di atas), jawab
+  langsung dari sini.
+*/
+function tryDeterministicSingleReceivableOrPayable(message, context) {
+  const m = String(message || '').toLowerCase()
+  const mentionsReceivable = m.includes('piutang')
+  const mentionsPayable = mentionsPayableWord(m)
+  if (mentionsReceivable === mentionsPayable) return null // baik dua-duanya maupun tidak sama sekali
+  const asksAmount = /berapa|jumlah|total|nilai/.test(m)
+  if (!asksAmount) return null
+
+  if (mentionsReceivable) {
+    const piutang = context?.ringkasanKeuangan?.piutangTerbuka
+    if (typeof piutang !== 'number' || !Number.isFinite(piutang)) return null
+    return `Piutang terbuka (uang yang masih harus ditagih dari klien) saat ini sebesar ${formatRupiahForTool(piutang)}.`
+  }
+
+  const utang = context?.ringkasanKeuangan?.utangTerbuka
+  if (typeof utang !== 'number' || !Number.isFinite(utang)) return null
+  return `Utang terbuka (kewajiban yang masih harus dibayar ke vendor) saat ini sebesar ${formatRupiahForTool(utang)}.`
+}
+
+/*
+  "Berapa persen target pendapatan/laba yang sudah tercapai" terbukti tidak
+  konsisten - kadang malah jawab hal lain (mis. "sisa target" padahal
+  ditanya persentase). Data targetPendapatan/realisasiPendapatan (atau versi
+  laba) sudah ada di proyeksiTarget - hitung persentasenya langsung di sini.
+*/
+function tryDeterministicTargetPercentage(message, context) {
+  const m = String(message || '').toLowerCase()
+  const asksPercentage = /berapa persen|persentase/.test(m)
+  const mentionsTarget = m.includes('target')
+  if (!asksPercentage || !mentionsTarget) return null
+
+  const isProfit = /laba/.test(m)
+  const target = isProfit
+    ? context?.proyeksiTarget?.targetLaba
+    : context?.proyeksiTarget?.targetPendapatan
+  const realisasi = isProfit
+    ? context?.proyeksiTarget?.realisasiLaba
+    : context?.proyeksiTarget?.realisasiPendapatan
+  if (typeof target !== 'number' || typeof realisasi !== 'number') return null
+  if (!Number.isFinite(target) || target <= 0 || !Number.isFinite(realisasi)) return null
+
+  const persen = (realisasi / target) * 100
+  const label = isProfit ? 'target laba' : 'target pendapatan';
+  return `${persen.toFixed(1)}% dari ${label} sudah tercapai (realisasi ${formatRupiahForTool(realisasi)} dari target ${formatRupiahForTool(target)}).`
+}
+
+/*
+  "Berapa proyek untuk capai target sekian" terbukti gagal juga - ini butuh
+  rata-rata nilai kontrak dari daftar proyek (context.proyek, panjangnya
+  variabel) lalu dibagi ke target, dua langkah tool-call sekaligus yang
+  ternyata terlalu banyak untuk model 7B (dia menyerah dan membuang seluruh
+  data mentah, lihat riwayat perbaikan sistem prompt di atas). Rata-rata &
+  pembagian sekarang dihitung langsung di sini, dijamin benar.
+*/
+function parseTargetNominal(message) {
+  const m = String(message || '').toLowerCase().replace(/,/g, '.')
+  const match = m.match(/(\d+(?:\.\d+)?)\s*(miliar|milyar|m\b|juta|jt\b)/)
+  if (!match) return null
+  const angka = parseFloat(match[1])
+  if (!Number.isFinite(angka)) return null
+  const satuan = match[2]
+  const pengali = satuan.startsWith('m') ? 1_000_000_000 : 1_000_000
+  return angka * pengali
+}
+
+function tryDeterministicProjectsNeeded(message, context) {
+  const m = String(message || '').toLowerCase()
+  const mentionsProject = m.includes('proyek')
+  const mentionsTarget = /target|dapat(kan)?|mendapatkan|capai|mencapai|hasilkan/.test(m)
+  const asksHowMany = /berapa|jumlah/.test(m)
+  if (!mentionsProject || !mentionsTarget || !asksHowMany) return null
+
+  const target = parseTargetNominal(message)
+  if (!target) return null
+
+  const daftarProyek = Array.isArray(context?.proyek) ? context.proyek : []
+  const nilaiKontrak = daftarProyek
+    .map((p) => Number(p?.nilaiKontrak))
+    .filter((v) => Number.isFinite(v) && v > 0)
+  if (!nilaiKontrak.length) return null
+
+  const rataRata = nilaiKontrak.reduce((a, b) => a + b, 0) / nilaiKontrak.length
+  const jumlahProyek = Math.ceil(target / rataRata)
+
+  return `Berdasarkan rata-rata nilai kontrak proyek saat ini (${formatRupiahForTool(rataRata)} dari ${nilaiKontrak.length} proyek), dibutuhkan sekitar ${jumlahProyek} proyek untuk mencapai target ${formatRupiahForTool(target)}. Ini perkiraan kasar, angka sebenarnya tergantung nilai kontrak proyek yang benar-benar didapat.`
+}
+
+/*
+  AI Finstart berjalan lewat Ollama - default-nya lokal (http://127.0.0.1:11434,
+  cocok kalau backend dijalankan langsung di komputer yang sama dengan Ollama),
+  tapi untuk Docker Compose OLLAMA_BASE_URL di-override ke alamat Ollama di host
+  (lihat docker-compose.yml). Tidak ada data yang dikirim ke API pihak ketiga
+  mana pun. PENTING kalau backend ini nanti di-deploy ke hosting (mis. Railway):
+  fitur ini HANYA jalan kalau OLLAMA_BASE_URL mengarah ke instance Ollama yang
+  bisa dijangkau dari server hosting tsb - Ollama yang jalan di laptop/PC lokal
+  tidak reachable dari internet. Riwayat sebelumnya sempat pindah ke Gemini API
+  justru karena alasan ini; sekarang sengaja dikembalikan ke Ollama penuh atas
+  keputusan eksplisit, jadi kalau di-deploy ke hosting, siapkan Ollama yang
+  reachable dari sana (server terpisah/VPS dengan Ollama, dsb).
 */
 router.post('/copilot', async (req, res) => {
   try {
@@ -311,7 +470,11 @@ router.post('/copilot', async (req, res) => {
 
     const deterministicReply =
       tryDeterministicClientCount(message, req.body?.context) ||
-      tryDeterministicCashVsTax(message, req.body?.context)
+      tryDeterministicCashVsTax(message, req.body?.context) ||
+      tryDeterministicReceivableVsPayable(message, req.body?.context) ||
+      tryDeterministicSingleReceivableOrPayable(message, req.body?.context) ||
+      tryDeterministicTargetPercentage(message, req.body?.context) ||
+      tryDeterministicProjectsNeeded(message, req.body?.context)
     if (deterministicReply) {
       return res.json({
         success: true,
@@ -384,14 +547,17 @@ router.post('/copilot', async (req, res) => {
 
     const isConnectionError = /ECONNREFUSED|fetch failed/i.test(String(error?.message || error?.cause?.message || ''))
     const isModelMissing = error?.status === 404
+    const isTimeout = error?.status === 504
 
     const message = isConnectionError
-      ? `AI Finstart belum aktif. Pastikan Ollama sedang berjalan dan bisa dijangkau di ${OLLAMA_BASE_URL}.`
+      ? `AI Finstart belum aktif. Pastikan aplikasi Ollama sedang berjalan (${OLLAMA_BASE_URL}).`
       : isModelMissing
         ? `Model "${OLLAMA_MODEL}" belum tersedia di Ollama. Jalankan "ollama pull ${OLLAMA_MODEL}" terlebih dahulu.`
-        : 'Gagal menghubungi AI Finstart. Pastikan Ollama sedang berjalan dan modelnya sudah ter-pull.'
+        : isTimeout
+          ? 'AI Finstart terlalu lama memproses pertanyaan ini (kemungkinan macet). Coba tanyakan dengan cara lain yang lebih spesifik, atau coba lagi.'
+          : 'Gagal menghubungi AI Finstart. Periksa apakah Ollama sedang berjalan.'
 
-    res.status(503).json({
+    res.status(isTimeout ? 504 : 503).json({
       success: false,
       message,
     })

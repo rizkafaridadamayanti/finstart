@@ -697,7 +697,7 @@ import {
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { useFinStartContext } from "../composables/useFinStartContext";
-import { useCfoCopilotChat, type ChatSession } from "../composables/useCfoCopilotChat";
+import { useAiCopilotChat } from "../composables/useAiCopilotChat";
 import {
   AkunBukuBesar,
   Klien,
@@ -749,44 +749,40 @@ const {
   projectionData,
   reportData,
 }: DashboardViewProps = props;
-// Chat FinStart AI dipindah ke composable module-scope (useCfoCopilotChat)
-// supaya request yang sedang berjalan dan balasannya tetap ada walau
-// DashboardView unmount (mis. user pindah tab lalu balik lagi) - lihat
-// komentar di composable itu untuk alasan lengkapnya.
+// Status & logika chat AI hidup di composable terpisah (module-level
+// singleton) supaya tetap jalan & tersimpan walau komponen ini dibongkar
+// saat pengguna pindah tab - lihat komentar di useAiCopilotChat.ts.
 const {
   chatSessions,
   activeChatId,
+  updateActiveChatId,
   inputMessage,
+  updateInputMessage,
   isAiLoading,
+  isChatHistoryOpen,
+  chatDeleteConfirmId,
+  draftChat,
   activeChat,
+  chatDeleteTarget,
   messages,
-  selectChatHistory: selectChatHistorySession,
-  createNewChat: createNewChatSession,
-  deleteChat,
-  handleSendMessage: submitCfoMessage,
-  pendingScrollMessageId,
-} = useCfoCopilotChat();
-const updateInputMessage = (next: string) => (inputMessage.value = next);
-// Riwayat adalah panel lokal di dalam kartu AI CFO, bukan drawer global halaman.
-const isChatHistoryOpen = ref(false),
-  updateIsChatHistoryOpen = (next: any) => (isChatHistoryOpen.value = next);
+  closeChatHistory,
+  toggleChatHistory,
+  selectChatHistory: selectChatHistoryShared,
+  createNewChat: createNewChatShared,
+  clearActiveChat,
+  handleDeleteChatClick,
+  closeChatDeleteConfirm,
+  confirmDeleteChat,
+  handleSendMessage: sendMessageShared,
+} = useAiCopilotChat();
 const aiCardRef = ref(null);
 const chatScrollRef = ref(null);
 const chatInputRef = ref(null);
-const chatDeleteConfirmId = ref("");
-const chatDeleteTarget = computed(
-  () =>
-    chatSessions.value.find(
-      (session: ChatSession) => session.id === chatDeleteConfirmId.value,
-    ) || null,
-);
 const scrollChatToLatestMessage = async () => {
   await nextTick();
   const element = chatScrollRef.value as HTMLElement | null;
   if (!element) return;
-  const targetId =
-    pendingScrollMessageId.value ||
-    messages.value[messages.value.length - 1]?.id;
+  const targetId = messages.value[messages.value.length - 1]?.id;
   const target = targetId
     ? (element.querySelector(
         `[data-cfo-message-id="${targetId}"]`,
@@ -805,11 +801,7 @@ const scrollChatToLatestMessage = async () => {
     top: Math.max(offset, 0),
     behavior: "smooth",
   });
-  pendingScrollMessageId.value = "";
 };
-const closeChatHistory = () => updateIsChatHistoryOpen(false);
-const toggleChatHistory = () =>
-  updateIsChatHistoryOpen((open: boolean) => !open);
 const handleChatHistoryEscape = (event: KeyboardEvent) => {
   if (event.key === "Escape") closeChatHistory();
 };
@@ -831,23 +823,19 @@ const keepFocusOnAiForm = async () => {
   input?.focus({ preventScroll: true });
 };
 // Wrapper tipis di atas composable: state chat sendiri (termasuk request AI
-// yang sedang berjalan) sudah aman di useCfoCopilotChat, di sini cuma efek
-// UI yang memang terikat ke DOM/refs komponen ini (tutup panel riwayat,
-// fokus ke input, scroll) - makanya tidak ikut dipindah ke composable.
+// yang sedang berjalan) sudah aman di useAiCopilotChat, di sini cuma efek
+// UI yang memang terikat ke DOM/refs komponen ini (fokus ke input, scroll)
+// - makanya tidak ikut dipindah ke composable.
 const selectChatHistory = async (chatId: string) => {
-  selectChatHistorySession(chatId);
-  closeChatHistory();
+  selectChatHistoryShared(chatId);
   await keepFocusOnAiForm();
   scrollChatToLatestMessage();
 };
 const createNewChat = () => {
-  createNewChatSession();
-  closeChatHistory();
+  createNewChatShared();
   keepFocusOnAiForm();
 };
-const handleSendMessage = (event: Event) => {
-  submitCfoMessage(event, aiContext);
-};
+const handleSendMessage = (event: Event) => sendMessageShared(event, aiContext);
 
 const dashboardData = dashboard || {};
 const fallbackCash = akun
@@ -1168,20 +1156,6 @@ const createCurvePath = (points: { x: number; y: number }[]) => {
 };
 const incomePath = createCurvePath(incomePoints);
 const expensePath = createCurvePath(expensePoints);
-function handleDeleteChatClick(chatId: string, event: MouseEvent) {
-  event.stopPropagation();
-  chatDeleteConfirmId.value = chatId;
-}
-
-function closeChatDeleteConfirm() {
-  chatDeleteConfirmId.value = "";
-}
-
-function confirmDeleteChat() {
-  if (!chatDeleteConfirmId.value) return;
-  deleteChat(chatDeleteConfirmId.value);
-  closeChatDeleteConfirm();
-}
 
 </script>
 
