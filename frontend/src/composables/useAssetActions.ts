@@ -183,6 +183,7 @@ export function useAssetActions({
         await financeApi.put(`/assets/${asset.id}`, {
           asset_name: item.nama,
           category: item.kategori,
+          acquisition_date: item.tanggalBeli,
           useful_life_months: Math.max(1, toNumber(item.masaManfaat) * 12),
           residual_value: toNumber(item.nilaiSisa),
           notes: item.penanggungJawab ? `Penanggung jawab: ${item.penanggungJawab}` : raw.notes || "",
