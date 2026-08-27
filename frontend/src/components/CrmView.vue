@@ -950,9 +950,27 @@
           <!-- Form body -->
           <form class="flex min-h-0 flex-1 flex-col" @submit="handleSaveProject">
             <nav class="crm-project-steps shrink-0 border-b border-[#E8EEF7]" aria-label="Tahapan inisiasi proyek">
-              <ol class="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                <li v-for="(label, index) in projectFormSteps" :key="label" :class="['crm-project-step', { active: projectFormStep === index + 1, complete: projectFormStep > index + 1 }]">
-                  <span>{{ index + 1 }}</span><strong>{{ label }}</strong>
+              <ol class="grid grid-cols-2 md:grid-cols-4 gap-2 w-full items-stretch">
+                <li
+                  v-for="(label, index) in projectFormSteps"
+                  :key="label"
+                  :class="[
+                    'crm-project-step',
+                    {
+                      active: projectFormStep === index + 1,
+                      complete: projectFormStep > index + 1,
+                    },
+                  ]"
+                >
+                  <button
+                    type="button"
+                    class="flex min-w-0 w-full items-center gap-2 text-left"
+                    :aria-current="projectFormStep === index + 1 ? 'step' : undefined"
+                    @click="goToProjectStep(index + 1)"
+                  >
+                    <span>{{ index + 1 }}</span>
+                    <strong>{{ label }}</strong>
+                  </button>
                 </li>
               </ol>
             </nav>
@@ -1138,7 +1156,90 @@
                 </div>
               </div>
             </div>
-            <!-- SECTION: MILESTONE & DEADLINE -->
+            <!-- SECTION: INFORMASI KLIEN PARTNER (TERGABUNG DI OPSI 1) -->
+            <div
+              v-show="projectFormStep === 1"
+              class="mt-5 min-w-0 space-y-6 rounded-[22px] border border-emerald-200 bg-emerald-50/30 p-5 shadow-sm sm:p-6"
+            >
+              <div
+                class="flex flex-col gap-3 border-b border-emerald-200/70 pb-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="rounded-lg bg-emerald-50 p-1.5 text-emerald-600 ring-1 ring-emerald-200">
+                    <Building class="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4
+                      class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase"
+                    >
+                      INFORMASI KLIEN PARTNER
+                    </h4>
+                    <p class="mt-0.5 text-[10px] text-slate-500">
+                      Pilih klien yang terhubung dengan proyek ini.
+                    </p>
+                  </div>
+                </div>
+                <div
+                  class="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-[11px] font-bold text-emerald-700"
+                >
+                  KLIEN PARTNER
+                </div>
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2 md:col-span-2">
+                  <label
+                    class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
+                    >PILIH KLIEN DARI DATABASE</label
+                  >
+                  <div class="relative">
+                    <select
+                      id="proj-form-klien"
+                      required
+                      v-model="newProj.klienId"
+                      :aria-invalid="Boolean(projectStepErrors.klienId)"
+                      class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
+                    >
+                      <option value="">-- Pilih Perusahaan Klien --</option>
+                      <option v-for="k in availableProjectClients" :key="k.id" :value="k.id">
+                        {{ k.namaPerusahaan }} ({{ k.pic }})
+                      </option>
+                    </select>
+                    <div
+                      class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[#94A3B8]"
+                    >
+                      <ChevronDown class="h-4 w-4" />
+                    </div>
+                    <p v-if="projectStepErrors.klienId" class="form-field-warning">
+                      {{ projectStepErrors.klienId }}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  v-if="selectedProjectFormClient"
+                  class="rounded-xl border border-emerald-200 bg-white p-4 md:col-span-2"
+                >
+                  <p class="text-[9px] font-extrabold uppercase tracking-[0.12em] text-emerald-600">
+                    KLIEN TERPILIH (TERKONEKSI)
+                  </p>
+                  <div class="mt-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p class="text-sm font-extrabold text-[#102A56]">
+                        {{ selectedProjectFormClient.namaPerusahaan }}
+                      </p>
+                      <p class="text-[11px] text-slate-500">
+                        PIC: {{ selectedProjectFormClient.pic || '-' }}
+                      </p>
+                    </div>
+                    <span class="w-fit rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+                      Klien Partner Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- SECTION 2: MILESTONE & DEADLINE -->
             <div
               v-show="projectFormStep === 2"
               class="min-w-0 space-y-4 rounded-[24px] border border-indigo-200 bg-indigo-50/30 p-5 shadow-sm"
@@ -1238,7 +1339,7 @@
                 ></template>
               </div>
             </div>
-            <!-- SECTION: ALOKASI TIM SDM TERLIBAT -->
+            <!-- SECTION 3: ALOKASI TIM SDM TERLIBAT -->
             <div
               v-show="projectFormStep === 3"
               class="min-w-0 space-y-5 rounded-[24px] border border-amber-200 bg-amber-50/35 p-5 shadow-sm"
@@ -1358,67 +1459,15 @@
                 </div>
               </div>
             </div>
-            <!-- SECTION 2: INFORMASI KLIEN PARTNER -->
-            <div
-              v-show="projectFormStep === 4"
-              class="min-w-0 space-y-6 rounded-[22px] border border-[#D8E5F4] bg-[#FBFDFF] p-5 shadow-sm sm:p-6 lg:col-span-2 2xl:col-span-1"
-            >
-              <!-- Section header inside the box -->
-              <div
-                class="flex flex-col gap-3 border-b border-[#D8E5F4] pb-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div class="flex items-center gap-2.5">
-                  <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
-                    <Building class="w-4 h-4" />
-                  </div>
-                  <h4
-                    class="font-extrabold text-[11px] tracking-wider text-[#102A56] uppercase"
-                  >
-                    INFORMASI KLIEN PARTNER
-                  </h4>
-                </div>
-                <div
-                  class="rounded-xl border border-[#D8E5F4] bg-white px-3 py-2 text-[11px] font-bold text-[#102A56]"
-                >
-                  Pilih dari Klien Partner
-                </div>
-              </div>
-              <!-- Conditionally render database selection or new client registration form -->
-              <div class="space-y-2">
-                <label
-                  class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
-                  >PILIH KLIEN DARI DATABASE</label
-                >
-                <div class="relative">
-                  <select
-                    id="proj-form-klien"
-                    required
-                    v-model="newProj.klienId"
-                    :aria-invalid="Boolean(projectStepErrors.klienId)"
-                    class="h-12 w-full min-w-0 appearance-none rounded-xl border border-[#D8E5F4] bg-white px-4 pr-12 text-sm font-semibold text-[#152238] transition-all focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
-                  >
-                    <option value="">-- Pilih Perusahaan Klien --</option>
-                    <option v-for="k in availableProjectClients" :key="k.id" :value="k.id">
-                      {{ k.namaPerusahaan }} ({{ k.pic }})
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[#94A3B8]"
-                  >
-                    <ChevronDown class="w-4 h-4" />
-                  </div>
-                  <p v-if="projectStepErrors.klienId" class="form-field-warning">{{ projectStepErrors.klienId }}</p>
-                </div>
-              </div>
-            </div>
-            <section v-show="projectFormStep === 5" class="rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm sm:p-7">
+            <!-- SECTION 4: KONFIRMASI (OPSI 4) -->
+            <section v-show="projectFormStep === 4" class="rounded-[24px] border border-[#D8E5F4] bg-[#F8FBFF] p-5 shadow-sm sm:p-7">
               <div class="border-b border-[#D8E5F4] pb-4">
                 <p class="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1E5AA8]">Konfirmasi data</p>
                 <h4 class="mt-1 text-lg font-extrabold text-[#102A56]">Periksa sebelum proyek disimpan</h4>
               </div>
               <dl class="mt-5 grid gap-4 sm:grid-cols-2">
                 <div class="crm-project-review-item"><dt>Nama proyek</dt><dd>{{ newProj.nama || '-' }}</dd></div>
-                <div class="crm-project-review-item"><dt>Klien</dt><dd>{{ selectedProjectFormClient?.namaPerusahaan || '-' }}</dd></div>
+                <div class="crm-project-review-item"><dt>Klien Partner</dt><dd>{{ selectedProjectFormClient?.namaPerusahaan || '-' }}</dd></div>
                 <div class="crm-project-review-item"><dt>Nilai kontrak</dt><dd>{{ formatRupiah(newProj.nilaiKontrak) }}</dd></div>
                 <div class="crm-project-review-item"><dt>Anggaran biaya</dt><dd>{{ formatRupiah(newProj.anggaran) }}</dd></div>
                 <div class="crm-project-review-item"><dt>Tender dan status</dt><dd>{{ newProj.tipeTender }} · {{ newProj.status }}</dd></div>
@@ -1432,22 +1481,18 @@
             <div
               class="flex shrink-0 flex-col-reverse gap-3 border-t border-[#E8EEF7] bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5"
             >
-            <div class="flex w-full gap-3 sm:w-auto"><button
-              id="btn-project-cancel"
-              type="button"
-              class="h-12 w-full rounded-xl border border-[#D8E5F4] px-8 text-sm font-bold tracking-wide text-[#637083] transition-all hover:bg-slate-50 sm:w-auto"
-              @click="goToPreviousProjectStep"
-            >
-              {{ projectFormStep === 1 ? 'BATAL' : 'KEMBALI' }}
-            </button></div
-            ><button
-              v-if="projectFormStep < projectFormSteps.length"
-              type="button"
-              class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-8 text-sm font-bold tracking-wide text-white shadow-lg transition-all hover:bg-[#082C5A] sm:w-auto"
-              @click="goToNextProjectStep"
-            >LANJUTKAN <ChevronRight class="h-4 w-4" /></button
-            ><button
-              v-else
+            <div class="flex w-full gap-3 sm:w-auto">
+              <button
+                id="btn-project-back"
+                type="button"
+                class="h-12 w-full rounded-xl border border-[#D8E5F4] px-8 text-sm font-bold tracking-wide text-[#637083] transition-all hover:bg-slate-50 sm:w-auto"
+                @click="handleBackStep"
+              >
+                <template v-if="projectFormStep > 1">SEBELUMNYA</template>
+                <template v-else>KEMBALI</template>
+              </button>
+            </div>
+            <button
               id="btn-project-save"
               type="submit"
               :disabled="isProjectSaving"
@@ -2183,74 +2228,26 @@ const projectTeamError = ref("");
 const projectFormStep = ref(1);
 const projectStepWarning = ref("");
 const projectStepErrors = ref<Record<string, string>>({});
-const projectFormSteps = ["Detail", "Milestone", "Tim", "Klien", "Konfirmasi"];
+const projectFormSteps = ["Detail & Klien", "Milestone", "Tim", "Konfirmasi"];
 const selectedProjectFormClient = computed(() =>
   klien.find((client) => client.id === newProj.value.klienId),
 );
 
-function goToPreviousProjectStep() {
+function goToProjectStep(step: number) {
+  if (step < 1 || step > projectFormSteps.length) return;
+  projectFormStep.value = step;
   projectStepWarning.value = "";
   projectStepErrors.value = {};
-  if (projectFormStep.value === 1) {
-    closeProjectModal();
-    return;
-  }
-  projectFormStep.value -= 1;
 }
 
-function goToNextProjectStep() {
-  projectStepWarning.value = "";
-  projectStepErrors.value = {};
-  if (projectFormStep.value === 1) {
-    const errors: Record<string, string> = {};
-    if (!newProj.value.nama) errors.nama = "Nama proyek wajib diisi.";
-    if (Number(newProj.value.nilaiKontrak) <= 0) {
-      errors.nilaiKontrak = "Nilai kontrak harus lebih dari Rp 0.";
-    }
-    if (!newProj.value.tanggalMulai) {
-      errors.tanggalMulai = "Tanggal mulai wajib dipilih.";
-    }
-    if (!newProj.value.tanggalSelesai) {
-      errors.tanggalSelesai = "Estimasi selesai wajib dipilih.";
-    }
-    if (Number(newProj.value.anggaran) <= 0) {
-      errors.anggaran = "Anggaran biaya proyek harus lebih dari Rp 0.";
-    }
-    if (Object.keys(errors).length) {
-      projectStepErrors.value = errors;
-      projectStepWarning.value =
-        "Periksa kembali field yang ditandai sebelum melanjutkan.";
-      requestAnimationFrame(() =>
-        document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
-      );
-      return;
-    }
-    if (newProj.value.tanggalSelesai < newProj.value.tanggalMulai) {
-      projectStepErrors.value = {
-        tanggalSelesai: "Tanggal selesai tidak boleh sebelum tanggal mulai.",
-      };
-      projectStepWarning.value = "Periode proyek belum valid.";
-      return;
-    }
+function handleBackStep() {
+  if (projectFormStep.value > 1) {
+    projectFormStep.value -= 1;
+    projectStepWarning.value = "";
+    projectStepErrors.value = {};
+  } else {
+    closeProjectModal();
   }
-  if (projectFormStep.value === 3 && newProj.value.tim.length === 0) {
-    projectTeamError.value =
-      "Tambahkan minimal satu anggota tim beserta posisi atau perannya.";
-    projectStepWarning.value = "Alokasi tim SDM wajib diisi sebelum melanjutkan.";
-    return;
-  }
-  if (projectFormStep.value === 4 && !newProj.value.klienId) {
-    projectStepErrors.value = {
-      klienId: "Perusahaan klien wajib dipilih.",
-    };
-    projectStepWarning.value = "Pilih perusahaan klien sebelum melanjutkan.";
-    return;
-  }
-  projectFormStep.value = Math.min(
-    projectFormStep.value + 1,
-    projectFormSteps.length,
-  );
-  projectStepWarning.value = "";
 }
 
 function setActiveSubTab(next: CrmSubTab) {
@@ -3369,7 +3366,7 @@ const selectedClientProjects = computed(() => {
 .crm-project-modal .crm-project-body .crm-milestone-form-item select {
   height: 34px !important;
   min-height: 34px !important;
-  border-radius: 9px !important;
+  border-radius: 99px !important;
   padding: 0 9px !important;
   font-size: 12px !important;
   font-weight: 700 !important;
@@ -3462,7 +3459,7 @@ const selectedClientProjects = computed(() => {
 
 .crm-project-modal .crm-project-steps {
   display: flex !important;
-  height: 32px !important;
+  height: auto !important;
   min-height: 32px !important;
   align-items: center !important;
   padding: 3px 20px !important;
@@ -3471,8 +3468,8 @@ const selectedClientProjects = computed(() => {
 .crm-project-steps ol {
   display: grid !important;
   width: 100%;
-  min-width: 560px;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   align-items: center;
   gap: 10px;
   margin: 0;
@@ -3494,8 +3491,31 @@ const selectedClientProjects = computed(() => {
   font-weight: 800;
 }
 
+.crm-project-step button {
+  border: 0;
+  background: transparent;
+  padding: 10px 8px;
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+  width: 100%;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.crm-project-step button:focus-visible {
+  outline: 2px solid #1e5aa8;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
 .crm-project-step strong {
-  overflow: hidden;
+  overflow: visible;
+  white-space: normal;
+  line-height: 1.25;
+  word-break: normal;
   color: #52647e;
   font-size: 11.5px;
   font-weight: 800;

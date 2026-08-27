@@ -205,41 +205,6 @@ const menuGroups = [
     title: "OPERASIONAL",
     items: [
       {
-        id: "crm-group",
-        label: "CRM & Proyek",
-        icon: Briefcase,
-        groupOnly: true,
-        children: [
-          { id: "crm", label: "Kelola Proyek", icon: ClipboardList },
-          { id: "crm-riwayat", label: "Riwayat Proyek", icon: Clock },
-        ],
-      },
-      { id: "master-klien", label: "Klien Partner", icon: Building2 },
-      {
-        id: "langganan-group",
-        label: "Langganan",
-        icon: Cloud,
-        groupOnly: true,
-        children: [
-          { id: "langganan", label: "Kelola Langganan", icon: ClipboardList },
-          {
-            id: "langganan-riwayat-transaksi",
-            label: "Riwayat Transaksi",
-            icon: History,
-          },
-          {
-            id: "langganan-tagihan",
-            label: "Tagihan Berikutnya",
-            icon: Wallet,
-          },
-          {
-            id: "langganan-riwayat-kadaluarsa",
-            label: "Riwayat Kadaluarsa",
-            icon: CalendarX,
-          },
-        ],
-      },
-      {
         id: "sdm-group",
         label: "SDM & Payroll",
         icon: Users,
@@ -261,6 +226,41 @@ const menuGroups = [
             id: "sdm-proses-payroll",
             label: "Proses Payroll",
             icon: DollarSign,
+          },
+        ],
+      },
+      { id: "master-klien", label: "Klien Partner", icon: Building2 },
+      {
+        id: "crm-group",
+        label: "CRM & Proyek",
+        icon: Briefcase,
+        groupOnly: true,
+        children: [
+          { id: "crm", label: "Kelola Proyek", icon: ClipboardList },
+          { id: "crm-riwayat", label: "Riwayat Proyek", icon: Clock },
+        ],
+      },
+      {
+        id: "langganan-group",
+        label: "Langganan",
+        icon: Cloud,
+        groupOnly: true,
+        children: [
+          { id: "langganan", label: "Kelola Langganan", icon: ClipboardList },
+          {
+            id: "langganan-riwayat-transaksi",
+            label: "Riwayat Transaksi",
+            icon: History,
+          },
+          {
+            id: "langganan-tagihan",
+            label: "Tagihan Berikutnya",
+            icon: Wallet,
+          },
+          {
+            id: "langganan-riwayat-kadaluarsa",
+            label: "Riwayat Kadaluarsa",
+            icon: CalendarX,
           },
         ],
       },
@@ -428,14 +428,6 @@ function parentIdForTab(tab) {
   return parent ? parent.id : null;
 }
 
-// Which group renders expanded is normally derived straight from activeTab
-// (pure, recomputed on every render — never stale). manualExpandOverride only
-// exists for the "browsing without navigating" case: the user clicked a
-// group's own header to open/close it while sitting on an unrelated tab (or
-// to force-close a group whose child page they're currently on). Any actual
-// navigation invalidates that override immediately, so the very next render
-// falls back to the tab-derived answer with no watcher-timing window where
-// the old group could still read as expanded.
 const manualExpandOverride = ref(null);
 
 watch(
@@ -453,10 +445,6 @@ function isItemActive(item) {
   if (hasChildren(item)) {
     if (props.activeTab === item.id) return true;
     if (isExpanded(item)) return true;
-    // Falling back to "the active tab lives in this section" must not fire
-    // while a DIFFERENT group is manually peeked open - otherwise both rows
-    // read as active at once (e.g. peeking "Piutang" while still parked on
-    // a "Utang" page left Utang's row navy too).
     if (
       itemsWithChildren.some(
         (group) => group.id !== item.id && isExpanded(group),
@@ -466,8 +454,6 @@ function isItemActive(item) {
     }
     return item.children.some((child) => child.id === props.activeTab);
   }
-  // Leaf item: only show active if it's the current page, and no unrelated
-  // group is expanded right now (only one row should read as selected).
   if (props.activeTab !== item.id) return false;
   return !itemsWithChildren.some((group) => isExpanded(group));
 }
@@ -481,14 +467,6 @@ function firstNavigableId(item) {
   return hasChildren(item) ? item.children[0].id : item.id;
 }
 
-// Expanding a group inserts new rows above whatever comes after it, shifting
-// those items down. A click landing right after that shift (within the same
-// render tick) can hit the wrong item (whatever moved under the cursor)
-// instead of the one the user aimed for. Briefly ignore navigation to
-// anything except the group's own new children so that misfire can't happen.
-// The guard is lifted as soon as the DOM reflects the shift (nextTick), so a
-// deliberate follow-up click on a different, unrelated menu item — which
-// always lands well after that tick — is never swallowed.
 let layoutShiftGuardActive = false;
 let layoutShiftGuardExceptIds = null;
 
@@ -510,10 +488,6 @@ function handleItemClick(item) {
 
 function isExpanded(item) {
   if (manualExpandOverride.value) {
-    // A manual override, once set, is authoritative for every group — not
-    // just the one it names — so opening group Y also visually closes
-    // whichever group X was expanded purely because activeTab lived inside
-    // it (only one sub-sidebar is ever shown at a time).
     return (
       manualExpandOverride.value.id === item.id &&
       manualExpandOverride.value.expanded
@@ -545,10 +519,6 @@ const desktopSidebarClass = computed(() =>
 function navigate(id) {
   const isExempt = layoutShiftGuardExceptIds?.has(id);
   if (layoutShiftGuardActive && !isExempt) return;
-  // Clicking any actual page link always resolves whatever group is merely
-  // "peeked open" back to the tab-derived truth. This has to happen here
-  // (not just via the activeTab watcher) because clicking the page you're
-  // already on doesn't change activeTab, so no watcher would ever fire.
   manualExpandOverride.value = null;
   emit("select-tab", id);
 }
