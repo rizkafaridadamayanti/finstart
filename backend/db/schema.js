@@ -255,11 +255,25 @@ const employees = mysqlTable("employees", {
   bankAccountNumber: varchar("bank_account_number", { length: 80 }),
   bankAccountHolder: varchar("bank_account_holder", { length: 150 }),
   address: text("address"),
+  cvPath: varchar("cv_path", { length: 255 }),
+  ktpPath: varchar("ktp_path", { length: 255 }),
+  npwpDocumentPath: varchar("npwp_document_path", { length: 255 }),
+  certificatePath: varchar("certificate_path", { length: 255 }),
 }, (table) => [
   index("idx_employees_status").on(table.employmentStatus),
   index("idx_employees_division_id").on(table.divisionId),
   index("idx_employees_position_id").on(table.positionId),
   index("idx_employees_employment_status").on(table.employmentStatus),
+]);
+
+const employeeDocuments = mysqlTable("employee_documents", {
+  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
+  employeeId: bigint("employee_id", { mode: "number", unsigned: true }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_employee_documents_employee_id").on(table.employeeId),
 ]);
 
 const financialProjections = mysqlTable("financial_projections", {
@@ -665,6 +679,7 @@ module.exports = {
   companySettings,
   divisions,
   employees,
+  employeeDocuments,
   financialProjections,
   invoices,
   invoiceItems,
