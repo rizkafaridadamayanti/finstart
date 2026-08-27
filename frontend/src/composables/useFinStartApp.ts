@@ -313,7 +313,7 @@ export function useFinStartApp() {
     const tone = NEGATIVE_TOAST_PATTERN.test(message) ? "warning" : "success";
     toast.value = { message, visible: true, tone };
     if (toastTimer) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(hideToast, 1000);
+    toastTimer = window.setTimeout(hideToast, 3200);
   };
 
   function replaceList(target: any, values: any[]) {

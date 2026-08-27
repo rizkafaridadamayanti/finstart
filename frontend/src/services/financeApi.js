@@ -99,7 +99,9 @@ async function request(path, options = {}) {
   const { method = "GET", body, query, headers = {} } = options;
   const normalizedMethod = String(method || "GET").toUpperCase();
   const url = buildUrl(path, query);
-  const requestBody = body !== undefined ? JSON.stringify(body) : undefined;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const requestBody =
+    body === undefined ? undefined : isFormData ? body : JSON.stringify(body);
   const mutationKey = MUTATION_METHODS.has(normalizedMethod)
     ? `${normalizedMethod} ${url} ${requestBody || ""}`
     : "";
@@ -127,7 +129,9 @@ async function request(path, options = {}) {
           ...(getStoredToken()
             ? { Authorization: `Bearer ${getStoredToken()}` }
             : {}),
-          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(body !== undefined && !isFormData
+            ? { "Content-Type": "application/json" }
+            : {}),
           ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
           ...headers,
         },
@@ -195,6 +199,29 @@ async function request(path, options = {}) {
   return task;
 }
 
+async function requestBlob(path) {
+  const response = await fetch(buildUrl(path), {
+    headers: {
+      ...(getStoredToken() ? { Authorization: `Bearer ${getStoredToken()}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    let message = `Permintaan API gagal (${response.status}).`;
+    try {
+      const payload = await response.json();
+      message = payload?.message || message;
+    } catch {
+      // Respons bukan JSON (mis. stream file terputus) - pakai pesan fallback.
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.blob();
+}
+
 export const financeApi = {
   health: () => request("/health"),
   login: (email, password, rememberDevice = false) =>
@@ -213,6 +240,7 @@ export const financeApi = {
   put: (path, body) => request(path, { method: "PUT", body }),
   patch: (path, body) => request(path, { method: "PATCH", body }),
   delete: (path) => request(path, { method: "DELETE" }),
+  getBlob: (path) => requestBlob(path),
 };
 
 export function getApiErrorMessage(
