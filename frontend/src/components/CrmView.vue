@@ -850,6 +850,23 @@
                     <p class="mt-3 text-sm font-medium text-[#52647E]">
                       {{ renderContext.selectedClient?.lokasi }}
                     </p>
+                    <a
+                      v-if="clientDetailMapEmbedUrl"
+                      :href="clientDetailMapLinkUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-3 block overflow-hidden rounded-xl border border-[#D8E5F4] transition hover:opacity-90"
+                      title="Buka lokasi ini di Google Maps"
+                    >
+                      <iframe
+                        :src="clientDetailMapEmbedUrl"
+                        class="h-40 w-full"
+                        style="border: 0; pointer-events: none"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        title="Peta lokasi kantor cabang klien"
+                      ></iframe>
+                    </a>
                     <p class="mt-3">
                       <span
                         :class="`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${isClientActive(renderContext.selectedClient) ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`"
@@ -1582,7 +1599,7 @@
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
                 </div>
-                <div class="space-y-1.5">
+                <div class="space-y-1.5 md:col-span-2">
                   <label
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >Bidang &amp; Kategori *</label
@@ -1595,7 +1612,7 @@
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
                 </div>
-                <div class="space-y-1.5">
+                <div class="space-y-1.5 md:col-span-2">
                   <label
                     class="text-[10px] font-bold tracking-[0.08em] text-[#8192AA] uppercase"
                     >Lokasi Kantor Cabang *</label
@@ -1607,6 +1624,19 @@
                     v-model.trim="newClient.lokasi"
                     class="h-12 w-full min-w-0 rounded-xl border border-[#D8E5F4] bg-white px-4 text-sm font-semibold text-[#152238] transition-all placeholder:font-medium placeholder:text-[#9AA9BE] focus:outline-none focus:ring-2 focus:ring-[#1E5AA8]/20"
                   />
+                </div>
+                <div
+                  v-if="clientLocationMapEmbedUrl"
+                  class="overflow-hidden rounded-xl border border-[#D8E5F4] md:col-span-2"
+                >
+                  <iframe
+                    :src="clientLocationMapEmbedUrl"
+                    class="h-32 w-full"
+                    style="border: 0"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    title="Pratinjau lokasi kantor cabang"
+                  ></iframe>
                 </div>
                 <div class="space-y-1.5">
                   <label
@@ -1902,7 +1932,7 @@
 <script setup lang="ts">
 import { eventValue } from "../utils/domEvents";
 import { parseRupiahInput } from "../utils/rupiahInputs.js";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import {
   Search,
   Plus,
@@ -2195,6 +2225,37 @@ const isClientSaving = ref(false);
 const shouldAttachNewClientToProject = ref(false);
 const newProj = ref(createEmptyProjectForm());
 const newClient = ref(createEmptyClientForm());
+
+// Peta di-debounce (bukan langsung tiap ketikan) supaya iframe tidak
+// reload berkali-kali selagi lokasi masih diketik.
+const clientLocationMapQuery = ref("");
+let clientLocationMapTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  () => newClient.value.lokasi,
+  (value) => {
+    if (clientLocationMapTimer) clearTimeout(clientLocationMapTimer);
+    clientLocationMapTimer = setTimeout(() => {
+      clientLocationMapQuery.value = String(value || "").trim();
+    }, 600);
+  },
+);
+const clientLocationMapEmbedUrl = computed(() =>
+  clientLocationMapQuery.value
+    ? `https://www.google.com/maps?q=${encodeURIComponent(clientLocationMapQuery.value)}&output=embed`
+    : "",
+);
+const clientDetailMapEmbedUrl = computed(() => {
+  const lokasi = renderContext.value.selectedClient?.lokasi;
+  return lokasi
+    ? `https://www.google.com/maps?q=${encodeURIComponent(lokasi)}&output=embed`
+    : "";
+});
+const clientDetailMapLinkUrl = computed(() => {
+  const lokasi = renderContext.value.selectedClient?.lokasi;
+  return lokasi
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lokasi)}`
+    : "";
+});
 const manualStaffName = ref("");
 const manualStaffPosition = ref("");
 const selectedStaffId = ref("");
