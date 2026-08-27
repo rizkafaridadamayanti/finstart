@@ -26,6 +26,7 @@ export function useLedgerActions({
       code: item.kode,
       name: item.nama,
       type: typeMap[item.tipe] || item.type || "asset",
+      sub_type: item.subInduk || item.sub_type || null,
       normal_balance:
         item.normalBalance ||
         (["Aset", "Beban"].includes(item.tipe) ? "debit" : "credit"),
