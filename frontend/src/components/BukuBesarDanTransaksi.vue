@@ -468,6 +468,28 @@
               {{ accountFormErrors.tipe }}
             </p>
           </div>
+          <div class="space-y-1.5">
+            <label class="font-bold text-slate-700">Sub Induk Akun</label
+            ><select
+              id="acc-form-sub-induk"
+              required
+              :value="newAccount.subInduk"
+              :class="[
+                accountInputClass,
+                'text-slate-800',
+                { 'form-control-invalid': accountFormErrors.subInduk },
+              ]"
+              @change="setAccountField('subInduk', eventValue($event))"
+            >
+              <option value="">Pilih sub induk akun...</option>
+              <option v-for="item in subIndukOptions" :key="item" :value="item">
+                {{ item }}
+              </option>
+            </select>
+            <p v-if="accountFormErrors.subInduk" class="form-field-warning">
+              {{ accountFormErrors.subInduk }}
+            </p>
+          </div>
           <div v-if="editingAccount" class="space-y-1.5">
             <label class="font-bold text-slate-700">Status</label
             ><select
@@ -917,6 +939,7 @@
             <div
               v-for="([label, value], detailIndex) in [
                 ['Tipe', selectedAccountDetail.tipe],
+                ['Sub Induk', selectedAccountDetail.subInduk || '-'],
                 [
                   'Status',
                   selectedAccountDetail.status ||
@@ -1078,7 +1101,7 @@ import {
   getJournalStatusDisplay,
   getJournalStatusColor,
 } from "../services/financeMappers.js";
-import { AkunBukuBesar, Transaksi, TipeAkun } from "../types.ts";
+import { AkunBukuBesar, Transaksi, TipeAkun, SUB_INDUK_AKUN_OPTIONS } from "../types.ts";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { latestFirst, pageRows, safePage } from "../utils/tablePagination.js";
 import TablePagination from "./common/TablePagination.vue";
@@ -1180,6 +1203,7 @@ const newAccount = ref({
     kode: "",
     nama: "",
     tipe: "Aset" as TipeAkun,
+    subInduk: "",
     saldo: 0,
     status: "active",
   }),
@@ -1188,15 +1212,26 @@ const newAccount = ref({
 const accountInputClass =
   "w-full h-12 px-5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none";
 
-type AccountFormFieldKey = "kode" | "nama" | "tipe" | "status" | "saldo";
+type AccountFormFieldKey =
+  | "kode"
+  | "nama"
+  | "tipe"
+  | "subInduk"
+  | "status"
+  | "saldo";
 
 const emptyAccountFormErrors = (): Record<AccountFormFieldKey, string> => ({
   kode: "",
   nama: "",
   tipe: "",
+  subInduk: "",
   status: "",
   saldo: "",
 });
+
+const subIndukOptions = computed(
+  () => SUB_INDUK_AKUN_OPTIONS[newAccount.value.tipe] || [],
+);
 
 const accountFormErrors = ref<Record<AccountFormFieldKey, string>>(
   emptyAccountFormErrors(),
@@ -1212,6 +1247,7 @@ const accountRequiredFields: Array<{
   { key: "kode", id: "acc-form-code", label: "Kode akun" },
   { key: "nama", id: "acc-form-name", label: "Nama akun buku besar" },
   { key: "tipe", id: "acc-form-type", label: "Tipe klasifikasi akun" },
+  { key: "subInduk", id: "acc-form-sub-induk", label: "Sub induk akun" },
   // Status isn't shown while adding a new account (it always defaults to
   // "active" in newAccount's initial state) - only editable once editing an
   // existing account, so it's never required-checked against the DOM here.
@@ -1248,11 +1284,13 @@ function setAccountField(key: keyof typeof newAccount.value, value: any) {
   updateNewAccount({
     ...newAccount.value,
     [key]: value,
+    ...(key === "tipe" ? { subInduk: "" } : {}),
   });
   if (key in accountFormErrors.value)
     clearAccountFormError(key as AccountFormFieldKey);
-  if (key === "tipe" && !editingAccount.value) {
-    fetchNextAccountCode(value as TipeAkun);
+  if (key === "tipe") {
+    clearAccountFormError("subInduk");
+    if (!editingAccount.value) fetchNextAccountCode(value as TipeAkun);
   }
 }
 
@@ -1601,6 +1639,7 @@ const resetAccountForm = () => {
     kode: "",
     nama: "",
     tipe: "Aset",
+    subInduk: "",
     saldo: 0,
     status: "active",
   });
@@ -1615,6 +1654,7 @@ const openAccountForm = (account: any = null) => {
       kode: account.kode,
       nama: account.nama,
       tipe: account.tipe,
+      subInduk: raw.sub_type || account.subInduk || "",
       saldo: Number(raw.opening_balance ?? account.saldo ?? 0),
       status: raw.status || account.status || "active",
     });

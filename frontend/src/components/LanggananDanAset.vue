@@ -1077,8 +1077,55 @@
                   Jurnal
                 </p>
                 <p class="mt-1 text-[11.5px] font-bold leading-5 text-[#0B1F4A]">
-                  Dr Beban Penyusutan<br />Cr Akumulasi Penyusutan
+                  {{ depreciationJournalLabel.debit }}<br />{{ depreciationJournalLabel.credit }}
                 </p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+                <label
+                  for="depreciation-debit-account"
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
+                >
+                  Akun Debit (Beban Penyusutan)
+                </label>
+                <select
+                  id="depreciation-debit-account"
+                  v-model="depreciationExpenseAccountId"
+                  class="mt-2 h-10 w-full rounded-lg border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A] focus:outline-none"
+                >
+                  <option value="">Pilih akun debit...</option>
+                  <option
+                    v-for="account in activeLedgerAccounts"
+                    :key="`dep-debit-${account.id}`"
+                    :value="account.id"
+                  >
+                    {{ account.kode }} - {{ account.nama }} ({{ account.tipe }})
+                  </option>
+                </select>
+              </div>
+              <div class="rounded-xl border border-[#DCE7F4] bg-[#F8FBFE] p-4">
+                <label
+                  for="depreciation-credit-account"
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
+                >
+                  Akun Kredit (Akumulasi Penyusutan)
+                </label>
+                <select
+                  id="depreciation-credit-account"
+                  v-model="depreciationAccumulatedAccountId"
+                  class="mt-2 h-10 w-full rounded-lg border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A] focus:outline-none"
+                >
+                  <option value="">Pilih akun kredit...</option>
+                  <option
+                    v-for="account in activeLedgerAccounts"
+                    :key="`dep-credit-${account.id}`"
+                    :value="account.id"
+                  >
+                    {{ account.kode }} - {{ account.nama }} ({{ account.tipe }})
+                  </option>
+                </select>
               </div>
             </div>
 
@@ -1359,6 +1406,52 @@
             Agar menjadi riwayat resmi dan masuk jurnal, posting penyusutan
             periode terkait.
           </p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <div class="space-y-1">
+              <label
+                for="depreciation-history-debit-account"
+                class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
+              >
+                Akun Debit (Beban Penyusutan)
+              </label>
+              <select
+                id="depreciation-history-debit-account"
+                v-model="depreciationExpenseAccountId"
+                class="h-10 w-full rounded-lg border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A] focus:outline-none"
+              >
+                <option value="">Pilih akun debit...</option>
+                <option
+                  v-for="account in activeLedgerAccounts"
+                  :key="`dep-hist-debit-${account.id}`"
+                  :value="account.id"
+                >
+                  {{ account.kode }} - {{ account.nama }} ({{ account.tipe }})
+                </option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label
+                for="depreciation-history-credit-account"
+                class="text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#70819B]"
+              >
+                Akun Kredit (Akumulasi Penyusutan)
+              </label>
+              <select
+                id="depreciation-history-credit-account"
+                v-model="depreciationAccumulatedAccountId"
+                class="h-10 w-full rounded-lg border border-[#D8E5F4] bg-white px-3 text-xs font-semibold text-[#0B1F4A] focus:outline-none"
+              >
+                <option value="">Pilih akun kredit...</option>
+                <option
+                  v-for="account in activeLedgerAccounts"
+                  :key="`dep-hist-credit-${account.id}`"
+                  :value="account.id"
+                >
+                  {{ account.kode }} - {{ account.nama }} ({{ account.tipe }})
+                </option>
+              </select>
+            </div>
+          </div>
         </div>
         <TablePagination
           v-if="assetHistoryDisplayRows.length > 0"
@@ -2294,7 +2387,7 @@ import {
   Eye,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
-import { Langganan } from "../types.ts";
+import { Langganan, AkunBukuBesar } from "../types.ts";
 import { financeApi, getApiErrorMessage } from "../services/financeApi.js";
 import ConfirmDialog from "./common/ConfirmDialog.vue";
 import { addDaysIso, currentMonthIso, todayIso } from "../utils/localDate";
@@ -2322,7 +2415,7 @@ interface LanggananDanAsetProps {
     | "langganan-riwayat-kadaluarsa";
   langganan: Langganan[];
   assets: AsetTeknologi[];
-  akun: any[];
+  akun: AkunBukuBesar[];
 }
 
 const props = defineProps<LanggananDanAsetProps>();
@@ -2388,6 +2481,8 @@ const isSubscriptionSaving = ref(false);
 const isAssetSaving = ref(false);
 const isDepreciationProcessing = ref(false);
 const depreciationResult = ref<any>(null);
+const depreciationExpenseAccountId = ref("");
+const depreciationAccumulatedAccountId = ref("");
 const selectedDepreciationAssetIds = ref<string[]>([]);
 type CurrencyCode = "IDR" | "USD" | "EUR" | "SGD" | "JPY" | "AUD" | "GBP";
 const currencyOptions: { value: CurrencyCode; label: string }[] = [
@@ -3172,6 +3267,7 @@ function openDepreciationModal() {
     return;
   }
   depreciationResult.value = null;
+  ensureDepreciationAccountDefaults();
   selectedDepreciationAssetIds.value = [];
   isDepreciationModalOpen.value = true;
 }
@@ -3192,6 +3288,14 @@ async function processMonthlyDepreciation() {
     notify("Pilih minimal satu aset yang ingin diposting.");
     return;
   }
+  if (
+    depreciationExpenseAccountId.value &&
+    depreciationAccumulatedAccountId.value &&
+    depreciationExpenseAccountId.value === depreciationAccumulatedAccountId.value
+  ) {
+    notify("Akun debit dan akun kredit penyusutan tidak boleh sama.");
+    return;
+  }
 
   isDepreciationProcessing.value = true;
   try {
@@ -3201,6 +3305,12 @@ async function processMonthlyDepreciation() {
         .map((row: any) => Number(row.id))
         .filter((id: number) => Number.isInteger(id) && id > 0),
       notes: "Penyusutan bulanan diproses dari workspace FinStart.",
+      expense_account_id: depreciationExpenseAccountId.value
+        ? Number(depreciationExpenseAccountId.value)
+        : undefined,
+      accumulated_account_id: depreciationAccumulatedAccountId.value
+        ? Number(depreciationAccumulatedAccountId.value)
+        : undefined,
     });
     await refreshData();
     const processed = Array.isArray(result?.processed)
@@ -3265,6 +3375,7 @@ async function showDepreciationHistory(asset: any) {
       },
     };
     assetHistoryPage.value = 1;
+    ensureDepreciationAccountDefaults();
   } catch (error) {
     notify(getApiErrorMessage(error, "Gagal memuat riwayat penyusutan aset."));
   }
@@ -3322,12 +3433,26 @@ async function processAssetHistoryDepreciation() {
     notify("Pilih periode penyusutan terlebih dahulu.");
     return;
   }
+  if (
+    depreciationExpenseAccountId.value &&
+    depreciationAccumulatedAccountId.value &&
+    depreciationExpenseAccountId.value === depreciationAccumulatedAccountId.value
+  ) {
+    notify("Akun debit dan akun kredit penyusutan tidak boleh sama.");
+    return;
+  }
 
   isDepreciationProcessing.value = true;
   try {
     await financeApi.post(`/assets/${assetId}/depreciate`, {
       depreciation_period: depreciationPeriod.value,
       notes: "Penyusutan aset diposting dari modal riwayat FinStart.",
+      expense_account_id: depreciationExpenseAccountId.value
+        ? Number(depreciationExpenseAccountId.value)
+        : undefined,
+      accumulated_account_id: depreciationAccumulatedAccountId.value
+        ? Number(depreciationAccumulatedAccountId.value)
+        : undefined,
     });
     await refreshData();
     const history = await financeApi.get(`/assets/${assetId}/depreciations`);
@@ -3505,6 +3630,45 @@ const selectedDepreciationTotal = computed(() =>
     0,
   ),
 );
+const activeLedgerAccounts = computed(() =>
+  (props.akun || []).filter((account: any) => account.status !== "inactive"),
+);
+const defaultDepreciationExpenseAccount = computed(
+  () =>
+    activeLedgerAccounts.value.find((account: any) => account.kode === "5250") ||
+    activeLedgerAccounts.value.find((account: any) => account.tipe === "Beban") ||
+    null,
+);
+const defaultDepreciationAccumulatedAccount = computed(
+  () =>
+    activeLedgerAccounts.value.find((account: any) => account.kode === "1220") ||
+    activeLedgerAccounts.value.find((account: any) => account.tipe === "Aset") ||
+    null,
+);
+function ensureDepreciationAccountDefaults() {
+  if (!depreciationExpenseAccountId.value && defaultDepreciationExpenseAccount.value) {
+    depreciationExpenseAccountId.value = defaultDepreciationExpenseAccount.value.id;
+  }
+  if (
+    !depreciationAccumulatedAccountId.value &&
+    defaultDepreciationAccumulatedAccount.value
+  ) {
+    depreciationAccumulatedAccountId.value =
+      defaultDepreciationAccumulatedAccount.value.id;
+  }
+}
+const depreciationJournalLabel = computed(() => {
+  const debit = activeLedgerAccounts.value.find(
+    (account: any) => account.id === depreciationExpenseAccountId.value,
+  );
+  const credit = activeLedgerAccounts.value.find(
+    (account: any) => account.id === depreciationAccumulatedAccountId.value,
+  );
+  return {
+    debit: debit ? `Dr ${debit.kode} - ${debit.nama}` : "Dr Beban Penyusutan",
+    credit: credit ? `Cr ${credit.kode} - ${credit.nama}` : "Cr Akumulasi Penyusutan",
+  };
+});
 const filteredAssets = computed(() =>
   latestFirst(
     activeAssets.value.filter(

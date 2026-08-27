@@ -14,6 +14,40 @@ const allowedTypes = [
 const allowedNormalBalances = ['debit', 'credit']
 const allowedStatuses = ['active', 'inactive']
 
+const SUB_TYPES_BY_TYPE = {
+  asset: [
+    'Kas',
+    'Bank',
+    'Piutang',
+    'Biaya Dibayar Dimuka',
+    'Pajak Dibayar Dimuka',
+    'Cadangan Kerugian Piutang',
+    'Aset Tetap',
+    'Akumulasi Penyusutan Aset Tetap',
+  ],
+  liability: [
+    'Utang Lancar',
+    'Utang Biaya',
+    'Utang Pajak',
+    'Utang Jangka Panjang',
+  ],
+  equity: [
+    'Modal',
+    'Laba Rugi Ditahan',
+  ],
+  revenue: [
+    'Penjualan',
+    'Pendapatan Lainnya',
+    'Retur Penjualan',
+    'Diskon Penjualan',
+  ],
+  expense: [
+    'Biaya Operasional',
+    'Biaya Pokok Penjualan',
+    'Biaya Lainnya',
+  ],
+}
+
 function cleanText(value) {
   if (typeof value !== 'string') return null
 
@@ -37,6 +71,7 @@ async function getAccountById(id) {
         accounts.code,
         accounts.name,
         accounts.type,
+        accounts.sub_type,
         accounts.normal_balance,
         accounts.opening_balance,
         accounts.current_balance,
@@ -67,6 +102,7 @@ router.get('/', async (req, res) => {
         accounts.code,
         accounts.name,
         accounts.type,
+        accounts.sub_type,
         accounts.normal_balance,
         accounts.opening_balance,
         accounts.current_balance,
@@ -179,6 +215,7 @@ router.post('/', async (req, res) => {
       code,
       name,
       type,
+      sub_type,
       normal_balance,
       opening_balance,
       status,
@@ -188,6 +225,7 @@ router.post('/', async (req, res) => {
     const accountCode = cleanText(code)
     const accountName = cleanText(name)
     const accountType = cleanText(type)
+    const accountSubType = cleanText(sub_type)
     const accountNormalBalance =
       cleanText(normal_balance) || defaultNormalBalance(accountType)
     const accountStatus = cleanText(status) || 'active'
@@ -210,6 +248,13 @@ router.post('/', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Tipe akun tidak valid',
+      })
+    }
+
+    if (accountSubType && !SUB_TYPES_BY_TYPE[accountType].includes(accountSubType)) {
+      return res.status(422).json({
+        success: false,
+        message: 'Sub induk akun tidak valid untuk tipe klasifikasi ini',
       })
     }
 
@@ -258,18 +303,20 @@ router.post('/', async (req, res) => {
           code,
           name,
           type,
+          sub_type,
           normal_balance,
           opening_balance,
           current_balance,
           status,
           parent_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         accountCode,
         accountName,
         accountType,
+        accountSubType,
         accountNormalBalance,
         openingBalance,
         openingBalance,
@@ -319,6 +366,7 @@ router.put('/:id', async (req, res) => {
       code,
       name,
       type,
+      sub_type,
       normal_balance,
       opening_balance,
       status,
@@ -328,6 +376,7 @@ router.put('/:id', async (req, res) => {
     const accountCode = cleanText(code)
     const accountName = cleanText(name)
     const accountType = cleanText(type)
+    const accountSubType = cleanText(sub_type)
     const accountNormalBalance =
       cleanText(normal_balance) || defaultNormalBalance(accountType)
     const accountStatus = cleanText(status) || 'active'
@@ -350,6 +399,13 @@ router.put('/:id', async (req, res) => {
       return res.status(422).json({
         success: false,
         message: 'Tipe akun tidak valid',
+      })
+    }
+
+    if (accountSubType && !SUB_TYPES_BY_TYPE[accountType].includes(accountSubType)) {
+      return res.status(422).json({
+        success: false,
+        message: 'Sub induk akun tidak valid untuk tipe klasifikasi ini',
       })
     }
 
@@ -402,6 +458,7 @@ router.put('/:id', async (req, res) => {
           code = ?,
           name = ?,
           type = ?,
+          sub_type = ?,
           normal_balance = ?,
           opening_balance = ?,
           current_balance = COALESCE(current_balance, 0) + ?,
@@ -413,6 +470,7 @@ router.put('/:id', async (req, res) => {
         accountCode,
         accountName,
         accountType,
+        accountSubType,
         accountNormalBalance,
         openingBalance,
         openingBalanceDelta,
