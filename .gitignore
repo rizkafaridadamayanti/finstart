@@ -144,4 +144,8 @@ vite.config.ts.timestamp-*
 
 # Dump database lokal (berisi data asli: NIK, NPWP, rekening, password hash)
 # Jangan pernah commit - hanya dipakai lokal untuk seed docker-compose.
+<<<<<<< Updated upstream
 db-init/
+=======
+db-init/
+>>>>>>> Stashed changes
