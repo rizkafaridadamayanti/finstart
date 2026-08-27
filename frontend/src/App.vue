@@ -235,7 +235,7 @@
       </div>
     </Transition>
 
-    <Transition name="toast-overlay">
+    <Transition name="toast-overlay" appear>
       <div v-if="toast.visible" class="toast-backdrop">
         <div
           id="global-toast-alert"
@@ -244,8 +244,8 @@
           role="alert"
         >
           <div class="toast-icon" :class="toast.tone">
-            <AlertTriangle v-if="toast.tone === 'warning'" :size="20" />
-            <CheckCircle v-else :size="20" />
+            <AlertTriangle v-if="toast.tone === 'warning'" :size="18" />
+            <CheckCircle v-else :size="18" />
           </div>
           <div class="toast-body">
             <p class="toast-title" :class="toast.tone">
@@ -260,7 +260,7 @@
             aria-label="Tutup notifikasi"
             @click="hideToast"
           >
-            <X :size="16" />
+            <X :size="14" />
           </button>
         </div>
       </div>
@@ -443,35 +443,36 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
   inset: 0;
   z-index: 120000;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(17, 24, 39, 0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 24px 24px 0 0;
+  background: transparent;
   pointer-events: none;
 }
 
 .toast-card {
   position: relative;
   pointer-events: auto;
-  width: min(92vw, 420px);
+  width: min(92vw, 360px);
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: 12px;
   text-align: left;
-  border-radius: 20px;
-  border: 1px solid #dce7f4;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
-  padding: 20px 44px 20px 20px;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.14),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+  padding: 14px 34px 14px 14px;
 }
 
 .toast-icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 13px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   flex-shrink: 0;
 }
 
@@ -490,11 +491,9 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
 }
 
 .toast-title {
-  margin: 0 0 4px;
-  font-size: 11px;
+  margin: 0 0 2px;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .toast-title.success {
@@ -508,21 +507,21 @@ const sidebarToggleStyle = computed<CSSProperties>(() => ({
 .toast-message {
   margin: 0;
   overflow-wrap: anywhere;
-  color: #182338;
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.55;
+  color: #53658a;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .toast-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 10px;
+  right: 10px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   color: #94a3b8;
   flex-shrink: 0;
   transition:
