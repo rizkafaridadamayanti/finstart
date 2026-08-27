@@ -517,20 +517,31 @@ router.put('/:id', async (req, res) => {
   if (!Number.isInteger(assetId) || assetId <= 0) return res.status(400).json({ success: false, message: 'ID aset tidak valid.' })
   const assetName = String(req.body?.asset_name || '').trim()
   const category = String(req.body?.category || '').trim() || 'Peralatan'
+  const acquisitionDate = String(req.body?.acquisition_date || '').trim()
   const usefulLifeMonths = Number(req.body?.useful_life_months || 0)
   const residualValue = money(req.body?.residual_value)
   const notes = String(req.body?.notes || '').trim() || null
   if (!assetName) return res.status(400).json({ success: false, message: 'Nama aset wajib diisi.' })
+  if (acquisitionDate && !isValidDate(acquisitionDate)) return res.status(400).json({ success: false, message: 'Tanggal perolehan aset tidak valid.' })
   if (!Number.isInteger(usefulLifeMonths) || usefulLifeMonths <= 0) return res.status(400).json({ success: false, message: 'Masa manfaat aset harus lebih dari 0 bulan.' })
   try {
-    const [rows] = await db.query('SELECT acquisition_cost, accumulated_depreciation, status FROM assets WHERE id = ? LIMIT 1', [assetId])
+    const [rows] = await db.query(
+      `SELECT a.acquisition_date, a.acquisition_cost, a.accumulated_depreciation, a.status,
+        (SELECT COUNT(*) FROM asset_depreciations ad WHERE ad.asset_id = a.id AND ad.status = 'posted') AS depreciation_count
+       FROM assets a WHERE a.id = ? LIMIT 1`,
+      [assetId],
+    )
     const asset = rows[0]
     if (!asset) return res.status(404).json({ success: false, message: 'Aset tidak ditemukan.' })
     if (asset.status === 'disposed') return res.status(422).json({ success: false, message: 'Aset yang sudah dilepas tidak dapat diubah.' })
+    const currentAcquisitionDate = dateText(asset.acquisition_date)
+    if (acquisitionDate && acquisitionDate !== currentAcquisitionDate && Number(asset.depreciation_count || 0) > 0) {
+      return res.status(422).json({ success: false, message: 'Tanggal perolehan tidak dapat diubah karena penyusutan aset sudah diposting.' })
+    }
     if (residualValue < 0 || residualValue >= Number(asset.acquisition_cost || 0)) return res.status(400).json({ success: false, message: 'Nilai residu harus minimal 0 dan lebih kecil dari harga perolehan.' })
     await db.query(
-      `UPDATE assets SET asset_name = ?, category = ?, useful_life_months = ?, residual_value = ?, notes = ? WHERE id = ?`,
-      [assetName, category, usefulLifeMonths, residualValue, notes, assetId],
+      `UPDATE assets SET asset_name = ?, category = ?, acquisition_date = COALESCE(NULLIF(?, ''), acquisition_date), useful_life_months = ?, residual_value = ?, notes = ? WHERE id = ?`,
+      [assetName, category, acquisitionDate, usefulLifeMonths, residualValue, notes, assetId],
     )
     res.json({ success: true, message: 'Data aset berhasil diperbarui.' })
   } catch (error) {
