@@ -72,6 +72,7 @@ export function mapAccount(row = {}) {
     nama: row.name || row.nama || "-",
     tipe:
       accountTypes[String(row.type || "").toLowerCase()] || row.tipe || "Aset",
+    subInduk: row.sub_type || row.subInduk || "",
     saldo: numberValue(row.current_balance ?? row.saldo),
     normalBalance: row.normal_balance || "",
     status: row.status || "",
