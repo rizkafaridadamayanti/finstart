@@ -1919,7 +1919,6 @@ import {
   Building,
   Briefcase,
   ChevronDown,
-  ChevronRight,
   CircleAlert,
   RotateCcw,
 } from "lucide-vue-next";
