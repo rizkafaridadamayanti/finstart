@@ -156,6 +156,18 @@ async function updateAccountBalance(connection, accountId, debit, credit) {
   )
 }
 
+async function reverseAndDeleteJournal(connection, journalEntryId) {
+  const [lines] = await connection.query(
+    'SELECT account_id, debit, credit FROM journal_lines WHERE journal_entry_id = ?',
+    [journalEntryId],
+  )
+  for (const line of lines) {
+    await updateAccountBalance(connection, line.account_id, line.credit, line.debit)
+  }
+  await connection.query('DELETE FROM journal_lines WHERE journal_entry_id = ?', [journalEntryId])
+  await connection.query('DELETE FROM journal_entries WHERE id = ?', [journalEntryId])
+}
+
 async function postAutomaticJournal(connection, payload) {
   const totalDebit = money(payload.lines.reduce((sum, line) => sum + numberValue(line.debit), 0))
   const totalCredit = money(payload.lines.reduce((sum, line) => sum + numberValue(line.credit), 0))
@@ -593,12 +605,31 @@ router.post('/:id/dispose', async (req, res) => {
     const cost = money(asset.acquisition_cost)
     const accumulated = money(asset.accumulated_depreciation)
     const bookValue = money(Math.max(cost - accumulated, Number(asset.residual_value || 0)))
-    await connection.query(
-      "UPDATE assets SET status = 'disposed', notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?",
-      [`\n[Dilepas ${disposalDate}] ${reason || '-'}`, asset.id],
+
+    const [depreciationRows] = await connection.query(
+      "SELECT COUNT(*) AS cnt FROM asset_depreciations WHERE asset_id = ? AND status = 'posted'",
+      [assetId],
     )
-    await connection.commit()
-    res.json({ success: true, message: 'Aset berhasil dilepas dari daftar aset.', data: { asset_id: asset.id, book_value: bookValue } })
+    const hasDepreciation = Number(depreciationRows[0]?.cnt || 0) > 0 || accumulated > 0
+
+    if (!hasDepreciation) {
+      const [journalRows] = await connection.query(
+        "SELECT id FROM journal_entries WHERE source_type = 'asset_acquisition' AND source_id = ? AND status = 'posted' FOR UPDATE",
+        [assetId],
+      )
+      for (const journal of journalRows) {
+        await reverseAndDeleteJournal(connection, journal.id)
+      }
+      await connection.query('DELETE FROM assets WHERE id = ?', [assetId])
+      await connection.commit()
+      return res.json({
+        success: true,
+        message: 'Aset belum pernah disusutkan sehingga dihapus permanen beserta jurnal perolehannya.',
+        data: { asset_id: asset.id, deleted: true, book_value: bookValue },
+      })
+    }
+
+    throw new Error('Aset ini sudah memiliki transaksi penyusutan sehingga tidak dapat dihapus/dilepas.')
   } catch (error) {
     if (connection) await connection.rollback()
     res.status(400).json({ success: false, message: safePublicMessage(error, 'Gagal melepas aset.') })

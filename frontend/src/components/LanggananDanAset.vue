@@ -598,9 +598,18 @@
                       <Pencil class="h-3.5 w-3.5" /></button
                     ><button
                       type="button"
-                      :aria-label="`Lepas aset ${asset.nama}`"
-                      title="Lepas aset"
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                      :aria-label="`Hapus aset ${asset.nama}`"
+                      :title="
+                        Number(asset.depreciationCount || 0) > 0
+                          ? 'Aset sudah memiliki riwayat penyusutan, tidak dapat dihapus'
+                          : 'Hapus aset'
+                      "
+                      :class="[
+                        'inline-flex h-8 w-8 items-center justify-center rounded-lg border transition',
+                        Number(asset.depreciationCount || 0) > 0
+                          ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed hover:bg-slate-50'
+                          : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100',
+                      ]"
                       @click="requestDisposeAsset(asset)"
                     >
                       <Trash2 class="h-3.5 w-3.5" />
@@ -3215,26 +3224,33 @@ const requestStopSubscription = (item: any) => {
 };
 
 const requestDisposeAsset = (asset: any) => {
+  const hasDepreciation = Number(asset.depreciationCount || 0) > 0;
+  if (hasDepreciation) {
+    notify(
+      `Aset ${asset.nama} sudah memiliki riwayat penyusutan sehingga tidak dapat dihapus/dilepas.`,
+    );
+    return;
+  }
   confirmDialog.value = {
     type: "dispose-asset",
     item: asset,
-    eyebrow: "Konfirmasi Pelepasan Aset",
-    title: "Lepaskan aset ini?",
+    eyebrow: "Konfirmasi Hapus Aset",
+    title: "Hapus aset ini secara permanen?",
     message:
-      "Aset akan ditandai dilepas dan tidak lagi muncul di daftar aset aktif.",
+      "Aset ini belum pernah disusutkan, sehingga akan dihapus permanen beserta jurnal perolehannya.",
     details: [
       { label: "Aset", value: asset.nama },
       { label: "Kategori", value: asset.kategori || "-" },
       { label: "Nilai Buku", value: formatRupiah(asset.nilaiBuku || 0) },
     ],
     impactItems: [
-      "Status aset akan berubah menjadi dilepas.",
-      "Tidak ada jurnal otomatis yang dibuat untuk pelepasan ini.",
+      "Data aset akan dihapus permanen dari daftar aset.",
+      "Jurnal perolehan aset ini akan otomatis dihapus dan saldo akun terkait dikembalikan.",
     ],
-    confirmLabel: "Lepaskan Aset",
+    confirmLabel: "Hapus Aset",
     requireReason: true,
-    reasonLabel: "Alasan Pelepasan",
-    reasonPlaceholder: "Contoh: Aset tidak lagi digunakan",
+    reasonLabel: "Alasan Penghapusan",
+    reasonPlaceholder: "Contoh: Salah input data aset",
     defaultReason: "Aset tidak lagi digunakan",
   };
 };

@@ -80,6 +80,11 @@ async function main() {
     }
     await pool.query('SET FOREIGN_KEY_CHECKS = 1')
 
+    // accounts (COA) sengaja dipertahankan, tetapi saldo berjalannya harus
+    // dikembalikan ke saldo awal karena seluruh jurnal pendukungnya sudah dihapus.
+    await pool.query('UPDATE accounts SET current_balance = opening_balance')
+    console.log('  - accounts.current_balance: dikembalikan ke opening_balance')
+
     console.log('')
     console.log('Selesai. Tabel berikut TIDAK disentuh (login & COA tetap ada):')
     for (const table of TABLES_PRESERVED) console.log(`  - ${table}`)

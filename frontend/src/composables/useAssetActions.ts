@@ -152,8 +152,12 @@ export function useAssetActions({
   const addAsset = async (item: any) =>
     withApiFeedback(
       async () => {
-        const debitAccount = pickAccount(accounts, item.akunDebit);
-        const creditAccount = pickAccount(accounts, item.akunKredit);
+        const debitAccount = accounts.value.find(
+          (account) => String(account.kode) === String(item.akunDebit || ""),
+        );
+        const creditAccount = accounts.value.find(
+          (account) => String(account.kode) === String(item.akunKredit || ""),
+        );
         if (!debitAccount || !creditAccount) {
           throw new Error("Akun debit atau akun kredit belum dipilih/tersedia di Buku Besar.");
         }
@@ -204,7 +208,7 @@ export function useAssetActions({
           reason,
         });
         await refreshData();
-        notify(`Aset ${asset.nama} telah dilepas dari daftar aset.`);
+        notify(`Aset ${asset.nama} dihapus permanen beserta jurnal perolehannya.`);
         return true;
       },
       "Gagal melepas aset.",
