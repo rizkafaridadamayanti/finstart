@@ -550,7 +550,7 @@ await test('bill draft dan pajak draft tampil tanpa duplikasi dan bisa dicari de
   const response = await withMockQuery((sql, params) => {
     if (sql.includes('FROM journal_entries je LEFT JOIN users creator')) {
       assert.equal(params[0], '2026-07-17')
-      assert.equal(params.slice(1).length, 18)
+      assert.equal(params.slice(1).length, 17)
       return [[]]
     }
 
@@ -1020,6 +1020,42 @@ await test('target pendapatan menerima minimum nol dan menolak nilai di luar bat
   assert.equal(isValidProjectionTargetAmount(Number.NaN), false)
   assert.equal(isValidProjectionTargetAmount(Number.POSITIVE_INFINITY), false)
   assert.equal(isValidProjectionTargetAmount(maxTargetAmount + 1), false)
+})
+
+await test('hapus target proyeksi bulanan menolak tahun/bulan tidak valid dan menghapus baris yang cocok', async () => {
+  const invalidYear = await invokeRoute(projectionsRouter, '/:year/:month', 'DELETE', {
+    params: { year: '20x6', month: '7' },
+  })
+  assert.equal(invalidYear.statusCode, 400)
+  assert.match(invalidYear.body.message, /Tahun atau bulan proyeksi tidak valid/)
+
+  const invalidMonth = await invokeRoute(projectionsRouter, '/:year/:month', 'DELETE', {
+    params: { year: '2026', month: '13' },
+  })
+  assert.equal(invalidMonth.statusCode, 400)
+
+  const deleted = await withMockQuery(
+    (sql, params) => {
+      assert.match(sql, /DELETE FROM financial_projections/)
+      assert.deepEqual(params, [2026, 7])
+      return [{ affectedRows: 1 }, []]
+    },
+    () => invokeRoute(projectionsRouter, '/:year/:month', 'DELETE', {
+      params: { year: '2026', month: '7' },
+    }),
+  )
+  assert.equal(deleted.statusCode, 200)
+  assert.equal(deleted.body.success, true)
+  assert.match(deleted.body.message, /Target proyeksi berhasil dihapus/)
+
+  const notFound = await withMockQuery(
+    () => [{ affectedRows: 0 }, []],
+    () => invokeRoute(projectionsRouter, '/:year/:month', 'DELETE', {
+      params: { year: '2026', month: '8' },
+    }),
+  )
+  assert.equal(notFound.statusCode, 404)
+  assert.match(notFound.body.message, /Target proyeksi tidak ditemukan/)
 })
 
 await test('penyusutan aset periode perolehan dapat diposting dan duplikat periode ditolak', async () => {

@@ -1,3 +1,5 @@
+import { getEmptyDataResponse } from "./emptyDataApi.js";
+
 const API_BASE = (
   import.meta.env.VITE_API_URL || "http://localhost:4000/api"
 ).replace(/\/+$/, "");
@@ -98,6 +100,12 @@ function stableHash(value) {
 async function request(path, options = {}) {
   const { method = "GET", body, query, headers = {} } = options;
   const normalizedMethod = String(method || "GET").toUpperCase();
+
+  if (normalizedMethod === "GET") {
+    const emptyPayload = getEmptyDataResponse(path);
+    if (emptyPayload !== undefined) return emptyPayload;
+  }
+
   const url = buildUrl(path, query);
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const requestBody =

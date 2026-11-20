@@ -446,36 +446,6 @@ const payrollRecords = mysqlTable("payroll_records", {
   index("fk_payroll_records_journal").on(table.journalEntryId),
 ]);
 
-const payrollTaxCalculations = mysqlTable("payroll_tax_calculations", {
-  id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
-  taxRecordId: bigint("tax_record_id", { mode: "number", unsigned: true }).unique().notNull(),
-  employeeName: varchar("employee_name", { length: 150 }).notNull(),
-  employeeNik: varchar("employee_nik", { length: 32 }),
-  employeePosition: varchar("employee_position", { length: 100 }),
-  taxPeriod: char("tax_period", { length: 7 }).notNull(),
-  ptkpStatus: varchar("ptkp_status", { length: 5 }).notNull(),
-  terCategory: char("ter_category", { length: 1 }).notNull(),
-  baseSalary: decimal("base_salary", { precision: 15, scale: 2 }).notNull().default("0.00"),
-  allowanceAmount: decimal("allowance_amount", { precision: 15, scale: 2 }).notNull().default("0.00"),
-  grossIncome: decimal("gross_income", { precision: 15, scale: 2 }).notNull().default("0.00"),
-  terRate: decimal("ter_rate", { precision: 7, scale: 4 }).notNull().default("0.0000"),
-  pph21Amount: decimal("pph21_amount", { precision: 15, scale: 2 }).notNull().default("0.00"),
-  takeHomePay: decimal("take_home_pay", { precision: 15, scale: 2 }).notNull().default("0.00"),
-  payrollDate: date("payroll_date"),
-  salaryExpenseAccountId: bigint("salary_expense_account_id", { mode: "number", unsigned: true }),
-  cashAccountId: bigint("cash_account_id", { mode: "number", unsigned: true }),
-  payrollJournalId: bigint("payroll_journal_id", { mode: "number", unsigned: true }),
-  status: mysqlEnum("status", ["draft", "posted"]).notNull().default("draft"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
-}, (table) => [
-  index("idx_payroll_tax_period").on(table.taxPeriod),
-  index("idx_payroll_employee_nik").on(table.employeeNik),
-  index("fk_payroll_salary_expense").on(table.salaryExpenseAccountId),
-  index("fk_payroll_cash_account").on(table.cashAccountId),
-  index("fk_payroll_journal").on(table.payrollJournalId),
-]);
-
 const positions = mysqlTable("positions", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
   divisionId: bigint("division_id", { mode: "number", unsigned: true }),
@@ -583,6 +553,7 @@ const subscriptionBillRuns = mysqlTable("subscription_bill_runs", {
 const taxRecords = mysqlTable("tax_records", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey().notNull(),
   taxType: varchar("tax_type", { length: 100 }).notNull(),
+  employeeId: bigint("employee_id", { mode: "number", unsigned: true }),
   taxPeriod: varchar("tax_period", { length: 20 }),
   taxNumber: varchar("tax_number", { length: 100 }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull().default("0.00"),
@@ -594,6 +565,8 @@ const taxRecords = mysqlTable("tax_records", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 }, (table) => [
   index("idx_tax_status").on(table.status),
+  index("idx_tax_records_employee").on(table.employeeId),
+  uniqueIndex("uq_tax_records_employee_period_type").on(table.employeeId, table.taxPeriod, table.taxType),
 ]);
 
 const transactionTaxes = mysqlTable("transaction_taxes", {
@@ -689,7 +662,6 @@ module.exports = {
   journalLines,
   notifications,
   payrollRecords,
-  payrollTaxCalculations,
   positions,
   projectionScenarios,
   projects,

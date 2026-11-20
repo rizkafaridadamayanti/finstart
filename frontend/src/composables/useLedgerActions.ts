@@ -70,11 +70,11 @@ export function useLedgerActions({
       notify,
     );
 
-  async function createJournal(newTransaction: any) {
+  function buildJournalLines(newTransaction: any) {
     const incomingLines = Array.isArray(newTransaction.lines)
       ? newTransaction.lines
       : [];
-    const lines = incomingLines.length
+    return incomingLines.length
       ? incomingLines.map((line: any) => {
           const account = pickAccount(
             accounts,
@@ -120,8 +120,10 @@ export function useLedgerActions({
             },
           ];
         })();
+  }
 
-    return financeApi.post("/journals", {
+  function journalPayload(newTransaction: any) {
+    return {
       voucher_number: newTransaction.refVoucher || `JV-${Date.now()}`,
       transaction_date:
         newTransaction.tanggal || todayIso(),
@@ -131,8 +133,12 @@ export function useLedgerActions({
       division_id:
         Number(newTransaction.divisionId || newTransaction.division_id || 0) ||
         null,
-      lines,
-    });
+      lines: buildJournalLines(newTransaction),
+    };
+  }
+
+  async function createJournal(newTransaction: any) {
+    return financeApi.post("/journals", journalPayload(newTransaction));
   }
 
   const addTransaction = async (item: any) =>
@@ -157,6 +163,38 @@ export function useLedgerActions({
     }
     return id;
   };
+
+  const fetchJournalDetail = async (item: any) =>
+    withApiFeedback(
+      async () => financeApi.get(`/journals/${journalId(item)}`),
+      "Gagal memuat detail jurnal.",
+      notify,
+    );
+
+  const updateJournal = async (item: any, newTransaction: any) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.put(
+          `/journals/${journalId(item)}`,
+          journalPayload(newTransaction),
+        );
+        await refreshData();
+        notify("Perubahan jurnal draft berhasil disimpan.");
+      },
+      "Gagal memperbarui jurnal. Pastikan jurnal masih berstatus draft.",
+      notify,
+    );
+
+  const deleteJournal = async (item: any) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.delete(`/journals/${journalId(item)}`);
+        await refreshData();
+        notify("Jurnal draft berhasil dihapus.");
+      },
+      "Gagal menghapus jurnal. Pastikan jurnal masih berstatus draft.",
+      notify,
+    );
 
   const approveJournal = async (item: any) =>
     withApiFeedback(
@@ -206,6 +244,9 @@ export function useLedgerActions({
     updateAccount,
     deleteAccount,
     addTransaction,
+    fetchJournalDetail,
+    updateJournal,
+    deleteJournal,
     approveJournal,
     postJournal,
     cancelJournal,

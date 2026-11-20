@@ -98,7 +98,6 @@ const journalSourceLabels = {
   tax_record: "Pajak",
   tax_payment: "Setoran Pajak",
   payroll: "Payroll",
-  employee_payroll: "PPh 21",
   vat_closing: "Penutupan PPN",
 };
 
@@ -114,7 +113,6 @@ const journalSourceBadgeColors = {
   tax_record: "bg-purple-50 text-purple-700 border-purple-100",
   tax_payment: "bg-purple-50 text-purple-700 border-purple-100",
   payroll: "bg-cyan-50 text-cyan-700 border-cyan-100",
-  employee_payroll: "bg-cyan-50 text-cyan-700 border-cyan-100",
   vat_closing: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
 };
 
@@ -410,6 +408,7 @@ export function mapTax(row = {}) {
     ntpn: row.tax_number || row.ntpn || "",
     rawStatus: status,
     rawPeriod: row.tax_period || "",
+    employeeId: row.employee_id ? Number(row.employee_id) : null,
     _raw: row,
   };
 }

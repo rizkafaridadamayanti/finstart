@@ -76,7 +76,11 @@
                 <span class="finance-chart-swatch finance-chart-swatch-secondary" />
                 Pengeluaran
               </span>
-              <span class="ml-1 shrink-0 rounded-full border border-[#DCE7F4] bg-[#F8FBFE] px-2 py-1 text-[10px] font-medium text-[#53658A] whitespace-nowrap" title="Jan – Jun 2026">Jan – Jun 2026</span>
+              <span
+                class="ml-1 shrink-0 rounded-full border border-[#DCE7F4] bg-[#F8FBFE] px-2 py-1 text-[10px] font-medium text-[#53658A] whitespace-nowrap"
+                :title="cashflowPeriodLabel"
+                >{{ cashflowPeriodLabel }}</span
+              >
             </div>
           </div>
           <div class="px-6 pb-5 pt-4">
@@ -880,6 +884,13 @@ const normalizedCashflow =
 const monthlyCashflow = normalizedCashflow.length
   ? normalizedCashflow
   : [{ month: "-", income: 0, expense: 0, incomeRaw: 0, expenseRaw: 0 }];
+const cashflowPeriodLabel = computed(() => {
+  const labels = monthlyCashflow
+    .map((item) => String(item.month || "").trim())
+    .filter((label) => label && label !== "-");
+  if (labels.length < 2) return "Belum ada data";
+  return `${labels[0]} – ${labels[labels.length - 1]}`;
+});
 const latestTransactions = computed(() => {
   const dashboardTransactions = Array.isArray(dashboardData.recent_transactions)
     ? dashboardData.recent_transactions

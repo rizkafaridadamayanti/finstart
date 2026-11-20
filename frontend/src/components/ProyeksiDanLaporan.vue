@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-7 font-sans">
     <header
-      class="workspace-page-header flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+      class="workspace-page-header flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
     >
       <div class="flex items-start gap-4">
         <span
@@ -50,7 +50,7 @@
           </p>
         </div>
       </div>
-      <div class="flex w-full flex-wrap gap-3 lg:w-auto">
+      <div class="flex w-full flex-wrap gap-3 sm:flex-nowrap xl:w-auto">
         <button
           v-if="isForecast && forecastView === 'target'"
           id="btn-open-target-modal"
@@ -59,6 +59,107 @@
         >
           <Plus class="h-4 w-4" /> Tambah Target</button
         ><template v-else-if="!isForecast"
+          ><div ref="reportCalendarRef" class="relative">
+            <button
+              id="btn-report-period"
+              ref="reportPeriodButtonRef"
+              type="button"
+              :disabled="isReportPeriodSwitching"
+              :aria-expanded="isReportCalendarOpen"
+              aria-haspopup="dialog"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE] disabled:cursor-not-allowed disabled:opacity-60"
+              @click="toggleReportCalendar()"
+            >
+              <Calendar class="h-4 w-4 shrink-0 text-[#1E5AA8]" />
+              {{ reportCalendarTriggerLabel }}
+              <ChevronDown
+                class="h-3.5 w-3.5 shrink-0 text-[#8A98AB]"
+                :class="{ 'rotate-180': isReportCalendarOpen }"
+              />
+            </button>
+          </div>
+          ><Teleport to="body"
+            ><div
+              v-if="isReportCalendarOpen"
+              id="report-calendar-panel"
+              ref="reportCalendarPanelRef"
+              role="dialog"
+              aria-label="Pilih periode laporan"
+              class="fixed z-[10090] w-[19.5rem] rounded-2xl border border-[#D8E5F4] bg-white p-4 shadow-[0_18px_40px_rgba(11,31,74,0.16)]"
+              :style="reportCalendarPanelStyle"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <button
+                  id="btn-report-calendar-prev-year"
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
+                  @click="shiftReportCalendarYear(-1)"
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </button>
+                <label class="sr-only" for="report-calendar-year-select"
+                  >Tahun periode laporan</label
+                >
+                <select
+                  id="report-calendar-year-select"
+                  :value="reportCalendarYear"
+                  class="h-8 rounded-lg border border-[#D8E5F4] bg-white px-2 text-xs font-semibold text-[#0B1F4A] outline-none focus:border-[#1E5AA8]"
+                  @change="setReportCalendarYear(eventValue($event))"
+                >
+                  <option v-for="year in reportYearOptions" :key="year" :value="year">
+                    {{ year }}
+                  </option>
+                </select>
+                <button
+                  id="btn-report-calendar-next-year"
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#F8FBFE]"
+                  @click="shiftReportCalendarYear(1)"
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </button>
+              </div>
+              <div class="mt-3 grid grid-cols-3 gap-1.5">
+                <button
+                  v-for="month in reportMonthOptions"
+                  :key="month.value"
+                  type="button"
+                  :title="`${month.label} ${reportCalendarYear}`"
+                  :aria-pressed="isReportCalendarMonthActive(month.value)"
+                  :class="[
+                    'rounded-lg px-2 py-2 text-[11px] font-semibold transition',
+                    isReportCalendarMonthActive(month.value)
+                      ? 'bg-[#0B3A78] text-white'
+                      : 'bg-[#F4F8FD] text-[#0B1F4A] hover:bg-[#E4EEF9]',
+                  ]"
+                  @click="chooseReportCalendarMonth(month.value)"
+                >
+                  {{ month.label }}
+                  <span
+                    v-if="hasPostedJournal(reportCalendarYear, month.value)"
+                    :class="
+                      isReportCalendarMonthActive(month.value)
+                        ? 'text-white'
+                        : 'text-[#1E5AA8]'
+                    "
+                    >•</span
+                  >
+                </button>
+              </div>
+              <div class="mt-3 flex items-center justify-between border-t border-[#EAF1F9] pt-3">
+                <span class="text-[10px] font-semibold text-[#8A98AB]"
+                  >• periode punya jurnal posted</span
+                >
+                <button
+                  id="btn-report-calendar-current-period"
+                  type="button"
+                  class="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#1E5AA8] transition hover:bg-[#F4F8FD]"
+                  @click="chooseCurrentReportPeriod()"
+                >
+                  Periode berjalan
+                </button>
+              </div>
+            </div></Teleport
           ><button
             class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D8E5F4] bg-white px-4 text-xs font-semibold text-[#0B1F4A] transition hover:bg-[#F8FBFE]"
             @click="exportCurrentReportExcel"
@@ -361,104 +462,6 @@
           :total="orderedTargets.length"
           @page-change="targetPage = safePage($event, orderedTargets.length)"
         />
-      </div>
-      <div
-        v-if="forecastView === 'target'"
-        ref="savedTargetSectionRef"
-        class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
-      >
-        <div
-          class="flex flex-col gap-2 border-b border-[#E8EEF7] px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1E5AA8]"
-            >
-              Target Tersimpan
-            </p>
-            <h2 class="mt-1 text-lg font-semibold text-[#0B1F4A]">
-              Daftar Target Proyeksi
-            </h2>
-            <p class="mt-1 text-sm text-[#6B7A90]">
-              Semua target yang disimpan dari form masuk ke tabel ini.
-            </p>
-          </div>
-          <span class="text-xs font-semibold text-[#6B7A90]">
-            {{ savedProjectionTargets.length }} target tersimpan
-          </span>
-        </div>
-        <div class="overflow-x-auto">
-          <div
-            v-if="savedTargetMonth"
-            class="border-b border-emerald-100 bg-emerald-50 px-6 py-3 text-xs font-semibold text-emerald-800"
-          >
-            Target {{ savedTargetMonthLabel }} berhasil disimpan di tabel ini.
-          </div>
-          <table class="w-full min-w-[860px] text-left text-sm">
-            <thead
-              class="border-b-2 border-[#C7D7EC] bg-[#F8FBFE] text-[10px] font-bold uppercase tracking-[0.12em] text-[#70819B]"
-            >
-              <tr>
-                <th class="px-6 py-4">Bulan Target</th>
-                <th class="px-6 py-4 text-right">Target Pendapatan</th>
-                <th class="px-6 py-4 text-right">Target Beban</th>
-                <th class="px-6 py-4 text-right">Target Laba</th>
-                <th class="px-6 py-4">Catatan</th>
-                <th class="px-6 py-4 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[#C7D7EC]">
-              <tr v-if="savedProjectionTargets.length === 0">
-                <td
-                  colspan="6"
-                  class="px-6 py-10 text-center text-sm text-[#8A98AB]"
-                >
-                  Belum ada target tersimpan. Klik Tambah Target untuk membuat target baru.
-                </td>
-              </tr>
-              <tr
-                v-for="target in savedProjectionTargets"
-                v-else
-                :key="`saved-target-${target.month}`"
-                :class="[
-                  'hover:bg-[#FBFDFF]',
-                  Number(target.month) === savedTargetMonth
-                    ? 'target-month-row-saved bg-emerald-50/70'
-                    : '',
-                ]"
-              >
-                <td class="px-6 py-4">
-                  <p class="font-semibold text-[#0B1F4A]">{{ target.label }}</p>
-                  <p class="mt-1 text-xs text-[#8A98AB]">
-                    {{ projectionData?.year || new Date().getFullYear() }}
-                  </p>
-                </td>
-                <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
-                  {{ formatRupiah(Number(target.revenue_target || 0)) }}
-                </td>
-                <td class="px-6 py-4 text-right font-semibold text-[#0B1F4A]">
-                  {{ formatRupiah(Number(target.expense_target || 0)) }}
-                </td>
-                <td class="px-6 py-4 text-right font-extrabold text-[#047857]">
-                  {{ formatRupiah(Number(target.profit_target || 0)) }}
-                </td>
-                <td class="max-w-[240px] px-6 py-4 text-xs text-[#6B7A90]">
-                  {{ target.notes || "-" }}
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <button
-                    type="button"
-                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
-                    title="Edit target"
-                    @click="openTargetModal(target)"
-                  >
-                    <Pencil class="h-3.5 w-3.5" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
       <div
         v-if="forecastView === 'roadmap'"
@@ -1030,6 +1033,7 @@
       </div>
       <div
         v-if="forecastView === 'target'"
+        ref="monthlyTargetSectionRef"
         class="overflow-hidden border border-[#DCE7F4] bg-white shadow-[0_12px_30px_rgba(11,31,74,0.04)]"
       >
         <div
@@ -1117,14 +1121,26 @@
                   {{ month.notes || "—" }}
                 </td>
                 <td class="px-6 py-4 text-center">
-                  <button
-                    type="button"
-                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
-                    title="Edit target"
-                    @click="openTargetModal(month)"
-                  >
-                    <Pencil class="h-4 w-4" />
-                  </button>
+                  <div class="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8E5F4] bg-white text-[#1E5AA8] transition hover:bg-[#EEF5FC]"
+                      title="Edit target"
+                      @click="openTargetModal(month)"
+                    >
+                      <Pencil class="h-4 w-4" />
+                    </button>
+                    <button
+                      v-if="month.has_target"
+                      type="button"
+                      :aria-label="`Hapus target proyeksi ${month.label}`"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+                      title="Hapus target"
+                      @click="requestDeleteTarget(month)"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -1484,6 +1500,40 @@
       @cancel="closeDeleteBudgetConfirm"
       @confirm="confirmDeleteBudget"
     />
+    <ConfirmDialog
+      :open="!!deleteTargetConfirm"
+      eyebrow="Konfirmasi Penghapusan"
+      title="Hapus target proyeksi bulanan?"
+      message="Target yang dihapus tidak lagi dipakai dalam perhitungan proyeksi, forecast laba, dan perbandingan dengan realisasi. Realisasi dari jurnal posted tetap dipertahankan."
+      :details="[
+        {
+          label: 'Bulan',
+          value: deleteTargetConfirm?.label || '-',
+        },
+        {
+          label: 'Tahun',
+          value: String(
+            projectionData?.year || new Date().getFullYear(),
+          ),
+        },
+        {
+          label: 'Target Pendapatan',
+          value: formatRupiah(Number(deleteTargetConfirm?.revenue_target || 0)),
+        },
+        {
+          label: 'Target Beban',
+          value: formatRupiah(Number(deleteTargetConfirm?.expense_target || 0)),
+        },
+      ]"
+      :impact-items="[
+        'Target hilang dari tabel Target Bulanan.',
+        'Ringkasan tahunan proyeksi dihitung ulang tanpa target bulan tersebut.',
+        'Catatan target bulan ini ikut terhapus dan tidak bisa dipulihkan.',
+      ]"
+      confirm-label="Hapus Target"
+      @cancel="closeDeleteTargetConfirm"
+      @confirm="confirmDeleteTarget"
+    />
   </div>
 </template>
 
@@ -1496,11 +1546,15 @@ import {
   escapeHtml,
   openPrintPopup,
 } from "../utils/printDocument.js";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   AlertCircle,
   BarChart3,
+  Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileSpreadsheet,
   LineChart,
   Pencil,
@@ -1532,6 +1586,7 @@ interface ProyeksiDanLaporanProps {
   projectionData?: any;
   reportData?: any;
   reportPeriod?: string;
+  availableReportPeriods?: any[];
   reportError?: string;
 }
 interface AnnualTarget {
@@ -1602,11 +1657,13 @@ const {
 const {
   notify,
   planning: {
+    selectReportPeriod,
     saveProjection,
     selectProjectionScenario,
     updateProjectionScenario,
     saveBudgetAllocation,
     deleteBudgetAllocation,
+    deleteProjectionTarget,
   },
 } = useFinStartContext();
 const isForecast =
@@ -1630,6 +1687,181 @@ const activeReportType = computed<ReportType>(() => {
 watch(activeReportType, () => {
   reportPage.value = 1;
 });
+
+const REPORT_MONTH_NAMES = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+const reportMonthOptions = REPORT_MONTH_NAMES.map((label, index) => ({
+  value: index + 1,
+  label,
+}));
+const pad2 = (value: number) => String(value).padStart(2, "0");
+const selectedReportYear = computed(() => {
+  const year = Number(String(props.reportPeriod || "").slice(0, 4));
+  return year > 0 ? year : new Date().getFullYear();
+});
+const selectedReportMonth = computed(() => {
+  const month = Number(String(props.reportPeriod || "").slice(5, 7));
+  return month >= 1 && month <= 12 ? month : new Date().getMonth() + 1;
+});
+// Tahun yang ditampilkan mencakup tahun berjalan +1 (untuk data yang
+// terlanjur dicatat maju), beberapa tahun ke belakang, dan tahun mana pun
+// yang sudah punya jurnal posted, supaya kalender tidak membatasi pilihan
+// hanya ke periode yang kebetulan sudah ada datanya.
+const reportYearOptions = computed(() => {
+  const currentYear = new Date().getFullYear();
+  const years = new Set<number>([
+    currentYear + 1,
+    currentYear,
+    selectedReportYear.value,
+  ]);
+  (props.availableReportPeriods || []).forEach((item: any) => {
+    const year = Number(String(item?.period || "").slice(0, 4));
+    if (year > 0) years.add(year);
+  });
+  for (let offset = 1; offset <= 5; offset += 1) years.add(currentYear - offset);
+  return Array.from(years).sort((a, b) => b - a);
+});
+const postedPeriodSet = computed(
+  () =>
+    new Set(
+      (props.availableReportPeriods || []).map((item: any) =>
+        String(item?.period || ""),
+      ),
+    ),
+);
+const hasPostedJournal = (year: number, month: number) =>
+  postedPeriodSet.value.has(`${year}-${pad2(month)}`);
+
+const isReportPeriodSwitching = ref(false);
+const switchReportPeriod = async (period: string) => {
+  if (!period || period === props.reportPeriod) return;
+  isReportPeriodSwitching.value = true;
+  try {
+    await selectReportPeriod(period);
+  } finally {
+    isReportPeriodSwitching.value = false;
+  }
+};
+
+// Kalender periode: tombol pemicu menampilkan ringkasan periode, panel
+// berisi pemilih tahun dan grid 12 bulan. Periode tanpa jurnal tetap bisa
+// dipilih, dan penanda "•" hanya informatif.
+const isReportCalendarOpen = ref(false);
+const reportCalendarRef = ref<HTMLElement | null>(null);
+const reportPeriodButtonRef = ref<HTMLElement | null>(null);
+const reportCalendarPanelRef = ref<HTMLElement | null>(null);
+const reportCalendarPanelStyle = ref<Record<string, string>>({});
+const reportCalendarYear = ref(selectedReportYear.value);
+const reportCalendarTriggerLabel = computed(
+  () =>
+    props.reportData?.period_label ||
+    (props.reportPeriod
+      ? new Intl.DateTimeFormat("id-ID", {
+          month: "long",
+          year: "numeric",
+        }).format(new Date(`${props.reportPeriod}-01T00:00:00`))
+      : "Pilih periode"),
+);
+const isReportCalendarMonthActive = (month: number) =>
+  reportCalendarYear.value === selectedReportYear.value &&
+  month === selectedReportMonth.value;
+
+// Panel di-teleport ke <body> supaya tidak ikut terpotong oleh
+// overflow:hidden milik kartu header, jadi posisinya dihitung manual dari
+// posisi tombol pemicu alih-alih memakai absolute positioning biasa.
+const updateReportCalendarPosition = () => {
+  const button = reportPeriodButtonRef.value;
+  if (!button) return;
+  const rect = button.getBoundingClientRect();
+  const panelWidth = 312;
+  const left = Math.min(
+    Math.max(rect.right - panelWidth, 8),
+    window.innerWidth - panelWidth - 8,
+  );
+  reportCalendarPanelStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    left: `${left}px`,
+  };
+};
+
+const toggleReportCalendar = () => {
+  isReportCalendarOpen.value = !isReportCalendarOpen.value;
+  if (isReportCalendarOpen.value) {
+    reportCalendarYear.value = selectedReportYear.value;
+    nextTick(() => updateReportCalendarPosition());
+  }
+};
+const setReportCalendarYear = (value: string | number) => {
+  const year = Number(value);
+  if (year > 0) reportCalendarYear.value = year;
+};
+const shiftReportCalendarYear = (offset: number) => {
+  const next = reportCalendarYear.value + offset;
+  if (next < 1900 || next > 2999) return;
+  reportCalendarYear.value = next;
+};
+const chooseReportCalendarMonth = async (month: number) => {
+  await switchReportPeriod(`${reportCalendarYear.value}-${pad2(month)}`);
+  isReportCalendarOpen.value = false;
+};
+const chooseCurrentReportPeriod = async () => {
+  const now = new Date();
+  await switchReportPeriod(`${now.getFullYear()}-${pad2(now.getMonth() + 1)}`);
+  isReportCalendarOpen.value = false;
+};
+const closeReportCalendarOnOutsideClick = (event: MouseEvent) => {
+  if (!isReportCalendarOpen.value) return;
+  const target = event.target as Node | null;
+  if (
+    target &&
+    (reportCalendarRef.value?.contains(target) ||
+      reportCalendarPanelRef.value?.contains(target))
+  )
+    return;
+  isReportCalendarOpen.value = false;
+};
+const closeReportCalendarOnEscape = (event: KeyboardEvent) => {
+  if (event.key !== "Escape" || !isReportCalendarOpen.value) return;
+  isReportCalendarOpen.value = false;
+};
+// Panel yang di-teleport tidak ikut geser saat halaman di-scroll/resize,
+// jadi ditutup saja daripada menghitung ulang posisinya terus-menerus.
+const closeReportCalendarOnViewportChange = () => {
+  if (isReportCalendarOpen.value) isReportCalendarOpen.value = false;
+};
+onMounted(() => {
+  document.addEventListener("click", closeReportCalendarOnOutsideClick);
+  document.addEventListener("keydown", closeReportCalendarOnEscape);
+  window.addEventListener("scroll", closeReportCalendarOnViewportChange, true);
+  window.addEventListener("resize", closeReportCalendarOnViewportChange);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("click", closeReportCalendarOnOutsideClick);
+  document.removeEventListener("keydown", closeReportCalendarOnEscape);
+  window.removeEventListener("scroll", closeReportCalendarOnViewportChange, true);
+  window.removeEventListener("resize", closeReportCalendarOnViewportChange);
+});
+watch(
+  () => props.reportPeriod,
+  (value) => {
+    const year = Number(String(value || "").slice(0, 4));
+    if (year > 0 && !isReportCalendarOpen.value) {
+      reportCalendarYear.value = year;
+    }
+  },
+);
 
 const isTargetModalOpen = ref(false),
   updateIsTargetModalOpen = (next) => (isTargetModalOpen.value = next);
@@ -1675,10 +1907,11 @@ const budgetFormErrors = ref({ account_id: "", budget_amount: "" });
 const budgetAccountFieldRef = ref<HTMLSelectElement | null>(null);
 const budgetAmountFieldRef = ref<HTMLInputElement | null>(null);
 const deleteBudgetConfirm = ref<any>(null);
+const deleteTargetConfirm = ref<any>(null);
 const targetPage = ref(1);
 const budgetPage = ref(1);
 const targetDetailPage = ref(1);
-const savedTargetSectionRef = ref<HTMLElement | null>(null);
+const monthlyTargetSectionRef = ref<HTMLElement | null>(null);
 const savedTargetMonth = ref<number | null>(null);
 const reportPage = ref(1);
 const savedTargetMonthLabel = computed(() =>
@@ -1882,9 +2115,6 @@ const targetStatusBadgeClass = (target: AnnualTarget) => {
 const projectionMonths = computed(() => Array.isArray(props.projectionData?.months)
   ? props.projectionData.months
   : []);
-const savedProjectionTargets = computed(() =>
-  projectionMonths.value.filter((month: any) => Boolean(month?.has_target)),
-);
 const projectionScenarios = computed(() => Array.isArray(props.projectionData?.scenarios)
   ? props.projectionData.scenarios
   : []);
@@ -2074,6 +2304,20 @@ const confirmDeleteBudget = async () => {
   await deleteBudgetAllocation(budget);
   if (String(budgetForm.value.id) === String(budget.id)) resetBudgetForm();
 };
+const requestDeleteTarget = (target: any) => {
+  if (!target?.has_target) return;
+  deleteTargetConfirm.value = target;
+};
+const confirmDeleteTarget = async () => {
+  if (!deleteTargetConfirm.value) return;
+  const target = deleteTargetConfirm.value;
+  const month = Number(target.month);
+  deleteTargetConfirm.value = null;
+  const isDeleted = await deleteProjectionTarget(target);
+  if (!isDeleted) return;
+  if (Number(editingTargetId.value) === month) closeTargetModal();
+  if (Number(savedTargetMonth.value) === month) savedTargetMonth.value = null;
+};
 const roadmapBase = computed(() =>
   projectionMonths.value.length
     ? projectionMonths.value
@@ -2221,7 +2465,7 @@ const showSavedTargetInTable = async (month: number) => {
     projectionMonths.value.length,
   );
   await nextTick();
-  savedTargetSectionRef.value?.scrollIntoView({
+  monthlyTargetSectionRef.value?.scrollIntoView({
     behavior: "smooth",
     block: "start",
   });
@@ -2633,6 +2877,10 @@ const activeDivisions = computed(() =>
 
 function closeDeleteBudgetConfirm() {
   deleteBudgetConfirm.value = null;
+}
+
+function closeDeleteTargetConfirm() {
+  deleteTargetConfirm.value = null;
 }
 
 </script>

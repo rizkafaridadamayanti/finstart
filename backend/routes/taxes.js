@@ -332,18 +332,16 @@ async function hasGeneratedTaxSource(connection, taxId) {
   const [rows] = await connection.query(
     `
       SELECT
-        EXISTS(SELECT 1 FROM payroll_tax_calculations WHERE tax_record_id = ?) AS payroll_linked,
         EXISTS(SELECT 1 FROM payroll_records WHERE tax_record_id = ?) AS payroll_record_linked,
         EXISTS(SELECT 1 FROM transaction_taxes WHERE tax_record_id = ?) AS transaction_linked,
         EXISTS(SELECT 1 FROM vat_period_closings WHERE tax_record_id = ?) AS vat_linked
     `,
-    [taxId, taxId, taxId, taxId],
+    [taxId, taxId, taxId],
   )
 
   const row = rows[0] || {}
   return Boolean(
-    Number(row.payroll_linked) ||
-      Number(row.payroll_record_linked) ||
+    Number(row.payroll_record_linked) ||
       Number(row.transaction_linked) ||
       Number(row.vat_linked),
   )
@@ -482,10 +480,7 @@ async function getTaxDetail(executor, taxId) {
           ELSE tax_records.status
         END AS display_status,
         obligation_journal.voucher_number AS obligation_voucher_number,
-        payment_journal.voucher_number AS payment_voucher_number,
-        payroll.id AS payroll_calculation_id,
-        payroll.employee_name,
-        payroll.payroll_journal_id
+        payment_journal.voucher_number AS payment_voucher_number
       FROM tax_records
       LEFT JOIN journal_entries AS obligation_journal
         ON obligation_journal.source_type = 'tax_record'
@@ -493,8 +488,6 @@ async function getTaxDetail(executor, taxId) {
       LEFT JOIN journal_entries AS payment_journal
         ON payment_journal.source_type = 'tax_payment'
         AND payment_journal.source_id = tax_records.id
-      LEFT JOIN payroll_tax_calculations AS payroll
-        ON payroll.tax_record_id = tax_records.id
       WHERE tax_records.id = ?
       LIMIT 1
     `,
@@ -508,419 +501,6 @@ async function getTaxDetail(executor, taxId) {
     amount: numberValue(rows[0].amount),
   }
 }
-
-async function getPayrollTaxDetail(executor, payrollId) {
-  const [rows] = await executor.query(
-    `
-      SELECT
-        payroll.*,
-        tax_records.status AS tax_status,
-        tax_records.due_date,
-        tax_records.payment_date,
-        tax_records.tax_number,
-        tax_records.notes,
-        CASE
-          WHEN tax_records.status = 'unpaid'
-            AND tax_records.due_date IS NOT NULL
-            AND tax_records.due_date < CURDATE()
-          THEN 'overdue'
-          ELSE tax_records.status
-        END AS display_tax_status,
-        payroll_journal.voucher_number AS payroll_voucher_number,
-        tax_payment_journal.voucher_number AS tax_payment_voucher_number,
-        salary_account.code AS salary_expense_code,
-        salary_account.name AS salary_expense_name,
-        cash_account.code AS cash_account_code,
-        cash_account.name AS cash_account_name
-      FROM payroll_tax_calculations AS payroll
-      INNER JOIN tax_records
-        ON tax_records.id = payroll.tax_record_id
-      LEFT JOIN journal_entries AS payroll_journal
-        ON payroll_journal.id = payroll.payroll_journal_id
-      LEFT JOIN journal_entries AS tax_payment_journal
-        ON tax_payment_journal.source_type = 'tax_payment'
-        AND tax_payment_journal.source_id = tax_records.id
-      LEFT JOIN accounts AS salary_account
-        ON salary_account.id = payroll.salary_expense_account_id
-      LEFT JOIN accounts AS cash_account
-        ON cash_account.id = payroll.cash_account_id
-      WHERE payroll.id = ?
-      LIMIT 1
-    `,
-    [payrollId],
-  )
-
-  if (!rows[0]) return null
-
-  return {
-    ...rows[0],
-    base_salary: numberValue(rows[0].base_salary),
-    allowance_amount: numberValue(rows[0].allowance_amount),
-    gross_income: numberValue(rows[0].gross_income),
-    ter_rate: numberValue(rows[0].ter_rate),
-    pph21_amount: numberValue(rows[0].pph21_amount),
-    take_home_pay: numberValue(rows[0].take_home_pay),
-  }
-}
-
-/*
-  ===== PPh 21 PEGAWAI =====
-*/
-
-router.post('/employee-pph21/calculate', (req, res) => {
-  try {
-    const calculation = buildEmployeePph21Calculation(req.body || {})
-
-    res.json({
-      success: true,
-      message: 'Estimasi PPh 21 pegawai berhasil dihitung',
-      data: calculation,
-    })
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: safePublicMessage(error, 'Gagal menghitung PPh 21 pegawai.'),
-    })
-  }
-})
-
-router.get('/employee-pph21', async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      `
-        SELECT
-          payroll.*,
-          tax_records.status AS tax_status,
-          tax_records.due_date,
-          tax_records.payment_date,
-          tax_records.tax_number,
-          tax_records.notes,
-          CASE
-            WHEN tax_records.status = 'unpaid'
-              AND tax_records.due_date IS NOT NULL
-              AND tax_records.due_date < CURDATE()
-            THEN 'overdue'
-            ELSE tax_records.status
-          END AS display_tax_status,
-          payroll_journal.voucher_number AS payroll_voucher_number,
-          tax_payment_journal.voucher_number AS tax_payment_voucher_number
-        FROM payroll_tax_calculations AS payroll
-        INNER JOIN tax_records
-          ON tax_records.id = payroll.tax_record_id
-        LEFT JOIN journal_entries AS payroll_journal
-          ON payroll_journal.id = payroll.payroll_journal_id
-        LEFT JOIN journal_entries AS tax_payment_journal
-          ON tax_payment_journal.source_type = 'tax_payment'
-          AND tax_payment_journal.source_id = tax_records.id
-        ORDER BY payroll.tax_period DESC, payroll.id DESC
-      `,
-    )
-
-    res.json({
-      success: true,
-      message: 'Daftar perhitungan PPh 21 pegawai berhasil diambil',
-      data: rows.map((row) => ({
-        ...row,
-        base_salary: numberValue(row.base_salary),
-        allowance_amount: numberValue(row.allowance_amount),
-        gross_income: numberValue(row.gross_income),
-        ter_rate: numberValue(row.ter_rate),
-        pph21_amount: numberValue(row.pph21_amount),
-        take_home_pay: numberValue(row.take_home_pay),
-      })),
-    })
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Gagal mengambil data PPh 21 pegawai',
-    })
-  }
-})
-
-router.post('/employee-pph21', async (req, res) => {
-  let connection
-
-  try {
-    const calculation = buildEmployeePph21Calculation(req.body || {})
-
-    if (calculation.needs_final_reconciliation) {
-      return res.status(400).json({
-        success: false,
-        message: calculation.message,
-      })
-    }
-
-    const dueDate = req.body?.due_date || null
-
-    if (dueDate && !isValidDate(dueDate)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tanggal jatuh tempo pajak tidak valid.',
-      })
-    }
-
-    connection = await db.getConnection()
-    await connection.beginTransaction()
-
-    const notes = [
-      `PPh 21 pegawai: ${calculation.employee_name}.`,
-      `PTKP ${calculation.ptkp_status} / TER ${calculation.ter_category}.`,
-      `Bruto ${calculation.gross_income}.`,
-      `Tarif TER ${(calculation.ter_rate * 100).toFixed(2)}%.`,
-    ].join(' ')
-
-    const [taxResult] = await connection.query(
-      `
-        INSERT INTO tax_records (
-          tax_type,
-          tax_period,
-          amount,
-          due_date,
-          status,
-          notes
-        ) VALUES ('PPh 21', ?, ?, ?, 'draft', ?)
-      `,
-      [
-        calculation.tax_period,
-        calculation.pph21_amount,
-        dueDate,
-        notes,
-      ],
-    )
-
-    const [payrollResult] = await connection.query(
-      `
-        INSERT INTO payroll_tax_calculations (
-          tax_record_id,
-          employee_name,
-          employee_nik,
-          employee_position,
-          tax_period,
-          ptkp_status,
-          ter_category,
-          base_salary,
-          allowance_amount,
-          gross_income,
-          ter_rate,
-          pph21_amount,
-          take_home_pay,
-          status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
-      `,
-      [
-        taxResult.insertId,
-        calculation.employee_name,
-        calculation.employee_nik,
-        calculation.employee_position,
-        calculation.tax_period,
-        calculation.ptkp_status,
-        calculation.ter_category,
-        calculation.base_salary,
-        calculation.allowance_amount,
-        calculation.gross_income,
-        calculation.ter_rate,
-        calculation.pph21_amount,
-        calculation.take_home_pay,
-      ],
-    )
-
-    await connection.commit()
-
-    const payroll = await getPayrollTaxDetail(db, payrollResult.insertId)
-
-    res.status(201).json({
-      success: true,
-      message: 'Draft payroll dan PPh 21 pegawai berhasil dibuat.',
-      data: payroll,
-    })
-  } catch (error) {
-    if (connection) await connection.rollback()
-
-    res.status(400).json({
-      success: false,
-      message: safePublicMessage(error, 'Gagal membuat draft PPh 21 pegawai.'),
-    })
-  } finally {
-    if (connection) connection.release()
-  }
-})
-
-router.post('/employee-pph21/:id/post', async (req, res) => {
-  let connection
-
-  try {
-    const {
-      payroll_date,
-      salary_expense_account_id,
-      cash_account_id,
-    } = req.body || {}
-
-    const payrollDate = payroll_date || getToday()
-
-    if (!isValidDate(payrollDate)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tanggal payroll tidak valid.',
-      })
-    }
-
-    connection = await db.getConnection()
-    await connection.beginTransaction()
-
-    const [rows] = await connection.query(
-      `
-        SELECT
-          payroll.*,
-          tax_records.status AS tax_status,
-          tax_records.due_date
-        FROM payroll_tax_calculations AS payroll
-        INNER JOIN tax_records
-          ON tax_records.id = payroll.tax_record_id
-        WHERE payroll.id = ?
-        FOR UPDATE
-      `,
-      [req.params.id],
-    )
-
-    const payroll = rows[0]
-
-    if (!payroll) {
-      throw new Error('Draft payroll PPh 21 tidak ditemukan.')
-    }
-
-    if (payroll.status !== 'draft') {
-      throw new Error('Payroll ini sudah diposting.')
-    }
-
-    const salaryAccount = salary_expense_account_id
-      ? await findAccountById(connection, salary_expense_account_id, 'expense')
-      : await findAccountByCode(
-          connection,
-          DEFAULT_TAX_EXPENSE_ACCOUNT_CODE,
-          'expense',
-        )
-
-    const cashAccount = cash_account_id
-      ? await findAccountById(connection, cash_account_id, 'asset')
-      : await findAccountByCode(
-          connection,
-          DEFAULT_BANK_ACCOUNT_CODE,
-          'asset',
-        )
-
-    const taxPayableAccount = numberValue(payroll.pph21_amount) > 0
-      ? await findAccountByCode(
-          connection,
-          TAX_PAYABLE_ACCOUNT_CODE,
-          'liability',
-        )
-      : null
-
-    if (!salaryAccount) {
-      throw new Error('Pilih akun Beban Gaji yang aktif.')
-    }
-
-    if (!cashAccount) {
-      throw new Error('Pilih akun Kas atau Bank yang aktif.')
-    }
-
-    if (numberValue(payroll.pph21_amount) > 0 && !taxPayableAccount) {
-      throw new Error('Akun 2200 — Utang Pajak tidak ditemukan.')
-    }
-
-    const lines = [
-      {
-        account_id: salaryAccount.id,
-        description: `Beban gaji ${payroll.employee_name}`,
-        debit: numberValue(payroll.gross_income),
-        credit: 0,
-      },
-      {
-        account_id: cashAccount.id,
-        description: `Gaji bersih ${payroll.employee_name}`,
-        debit: 0,
-        credit: numberValue(payroll.take_home_pay),
-      },
-    ]
-
-    if (numberValue(payroll.pph21_amount) > 0) {
-      lines.push({
-        account_id: taxPayableAccount.id,
-        description: `Utang PPh 21 ${payroll.employee_name}`,
-        debit: 0,
-        credit: numberValue(payroll.pph21_amount),
-      })
-    }
-
-    const journalId = await postAutomaticJournal(connection, {
-      voucher_number: `PAYROLL-${payroll.id}`,
-      transaction_date: payrollDate,
-      description: `Payroll ${payroll.employee_name} periode ${payroll.tax_period}`,
-      source_type: 'employee_payroll',
-      source_id: payroll.id,
-      lines,
-    })
-
-    const taxStatus = numberValue(payroll.pph21_amount) > 0
-      ? (
-        payroll.due_date && payroll.due_date < payrollDate
-          ? 'overdue'
-          : 'unpaid'
-      )
-      : 'paid'
-
-    await connection.query(
-      `
-        UPDATE payroll_tax_calculations
-        SET
-          status = 'posted',
-          payroll_date = ?,
-          salary_expense_account_id = ?,
-          cash_account_id = ?,
-          payroll_journal_id = ?
-        WHERE id = ?
-      `,
-      [
-        payrollDate,
-        salaryAccount.id,
-        cashAccount.id,
-        journalId,
-        payroll.id,
-      ],
-    )
-
-    await connection.query(
-      `
-        UPDATE tax_records
-        SET status = ?
-        WHERE id = ?
-      `,
-      [taxStatus, payroll.tax_record_id],
-    )
-
-    await connection.commit()
-
-    const updated = await getPayrollTaxDetail(db, payroll.id)
-
-    res.json({
-      success: true,
-      message:
-        numberValue(payroll.pph21_amount) > 0
-          ? 'Payroll diposting. Gaji bersih dibayarkan dan PPh 21 menjadi Utang Pajak.'
-          : 'Payroll diposting. Tidak ada PPh 21 terutang untuk penghasilan ini.',
-      data: updated,
-    })
-  } catch (error) {
-    if (connection) await connection.rollback()
-
-    res.status(400).json({
-      success: false,
-      message: safePublicMessage(error, 'Gagal memposting payroll.'),
-    })
-  } finally {
-    if (connection) connection.release()
-  }
-})
 
 /*
   ===== KALKULASI PAJAK USAHA =====
@@ -1081,11 +661,10 @@ router.get('/', async (req, res) => {
         OR COALESCE(tax_records.tax_period, '') LIKE ?
         OR COALESCE(tax_records.tax_number, '') LIKE ?
         OR COALESCE(tax_records.notes, '') LIKE ?
-        OR COALESCE(payroll.employee_name, '') LIKE ?
       )`)
 
       const keyword = `%${search}%`
-      params.push(keyword, keyword, keyword, keyword, keyword)
+      params.push(keyword, keyword, keyword, keyword)
     }
 
     const whereClause = whereParts.length
@@ -1104,10 +683,7 @@ router.get('/', async (req, res) => {
             ELSE tax_records.status
           END AS display_status,
           obligation_journal.voucher_number AS obligation_voucher_number,
-          payment_journal.voucher_number AS payment_voucher_number,
-          payroll.id AS payroll_calculation_id,
-          payroll.employee_name AS payroll_employee_name,
-          payroll.status AS payroll_status
+          payment_journal.voucher_number AS payment_voucher_number
         FROM tax_records
         LEFT JOIN journal_entries AS obligation_journal
           ON obligation_journal.source_type = 'tax_record'
@@ -1115,8 +691,6 @@ router.get('/', async (req, res) => {
         LEFT JOIN journal_entries AS payment_journal
           ON payment_journal.source_type = 'tax_payment'
           AND payment_journal.source_id = tax_records.id
-        LEFT JOIN payroll_tax_calculations AS payroll
-          ON payroll.tax_record_id = tax_records.id
         ${whereClause}
         ORDER BY
           FIELD(tax_records.status, 'overdue', 'unpaid', 'draft', 'paid'),
@@ -1172,6 +746,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       tax_type,
+      employee_id,
       tax_period,
       tax_number,
       amount,
@@ -1185,6 +760,17 @@ router.post('/', async (req, res) => {
     const taxAmount = numberValue(amount)
     const dueDate = due_date || null
     const note = String(notes || '').trim() || null
+
+    let employeeId = null
+    if (employee_id !== null && employee_id !== undefined && String(employee_id).trim() !== '') {
+      employeeId = Number.parseInt(employee_id, 10)
+      if (!Number.isInteger(employeeId) || employeeId <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Pegawai yang dipilih tidak valid.',
+        })
+      }
+    }
 
     if (!taxType) {
       return res.status(400).json({
@@ -1214,20 +800,62 @@ router.post('/', async (req, res) => {
       })
     }
 
-    const [result] = await db.query(
-      `
-        INSERT INTO tax_records (
-          tax_type,
-          tax_period,
-          tax_number,
-          amount,
-          due_date,
-          status,
-          notes
-        ) VALUES (?, ?, ?, ?, ?, 'draft', ?)
-      `,
-      [taxType, taxPeriod, taxNumber, taxAmount, dueDate, note],
-    )
+    if (employeeId) {
+      const [employeeRows] = await db.query(
+        'SELECT id FROM employees WHERE id = ? LIMIT 1',
+        [employeeId],
+      )
+
+      if (!employeeRows[0]) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pegawai tidak ditemukan.',
+        })
+      }
+
+      const [duplicateRows] = await db.query(
+        `
+          SELECT id FROM tax_records
+          WHERE employee_id = ? AND tax_period = ? AND tax_type = ?
+          LIMIT 1
+        `,
+        [employeeId, taxPeriod, taxType],
+      )
+
+      if (duplicateRows[0]) {
+        return res.status(422).json({
+          success: false,
+          message: `Pegawai ini sudah punya kewajiban ${taxType} untuk periode ${taxPeriod}. Gunakan/ubah kewajiban yang sudah ada, jangan buat baru.`,
+        })
+      }
+    }
+
+    let result
+    try {
+      ;[result] = await db.query(
+        `
+          INSERT INTO tax_records (
+            tax_type,
+            employee_id,
+            tax_period,
+            tax_number,
+            amount,
+            due_date,
+            status,
+            notes
+          ) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)
+        `,
+        [taxType, employeeId, taxPeriod, taxNumber, taxAmount, dueDate, note],
+      )
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(422).json({
+          success: false,
+          message: `Pegawai ini sudah punya kewajiban ${taxType} untuk periode ${taxPeriod}. Gunakan/ubah kewajiban yang sudah ada, jangan buat baru.`,
+        })
+      }
+      throw error
+    }
 
     const record = await getTaxDetail(db, result.insertId)
 
@@ -1454,22 +1082,6 @@ router.post('/:id/issue', async (req, res) => {
       throw new Error('Kewajiban pajak ini tidak dapat diterbitkan.')
     }
 
-    const [payrollRows] = await connection.query(
-      `
-        SELECT id
-        FROM payroll_tax_calculations
-        WHERE tax_record_id = ?
-        LIMIT 1
-      `,
-      [record.id],
-    )
-
-    if (payrollRows[0]) {
-      throw new Error(
-        'PPh 21 pegawai harus diposting melalui panel Payroll PPh 21 agar jurnal gaji dan potongan pajaknya benar.',
-      )
-    }
-
     const [existingJournalRows] = await connection.query(
       `
         SELECT id
@@ -1649,11 +1261,6 @@ router.post('/:id/pay', async (req, res) => {
         WHERE status = 'posted'
           AND (
             (source_type = 'tax_record' AND source_id = ?)
-            OR (source_type = 'employee_payroll' AND source_id IN (
-            SELECT id
-            FROM payroll_tax_calculations
-            WHERE tax_record_id = ?
-            ))
             OR (source_type = 'payroll' AND source_id IN (
               SELECT id
               FROM payroll_records
@@ -1674,7 +1281,7 @@ router.post('/:id/pay', async (req, res) => {
           )
         LIMIT 1
       `,
-      [record.id, record.id, record.id, record.id, record.id],
+      [record.id, record.id, record.id, record.id],
     )
 
     if (!obligationJournalRows[0]) {

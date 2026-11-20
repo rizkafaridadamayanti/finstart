@@ -305,6 +305,15 @@
                     <div class="flex items-center justify-center gap-1.5 flex-wrap">
                       <template v-if="!t.source_type || t.source_type === 'manual'">
                         <button
+                          v-if="t.journal_status === 'draft' && ['admin', 'administrator', 'finance_manager'].includes(String(userRole || '').toLowerCase())"
+                          type="button"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100"
+                          title="Ubah jurnal draft"
+                          @click="openEditJournalModal(t)"
+                        >
+                          <Pencil class="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           v-if="t.journal_status === 'draft' && ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase())"
                           type="button"
                           class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
@@ -324,10 +333,10 @@
                         </button>
                       </template>
                       <button
-                        v-if="t.journal_status !== null && !['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '').toLowerCase()) && ['admin', 'administrator', 'finance_manager', 'director'].includes(String(userRole || '').toLowerCase()) && (!t.source_type || t.source_type === 'manual')"
+                        v-if="t.journal_status !== null && !['cancelled', 'canceled', 'rejected'].includes(String(t.journal_status || '').toLowerCase()) && (!t.source_type || t.source_type === 'manual') && (t.journal_status === 'draft' ? ['admin', 'administrator', 'finance_manager'] : ['admin', 'administrator', 'finance_manager', 'director']).includes(String(userRole || '').toLowerCase())"
                         type="button"
                         class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
-                        title="Hapus jurnal"
+                        :title="t.journal_status === 'draft' ? 'Hapus jurnal draft' : 'Batalkan jurnal'"
                         @click="requestCancelJournal(t)"
                       >
                         <Trash2 class="w-3.5 h-3.5" />
@@ -561,7 +570,7 @@
         >
           <div>
             <h3 class="text-xl font-extrabold tracking-tight text-[#0B1F4A]">
-              Jurnal Umum
+              {{ editingJournal ? "Ubah Jurnal Umum" : "Jurnal Umum" }}
             </h3>
             <span class="mt-1 block text-sm font-semibold text-slate-500"
               >Pastikan saldo debit dan kredit seimbang.</span
@@ -896,7 +905,13 @@
             class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#0B3A78] px-7 text-sm font-bold text-white shadow transition-all hover:bg-[#082C5A] disabled:cursor-wait disabled:opacity-60"
             @click="handleSaveJournal"
           >
-            {{ isJournalSaving ? "Menyimpan..." : "Simpan Draft Jurnal" }}
+            {{
+              isJournalSaving
+                ? "Menyimpan..."
+                : editingJournal
+                  ? "Simpan Perubahan Jurnal"
+                  : "Simpan Draft Jurnal"
+            }}
           </button>
         </div>
       </div>
@@ -1052,18 +1067,20 @@
     />
     <ConfirmDialog
       :open="!!cancelConfirm"
-      eyebrow="Konfirmasi Pembatalan"
+      :eyebrow="cancelConfirm?.eyebrow || 'Konfirmasi Pembatalan'"
       :title="cancelConfirm?.title || 'Batalkan transaksi?'"
       :message="cancelConfirm?.message || 'Transaksi akan dibatalkan dan status berubah menjadi canceled.'"
       :details="cancelConfirm?.details || []"
-      :impact-items="[
-        'Status transaksi akan berubah menjadi canceled.',
-        'Jurnal terkait akan dibatalkan atau dibalik.',
-      ]"
+      :impact-items="
+        cancelConfirm?.impactItems || [
+          'Status transaksi akan berubah menjadi canceled.',
+          'Jurnal terkait akan dibatalkan atau dibalik.',
+        ]
+      "
       :confirm-label="cancelConfirm?.confirmLabel || 'Batalkan'"
-      require-reason
-      reason-label="Alasan Pembatalan"
-      reason-placeholder="Tulis alasan pembatalan..."
+      :require-reason="cancelConfirm?.requireReason !== false"
+      :reason-label="cancelConfirm?.reasonLabel || 'Alasan Pembatalan'"
+      :reason-placeholder="cancelConfirm?.reasonPlaceholder || 'Tulis alasan pembatalan...'"
       @cancel="closeCancelConfirm"
       @confirm="confirmCancelDocument"
     />
@@ -1092,6 +1109,7 @@ import {
   Filter,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
+import { localNextAccountCode } from "../wireframe/emptyState.ts";
 import {
   buildPrintDocumentHtml,
   escapeHtml,
@@ -1128,6 +1146,9 @@ const {
     updateAccount,
     deleteAccount: deleteAccountAction,
     addTransaction,
+    fetchJournalDetail,
+    updateJournal,
+    deleteJournal,
     approveJournal,
     postJournal,
     cancelJournal,
@@ -1308,13 +1329,20 @@ const ACCOUNT_TYPE_TO_API: Record<TipeAkun, string> = {
 };
 
 async function fetchNextAccountCode(tipe: TipeAkun) {
+  const type = ACCOUNT_TYPE_TO_API[tipe] || "asset";
   try {
-    const result = await financeApi.get("/accounts/next-code", {
-      type: ACCOUNT_TYPE_TO_API[tipe] || "asset",
-    });
-    nextAccountCodePreview.value = result?.code || "";
+    const result = await financeApi.get("/accounts/next-code", { type });
+    nextAccountCodePreview.value =
+      result?.code ||
+      localNextAccountCode(
+        type,
+        akun.map((item: any) => item.kode),
+      );
   } catch {
-    nextAccountCodePreview.value = "";
+    nextAccountCodePreview.value = localNextAccountCode(
+      type,
+      akun.map((item: any) => item.kode),
+    );
   }
 }
 
@@ -1387,6 +1415,8 @@ function accountCodeExists(code: string) {
 const editingAccount = ref<any>(null); // Add Journal Entry Form State
 const isJournalModalOpen = ref(false),
   updateIsJournalModalOpen = (next) => (isJournalModalOpen.value = next);
+const editingJournal = ref<any>(null);
+const isJournalDetailLoading = ref(false);
 const voucherNo = ref(
     `RV-${new Date().getFullYear()}${transaksi.length + 101}`,
   ),
@@ -1439,9 +1469,15 @@ const resetJournalFormErrors = () => {
 };
 
 const openJournalModal = () => {
+  editingJournal.value = null;
+  updateMemo("");
+  updateJournalDivisionId("");
+  updateDebitLines([{ kode: "", nominal: 0 }]);
+  updateCreditLines([{ kode: "", nominal: 0 }]);
+
   const year = new Date().getFullYear();
   const prefix = `RV-${year}`;
-  
+
   // Find all vouchers with the current year prefix
   const existingVouchers = props.transaksi
     .map(t => t.refVoucher)
@@ -1451,17 +1487,59 @@ const openJournalModal = () => {
       return Number(numberPart);
     })
     .filter(n => !isNaN(n));
-  
+
   const maxNumber = existingVouchers.length > 0 ? Math.max(...existingVouchers) : 100;
   const nextNumber = maxNumber + 1;
-  
+
   voucherNo.value = `${prefix}${nextNumber}`;
   resetJournalFormErrors();
   updateIsJournalModalOpen(true);
 };
 
+const openEditJournalModal = async (transaction: any) => {
+  if (isJournalDetailLoading.value) return;
+  isJournalDetailLoading.value = true;
+  try {
+    const detail = await fetchJournalDetail(transaction);
+    if (!detail) return;
+
+    const lines = Array.isArray(detail.lines) ? detail.lines : [];
+    const debitRows = lines
+      .filter((line: any) => Number(line.debit) > 0)
+      .map((line: any) => ({
+        kode: line.account_code,
+        nominal: Number(line.debit),
+      }));
+    const creditRows = lines
+      .filter((line: any) => Number(line.credit) > 0)
+      .map((line: any) => ({
+        kode: line.account_code,
+        nominal: Number(line.credit),
+      }));
+
+    editingJournal.value = { id: detail.id, journal_id: detail.id };
+    resetJournalFormErrors();
+    updateVoucherNo(detail.voucher_number || "");
+    journalDateInput.value = detail.transaction_date
+      ? String(detail.transaction_date).slice(0, 10)
+      : new Date().toISOString().split("T")[0];
+    updateJournalDivisionId(
+      detail.division_id ? String(detail.division_id) : "",
+    );
+    updateMemo(detail.description || "");
+    updateDebitLines(debitRows.length ? debitRows : [{ kode: "", nominal: 0 }]);
+    updateCreditLines(
+      creditRows.length ? creditRows : [{ kode: "", nominal: 0 }],
+    );
+    updateIsJournalModalOpen(true);
+  } finally {
+    isJournalDetailLoading.value = false;
+  }
+};
+
 const closeJournalModal = () => {
   resetJournalFormErrors();
+  editingJournal.value = null;
   updateIsJournalModalOpen(false);
 };
 
@@ -1759,10 +1837,14 @@ const handleSaveJournal = async () => {
   };
   isJournalSaving.value = true;
   try {
-    await addTransaction(transactionItem);
+    if (editingJournal.value) {
+      await updateJournal(editingJournal.value, transactionItem);
+    } else {
+      await addTransaction(transactionItem);
+    }
     updateIsJournalModalOpen(false);
+    editingJournal.value = null;
     resetJournalForm();
-    notify("Jurnal draft berhasil dibuat dan menunggu approval pengguna lain.");
   } finally {
     isJournalSaving.value = false;
   }
@@ -1963,28 +2045,60 @@ function closeCancelConfirm() {
 }
 
 const requestCancelJournal = (transaction: any) => {
-  cancelConfirm.value = {
-    type: "journal",
-    item: transaction,
-    title: "Batalkan jurnal?",
-    message:
-      "Jurnal akan dibatalkan dan status berubah menjadi canceled. Jika sudah diposting, saldo akun akan dibalik.",
-    details: [
-      { label: "Voucher", value: transaction.refVoucher || "-" },
-      { label: "Keterangan", value: transaction.keterangan || "-" },
-      { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
-    ],
-    confirmLabel: "Batalkan Jurnal",
-    reasonLabel: "Alasan Pembatalan",
-    reasonPlaceholder: "Contoh: Jurnal salah dibuat",
-  };
+  const isDraft = transaction.journal_status === "draft";
+
+  cancelConfirm.value = isDraft
+    ? {
+        mode: "delete",
+        item: transaction,
+        eyebrow: "Konfirmasi Penghapusan",
+        title: "Hapus jurnal draft?",
+        message:
+          "Jurnal draft akan dihapus permanen dari database. Karena belum pernah disetujui atau diposting, saldo akun tidak terpengaruh. Tindakan ini tidak bisa dibatalkan.",
+        details: [
+          { label: "Voucher", value: transaction.refVoucher || "-" },
+          { label: "Keterangan", value: transaction.keterangan || "-" },
+          { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
+        ],
+        impactItems: [
+          "Baris jurnal akan dihapus permanen, bukan sekadar dibatalkan.",
+          "Saldo akun tidak berubah karena jurnal belum pernah diposting.",
+        ],
+        confirmLabel: "Hapus Jurnal",
+        requireReason: false,
+      }
+    : {
+        mode: "void",
+        item: transaction,
+        eyebrow: "Konfirmasi Pembatalan",
+        title: "Batalkan jurnal?",
+        message:
+          "Jurnal akan dibatalkan dan status berubah menjadi canceled. Jika sudah diposting, saldo akun akan dibalik.",
+        details: [
+          { label: "Voucher", value: transaction.refVoucher || "-" },
+          { label: "Keterangan", value: transaction.keterangan || "-" },
+          { label: "Nominal", value: formatRupiah(transaction.nominal || 0) },
+        ],
+        impactItems: [
+          "Status transaksi akan berubah menjadi canceled.",
+          "Jurnal terkait akan dibatalkan atau dibalik.",
+        ],
+        confirmLabel: "Batalkan Jurnal",
+        requireReason: true,
+        reasonLabel: "Alasan Pembatalan",
+        reasonPlaceholder: "Contoh: Jurnal salah dibuat",
+      };
 };
 
 const confirmCancelDocument = async (reason = "") => {
   const action = cancelConfirm.value;
   if (!action) return;
   cancelConfirm.value = null;
-  await cancelJournal(action.item, reason);
+  if (action.mode === "delete") {
+    await deleteJournal(action.item);
+  } else {
+    await cancelJournal(action.item, reason);
+  }
 };
 
 </script>

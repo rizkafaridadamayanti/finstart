@@ -669,11 +669,31 @@ async function processPayrollRecord(input) {
     let taxRecordId = null
     if (pph21Amount > 0) {
       const dueDate = `${payrollPeriod}-01`
-      const [taxResult] = await connection.query(
-        `INSERT INTO tax_records (tax_type, tax_period, amount, due_date, status, notes) VALUES ('PPh 21', ?, ?, ?, 'unpaid', ?)`,
-        [payrollPeriod, pph21Amount, dueDate, `PPh 21 payroll ${employee.employee_name}; PTKP ${employee.ptkp_status || 'TK/0'}.`],
+      const [existingTaxRows] = await connection.query(
+        `SELECT id FROM tax_records WHERE employee_id = ? AND tax_period = ? AND tax_type = 'PPh 21' LIMIT 1 FOR UPDATE`,
+        [employeeId, payrollPeriod],
       )
-      taxRecordId = taxResult.insertId
+      if (existingTaxRows[0]) {
+        // Kewajiban PPh 21 pegawai ini untuk periode ini sudah tercatat (manual atau dari proses
+        // payroll sebelumnya) — pakai baris yang sama supaya tidak muncul dobel di modul Pajak
+        // dan tidak bisa disetor dua kali.
+        taxRecordId = existingTaxRows[0].id
+      } else {
+        try {
+          const [taxResult] = await connection.query(
+            `INSERT INTO tax_records (tax_type, employee_id, tax_period, amount, due_date, status, notes) VALUES ('PPh 21', ?, ?, ?, ?, 'unpaid', ?)`,
+            [employeeId, payrollPeriod, pph21Amount, dueDate, `PPh 21 payroll ${employee.employee_name}; PTKP ${employee.ptkp_status || 'TK/0'}.`],
+          )
+          taxRecordId = taxResult.insertId
+        } catch (error) {
+          if (error.code !== 'ER_DUP_ENTRY') throw error
+          const [raceRows] = await connection.query(
+            `SELECT id FROM tax_records WHERE employee_id = ? AND tax_period = ? AND tax_type = 'PPh 21' LIMIT 1`,
+            [employeeId, payrollPeriod],
+          )
+          taxRecordId = raceRows[0]?.id || null
+        }
+      }
     }
     const [recordResult] = await connection.query(
       `

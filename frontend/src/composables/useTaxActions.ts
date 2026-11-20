@@ -22,22 +22,58 @@ export function useTaxActions({
   const createTax = async (item: any) =>
     withApiFeedback(
       async () => {
-        const created = await financeApi.post("/taxes", {
+        await financeApi.post("/taxes", {
           tax_type: item.jenis,
+          employee_id: item.employeeId || null,
           tax_period: normalizePeriod(item.masaPajak),
           amount: toNumber(item.nominal),
           due_date: item.jatuhTempo || todayIso(),
           notes: item.catatan || "",
         });
+        await refreshData({ bumpVersion: false });
+        notify(
+          "Draft kewajiban pajak berhasil disimpan. Posting untuk membuat jurnalnya.",
+        );
+      },
+      "Gagal menyimpan kewajiban pajak.",
+      notify,
+    );
+
+  const issueTax = async (tax: any) =>
+    withApiFeedback(
+      async () => {
         const expense = pickAccount(accounts, "5002", "Beban");
         await financeApi.post(
-          `/taxes/${created.id}/issue`,
+          `/taxes/${tax.id}/issue`,
           expense ? { expense_account_id: Number(expense.id) } : {},
         );
         await refreshData({ bumpVersion: false });
-        notify("Kewajiban pajak berhasil disimpan dan diposting.");
+        notify(`Kewajiban ${tax.jenis} berhasil diposting.`);
       },
-      "Gagal menyimpan kewajiban pajak.",
+      "Gagal memposting kewajiban pajak.",
+      notify,
+    );
+
+  const getVatSummary = async (period: string) =>
+    financeApi.get("/tax-engine/vat", { period: normalizePeriod(period) });
+
+  const closeVatPeriod = async (params: {
+    period: string;
+    dueDate?: string;
+    notes?: string;
+  }) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.post("/tax-engine/vat/close", {
+          period: normalizePeriod(params.period),
+          due_date: params.dueDate || null,
+          notes: params.notes || "",
+        });
+        await refreshData({ bumpVersion: false });
+        notify(`Masa PPN ${params.period} berhasil ditutup.`);
+        return true;
+      },
+      "Gagal menutup masa PPN.",
       notify,
     );
 
@@ -50,7 +86,12 @@ export function useTaxActions({
           "Aset",
         );
         if (!cash) throw new Error("Akun kas/bank belum tersedia.");
-        await financeApi.post(`/taxes/${tax.id}/issue`, {});
+        // Kewajiban yang jurnalnya sudah terbit (mis. PPh 21 yang disetor
+        // setelah diposting lewat jurnal gabungan payroll) tidak boleh
+        // diterbitkan lagi, jadi langsung proceed ke setoran.
+        if (String(tax?.rawStatus || tax?.status || "") === "draft") {
+          await financeApi.post(`/taxes/${tax.id}/issue`, {});
+        }
         await financeApi.post(`/taxes/${tax.id}/pay`, {
           payment_date:
             payment.paymentDate || todayIso(),
@@ -66,5 +107,11 @@ export function useTaxActions({
       notify,
     );
 
-  return { createTax, payTax };
+  return {
+    createTax,
+    issueTax,
+    payTax,
+    getVatSummary,
+    closeVatPeriod,
+  };
 }

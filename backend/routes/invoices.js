@@ -647,6 +647,14 @@ router.get('/', async (req, res) => {
               AND transaction_taxes.tax_type = 'PPN_OUTPUT'
             LIMIT 1
           ), 0) AS ppn_amount,
+          COALESCE((
+            SELECT transaction_taxes.tax_rate
+            FROM transaction_taxes
+            WHERE transaction_taxes.source_type = 'invoice'
+              AND transaction_taxes.source_id = invoices.id
+              AND transaction_taxes.tax_type = 'PPN_OUTPUT'
+            LIMIT 1
+          ), 0) AS ppn_rate,
           GREATEST(invoices.total_amount - invoices.paid_amount, 0) AS outstanding_amount,
           CASE
             WHEN invoices.status IN ('unpaid', 'partial')
@@ -676,6 +684,8 @@ router.get('/', async (req, res) => {
       data: rows.map((invoice) => ({
         ...invoice,
         ppn_amount: numberValue(invoice.ppn_amount),
+        ppn_rate: numberValue(invoice.ppn_rate),
+        ppn_enabled: numberValue(invoice.ppn_amount) > 0,
         dpp_amount: money(numberValue(invoice.total_amount) - numberValue(invoice.ppn_amount)),
         total_amount: numberValue(invoice.total_amount),
         paid_amount: numberValue(invoice.paid_amount),

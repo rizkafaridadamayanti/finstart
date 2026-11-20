@@ -17,7 +17,7 @@ import {
   mapSubscription,
   mapTax,
 } from "../services/financeMappers.js";
-
+import { EMPTY_DATA_MODE, createEmptyData } from "../wireframe/emptyState.ts";
 const ACTIVE_TAB_KEY = "finstart-ui-active-tab";
 const VALID_TABS = [
   "dashboard",
@@ -320,6 +320,56 @@ export function useFinStartApp() {
     target.value = Array.isArray(values) ? [...values] : [];
   }
 
+  // Mode data kosong: seluruh isi layar dibiarkan kosong supaya aplikasi tampil
+  // seperti wireframe tanpa data, jadi data asli tidak pernah masuk ke UI
+  // (matikan lewat VITE_EMPTY_DATA_MODE=false).
+  function applyEmptyData(period?: string) {
+    const data = createEmptyData();
+    const activePeriod = /^\d{4}-\d{2}$/.test(String(period || ""))
+      ? String(period)
+      : data.reportPeriod;
+
+    replaceList(klien, []);
+    replaceList(proyek, []);
+    replaceList(transaksi, []);
+    replaceList(langganan, []);
+    replaceList(assets, []);
+    replaceList(invoices, []);
+    replaceList(bills, []);
+    replaceList(taxes, []);
+    replaceList(pegawai, []);
+    replaceList(divisions, []);
+    Object.assign(taxSummary.value, data.taxSummary);
+    Object.assign(taxCalculation.value, data.taxCalculation);
+    Object.assign(dashboardSummary.value, data.dashboardSummary);
+    Object.assign(projectionData.value, data.projectionData);
+    reportData.value = { ...data.reportData, period: activePeriod };
+    reportError.value = "";
+    availableReportPeriods.value = data.reportPeriods;
+    selectedReportPeriod.value = activePeriod;
+    notifications.value = [];
+    dataVersion.value += 1;
+  }
+
+  // Buku Besar tetap memakai COA: daftar akun dibaca dari backend supaya COA
+  // bisa ditambah/diubah seperti semula, tapi saldo dinolkan agar tidak ada
+  // angka keuangan asli yang tampil. Kalau backend tidak aktif, dipakai COA
+  // standar dari src/wireframe/emptyState.ts.
+  async function loadSeedAccounts() {
+    const seed = createEmptyData().accounts;
+    try {
+      const rows = await financeApi.get("/accounts");
+      const list = Array.isArray(rows) ? rows : [];
+      const source = list.length ? list : seed;
+      replaceList(
+        akun,
+        source.map((row: any) => ({ ...mapAccount(row), saldo: 0 })),
+      );
+    } catch {
+      replaceList(akun, seed.map((row: any) => ({ ...mapAccount(row), saldo: 0 })));
+    }
+  }
+
   async function loadReportData(
     period: string,
     options: { silent?: boolean } = {},
@@ -329,6 +379,10 @@ export function useFinStartApp() {
       : currentPeriod();
 
     reportError.value = "";
+    if (EMPTY_DATA_MODE) {
+      applyEmptyData(resolvedPeriod);
+      return true;
+    }
     try {
       const data = await financeApi.get("/reports", { period: resolvedPeriod });
       reportData.value = data || {
@@ -367,6 +421,12 @@ export function useFinStartApp() {
   async function loadFinancialData(
     options: { silent?: boolean; bumpVersion?: boolean } = {},
   ) {
+    if (EMPTY_DATA_MODE) {
+      applyEmptyData();
+      await loadSeedAccounts();
+      return true;
+    }
+
     const period = currentPeriod();
     const year = new Date().getFullYear();
 

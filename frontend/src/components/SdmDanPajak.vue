@@ -1216,6 +1216,173 @@
             <p
               class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A8CA8]"
             >
+              Penutupan Masa
+            </p>
+            <h2 class="mt-1 text-base font-semibold text-[#102A56]">
+              Ringkasan &amp; Tutup Masa PPN
+            </h2>
+            <p class="mt-1 text-[12px] leading-5 text-[#6B7A90]">
+              Dihitung dari PPN Keluaran/Masukan pada invoice dan tagihan
+              vendor yang sudah terbit di masa terpilih.
+            </p>
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-medium text-[#7A8CA8]"
+              >Masa Pajak</label
+            ><select
+              :value="vatClosing.period"
+              class="h-11 w-full min-w-[200px] rounded-xl border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+              @change="updateVatClosing({
+                    ...vatClosing,
+                    period: eventValue($event),
+                  })"
+            >
+              <option
+                v-for="period in recentTaxPeriods()"
+                :key="period"
+                :value="period"
+              >
+                {{ formatPeriodLabel(period) }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-4 p-5">
+          <p
+            v-if="vatSummaryError"
+            class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700"
+          >
+            {{ vatSummaryError }}
+          </p>
+          <div v-else class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div
+              class="rounded-xl border border-[#E6EEF7] bg-[#FBFCFE] px-3.5 py-3"
+            >
+              <p class="text-[10px] font-medium text-[#8A99AD]">
+                PPN Keluaran
+              </p>
+              <p class="mt-1 text-sm font-semibold text-[#102A56]">
+                {{
+                  isLoadingVatSummary
+                    ? "…"
+                    : formatRupiah(Number(vatSummary?.output_vat || 0))
+                }}
+              </p>
+            </div>
+            <div
+              class="rounded-xl border border-[#E6EEF7] bg-[#FBFCFE] px-3.5 py-3"
+            >
+              <p class="text-[10px] font-medium text-[#8A99AD]">
+                PPN Masukan
+              </p>
+              <p class="mt-1 text-sm font-semibold text-[#102A56]">
+                {{
+                  isLoadingVatSummary
+                    ? "…"
+                    : formatRupiah(Number(vatSummary?.input_vat || 0))
+                }}
+              </p>
+            </div>
+            <div
+              class="rounded-xl border border-[#D7E8FA] bg-[#F7FBFF] px-3.5 py-3"
+            >
+              <p class="text-[10px] font-medium text-[#6983A4]">
+                Selisih ({{ vatPositionLabel }})
+              </p>
+              <p class="mt-1 text-sm font-semibold text-[#1E5AA8]">
+                {{
+                  isLoadingVatSummary
+                    ? "…"
+                    : formatRupiah(Math.abs(Number(vatSummary?.net_vat || 0)))
+                }}
+              </p>
+            </div>
+            <div
+              class="rounded-xl border border-[#E6EEF7] bg-[#FBFCFE] px-3.5 py-3"
+            >
+              <p class="text-[10px] font-medium text-[#8A99AD]">
+                Status Masa
+              </p>
+              <p
+                :class="`mt-1 text-sm font-semibold ${isVatPeriodClosed ? 'text-emerald-700' : 'text-amber-600'}`"
+              >
+                {{ isVatPeriodClosed ? "Sudah Ditutup" : "Masih Terbuka" }}
+              </p>
+            </div>
+          </div>
+          <div
+            v-if="isVatPeriodClosed"
+            class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-800"
+          >
+            Masa {{ formatPeriodLabel(vatClosing.period) }} sudah ditutup
+            dengan status
+            {{
+              vatSummary?.closing?.status === "payable"
+                ? "kurang bayar"
+                : "lebih bayar"
+            }}. Kewajiban setoran otomatis tersedia di daftar kewajiban pajak
+            di bawah.
+          </div>
+          <template v-else>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-medium text-[#7A8CA8]"
+                  >Jatuh Tempo Setoran</label
+                ><input
+                  type="date"
+                  :value="vatClosing.dueDate"
+                  class="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                  @change="updateVatClosing({
+                        ...vatClosing,
+                        dueDate: eventValue($event),
+                      })"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-medium text-[#7A8CA8]"
+                  >Catatan (opsional)</label
+                ><input
+                  type="text"
+                  :value="vatClosing.notes"
+                  placeholder="Catatan penutupan masa"
+                  class="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-[12px] font-medium text-[#243650] outline-none focus:border-[#1E5AA8] focus:ring-4 focus:ring-[#1E5AA8]/10"
+                  @change="updateVatClosing({
+                        ...vatClosing,
+                        notes: eventValue($event),
+                      })"
+                />
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                :disabled="!canCloseVatPeriod || isClosingVat"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B3A78] px-5 text-[12px] font-semibold text-white shadow-[0_8px_18px_rgba(11,31,74,0.16)] transition hover:bg-[#082C5A] disabled:cursor-not-allowed disabled:opacity-50"
+                @click="requestCloseVatPeriod"
+              >
+                <Lock class="h-4 w-4" /> Tutup Masa PPN
+              </button>
+            </div>
+            <p
+              v-if="!canCloseVatPeriod && !isLoadingVatSummary"
+              class="text-right text-[11px] text-[#8A98AB]"
+            >
+              Belum ada PPN Keluaran/Masukan posted (dari invoice/tagihan yang
+              sudah terbit) pada masa ini.
+            </p>
+          </template>
+        </div>
+      </section>
+      <section
+        class="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_10px_28px_rgba(16,42,86,0.045)]"
+      >
+        <div
+          class="flex flex-col gap-3 border-b border-[#E8EEF7] px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div>
+            <p
+              class="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7A8CA8]"
+            >
               Kalkulasi Otomatis
             </p>
             <h2 class="mt-1 text-base font-semibold text-[#102A56]">
@@ -1570,7 +1737,9 @@
                     <td class="px-3 py-3.5 text-center">
                       <span
                         :class="taxStatusBadgeClass(tax)"
-                        ><template v-if="tax.status === 'Belum Setor'"
+                        ><template v-if="tax.rawStatus === 'draft'"
+                          >Draft</template
+                        ><template v-else-if="tax.status === 'Belum Setor'"
                           >Belum Dibayar</template
                         ><template v-else>Sudah Disetor</template></span
                       >
@@ -1612,9 +1781,20 @@
                           <Trash2 class="h-3.5 w-3.5" />
                         </button>
                         <button
+                          v-if="taxTableTab === 'unpaid' && tax.rawStatus === 'draft'"
+                          type="button"
+                          :disabled="isTaxIssuing"
+                          class="tax-action-button border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:cursor-wait disabled:opacity-60"
+                          title="Posting kewajiban pajak"
+                          aria-label="Posting kewajiban pajak"
+                          @click="handleIssueTax(tax)"
+                        >
+                          <Send class="h-3.5 w-3.5" />
+                        </button>
+                        <button
                           v-if="taxTableTab === 'unpaid'"
                           type="button"
-                          :disabled="tax.status !== 'Belum Setor'"
+                          :disabled="tax.status !== 'Belum Setor' || tax.rawStatus === 'draft'"
                           class="tax-action-button border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-[#E2E8F0] disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]"
                           title="Setor pajak"
                           aria-label="Setor pajak"
@@ -1844,6 +2024,47 @@
                 @click="handleDeleteTax"
               >
                 {{ isTaxDeleting ? "Menghapus..." : "Hapus" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+    <Teleport v-if="isVatCloseConfirmOpen" to="body">
+      <div
+        class="fixed inset-0 z-[10090] flex items-center justify-center overflow-y-auto bg-[#111827]/55 p-4 backdrop-blur-sm"
+      >
+        <div class="w-full max-w-[440px] overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-2xl">
+          <div class="px-5 py-5">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#B86A00]">
+              Konfirmasi Penutupan
+            </p>
+            <h3 class="mt-1 text-base font-semibold text-[#102A56]">
+              Tutup masa PPN {{ formatPeriodLabel(vatClosing.period) }}?
+            </h3>
+            <p class="mt-2 text-[12px] leading-5 text-[#64748B]">
+              Sistem akan membuat kewajiban PPN sebesar
+              {{ formatRupiah(Math.abs(Number(vatSummary?.net_vat || 0))) }}
+              ({{ vatPositionLabel }}) beserta jurnal otomatisnya. Masa yang
+              sudah ditutup tidak bisa dibuka lagi dan invoice/tagihan baru
+              dengan PPN pada masa ini akan ditolak; koreksi harus lewat
+              jurnal terpisah.
+            </p>
+            <div class="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                class="h-10 rounded-lg border border-[#DCE7F4] bg-white px-4 text-[12px] font-semibold text-[#64748B] hover:bg-[#F8FBFE]"
+                @click="cancelCloseVatPeriod"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                :disabled="isClosingVat"
+                class="h-10 rounded-lg bg-[#0B3A78] px-4 text-[12px] font-semibold text-white hover:bg-[#082C5A] disabled:opacity-60"
+                @click="confirmCloseVatPeriod"
+              >
+                {{ isClosingVat ? "Menutup..." : "Tutup Masa PPN" }}
               </button>
             </div>
           </div>
@@ -3705,7 +3926,7 @@
                 ><template
                   v-else-if="isExistingTaxSourceSelected()"
                   >Gunakan Kewajiban Terpilih</template
-                ><template v-else>Simpan &amp; Terbitkan Kewajiban</template>
+                ><template v-else>Simpan sebagai Draft</template>
               </button>
             </div>
           </form>
@@ -3837,6 +4058,8 @@ import {
   BriefcaseBusiness,
   Power,
   Banknote,
+  Send,
+  Lock,
 } from "lucide-vue-next";
 import { formatRupiah } from "../data.ts";
 import { Pegawai, AkunBukuBesar } from "../types.ts";
@@ -3980,7 +4203,13 @@ const {
 const {
   notify,
   refreshData,
-  tax: { createTax, payTax },
+  tax: {
+    createTax,
+    issueTax,
+    payTax,
+    getVatSummary,
+    closeVatPeriod,
+  },
 } = useFinStartContext();
 const activeTab = ref(activeSection === "perpajakan" ? "pajak" : "sdm");
 const isBpjsView = computed(() => activeSection === "sdm-bpjs");
@@ -4203,10 +4432,78 @@ const taxCalculation = ref({
     taxCalculation.value = next;
     hasCalculatedDraft.value = false;
   };
+
+const vatClosing = ref({
+    period: currentPayrollPeriod(),
+    dueDate: currentTaxDueDate(),
+    notes: "",
+  }),
+  updateVatClosing = (next) => (vatClosing.value = next);
+const vatSummary = ref<any>(null);
+const isLoadingVatSummary = ref(false);
+const isClosingVat = ref(false);
+const vatSummaryError = ref("");
+const isVatCloseConfirmOpen = ref(false);
+
+async function loadVatSummary() {
+  isLoadingVatSummary.value = true;
+  vatSummaryError.value = "";
+  try {
+    vatSummary.value = await getVatSummary(vatClosing.value.period);
+  } catch (error) {
+    vatSummary.value = null;
+    vatSummaryError.value = getApiErrorMessage(
+      error,
+      "Ringkasan PPN masa tidak dapat dimuat.",
+    );
+  } finally {
+    isLoadingVatSummary.value = false;
+  }
+}
+watch(() => vatClosing.value.period, loadVatSummary, { immediate: true });
+
+const isVatPeriodClosed = computed(() => Boolean(vatSummary.value?.closing));
+const vatPosition = computed(() => vatSummary.value?.position || "zero");
+const vatPositionLabel = computed(() => {
+  if (vatPosition.value === "payable") return "Kurang Bayar";
+  if (vatPosition.value === "credit") return "Lebih Bayar";
+  return "Nihil";
+});
+const canCloseVatPeriod = computed(
+  () =>
+    !isVatPeriodClosed.value &&
+    (Number(vatSummary.value?.output_vat || 0) > 0 ||
+      Number(vatSummary.value?.input_vat || 0) > 0),
+);
+
+function requestCloseVatPeriod() {
+  isVatCloseConfirmOpen.value = true;
+}
+function cancelCloseVatPeriod() {
+  isVatCloseConfirmOpen.value = false;
+}
+async function confirmCloseVatPeriod() {
+  isClosingVat.value = true;
+  try {
+    const ok = await closeVatPeriod({
+      period: vatClosing.value.period,
+      dueDate: vatClosing.value.dueDate,
+      notes: vatClosing.value.notes,
+    });
+    if (ok) {
+      isVatCloseConfirmOpen.value = false;
+      updateVatClosing({ ...vatClosing.value, notes: "" });
+      await loadVatSummary();
+    }
+  } finally {
+    isClosingVat.value = false;
+  }
+}
 const manualTaxForm = ref({
   jenis: "PPh 21" as PajakKewajiban["jenis"],
   period: currentPayrollPeriod(),
   sourceId: "",
+  employeeId: null as number | null,
   subjectName: "",
   subjectIdentity: "",
   taxObject: "Gaji, upah, honorarium, atau imbalan",
@@ -4319,6 +4616,7 @@ const selectManualTaxType = (type: PajakKewajiban["jenis"]) => {
     ...manualTaxForm.value,
     jenis: type,
     sourceId: "",
+    employeeId: null,
     subjectName: "",
     subjectIdentity: "",
     taxObject: selected?.defaultObject || "",
@@ -4348,8 +4646,31 @@ const employeeCode = (employee: any) => {
   return raw.employee_code || employee?.id || "";
 };
 
-const employeeTaxOptions = () =>
-  pegawai
+const employeeTaxOptions = () => {
+  const period = manualTaxForm.value.period;
+  const taxesThisPeriod = taxes.value.filter(
+    (tax: any) => tax.jenis === "PPh 21" && tax.rawPeriod === period,
+  );
+  // employeeId (kolom employee_id) adalah sumber kebenaran untuk data baru.
+  // Pencocokan teks "Referensi:" dipertahankan sebagai fallback untuk record
+  // lama yang dibuat sebelum kolom employee_id ada.
+  const employeeIdsWithTax = new Set(
+    taxesThisPeriod
+      .map((tax: any) => tax.employeeId)
+      .filter((id: any) => Number.isFinite(id) && id > 0),
+  );
+  const employeeCodesWithTax = new Set(
+    taxesThisPeriod
+      .map((tax: any) => {
+        const match = String(tax._raw?.notes || "").match(
+          /Referensi:\s*([^.]+)\./,
+        );
+        return match ? match[1].trim() : "";
+      })
+      .filter(Boolean),
+  );
+
+  return pegawai
     .filter(
       (employee: any) =>
         String(
@@ -4358,12 +4679,18 @@ const employeeTaxOptions = () =>
             "active",
         ).toLowerCase() !== "inactive",
     )
+    .filter(
+      (employee: any) =>
+        !employeeIdsWithTax.has(employee.dbId) &&
+        !employeeCodesWithTax.has(employeeCode(employee)),
+    )
     .map((employee: any) => ({
       id: `employee:${employee.id}`,
       label: `${employee.nama || "-"}${employee.jabatan ? ` - ${employee.jabatan}` : ""}`,
       description: `${employeeCode(employee) || "Tanpa kode"} · ${formatRupiah(employeeTaxBase(employee))}`,
       employee,
     }));
+};
 
 const existingTaxOptions = () =>
   taxes.value
@@ -4434,6 +4761,7 @@ const applyManualTaxSource = (sourceId: string) => {
     updateManualTaxForm({
       ...manualTaxForm.value,
       sourceId: "",
+      employeeId: null,
       subjectName: "",
       subjectIdentity: "",
       taxBase: 0,
@@ -4448,6 +4776,7 @@ const applyManualTaxSource = (sourceId: string) => {
     updateManualTaxForm({
       ...manualTaxForm.value,
       sourceId,
+      employeeId: employee.dbId || null,
       subjectName: employee.nama || "",
       subjectIdentity: employeeIdentity(employee),
       taxObject: "Gaji, upah, honorarium, atau imbalan",
@@ -4462,8 +4791,9 @@ const applyManualTaxSource = (sourceId: string) => {
     updateManualTaxForm({
       ...manualTaxForm.value,
       sourceId,
+      employeeId: null,
       period: tax.masaPajak || manualTaxForm.value.period,
-      subjectName: tax._raw?.payroll_employee_name || tax.jenis || "",
+      subjectName: tax.jenis || "",
       subjectIdentity: tax.ntpn || tax._raw?.tax_number || "",
       taxObject: taxDescription(tax.jenis, tax.masaPajak),
       taxBase: asNumber(tax.nominal),
@@ -4478,6 +4808,7 @@ const applyManualTaxSource = (sourceId: string) => {
   updateManualTaxForm({
     ...manualTaxForm.value,
     sourceId,
+    employeeId: null,
     subjectName: selected.label,
     subjectIdentity: "",
     taxObject: selected.taxObject,
@@ -4497,6 +4828,7 @@ const resetManualTaxForm = () => {
     jenis: "PPh 21",
     period: currentPayrollPeriod(),
     sourceId: "",
+    employeeId: null,
     subjectName: "",
     subjectIdentity: "",
     taxObject: "Gaji, upah, honorarium, atau imbalan",
@@ -5257,6 +5589,16 @@ const openTaxPaymentForTax = (tax: any) => {
   updateTaxPaymentAccount(taxPaymentCashAccounts.value[0]?.kode || "1001");
   updateIsTaxPayModalOpen(true);
 };
+const isTaxIssuing = ref(false);
+const handleIssueTax = async (tax: any) => {
+  if (isTaxIssuing.value) return;
+  isTaxIssuing.value = true;
+  try {
+    await issueTax(tax);
+  } finally {
+    isTaxIssuing.value = false;
+  }
+};
 const taxInputPeriod = (tax: any) => {
   const rawPeriod = tax?._raw?.tax_period || tax?.rawPeriod || "";
   if (/^\d{4}-\d{2}$/.test(String(rawPeriod))) return rawPeriod;
@@ -5341,6 +5683,7 @@ const handleDeleteTax = async () => {
     isTaxDeleting.value = false;
   }
 };
+
 const taxPaymentAccount = ref("1001"),
   updateTaxPaymentAccount = (next) => (taxPaymentAccount.value = next); // Submit tax settlement
 const isTaxPaymentSubmitting = ref(false);
@@ -5438,6 +5781,7 @@ const handleSaveManualTax = async (event: Event) => {
   try {
     await createTax({
       jenis,
+      employeeId: manualTaxForm.value.employeeId,
       masaPajak: manualTaxForm.value.period,
       nominal,
       jatuhTempo: manualTaxForm.value.dueDate,
@@ -6569,6 +6913,9 @@ const taxDescription = (jenis: PajakKewajiban["jenis"], masaPajak: string) => {
 const taxStatusBadgeClass = (tax: any) => {
   const base =
     "mx-auto inline-flex min-w-[104px] items-center justify-center whitespace-nowrap rounded-full px-3 py-1.5 text-center text-[10px] font-semibold leading-none";
+  if (tax.rawStatus === "draft") {
+    return `${base} border border-slate-200 bg-slate-50 text-slate-600`;
+  }
   return tax.status === "Belum Setor"
     ? `${base} border border-amber-200 bg-amber-50 text-amber-700`
     : `${base} border border-emerald-200 bg-emerald-50 text-emerald-700`;

@@ -176,16 +176,26 @@
                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
                         @click="issueInvoice(inv)"
                       >
-                        <Send class="h-3.5 w-3.5" /></button></template
+                        <Send class="h-3.5 w-3.5" /></button
+                      ><button
+                        type="button"
+                        :aria-label="`Hapus invoice draft ${inv.nomor}`"
+                        title="Hapus draft"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                        @click="requestDeleteInvoice(inv)"
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                      </button></template
                     ><button
                       v-if="
+                        inv.rawStatus !== 'draft' &&
                         !['paid', 'cancelled'].includes(
                           String(inv.rawStatus || ''),
                         )
                       "
                       type="button"
                       :aria-label="`Batalkan invoice ${inv.nomor}`"
-                      title="Batalkan"
+                      title="Batalkan (void)"
                       class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                       @click="requestCancelInvoice(inv)"
                     >
@@ -360,16 +370,26 @@
                         class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
                         @click="issueBill(bill)"
                       >
-                        <Send class="h-3.5 w-3.5" /></button></template
+                        <Send class="h-3.5 w-3.5" /></button
+                    ><button
+                      type="button"
+                      :aria-label="`Hapus tagihan draft ${bill.nomorTagihan}`"
+                      title="Hapus draft"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
+                      @click="requestDeleteBill(bill)"
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button></template
                     ><button
                       v-if="
+                        bill.rawStatus !== 'draft' &&
                         !['paid', 'cancelled'].includes(
                           String(bill.rawStatus || ''),
                         )
                       "
                       type="button"
                       :aria-label="`Batalkan tagihan ${bill.nomorTagihan}`"
-                      title="Batalkan"
+                      title="Batalkan (void)"
                       class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                       @click="requestCancelBill(bill)"
                     >
@@ -501,6 +521,45 @@
             </div>
             <p v-if="invoiceFormErrors.nominal" class="form-field-warning">
               {{ invoiceFormErrors.nominal }}
+            </p>
+          </div>
+          <div class="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <label class="flex items-center gap-2 font-bold text-slate-700"
+              ><input
+                id="inv-form-ppn-toggle"
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300"
+                :checked="newInvoice.ppnEnabled"
+                @change="toggleInvoicePpn"
+              />Kenakan PPN Keluaran</label
+            >
+            <div v-if="newInvoice.ppnEnabled" class="flex items-end gap-3">
+              <div class="w-28 space-y-1">
+                <label class="text-[10px] font-semibold uppercase text-slate-500"
+                  >Tarif PPN (%)</label
+                ><input
+                  id="inv-form-ppn-rate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  :value="newInvoice.ppnRate"
+                  :class="[
+                    'w-full p-2 bg-white border border-slate-300 rounded-lg focus:outline-none font-mono text-xs',
+                    { 'form-control-invalid': invoiceFormErrors.ppnRate },
+                  ]"
+                  @change="setInvoiceField('ppnRate', Number(eventValue($event)))"
+                />
+              </div>
+              <p class="text-[11px] text-slate-500">
+                Total tagihan termasuk PPN:
+                <span class="block font-mono font-bold text-slate-800">{{
+                  formatRupiah(invoiceTotalWithPpn)
+                }}</span>
+              </p>
+            </div>
+            <p v-if="invoiceFormErrors.ppnRate" class="form-field-warning">
+              {{ invoiceFormErrors.ppnRate }}
             </p>
           </div>
           <div class="space-y-1.5">
@@ -686,10 +745,12 @@
             <div
               class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-600/25"
             >
-              <Plus class="w-5 h-5" />
+              <Pencil v-if="editingBill" class="w-5 h-5" />
+              <Plus v-else class="w-5 h-5" />
             </div>
             <h3 class="font-extrabold text-2xl text-rose-900 tracking-tight">
-              Input Tagihan Baru (Bill)
+              <template v-if="editingBill">Ubah Tagihan Utang</template
+              ><template v-else>Input Tagihan Baru (Bill)</template>
             </h3>
           </div>
           <button
@@ -840,6 +901,113 @@
             <p v-if="billFormErrors.nominal" class="form-field-warning">
               {{ billFormErrors.nominal }}
             </p>
+          </div>
+          <div class="space-y-3 rounded-2xl border border-[#D8E5F4] bg-[#F8FAFC] p-4">
+            <label class="flex items-center gap-2 text-xs font-bold text-[#111827]"
+              ><input
+                id="bill-form-ppn-toggle"
+                type="checkbox"
+                class="h-4 w-4 rounded border-[#B9CBE4]"
+                :checked="newBill.ppnEnabled"
+                @change="toggleBillPpn"
+              />Kenakan PPN Masukan</label
+            >
+            <div v-if="newBill.ppnEnabled" class="flex items-end gap-3">
+              <div class="w-28 space-y-1">
+                <label
+                  class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+                  >Tarif PPN (%)</label
+                ><input
+                  id="bill-form-ppn-rate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  :value="newBill.ppnRate"
+                  :class="[
+                    'w-full h-10 px-3 bg-white border border-[#D8E5F4] rounded-xl focus:outline-none font-mono text-xs font-bold',
+                    { 'form-control-invalid': billFormErrors.ppnRate },
+                  ]"
+                  @change="setBillField('ppnRate', Number(eventValue($event)))"
+                />
+              </div>
+              <p class="text-[11px] text-[#5E6F8A]">
+                Total tagihan termasuk PPN:
+                <span class="block font-mono font-bold text-[#111827]">{{
+                  formatRupiah(billTotalWithPpn)
+                }}</span>
+              </p>
+            </div>
+            <p v-if="billFormErrors.ppnRate" class="form-field-warning">
+              {{ billFormErrors.ppnRate }}
+            </p>
+            <div class="border-t border-[#E2EAF4] pt-3">
+              <label class="flex items-center gap-2 text-xs font-bold text-[#111827]"
+                ><input
+                  id="bill-form-pph23-toggle"
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-[#B9CBE4]"
+                  :checked="newBill.pph23Enabled"
+                  @change="toggleBillPph23"
+                />Potong PPh 23 dari vendor</label
+              >
+              <div v-if="newBill.pph23Enabled" class="mt-3 space-y-3">
+                <div class="flex items-end gap-3">
+                  <div class="w-28 space-y-1">
+                    <label
+                      class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+                      >Tarif Dasar (%)</label
+                    ><input
+                      id="bill-form-pph23-rate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      :value="newBill.pph23Rate"
+                      :class="[
+                        'w-full h-10 px-3 bg-white border border-[#D8E5F4] rounded-xl focus:outline-none font-mono text-xs font-bold',
+                        { 'form-control-invalid': billFormErrors.pph23Rate },
+                      ]"
+                      @change="setBillField('pph23Rate', Number(eventValue($event)))"
+                    />
+                  </div>
+                  <label class="flex items-center gap-2 text-[11px] font-semibold text-[#5E6F8A]"
+                    ><input
+                      id="bill-form-pph23-npwp"
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-[#B9CBE4]"
+                      :checked="newBill.vendorHasNpwp"
+                      @change="toggleBillVendorNpwp"
+                    />Vendor punya NPWP</label
+                  >
+                  <p class="text-[11px] text-[#5E6F8A]">
+                    Potongan PPh 23:
+                    <span class="block font-mono font-bold text-[#111827]">{{
+                      formatRupiah(billPph23Withholding)
+                    }}</span>
+                  </p>
+                </div>
+                <p v-if="billFormErrors.pph23Rate" class="form-field-warning">
+                  {{ billFormErrors.pph23Rate }}
+                </p>
+                <p v-if="!newBill.vendorHasNpwp" class="text-[10px] text-amber-600">
+                  Tarif efektif dikali 2 karena vendor belum ber-NPWP.
+                </p>
+                <div class="space-y-1">
+                  <label
+                    class="text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase"
+                    >Objek PPh 23 (opsional)</label
+                  ><input
+                    id="bill-form-pph23-object"
+                    type="text"
+                    placeholder="Contoh: jasa konsultasi"
+                    :value="newBill.pph23Object"
+                    class="w-full h-10 px-3 bg-white border border-[#D8E5F4] rounded-xl focus:outline-none text-xs font-semibold text-[#111827]"
+                    @change="setBillField('pph23Object', eventValue($event))"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           <div class="space-y-3">
             <label
@@ -1083,16 +1251,32 @@
     </div>
     <ConfirmDialog
       :open="!!cancelConfirm"
-      eyebrow="Konfirmasi Pembatalan"
+      :eyebrow="
+        cancelConfirm?.mode === 'delete'
+          ? 'Konfirmasi Penghapusan'
+          : cancelConfirm?.isDraft
+            ? 'Konfirmasi Pembatalan Draft'
+            : 'Konfirmasi Pembatalan'
+      "
       :title="cancelConfirm?.title || 'Batalkan dokumen?'"
       :message="cancelConfirm?.message || ''"
       :details="cancelConfirm?.details || []"
-      :impact-items="[
-        'Status dokumen akan berubah menjadi cancelled.',
-        'Dokumen tidak lagi dihitung sebagai outstanding.',
-      ]"
+      :impact-items="
+        cancelConfirm?.impactItems ||
+        (cancelConfirm?.isDraft
+          ? [
+              'Status dokumen akan berubah menjadi cancelled, bukan dihapus permanen.',
+              'Dokumen tetap tersimpan di riwayat dengan badge Cancelled.',
+              'Belum ada jurnal di Buku Besar, jadi saldo akun tidak berubah.',
+            ]
+          : [
+              'Status dokumen akan berubah menjadi cancelled.',
+              'Jurnal sumber di Buku Besar akan dibalik otomatis.',
+              'Kewajiban pajak yang terkait akan ditutup.',
+            ])
+      "
       :confirm-label="cancelConfirm?.confirmLabel || 'Batalkan Dokumen'"
-      require-reason
+      :require-reason="cancelConfirm?.requireReason !== false"
       :reason-label="cancelConfirm?.reasonLabel || 'Alasan Pembatalan'"
       :reason-placeholder="
         cancelConfirm?.reasonPlaceholder || 'Tulis alasan singkat...'
@@ -1187,11 +1371,13 @@ const {
     updateInvoice,
     issueInvoice,
     cancelInvoice,
+    deleteInvoice,
     recordInvoicePayment,
     createBill,
     updateBill,
     issueBill,
     cancelBill,
+    deleteBill,
     payBill,
   },
 } = useFinStartContext();
@@ -1199,6 +1385,29 @@ const activeTab = activeSection === "piutang" ? "receivables" : "payables";
 const datePlusDays = (days: number) => addDaysIso(todayIso(), days);
 const newReferenceNumber = (prefix: string, sequence = 1) =>
   `${prefix}/${new Date().getFullYear()}/${String(sequence).padStart(3, "0")}`;
+
+// Nomor invoice/tagihan punya UNIQUE constraint di database. Menghitung nomor
+// dari jumlah baris saja bisa menabrak nomor yang sudah dipakai (mis. karena
+// ada invoice yang dibatalkan atau dihapus), jadi cari nomor berikutnya yang
+// benar-benar belum terpakai.
+const nextFreeReferenceNumber = (
+  prefix: string,
+  existingNumbers: any[],
+  startAt: number,
+) => {
+  const used = new Set(
+    existingNumbers
+      .map((value) => String(value || "").trim().toUpperCase())
+      .filter(Boolean),
+  );
+  let sequence = Math.max(1, startAt);
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const candidate = newReferenceNumber(prefix, sequence);
+    if (!used.has(candidate.toUpperCase())) return candidate;
+    sequence += 1;
+  }
+  return newReferenceNumber(prefix, sequence);
+};
 
 // Data piutang dan utang disuplai dari backend melalui App.vue.
 // Komponen ini hanya mempertahankan modal dan tata letak UI desain asli.
@@ -1242,11 +1451,17 @@ watch([searchQuery, statusFilter], () => {
 });
 const newInvoice = ref({
     proyekId: proyek[0]?.id || "",
-    nomor: newReferenceNumber("INV"),
+    nomor: nextFreeReferenceNumber(
+      "INV",
+      invoices.value.map((inv: any) => inv.nomor),
+      invoices.value.length + 1,
+    ),
     keterangan: "",
     nominal: 120000000,
     tanggalKirim: new Date().toISOString().split("T")[0],
     jatuhTempo: "",
+    ppnEnabled: false,
+    ppnRate: 11,
   }),
   updateNewInvoice = (next) => (newInvoice.value = next); // Record Client Receipt form input
 const invoiceFormErrors = ref<Record<string, string>>({});
@@ -1283,6 +1498,14 @@ const setInvoiceField = (key: keyof typeof newInvoice.value, value: any) => {
   });
   clearInvoiceError(String(key));
 };
+const toggleInvoicePpn = () =>
+  setInvoiceField("ppnEnabled", !newInvoice.value.ppnEnabled);
+const invoiceTotalWithPpn = computed(() => {
+  const nominal = Number(newInvoice.value.nominal || 0);
+  if (!newInvoice.value.ppnEnabled) return nominal;
+  const rate = Number(newInvoice.value.ppnRate || 0);
+  return nominal + Math.round(nominal * rate) / 100;
+});
 const selectedInvoiceId = ref(""),
   updateSelectedInvoiceId = (next) => (selectedInvoiceId.value = next);
 const isSavingInvoice = ref(false);
@@ -1298,12 +1521,22 @@ const setReceiptAmount = (next: number) => {
 };
 const newBill = ref({
     vendor: "",
-    nomorTagihan: newReferenceNumber("BILL"),
+    nomorTagihan: nextFreeReferenceNumber(
+      "BILL",
+      bills.value.map((bill: any) => bill.nomorTagihan),
+      bills.value.length + 1,
+    ),
     alokasiProyek: "",
     keterangan: "",
     nominal: 0,
     tanggalMasuk: todayIso(),
     jatuhTempo: datePlusDays(7),
+    ppnEnabled: false,
+    ppnRate: 11,
+    pph23Enabled: false,
+    pph23Rate: 2,
+    pph23Object: "",
+    vendorHasNpwp: true,
   }),
   updateNewBill = (next) => (newBill.value = next); // Pay Vendor Bill form input
 const billFormErrors = ref<Record<string, string>>({});
@@ -1338,44 +1571,129 @@ const setBillField = (key: keyof typeof newBill.value, value: any) => {
   });
   clearBillError(String(key));
 };
+const toggleBillPpn = () => setBillField("ppnEnabled", !newBill.value.ppnEnabled);
+const toggleBillPph23 = () =>
+  setBillField("pph23Enabled", !newBill.value.pph23Enabled);
+const toggleBillVendorNpwp = () =>
+  setBillField("vendorHasNpwp", !newBill.value.vendorHasNpwp);
+const billTotalWithPpn = computed(() => {
+  const nominal = Number(newBill.value.nominal || 0);
+  if (!newBill.value.ppnEnabled) return nominal;
+  const rate = Number(newBill.value.ppnRate || 0);
+  return nominal + Math.round(nominal * rate) / 100;
+});
+const billPph23Withholding = computed(() => {
+  if (!newBill.value.pph23Enabled) return 0;
+  const nominal = Number(newBill.value.nominal || 0);
+  const baseRate = Number(newBill.value.pph23Rate || 0);
+  const effectiveRate = newBill.value.vendorHasNpwp ? baseRate : baseRate * 2;
+  return Math.round(nominal * effectiveRate) / 100;
+});
 const requestCancelInvoice = (invoice: any) => {
+  const isDraft = invoice.rawStatus === "draft";
   cancelConfirm.value = {
     type: "invoice",
     item: invoice,
-    title: "Batalkan invoice?",
+    isDraft,
+    title: isDraft ? "Batalkan invoice draft?" : "Batalkan invoice?",
+    message: isDraft
+      ? "Invoice ini belum pernah diterbitkan, jadi belum ada jurnal piutang di Buku Besar. Membatalkan akan menandai status menjadi cancelled dan dokumen tetap tersimpan di riwayat (tidak dihapus permanen). Kalau memang tidak jadi dipakai, lebih baik hapus dengan revise atau jangan tambahkan sejak awal."
+      : "Invoice ini sudah terbit dan sudah membuat jurnal di Buku Besar. Pembatalan akan membalik jurnal sumber, menutup pajak terkait, dan menandai status menjadi cancelled.",
+    details: [
+      { label: "Nomor", value: invoice.nomor || "-" },
+      { label: "Klien", value: invoice.klienNama || "-" },
+      { label: "Nominal", value: formatRupiah(invoice.nominal || 0) },
+      { label: "Status", value: isDraft ? "Draft" : "Sudah terbit" },
+    ],
+    confirmLabel: isDraft ? "Batalkan Draft" : "Batalkan Invoice",
+    requireReason: !isDraft,
+    reasonLabel: "Alasan Pembatalan",
+    reasonPlaceholder: isDraft
+      ? "Contoh: salah input, invoice tidak jadi dikirim"
+      : "Contoh: Invoice diganti dengan revisi terbaru",
+  };
+};
+const requestCancelBill = (bill: any) => {
+  const isDraft = bill.rawStatus === "draft";
+  cancelConfirm.value = {
+    type: "bill",
+    item: bill,
+    isDraft,
+    title: isDraft ? "Batalkan tagihan draft?" : "Batalkan tagihan vendor?",
+    message: isDraft
+      ? "Tagihan ini belum pernah diterbitkan, jadi belum ada jurnal utang di Buku Besar. Membatalkan akan menandai status menjadi cancelled dan dokumen tetap tersimpan di riwayat (tidak dihapus permanen)."
+      : "Tagihan ini sudah terbit dan sudah membuat jurnal di Buku Besar. Pembatalan akan membalik jurnal sumber dan menandai status menjadi cancelled.",
+    details: [
+      { label: "Nomor", value: bill.nomorTagihan || "-" },
+      { label: "Vendor", value: bill.vendor || "-" },
+      { label: "Nominal", value: formatRupiah(bill.nominal || 0) },
+      { label: "Status", value: isDraft ? "Draft" : "Sudah terbit" },
+    ],
+    confirmLabel: isDraft ? "Batalkan Draft" : "Batalkan Tagihan",
+    requireReason: !isDraft,
+    reasonLabel: "Alasan Pembatalan",
+    reasonPlaceholder: isDraft
+      ? "Contoh: salah input, tagihan tidak jadi dikirim"
+      : "Contoh: Tagihan dibatalkan vendor",
+  };
+};
+const requestDeleteInvoice = (invoice: any) => {
+  cancelConfirm.value = {
+    type: "invoice",
+    mode: "delete",
+    item: invoice,
+    isDraft: true,
+    title: "Hapus invoice draft?",
     message:
-      "Invoice akan ditandai cancelled dan tidak lagi masuk daftar outstanding.",
+      "Invoice draft ini akan dihapus permanen dari database. Karena belum pernah diterbitkan, tidak ada jurnal di Buku Besar yang perlu dibalik. Tindakan ini tidak bisa dibatalkan.",
     details: [
       { label: "Nomor", value: invoice.nomor || "-" },
       { label: "Klien", value: invoice.klienNama || "-" },
       { label: "Nominal", value: formatRupiah(invoice.nominal || 0) },
     ],
-    confirmLabel: "Batalkan Invoice",
-    reasonLabel: "Alasan Pembatalan",
-    reasonPlaceholder: "Contoh: Invoice diganti dengan revisi terbaru",
+    impactItems: [
+      "Invoice akan hilang permanen dari daftar piutang.",
+      "Nomor invoice yang sama tetap bisa dipakai ulang setelah dihapus.",
+      "Saldo akun tidak berubah karena belum ada jurnal.",
+    ],
+    confirmLabel: "Hapus Permanen",
+    requireReason: false,
   };
 };
-const requestCancelBill = (bill: any) => {
+const requestDeleteBill = (bill: any) => {
   cancelConfirm.value = {
     type: "bill",
+    mode: "delete",
     item: bill,
-    title: "Batalkan tagihan vendor?",
+    isDraft: true,
+    title: "Hapus tagihan draft?",
     message:
-      "Tagihan akan ditandai cancelled dan tidak lagi masuk daftar utang outstanding.",
+      "Tagihan vendor draft ini akan dihapus permanen dari database. Karena belum pernah diterbitkan, tidak ada jurnal utang di Buku Besar yang perlu dibalik. Tindakan ini tidak bisa dibatalkan.",
     details: [
       { label: "Nomor", value: bill.nomorTagihan || "-" },
       { label: "Vendor", value: bill.vendor || "-" },
       { label: "Nominal", value: formatRupiah(bill.nominal || 0) },
     ],
-    confirmLabel: "Batalkan Tagihan",
-    reasonLabel: "Alasan Pembatalan",
-    reasonPlaceholder: "Contoh: Tagihan dibatalkan vendor",
+    impactItems: [
+      "Tagihan akan hilang permanen dari daftar utang.",
+      "Saldo akun tidak berubah karena belum ada jurnal.",
+    ],
+    confirmLabel: "Hapus Permanen",
+    requireReason: false,
   };
 };
 const confirmCancelDocument = async (reason = "") => {
   const action = cancelConfirm.value;
   if (!action) return;
   cancelConfirm.value = null;
+  if (action.mode === "delete") {
+    if (action.type === "invoice") {
+      await deleteInvoice(action.item);
+    } else {
+      await deleteBill(action.item);
+    }
+    return;
+  }
   if (action.type === "invoice") {
     await cancelInvoice(action.item, reason);
     return;
@@ -1444,6 +1762,12 @@ const validateInvoiceForm = () => {
   if (!String(newInvoice.value.jatuhTempo || "").trim()) {
     mark("jatuhTempo", "Tanggal jatuh tempo wajib diisi.", "inv-form-due");
   }
+  if (newInvoice.value.ppnEnabled) {
+    const rate = Number(newInvoice.value.ppnRate);
+    if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
+      mark("ppnRate", "Tarif PPN harus diisi antara 0 sampai 100 persen.", "inv-form-ppn-rate");
+    }
+  }
 
   invoiceFormErrors.value = nextErrors;
   if (firstInvalidId) {
@@ -1504,6 +1828,18 @@ const validateBillForm = () => {
   }
   if (!String(newBill.value.keterangan || "").trim()) {
     mark("keterangan", "Keterangan tagihan wajib diisi.", "bill-form-desc");
+  }
+  if (newBill.value.ppnEnabled) {
+    const rate = Number(newBill.value.ppnRate);
+    if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
+      mark("ppnRate", "Tarif PPN Masukan harus diisi antara 0 sampai 100 persen.", "bill-form-ppn-rate");
+    }
+  }
+  if (newBill.value.pph23Enabled) {
+    const rate = Number(newBill.value.pph23Rate);
+    if (!Number.isFinite(rate) || rate <= 0 || rate > 100) {
+      mark("pph23Rate", "Tarif dasar PPh 23 harus diisi antara 0 sampai 100 persen.", "bill-form-pph23-rate");
+    }
   }
 
   billFormErrors.value = nextErrors;
@@ -1577,15 +1913,23 @@ const openInvoiceForm = (invoice: any = null) => {
       nominal: Number(invoice?._raw?.dpp_amount ?? invoice.nominal ?? 0),
       tanggalKirim: invoice.tanggalKirim || todayIso(),
       jatuhTempo: invoice.jatuhTempo || todayIso(),
+      ppnEnabled: Boolean(invoice?._raw?.ppn_enabled),
+      ppnRate: Number(invoice?._raw?.ppn_rate) || 11,
     };
   } else {
     newInvoice.value = {
       proyekId: proyek[0]?.id || "",
-      nomor: newReferenceNumber("INV", invoices.value.length + 1),
+      nomor: nextFreeReferenceNumber(
+        "INV",
+        invoices.value.map((inv: any) => inv.nomor),
+        invoices.value.length + 1,
+      ),
       keterangan: "",
       nominal: 0,
       tanggalKirim: todayIso(),
       jatuhTempo: datePlusDays(14),
+      ppnEnabled: false,
+      ppnRate: 11,
     };
   }
   updateIsInvoiceModalOpen(true);
@@ -1774,16 +2118,32 @@ const openBillForm = (bill: any = null) => {
       nominal: Number(bill?._raw?.dpp_amount ?? bill.nominal ?? 0),
       tanggalMasuk: bill.tanggalMasuk || todayIso(),
       jatuhTempo: bill.jatuhTempo || datePlusDays(7),
+      ppnEnabled: Boolean(bill?._raw?.ppn_enabled),
+      ppnRate: Number(bill?._raw?.ppn_rate) || 11,
+      pph23Enabled: Boolean(bill?._raw?.pph23_enabled),
+      pph23Rate: Number(bill?._raw?.pph23_rate) || 2,
+      pph23Object: bill?._raw?.pph23_object || "",
+      vendorHasNpwp: bill?._raw?.vendor_has_npwp !== false,
     };
   } else {
     newBill.value = {
       vendor: "",
-      nomorTagihan: newReferenceNumber("BILL", bills.value.length + 1),
+      nomorTagihan: nextFreeReferenceNumber(
+        "BILL",
+        bills.value.map((bill: any) => bill.nomorTagihan),
+        bills.value.length + 1,
+      ),
       alokasiProyek: "",
       keterangan: "",
       nominal: 0,
       tanggalMasuk: todayIso(),
       jatuhTempo: datePlusDays(7),
+      ppnEnabled: false,
+      ppnRate: 11,
+      pph23Enabled: false,
+      pph23Rate: 2,
+      pph23Object: "",
+      vendorHasNpwp: true,
     };
   }
   updateIsBillModalOpen(true);

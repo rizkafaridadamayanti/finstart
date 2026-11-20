@@ -9,6 +9,11 @@ interface PlanningActionOptions {
   notify: (message: string) => void;
 }
 
+const monthLabel = (month: number) =>
+  new Intl.DateTimeFormat("id-ID", { month: "long" }).format(
+    new Date(2000, Math.max(0, Number(month) - 1), 1),
+  );
+
 export function usePlanningActions({
   projectionData,
   projectionScenario,
@@ -146,11 +151,37 @@ export function usePlanningActions({
       notify,
     );
 
+  const deleteProjectionTarget = async (target: any) =>
+    withApiFeedback(
+      async () => {
+        const rawMonth = target.month ?? target.projection_month ?? target.bulanProyeksi;
+        const month = /^\d{4}-\d{2}$/.test(String(rawMonth || ""))
+          ? Number(String(rawMonth).slice(-2))
+          : Number(rawMonth);
+        if (!Number.isInteger(month) || month < 1 || month > 12) {
+          throw new Error("Bulan target proyeksi tidak valid.");
+        }
+        const year = Number(
+          target.year ||
+            target.projection_year ||
+            projectionData.value.year ||
+            new Date().getFullYear(),
+        );
+        await financeApi.delete(`/projections/${year}/${month}`);
+        await refreshData();
+        notify(`Target proyeksi ${monthLabel(month)} berhasil dihapus.`);
+        return true;
+      },
+      "Gagal menghapus target proyeksi.",
+      notify,
+    );
+
   return {
     saveProjection,
     selectProjectionScenario,
     updateProjectionScenario,
     saveBudgetAllocation,
     deleteBudgetAllocation,
+    deleteProjectionTarget,
   };
 }

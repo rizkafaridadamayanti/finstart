@@ -110,6 +110,20 @@ export function useReceivableActions({
       notify,
     );
 
+  // Hapus permanen hanya untuk dokumen yang belum pernah terbit, jadi belum
+  // ada jurnal sumber di Buku Besar. Dokumen yang sudah terbit tetap wajib
+  // void/batal supaya jurnal sumber bisa dibalik dan jejaknya tetap tercatat.
+  const deleteInvoice = async (invoice: any) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.delete(`/invoices/${invoice.id}`);
+        await refreshData();
+        notify(`Invoice draft ${invoice.nomor} berhasil dihapus.`);
+      },
+      "Gagal menghapus invoice. Hanya invoice draft yang dapat dihapus.",
+      notify,
+    );
+
   const recordInvoicePayment = async (invoice: any, payment: any) =>
     withApiFeedback(
       async () => {
@@ -174,6 +188,8 @@ export function useReceivableActions({
       ppn_rate: toNumber(form.ppnRate) || 0,
       pph23_enabled: Boolean(form.pph23Enabled),
       pph23_rate: toNumber(form.pph23Rate) || 0,
+      pph23_object: form.pph23Object || "",
+      vendor_has_npwp: form.vendorHasNpwp !== false,
     },
   });
 
@@ -238,6 +254,18 @@ export function useReceivableActions({
       notify,
     );
 
+  // Sama seperti invoice: hapus permanen khusus draft, sudah terbit tetap void.
+  const deleteBill = async (bill: any) =>
+    withApiFeedback(
+      async () => {
+        await financeApi.delete(`/bills/${bill.id}`);
+        await refreshData();
+        notify(`Tagihan draft ${bill.nomorTagihan} berhasil dihapus.`);
+      },
+      "Gagal menghapus tagihan. Hanya tagihan draft yang dapat dihapus.",
+      notify,
+    );
+
   const payBill = async (bill: any, payment: any) =>
     withApiFeedback(
       async () => {
@@ -275,11 +303,13 @@ export function useReceivableActions({
     updateInvoice,
     issueInvoice,
     cancelInvoice,
+    deleteInvoice,
     recordInvoicePayment,
     createBill,
     updateBill,
     issueBill,
     cancelBill,
+    deleteBill,
     payBill,
   };
 }

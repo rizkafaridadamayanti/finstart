@@ -143,7 +143,6 @@ router.get('/', async (req, res) => {
           OR tax.tax_number LIKE ?
           OR payroll.employee_name LIKE ?
           OR payroll.employee_code LIKE ?
-          OR payroll_tax.employee_name LIKE ?
           OR subscription.subscription_name LIKE ?
           OR subscription.provider_name LIKE ?
           OR asset.asset_name LIKE ?
@@ -164,7 +163,7 @@ router.get('/', async (req, res) => {
       params.push(
         pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern,
         pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern,
-        pattern, pattern,
+        pattern,
       )
     }
 
@@ -200,7 +199,6 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('bill', 'bill_payment', 'bill_void') THEN bill.status
             WHEN je.source_type IN ('tax_record', 'tax_payment') THEN tax.status
             WHEN je.source_type = 'payroll' THEN payroll.status
-            WHEN je.source_type = 'employee_payroll' THEN payroll_tax.status
             WHEN je.source_type = 'subscription' THEN 'paid'
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal') THEN asset.status
             WHEN je.source_type = 'asset_depreciation' THEN depreciation.status
@@ -213,7 +211,6 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('bill', 'bill_payment', 'bill_void') THEN bill.bill_number
             WHEN je.source_type IN ('tax_record', 'tax_payment') THEN COALESCE(tax.tax_number, CONCAT(tax.tax_type, ' ', tax.tax_period))
             WHEN je.source_type = 'payroll' THEN CONCAT('PAYROLL-', payroll.payroll_period, '-', payroll.employee_code)
-            WHEN je.source_type = 'employee_payroll' THEN CONCAT('PPH21-', payroll_tax.tax_period, '-', payroll_tax.employee_nik)
             WHEN je.source_type = 'subscription' THEN CONCAT('SUB-', subscription.id)
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal', 'asset_depreciation') THEN asset.asset_code
             WHEN je.source_type = 'vat_closing' THEN CONCAT('PPN-', vat_closing.tax_period)
@@ -224,7 +221,6 @@ router.get('/', async (req, res) => {
             WHEN je.source_type IN ('invoice', 'invoice_payment', 'invoice_void') THEN inv_client.company_name
             WHEN je.source_type IN ('bill', 'bill_payment', 'bill_void') THEN bill.vendor_name
             WHEN je.source_type = 'payroll' THEN payroll.employee_name
-            WHEN je.source_type = 'employee_payroll' THEN payroll_tax.employee_name
             WHEN je.source_type = 'subscription' THEN CONCAT(subscription.subscription_name, ' - ', subscription.provider_name)
             WHEN je.source_type IN ('asset_acquisition', 'asset_disposal', 'asset_depreciation') THEN asset.asset_name
             ELSE NULL
@@ -280,8 +276,6 @@ router.get('/', async (req, res) => {
           ON tax.id = je.source_id AND je.source_type IN ('tax_record', 'tax_payment')
         LEFT JOIN payroll_records payroll
           ON payroll.id = je.source_id AND je.source_type = 'payroll'
-        LEFT JOIN payroll_tax_calculations payroll_tax
-          ON payroll_tax.id = je.source_id AND je.source_type = 'employee_payroll'
         LEFT JOIN subscriptions subscription
           ON subscription.id = je.source_id AND je.source_type = 'subscription'
 

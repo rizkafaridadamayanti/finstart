@@ -219,6 +219,7 @@
                   :projection-data="projectionData"
                   :report-data="reportData"
                   :report-period="selectedReportPeriod"
+                  :available-report-periods="availableReportPeriods"
                   :report-error="reportError"
                 />
 
@@ -353,6 +354,7 @@ const {
   projectionData,
   projectionScenario,
   selectedReportPeriod,
+  availableReportPeriods,
   reportError,
   reportData,
   dataVersion,

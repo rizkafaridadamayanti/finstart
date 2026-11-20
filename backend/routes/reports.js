@@ -48,7 +48,7 @@ function classifyCashMovement(counterparts, sourceType) {
   const types = counterparts.map((item) => String(item.account_type || '').toLowerCase())
   const codes = counterparts.map((item) => String(item.account_code || ''))
 
-  if (['invoice_payment', 'bill_payment', 'tax_payment', 'employee_payroll', 'payroll'].includes(source)) {
+  if (['invoice_payment', 'bill_payment', 'tax_payment', 'payroll'].includes(source)) {
     return 'operating'
   }
 

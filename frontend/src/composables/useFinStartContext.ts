@@ -12,6 +12,9 @@ interface FinStartContext {
     updateAccount: AsyncAction;
     deleteAccount: AsyncAction;
     addTransaction: AsyncAction;
+    fetchJournalDetail: AsyncAction;
+    updateJournal: AsyncAction;
+    deleteJournal: AsyncAction;
     approveJournal: AsyncAction;
     postJournal: AsyncAction;
     cancelJournal: AsyncAction;
@@ -21,11 +24,13 @@ interface FinStartContext {
     updateInvoice: AsyncAction;
     issueInvoice: AsyncAction;
     cancelInvoice: AsyncAction;
+    deleteInvoice: AsyncAction;
     recordInvoicePayment: AsyncAction;
     createBill: AsyncAction;
     updateBill: AsyncAction;
     issueBill: AsyncAction;
     cancelBill: AsyncAction;
+    deleteBill: AsyncAction;
     payBill: AsyncAction;
   };
   assets: {
@@ -39,9 +44,12 @@ interface FinStartContext {
     disposeAsset: AsyncAction;
   };
   tax: {
-    createTax: AsyncAction;
-    payTax: AsyncAction;
-  };
+        createTax: AsyncAction;
+        issueTax: AsyncAction;
+        payTax: AsyncAction;
+        getVatSummary: AsyncAction;
+        closeVatPeriod: AsyncAction;
+      };
   planning: {
     selectReportPeriod: AsyncAction;
     saveProjection: AsyncAction;
@@ -49,6 +57,7 @@ interface FinStartContext {
     updateProjectionScenario: AsyncAction;
     saveBudgetAllocation: AsyncAction;
     deleteBudgetAllocation: AsyncAction;
+    deleteProjectionTarget: AsyncAction;
   };
 }
 

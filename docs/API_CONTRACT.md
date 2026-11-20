@@ -47,9 +47,9 @@ Authorization: Bearer <token-sesi>
 | Tagihan/utang | `/bills`, `PUT /bills/:id`, `/bills/:id/issue`, `/bills/:id/cancel`, `/bills/:id/payments` |
 | SDM | `GET/POST /employees`, `GET/PUT/PATCH/DELETE /employees/:id`; penghapusan ditolak bila pegawai sudah memiliki riwayat payroll, sehingga statusnya harus diubah menjadi `inactive`. Master Divisi dan Jabatan mendukung `GET/POST /divisions`, `GET/PUT/PATCH/DELETE /divisions/:id`, `GET/POST /positions`, dan `GET/PUT/PATCH/DELETE /positions/:id`; penghapusan ditolak bila data masih dipakai pegawai atau relasi master lain. |
 | Payroll | `/payroll`, `/payroll/process-bulk`, `/payroll/:id/payslip`, `/payroll/export/bank-transfer` |
-| Pajak | `/taxes`, `/taxes/:id/pay`, `/taxes/employee-pph21/calculate` |
+| Pajak | `/taxes`, `/taxes/:id/pay` |
 | Aset | `/assets`, `PUT /assets/:id`, `/assets/:id/dispose`, `/assets/depreciate-batch`, `/assets/:id/depreciations` |
-| Proyeksi | `/projections`, `/projections/scenarios`, `/projections/budgets` |
+| Proyeksi | `/projections`, `DELETE /projections/:year/:month` (hapus target bulanan), `/projections/scenarios`, `/projections/budgets` |
 | Laporan | `GET /reports?period=YYYY-MM` mengembalikan Laba Rugi, Neraca, Arus Kas, Trial Balance, Buku Besar, umur piutang/utang, pajak, payroll, aset, dan profitabilitas proyek dalam satu payload. `GET /reports/periods` menampilkan periode jurnal `posted`. |
 
 ## Aturan akses utama

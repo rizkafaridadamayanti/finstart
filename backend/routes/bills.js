@@ -637,6 +637,20 @@ function taxAmountSubquery(type) {
   `
 }
 
+function taxFieldSubquery(type, column, fallback = 0) {
+  const fallbackSql = fallback === null ? 'NULL' : (typeof fallback === 'number' ? fallback : `'${fallback}'`)
+  return `
+    COALESCE((
+      SELECT transaction_taxes.${column}
+      FROM transaction_taxes
+      WHERE transaction_taxes.source_type = 'bill'
+        AND transaction_taxes.source_id = bills.id
+        AND transaction_taxes.tax_type = '${type}'
+      LIMIT 1
+    ), ${fallbackSql})
+  `
+}
+
 router.get('/summary', async (req, res) => {
   try {
     await refreshOverdueBills()
@@ -752,6 +766,10 @@ router.get('/', async (req, res) => {
 
     const ppnAmount = taxAmountSubquery('PPN_INPUT')
     const pph23Amount = taxAmountSubquery('PPH23')
+    const ppnRate = taxFieldSubquery('PPN_INPUT', 'tax_rate')
+    const pph23EffectiveRate = taxFieldSubquery('PPH23', 'tax_rate')
+    const pph23Object = taxFieldSubquery('PPH23', 'pph23_object', null)
+    const vendorHasNpwp = taxFieldSubquery('PPH23', 'vendor_has_npwp', 1)
 
     const [rows] = await db.query(
       `
@@ -759,7 +777,11 @@ router.get('/', async (req, res) => {
           bills.*,
           projects.project_name,
           ${ppnAmount} AS ppn_amount,
+          ${ppnRate} AS ppn_rate,
           ${pph23Amount} AS pph23_amount,
+          ${pph23EffectiveRate} AS pph23_effective_rate,
+          ${pph23Object} AS pph23_object,
+          ${vendorHasNpwp} AS vendor_has_npwp,
           GREATEST(bills.total_amount - (${pph23Amount}), 0) AS vendor_payable_amount,
           GREATEST(
             bills.total_amount - (${pph23Amount}) - bills.paid_amount,
@@ -788,10 +810,19 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       message: 'Daftar tagihan berhasil diambil',
-      data: rows.map((bill) => ({
+      data: rows.map((bill) => {
+        const vendorHasNpwp = Number(bill.vendor_has_npwp) !== 0
+        const pph23EffectiveRate = numberValue(bill.pph23_effective_rate)
+        return {
         ...bill,
         ppn_amount: numberValue(bill.ppn_amount),
+        ppn_rate: numberValue(bill.ppn_rate),
+        ppn_enabled: numberValue(bill.ppn_amount) > 0,
         pph23_amount: numberValue(bill.pph23_amount),
+        pph23_enabled: numberValue(bill.pph23_amount) > 0,
+        pph23_rate: vendorHasNpwp ? pph23EffectiveRate : money(pph23EffectiveRate / 2),
+        pph23_object: bill.pph23_object || '',
+        vendor_has_npwp: vendorHasNpwp,
         dpp_amount: money(
           numberValue(bill.total_amount) - numberValue(bill.ppn_amount),
         ),
@@ -799,7 +830,8 @@ router.get('/', async (req, res) => {
         vendor_payable_amount: numberValue(bill.vendor_payable_amount),
         paid_amount: numberValue(bill.paid_amount),
         outstanding_amount: numberValue(bill.outstanding_amount),
-      })),
+        }
+      }),
     })
   } catch (error) {
     res.status(500).json({
